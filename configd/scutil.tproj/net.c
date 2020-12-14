@@ -1248,3 +1248,39 @@ do_net_snapshot(int argc, char **argv)
 
 	return;
 }
+
+__private_extern__
+void
+do_configuration(int argc, char **argv)
+{
+	const char		*description	= NULL;
+	SCPreferencesRef	ni_prefs;
+	CFStringRef		path		= NULL;
+	SCPreferencesRef	prefs;
+	int			_sc_log_save;
+
+	// scutil --configuration
+	// scutil --configuration <path-to-preferences.plist>
+	// scutil --configuraiton <description> <path-to-preferences.plist>
+
+	if (argc > 0) {
+		if (argc > 1) {
+			description = argv[0];
+		}
+		path = CFStringCreateWithCString(NULL,
+						 argc > 1 ? argv[1] : argv[0],
+						 kCFStringEncodingUTF8);
+	}
+	prefs = SCPreferencesCreate(NULL, CFSTR("scutil --configuration"), path);
+	ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
+
+	_sc_log_save = _sc_log;
+	_sc_log = kSCLogDestinationFile;
+	__SCNetworkConfigurationReport(LOG_NOTICE, description, prefs, ni_prefs);
+	_sc_log = _sc_log_save;
+
+	if (path != NULL) CFRelease(path);
+	CFRelease(prefs);
+	CFRelease(ni_prefs);
+	exit(0);
+}

@@ -64,6 +64,7 @@
         (global-name "com.apple.windowserver.active")
         (global-name "com.apple.powerlog.plxpclogger.xpc")
         (global-name "com.apple.SecureBackupDaemon")
+        (global-name "com.apple.SecureBackupDaemon.concurrent")
 )
 
 ;; Used to send logs for MoiC.

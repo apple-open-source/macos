@@ -113,7 +113,7 @@ private:
 	void checkModifiedFile(CFMutableArrayRef files, CodeDirectory::SpecialSlot slot);
 	CFDataRef loadRegularFile(CFURLRef url);
 	void recordStrictError(OSStatus error);
-	void validateMetaDirectory(const CodeDirectory* cd);
+	void validateMetaDirectory(const CodeDirectory* cd, SecCSFlags flags);
 	void validateFrameworkRoot(std::string root);
 	void checkPlainFile(UnixPlusPlus::FileDesc fd, const std::string& path);
 	void checkForks(UnixPlusPlus::FileDesc fd);

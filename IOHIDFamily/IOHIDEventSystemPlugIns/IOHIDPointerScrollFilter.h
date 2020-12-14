@@ -85,7 +85,9 @@ private:
     IOHIDAccelerator            *_scrollAccelerators[3];
     
     dispatch_queue_t            _queue;
+    CFMutableDictionaryRefWrap  _property;
     CFMutableDictionaryRefWrap  _cachedProperty;
+
     IOHIDServiceRef             _service;
     double                      _pointerAcceleration;
     double                      _scrollAcceleration;

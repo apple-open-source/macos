@@ -95,6 +95,12 @@ typedef CF_ENUM(uint32_t, SCNetworkServicePrimaryRank) {
 	@group Configuration
  */
 
+void
+__SCNetworkConfigurationReport				(int			level,
+							 const char		*description,
+							 SCPreferencesRef	prefs,
+							 SCPreferencesRef	ni_prefs)	SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0),bridgeos(5.0));
+
 Boolean
 _SCNetworkConfigurationBypassSystemInterfaces		(SCPreferencesRef	prefs)		SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
 
@@ -1250,6 +1256,7 @@ VPNServiceIsManagedAppVPN			(VPNServiceRef			service)	API_AVAILABLE(macos(10.9))
 #pragma mark Migration SPI
 
 extern const CFStringRef kSCNetworkConfigurationRepair			/* CFBoolean */		API_AVAILABLE(macos(10.10), ios(8.0));
+extern const CFStringRef kSCNetworkConfigurationRepairModel		/* CFBoolean */		API_AVAILABLE(macos(11.0), ios(14.0));
 
 extern const CFStringRef kSCNetworkConfigurationMigrationActionKey	/* CFNumber */		API_AVAILABLE(macos(10.10), ios(8.0));
 

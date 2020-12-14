@@ -176,17 +176,64 @@ using std::max;
 
 - (void) setSearchTime:(int)time
 {
-	if (time < 0)
-		[self writeToEngine:[NSString stringWithFormat:@"sd %d\n", 
-									  4+time]];
-	else
-		[self writeToEngine:[NSString stringWithFormat:@"sd 40\nst %d\n", 
-                             [MBCEngine secondsForTime:time]]];
+    [self writeToEngine:[NSString stringWithFormat:@"sd %d\n",[self movesForTime:time]]];
 }
 
-+ (int) secondsForTime:(int)time
-{
-    return lround(ldexpf(1.0f, time));
+- (int)movesForTime:(int)time {
+    int numOfMovesLookAhead = 0;
+    
+    if (time <= 10) {
+        numOfMovesLookAhead = time;
+    } else {
+        switch (time) {
+            case 11:
+                numOfMovesLookAhead = 20;
+                break;
+            case 12:
+                numOfMovesLookAhead = 30;
+                break;
+            default:
+                numOfMovesLookAhead = 0;
+                break;
+        }
+    }
+    
+    return numOfMovesLookAhead;
+}
+
++ (int)secondsForTime:(int)time {
+    // This is our settings slider bar to seconds mapping. Underlying the seconds mapping will actually be steps look ahead and depth settings.
+    int returnDisplayTime;
+    switch (time) {
+        case 5:
+            returnDisplayTime = 2;
+            break;
+        case 6:
+            returnDisplayTime = 4;
+            break;
+        case 7:
+            returnDisplayTime = 8;
+            break;
+        case 8:
+            returnDisplayTime = 16;
+            break;
+        case 9:
+            returnDisplayTime = 32;
+            break;
+        case 10:
+            returnDisplayTime = 64;
+            break;
+        case 11:
+            returnDisplayTime = 128;
+            break;
+        case 12:
+            returnDisplayTime = 256;
+            break;
+        default:
+            returnDisplayTime = 0;
+            break;
+    }
+    return returnDisplayTime;
 }
 
 - (MBCMove *) lastPonder

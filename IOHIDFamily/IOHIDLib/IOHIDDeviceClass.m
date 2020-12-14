@@ -494,6 +494,7 @@ static IOReturn _getProperty(void *iunknown,
             // Force a copy of the string to avoid the key reference from getting courrpted
             NSString * dictKey = [key mutableCopy];
             _properties[dictKey] = (__bridge id)prop;
+            CFRelease(prop);
         }
     }
     

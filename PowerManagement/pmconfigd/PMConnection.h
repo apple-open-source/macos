@@ -91,7 +91,7 @@ __private_extern__ void updateWakeTime(void);
 __private_extern__ void updateCurrentWakeStart(uint64_t timestamp);
 __private_extern__ void updateCurrentWakeEnd(uint64_t timestamp);
 __private_extern__ void getScheduledWake(xpc_object_t remote, xpc_object_t msg);
-
+__private_extern__ bool isEmergencySleep(void);
 __private_extern__ int getCurrentSleepServiceCapTimeout(void);
 /** Sets whether processes should get modified vm behavior for darkwake. */
 __private_extern__ void setVMDarkwakeMode(bool darkwakeMode);

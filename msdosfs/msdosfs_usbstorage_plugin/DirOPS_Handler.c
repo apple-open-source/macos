@@ -2870,7 +2870,7 @@ DIROPS_UpdateDirectoryEntry( NodeRecord_s* psNodeRecord, NodeDirEntriesData_s* p
     MultiReadSingleWrite_FreeWrite(psNodeRecord->sRecordData.sParentDirClusterCacheLck);
     if ( iErr ) {
         MSDOS_LOG( LEVEL_ERROR, "DIROPS_UpdateDirectoryEntry: failed to update dir entry err = %d\n", iErr );
-        MultiReadSingleWrite_FreeWrite(&psDirClusterData->sCDLck);
+        DIROPS_DeReferenceDirCluster(psFSRecord, psDirClusterData, GDC_FOR_WRITE);
         goto exit;
     }
     

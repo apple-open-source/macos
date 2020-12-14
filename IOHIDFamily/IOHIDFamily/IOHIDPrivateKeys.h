@@ -196,6 +196,8 @@ enum {
 
 #define kIOHIDSupportsGlobeKeyKey           "SupportsGlobeKey"
 
+#define kIOHIDSupportsSiriKeyKey            "SupportsSiriKey"
+
 #define kIOHIDCompatibilityInterface        "HIDCompatibilityInterface"
 
 #define kIOHIDAuthenticatedDeviceKey        "Authenticated"

@@ -21,6 +21,12 @@
 .Nm
 .Fl update-volume Ar os_volume
 .Op Ar options
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated. It should no longer be necessary to use.
+See
+.Xr kmutil 8
 .Sh DESCRIPTION
 The
 .Nm
@@ -415,6 +421,8 @@ Many single-letter options are inconsistent in meaning
 with (or directly contradictory to) the same letter options
 in other kext tools.
 .Sh SEE ALSO
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kext_logging 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

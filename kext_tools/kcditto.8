@@ -4,6 +4,8 @@
 .Sh NAME
 .Nm kcditto
 .Nd macOS kernel management helper tool
+.Sh DEPRECATED
+Please use bless.
 .Sh DESCRIPTION
 .Nm
 is a helper tool for the staging of kext collection files.
@@ -16,4 +18,6 @@ preboot volume where efiboot can find them.
 .It Pa /usr/local/sbin/kcidtto
 .El
 .Sh SEE ALSO
+.Ns Xr kmutil 8 ,
+.Ns Xr kernelmanagerd 8 ,
 .Ns Xr kextcache 8

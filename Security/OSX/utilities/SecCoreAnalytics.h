@@ -24,6 +24,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value);
+void SecCoreAnalyticsSendKernEntropyHealth(void);
 
 #if __OBJC__
 

@@ -189,6 +189,20 @@ protected:
      * Returns true on success.
      */
     virtual bool parseDigitizerElement(IOHIDElement *element) LOCALONLY;
+
+    /*!
+     * @function parseProximityElement
+     *
+     * @abstract
+     * Parses an element to see if it supports proximity usages.
+     *
+     * @param element
+     * An IOHIDElement object to parse.
+     *
+     * @return
+     * Returns true on success.
+     */
+    virtual bool parseProximityElement(IOHIDElement *element) LOCALONLY;
     
     /*!
      * @function handleKeyboardReport
@@ -269,6 +283,22 @@ protected:
      * The report ID.
      */
     virtual void handleDigitizerReport(uint64_t timestamp, uint32_t reportID) LOCALONLY;
+
+    /*!
+     * @function handleProximityReport
+     *
+     * @abstract
+     * Function called after receiving an input report from the device. Iterates
+     * through proximity elements and dispatches proximity events if the element
+     * value has been updated.
+     *
+     * @param timestamp
+     * The timestamp of the input report.
+     *
+     * @param reportID
+     * The report ID.
+     */
+    virtual void handleProximityReport(uint64_t timestamp, uint32_t reportID) LOCALONLY;
     
     /*!
      * @function createEventForDigitizerCollection

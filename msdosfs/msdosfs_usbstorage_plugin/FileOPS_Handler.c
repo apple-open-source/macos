@@ -25,7 +25,6 @@
 
 static int DIROPS_CreateLinkAccordingToContent(FileSystemRecord_s* psFSRecord,uint32_t uCluster, const char *pcContents, uint32_t uAmountOfAllocatedClusters);
 static int MSDOS_SetAtrrToDirEntry (NodeRecord_s* psNodeRecord, const UVFSFileAttributes *setAttrs, UVFSFileAttributes *outAttrs, bool bPartialAllocationAllowed, bool bNeedToUpdateDirEntry, bool bFillNewClustersWithZeros, bool bFillLastClusterWithZeros );
-static int FileOPS_FillClusterSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset, uint32_t uCluster );
 static int FileOPS_FillFileSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset, uint64_t uFillToOffset);
 static uint32_t    MSDOS_GetFileBSDFlags (u_int8_t deAttributes);
 static int         MSDOS_SetFileBSDFlags (uint32_t uFileBSDFlags, u_int8_t *puDeAttributes, bool bIsADir);
@@ -443,7 +442,7 @@ MSDOS_SetAtrrToDirEntry (NodeRecord_s* psNodeRecord, const UVFSFileAttributes *s
                     }
                 }
 
-                CHAIN_CAHCE_ACCESS_LOCK(psFSRecord);
+                CHAIN_CACHE_ACCESS_LOCK(psFSRecord);
                 if ( psNodeRecord->sRecordData.uFirstCluster == 0 )
                 {
                     psNodeRecord->sRecordData.uFirstCluster = uFirstNewClusAlloc;
@@ -464,7 +463,7 @@ MSDOS_SetAtrrToDirEntry (NodeRecord_s* psNodeRecord, const UVFSFileAttributes *s
                     free(psClusterInfoToFree);
                 }
 
-                CHAIN_CAHCE_ACCESS_FREE(psFSRecord);
+                CHAIN_CACHE_ACCESS_FREE(psFSRecord);
             }
         }
         else if ( setAttrs->fa_size < uCurAllocatSize )
@@ -490,7 +489,7 @@ MSDOS_SetAtrrToDirEntry (NodeRecord_s* psNodeRecord, const UVFSFileAttributes *s
         //Check if all the pre-allocated cluster are used
         if (psNodeRecord->sExtraData.sFileData.bIsPreAllocated)
         {
-            if (ROUND_UP(getuint32(psNodeRecord->sRecordData.sNDE.sDosDirEntry.deFileSize), CLUSTER_SIZE(psFSRecord))/CLUSTER_SIZE(psFSRecord) == psNodeRecord->sRecordData.uClusterChainLength)
+            if (ROUND_UP(getuint32(sDirEntry.deFileSize), CLUSTER_SIZE(psFSRecord))/CLUSTER_SIZE(psFSRecord) == psNodeRecord->sRecordData.uClusterChainLength)
             {
                 psNodeRecord->sExtraData.sFileData.bIsPreAllocated = false;
                 psFSRecord->uPreAllocatedOpenFiles--;
@@ -546,51 +545,6 @@ exit:
 }
 
 static int
-FileOPS_FillClusterSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset, uint32_t uCluster )
-{
-
-    MSDOS_LOG( LEVEL_DEBUG, "FileOPS_FillClusterSuffixWithZeros = %llu %u\n", uFillFromOffset, uCluster);
-
-    int iErr = 0;
-    FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
-    // Read-Modify-Write the last cluster in order to fill is suffix with zeros.
-    uint32_t uClusterSize = CLUSTER_SIZE(psFSRecord);
-    uint64_t uBytesToKeep = uFillFromOffset;
-
-    // Allocate buffer for cluster.
-    uint8_t*  puClusterData = malloc( uClusterSize );
-    if ( puClusterData == NULL )
-    {
-        iErr = ENOMEM;
-        goto exit;
-    }
-
-    // Read the last cluster.
-    size_t uBytesRead = pread( psFSRecord->iFD, puClusterData, uClusterSize, DIROPS_VolumeOffsetForCluster( psFSRecord, uCluster ) );
-    if ( uBytesRead != uClusterSize )
-    {
-        iErr = errno;
-        goto exit;
-    }
-
-    memset( puClusterData+uBytesToKeep, 0, uClusterSize-uBytesToKeep );
-
-    // Write the last cluster.
-    size_t uBytesWrite = pwrite( psFSRecord->iFD, puClusterData, uClusterSize, DIROPS_VolumeOffsetForCluster( psFSRecord, uCluster ) );
-    if ( uBytesWrite != uClusterSize )
-    {
-        iErr = errno;
-        goto exit;
-    }
-
-exit:
-    if ( puClusterData )
-        free( puClusterData );
-
-    return iErr;
-}
-
-static int
 FileOPS_FillFileSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset, uint64_t uFillToOffset)
 {
 
@@ -604,8 +558,7 @@ FileOPS_FillFileSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromO
 
     // If the start offset is not cluster aligned, we need to fill this cluster suffix
     if (uFillFromOffset % uClusterSize != 0) {
-        FILERECORD_GetChainFromCache( psNodeRecord, uFillFromOffset, &uWantedCluster, &uContiguousClusterLength ,&iErr );
-        iErr = FileOPS_FillClusterSuffixWithZeros(psNodeRecord, uFillFromOffset % CLUSTER_SIZE(psFSRecord) , uWantedCluster);
+        iErr = ZeroFill_FillClusterSuffixWithZeros(psNodeRecord, uFillFromOffset);
         if (iErr) return iErr;
         
         uFillFromOffset = ROUND_UP(uFillFromOffset, uClusterSize);
@@ -860,7 +813,6 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
     // Remember some values in case the write fails.
     uint64_t uOriginalAllocatedSize = (uint64_t)psFileRecord->sRecordData.uClusterChainLength * (uint64_t)CLUSTER_SIZE(psFSRecord);
     uint32_t uOriginalSize = getuint32(psFileRecord->sRecordData.sNDE.sDosDirEntry.deFileSize);
-    uint32_t uOriginalLastCluster = psFileRecord->sRecordData.uLastAllocatedCluster;
     uint64_t uNewFileEnd = offset + uLengthToBeWrriten;
     /*
      * If the end of the write will be beyond the current allocated size,
@@ -939,8 +891,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
 
         if ( ( offset > uOriginalSize) && (uOriginalSize % CLUSTER_SIZE(psFSRecord) != 0) )
         {
-            uint32_t uBytesToKeep = uOriginalSize % CLUSTER_SIZE(psFSRecord);
-            iError = FileOPS_FillClusterSuffixWithZeros( psFileRecord, uBytesToKeep, uOriginalLastCluster );
+            iError = ZeroFill_FillClusterSuffixWithZeros( psFileRecord, uOriginalSize );
             if ( iError != 0 )
             {
                 MSDOS_LOG(LEVEL_ERROR, "MSDOS_Write: Failed to Fill Cluster Suffix With Zeros. Error [%d]\n",iError);
@@ -1106,7 +1057,7 @@ MSDOS_Create (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *
 
     uint64_t uStartAllocatedOffset = 0;
     NodeRecord_s* psNodeRecord = GET_RECORD(*outNode);
-    CHAIN_CAHCE_ACCESS_LOCK(psFSRecord);
+    CHAIN_CACHE_ACCESS_LOCK(psFSRecord);
     while (psNewAllocatedClusterInfoToReturn)
     {
         FILERECORD_UpdateNewAllocatedClustersInChain(psNodeRecord, psNewAllocatedClusterInfoToReturn->uNewAlloctedStartCluster, psNewAllocatedClusterInfoToReturn->uAmountOfConsecutiveClusters, uStartAllocatedOffset);
@@ -1117,7 +1068,7 @@ MSDOS_Create (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *
         
         free(psClusterInfoToFree);
     }
-    CHAIN_CAHCE_ACCESS_FREE(psFSRecord);
+    CHAIN_CACHE_ACCESS_FREE(psFSRecord);
     
     DIAGNOSTIC_INSERT(GET_RECORD(*outNode),psParentRecord->sRecordData.uFirstCluster,name);
 
@@ -1690,7 +1641,7 @@ FILEOPS_PreAllocateClusters(NodeRecord_s* psNodeRecord, LIFilePreallocateArgs_t*
             }
         }
 
-        CHAIN_CAHCE_ACCESS_LOCK(psFSRecord);
+        CHAIN_CACHE_ACCESS_LOCK(psFSRecord);
         if ( psNodeRecord->sRecordData.uFirstCluster == 0 )
         {
             psNodeRecord->sRecordData.uFirstCluster = uFirstNewClusAlloc;
@@ -1711,7 +1662,7 @@ FILEOPS_PreAllocateClusters(NodeRecord_s* psNodeRecord, LIFilePreallocateArgs_t*
             free(psClusterInfoToFree);
         }
         
-        CHAIN_CAHCE_ACCESS_FREE(psFSRecord);
+        CHAIN_CACHE_ACCESS_FREE(psFSRecord);
     }
 
     iErr = DIROPS_UpdateDirectoryEntry( psNodeRecord, &psNodeRecord->sRecordData.sNDE, psDirEntry );
@@ -1784,6 +1735,7 @@ void FILEOPS_FreeUnusedPreAllocatedClusters(NodeRecord_s* psNodeRecord)
             }
         }
         
+        psNodeRecord->sExtraData.sFileData.bIsPreAllocated = false;
         psFSRecord->uPreAllocatedOpenFiles--;
     }
 

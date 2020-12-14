@@ -16,6 +16,8 @@
 
 
 #define TEST_1_THREAD_COUNT (4)
+#define TEST_1_1_THREAD_COUNT (3)
+#define TEST_1_1_FILES_COUNT (10)
 #define TEST_2_THREAD_COUNT (4)
 #define TEST_3_THREAD_COUNT (7)
 
@@ -33,7 +35,7 @@
 
 #define TEST_7_THREAD_COUNT (12)
 
-#define TEST_CYCLE_COUNT (1)
+#define TEST_CYCLE_COUNT (20)
 
 typedef int pthread_barrierattr_t;
 typedef struct
@@ -118,6 +120,10 @@ typedef struct
 pthread_t psTest1_Threads[TEST_1_THREAD_COUNT] = {0};
 int piTest1_Results[TEST_1_THREAD_COUNT] = {0};
 ThreadInput_s sTest1_ThreadInput[TEST_1_THREAD_COUNT];
+
+pthread_t psTest1_1_Threads[TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT] = {0};
+int piTest1_1_Results[TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT] = {0};
+ThreadInput_s sTest1_1_ThreadInput[TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT];
 
 pthread_t psTest2_Threads[TEST_2_THREAD_COUNT] = {0};
 int piTest2_Results[TEST_2_THREAD_COUNT] = {0};
@@ -845,9 +851,9 @@ MultiThreadSingleFile(void *arg)
         
         //Compare read to write
         pvBuf = psThreadInput->general_buff + offset;
-        for ( uint32_t uIdx=0; uIdx<size_to_read/16; uIdx++)
+        for ( uint32_t uIdx=0; uIdx < size_to_read; uIdx++)
         {
-            if ( (pvBuf)[uIdx] != (pvBufRead)[uIdx] )
+            if (((char*)(pvBuf))[uIdx] != ((char*)(pvBufRead))[uIdx])
             {
                 printf("Failed in compare read to write. Index [%d]\n",uIdx);
                 iError = 1;
@@ -862,6 +868,79 @@ MultiThreadSingleFile(void *arg)
 exit:
     free(pvBufRead);
 
+    return (void*) (size_t) iError;
+}
+
+static void*
+MultiThreadSingleFileHalfClusterSize(void *arg)
+{
+    int iError = 0;
+    ThreadInput_s* psThreadInput = (ThreadInput_s*) arg;
+    
+    uint32_t uChunkSize = psThreadInput->uBufferSize;
+    void* pvBufRead = malloc(uChunkSize);
+    if (pvBufRead == NULL) return (void*)ENOMEM;
+    memset(pvBufRead, 0, uChunkSize);
+    
+    void* pvBuf = malloc(uChunkSize);
+    if (pvBuf == NULL) {
+        free(pvBufRead);
+        return (void*)ENOMEM;
+    }
+    memset(pvBuf, 5, uChunkSize);
+    
+    uint64_t uOffset = atomic_fetch_add(psThreadInput->general_offset, uChunkSize);
+    uint64_t size_to_write = uChunkSize;
+    size_t uActuallyWritten = 0;
+    while ( uOffset < psThreadInput->uFileSize) {
+        if (psThreadInput->uFileSize - uOffset < uChunkSize) {
+            size_to_write = psThreadInput->uFileSize - uOffset;
+        }
+        
+        iError = WriteFromBuffer(*psThreadInput->ThreadInputNode.ppvFileToWriteNode, uOffset, &uActuallyWritten, pvBuf, size_to_write);
+        if (iError) {
+            printf("Failed to write. [%d]\n",iError);
+            goto exit;
+        }
+        
+        uOffset = atomic_fetch_add(psThreadInput->general_offset, uChunkSize);
+    }
+
+    pthread_barrier_wait(psThreadInput->barrier);
+    *psThreadInput->general_offset = 0;
+    pthread_barrier_wait(psThreadInput->barrier);
+
+    size_t uActuallyRead;
+    uint64_t size_to_read = uChunkSize;
+    uOffset = atomic_fetch_add(psThreadInput->general_offset, uChunkSize);
+    while ( uOffset < psThreadInput->uFileSize) {
+        if (psThreadInput->uFileSize - uOffset < uChunkSize) {
+            size_to_read = psThreadInput->uFileSize - uOffset;
+        }
+        
+        iError =  ReadToBuffer(*psThreadInput->ThreadInputNode.ppvFileToWriteNode, uOffset, &uActuallyRead, pvBufRead, size_to_read);
+        if (iError) {
+            printf("Failed to read. [%d]\n",iError);
+            goto exit;
+        }
+        
+        //Compare read to write
+        for ( uint32_t uIdx=0; uIdx<size_to_read/16; uIdx++)
+        {
+            if (((int64_t*)(pvBuf))[uIdx] != ((int64_t*)(pvBufRead))[uIdx])
+            {
+                printf("Failed in compare read to write. Index [%d]\n",uIdx);
+                iError = 1;
+                break;
+            }
+        }
+
+        uOffset = atomic_fetch_add(psThreadInput->general_offset, uChunkSize);
+    }
+
+exit:
+    free(pvBufRead);
+    free(pvBuf);
     return (void*) (size_t) iError;
 }
 
@@ -1469,10 +1548,6 @@ int main( int argc, const char * argv[] )
         exit(EINVAL);
     }
 
-    unsigned seed = (unsigned) time(0);
-    printf("running livefiles_msdos_tester with seed: %u\n", seed);
-    srand(seed);
-    
     UVFSScanVolsRequest sScanVolsReq = {0};
     UVFSScanVolsReply sScanVolsReply = {0};
     int err = 0;
@@ -1487,6 +1562,10 @@ int main( int argc, const char * argv[] )
 
     do
     {
+        unsigned seed = (unsigned) time(0);
+        printf("running livefiles_msdos_tester with seed: %u\n", seed);
+        srand(seed);
+
         err = MSDOS_fsOps.fsops_init();
         printf("Init err [%d]\n",err);
         if (err) break;
@@ -1531,17 +1610,17 @@ int main( int argc, const char * argv[] )
         err = CreateNewFile(D1_Node,&F13_Node,(char*)"validation-mirrorackcoloradobulldog",0);
         printf("CreateNewFile validation-mirrorackcoloradobulldog err [%d]\n",err);
         if (err != EEXIST) break;
-        
+
         // Reclaim Validation-MirrorAckColoradoBulldog
         err = CloseFile(F12_Node);
         printf("Reclaim Validation-MirrorAckColoradoBulldog err [%d]\n",err);
         if (err) break;
-        
+
         //Remove validation-mirrorackcoloradobulldog - should remove Validation-MirrorAckColoradoBulldog
         err = RemoveFile(D1_Node,(char*)"validation-mirrorackcoloradobulldog");
         printf("RemoveFile validation-mirrorackcoloradobulldog from Root err [%d]\n",err);
         if (err) break;
-        
+
         // Reclaim and Lookup of D1
         err = CloseFile(D1_Node);
         printf("Reclaim D1 err [%d]\n",err);
@@ -1576,17 +1655,16 @@ int main( int argc, const char * argv[] )
         if (err) break;
 
         // --------------------------- Pre-allocation Validation -------------------------------
-        
+
         UVFSFileNode preAllocNode = NULL;
         err = CreateNewFile(RootNode, &preAllocNode, "pre-alloc file", 500);
         printf("CreateNewFile err [%d]\n",err);
         if (err) break;
-        
+
         LIFilePreallocateArgs_t pre_alloc_req = {.flags = F_ALLOCATEALL, .length = 2*4096 };
         fstore_t pre_alloc_res = {0};
-        
+
         MSDOS_fsOps.fsops_setfsattr(preAllocNode, LI_FSATTR_PREALLOCATE, (LIFSAttributeValue* )((void*) &pre_alloc_req), sizeof(LIFilePreallocateArgs_t), (LIFSAttributeValue* )((void*)&pre_alloc_res), sizeof(fstore_t));
-        
         err = SetAttrChangeSize(preAllocNode,15048);
         if (err) break;
 
@@ -1598,16 +1676,16 @@ int main( int argc, const char * argv[] )
 
         err =  ReadToBuffer(preAllocNode, 500, &uActuallyRead, fileBuffer, 14548);
         if (err) break;
-        
+
         if (!is_empty(fileBuffer, 14548)) {
             printf("pre-allocated file data should be all zeros\n");
             break;
         }
-        
+
         free(fileBuffer);
         CloseFile(preAllocNode);
         RemoveFile(RootNode, "pre-alloc file");
-        
+
         // -----------------------------Write/Read File-----------------------------------
         // Test1: 2 threads writing and reading to/from the same file
         // -------------------------------------------------------------------------------
@@ -1623,7 +1701,7 @@ int main( int argc, const char * argv[] )
             err = ENOMEM;
             break;
         }
-        
+
         for ( uint64_t uIdx=0; uIdx<TEST_1_THREAD_COUNT; uIdx++ )
         {
             memset(&sTest1_ThreadInput[uIdx],0,sizeof(ThreadInput_s));
@@ -1632,11 +1710,11 @@ int main( int argc, const char * argv[] )
             sTest1_ThreadInput[uIdx].uTotalNumberOfThreads = TEST_1_THREAD_COUNT;
             sTest1_ThreadInput[uIdx].uThreadId = (uint32_t) uIdx;
             sTest1_ThreadInput[uIdx].ThreadInputNode.ppvFileToWriteNode = &F1_Node;
-            
+
             sTest1_ThreadInput[uIdx].barrier = &sTest1_barrier;
             sTest1_ThreadInput[uIdx].general_offset = &sTest1_ThreadOffset;
             sTest1_ThreadInput[uIdx].general_buff = sTest1_pvBuf;
-            
+
             pthread_create( &psTest1_Threads[uIdx], NULL, (void*)MultiThreadSingleFile, (void*)&sTest1_ThreadInput[uIdx]);
         }
 
@@ -1655,13 +1733,91 @@ int main( int argc, const char * argv[] )
 
         printf("Test 1 finished with error [%d]\n",err);
         if (err) break;
-        
+
+        // -----------------------------Write/Read File-----------------------------------
+        // Test1.1: 6 threads writing and reading to/from the same file in half cluster size
+        // -------------------------------------------------------------------------------
+
+        size_t uRetLength;
+        size_t uLength = 255;
+        UVFSFSAttributeValue* psFSAttr = (UVFSFSAttributeValue*) malloc(256);
+        if ( psFSAttr == NULL ) {
+            err = ENOMEM;
+            break;
+        }
+
+        err = MSDOS_fsOps.fsops_getfsattr(D1_Node, UVFS_FSATTR_BLOCKSIZE, psFSAttr, uLength, &uRetLength);
+        printf("CreateNewFile err [%d]\n",err);
+        if (err) break;
+
+        uint64_t uBufferSize = psFSAttr->fsa_number / 2;
+        free((void*)psFSAttr);
+
+        // Create File F1_1 (size 0) in D1
+        UVFSFileNode F1_1_Nodes[TEST_1_1_FILES_COUNT] = {NULL};
+        pthread_barrier_t sTest1_1_barriers[TEST_1_1_FILES_COUNT];
+        atomic_uint_least64_t sTest1_1_ThreadOffsets[TEST_1_1_FILES_COUNT] = {0};
+        for (int i = 0; i < TEST_1_1_FILES_COUNT; i++) {
+            char pcName[100] = {0};
+            sprintf(pcName, "F1_%d", i);
+            err = CreateNewFile(D1_Node, &F1_1_Nodes[i], pcName, 0);
+            printf("CreateNewFile err [%d]\n",err);
+            if (err) break;
+
+            err = pthread_barrier_init(&sTest1_1_barriers[i], NULL, TEST_1_1_THREAD_COUNT);
+            if (err) break;
+        }
+        if (err) break;
+
+        int fileCounter = 0;
+        for ( uint64_t uIdx=0; uIdx<TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT; uIdx++ )
+        {
+            memset(&sTest1_1_ThreadInput[uIdx],0,sizeof(ThreadInput_s));
+            sTest1_1_ThreadInput[uIdx].uBufferSize = 1024*1024;
+            sTest1_1_ThreadInput[uIdx].uFileSize = 100*1024*1024;
+            sTest1_1_ThreadInput[uIdx].uTotalNumberOfThreads = TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT;
+            sTest1_1_ThreadInput[uIdx].uThreadId = (uint32_t) uIdx;
+
+            sTest1_1_ThreadInput[uIdx].ThreadInputNode.ppvFileToWriteNode = &F1_1_Nodes[fileCounter];
+            sTest1_1_ThreadInput[uIdx].general_offset = &sTest1_1_ThreadOffsets[fileCounter];
+            sTest1_1_ThreadInput[uIdx].barrier = &sTest1_1_barriers[fileCounter];
+            if (uIdx % TEST_1_1_THREAD_COUNT == (TEST_1_1_THREAD_COUNT - 1)) {
+                fileCounter++;
+            }
+            
+            sTest1_1_ThreadInput[uIdx].uBufferSize = (uint32_t)uBufferSize;
+            pthread_create( &psTest1_1_Threads[uIdx], NULL, (void*)MultiThreadSingleFileHalfClusterSize, (void*)&sTest1_1_ThreadInput[uIdx]);
+        }
+
+        for ( uint32_t uIdx=0; uIdx<TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT; uIdx++ )
+        {
+            pthread_join( psTest1_1_Threads[uIdx], (void*) &piTest1_1_Results[uIdx] );
+            
+            if (piTest1_1_Results[uIdx])
+            {
+                err = piTest1_1_Results[uIdx];
+                printf("Thread [%d] Failed in Test 1.1 with error [%d]\n",uIdx,err);
+            }
+        }
+
+        for (int i = 0; i < TEST_1_1_FILES_COUNT; i++) {
+            char pcName[100] = {0};
+            sprintf(pcName, "F1_%d", i);
+            RemoveFile(D1_Node, pcName);
+            CloseFile(F1_1_Nodes[i]);
+            pthread_barrier_destroy(&sTest1_1_barriers[i]);
+        }
+
+        printf("Test 1.1 finished with error [%d]\n",err);
+        if (err) break;
+
         // ----------------------------------------------------------------------------------
         // Test2: 4 threads writing and reading to/from different files
         // ----------------------------------------------------------------------------------
 
         for ( uint64_t uIdx=0; uIdx<TEST_2_THREAD_COUNT; uIdx++ )
         {
+            sTest2_ThreadOffset[uIdx] = 0;
             memset(&sTest2_ThreadInput[uIdx],0,sizeof(ThreadInput_s));
             sTest2_ThreadInput[uIdx].uBufferSize = 1024*1024;
             sTest2_ThreadInput[uIdx].uFileSize = 50*1024*1024;
@@ -2111,6 +2267,9 @@ int main( int argc, const char * argv[] )
 
         err = MSDOS_fsOps.fsops_unmount(RootNode, UVFSUnmountHintNone);
         printf("Unmount err [%d]\n",err);
+        if (err) break;
+
+        err = MSDOS_fsOps.fsops_check( fd, 0, NULL, CHECK );
         if (err) break;
 
         MSDOS_fsOps.fsops_fini();

@@ -380,6 +380,7 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
                 os_log_debug(AUTH_LOG, "Failed to find sheet support in SecurityInterface");
             }
             // fall back to the standard (windowed) version if sheets are not available
+            flags &= ~kAuthorizationFlagSheet;
         }
     }
     

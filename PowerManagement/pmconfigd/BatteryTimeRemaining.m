@@ -205,7 +205,7 @@ enum vactMode {
 #define NCC_CURRENT_THRESH  (40)
 #define NCC_CURRENT_THRESH_SCALE  (100)
 #define NCC_GAMMA_SCALE  (1000)
-#define NCC_GAMMA  (909)   // 11.5 day time constant
+#define NCC_GAMMA  (984)   // 10.5 day time constant = exp(-4(hrs)/10.5(days)/24(hrs/day))*NCC_GAMMA_SCALE = 984
 
 struct capacitySample {
     // inputs
@@ -234,6 +234,7 @@ struct nominalCapacityParams {
     // output
     unsigned int significantChange;
     unsigned int error;
+    int cycleCount;
 };
 
 static const CFStringRef capacityKeys[vactModesCount][3] = {
@@ -1256,7 +1257,12 @@ static void publish_IOPSBatteryGetWarningLevel(
                         kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStoreLowBattPathKey));
             }
 
-            PMStoreSetValue(lowBatteryKey, newlevel );
+            if (lowBatteryKey) {
+                PMStoreSetValue(lowBatteryKey, newlevel );
+            } else {
+                ERROR_LOG("Failed to create lowBatteryKey\n");
+            }
+
             CFRelease(newlevel);
 
             BatteryTimeRemaining_notify_post(kIOPSNotifyLowBattery);
@@ -2873,45 +2879,53 @@ void calculateNominalCapacity(struct nominalCapacityParams *params) {
         ncc[k] = params->sample[k].ncc;
     }
 
+    // Set 'seed'
+    if (fccDaySampleCount == 0 && fccAvgHistoryCount == 0) {
+        // seed ncc with kInitialNominalCapacityPercentage if cycleCount <= kTrueNCCCycleCountThreshold
+        for (int k = 0; k < vactModesCount; k++) {
+            if (params->cycleCount >= 0 && params->cycleCount <= kTrueNCCCycleCountThreshold) {
+                ncc[k] = (kInitialNominalCapacityPercentage * designCapacity / 100) - kSmartBattReserve_mAh;
+            } else {
+                // if cycleCount exceeds && this is the very first sample in time, seed with first fcc sample. We may need a scaled version of FCC based on cycleCounts and temp (?)
+                ncc[k] = params->sample[k].fcc + kSmartBattReserve_mAh;
+            }
+            INFO_LOG("Seed value for nominal capacity: %d", ncc[k]);
+        }
+        significantChange |= CAPACITY_NCC_CHANGE;
+    }
+
     // Step 2: calculate average of day's FCC values
     currentThreshold = (designCapacity * NCC_CURRENT_THRESH) / NCC_CURRENT_THRESH_SCALE;
-    if ((fccDaySampleCount == 0) || ((fccGG != fccLast) && (temperature > NCC_TEMP_THRESH) && (abs(current) < currentThreshold))) {
-        fccDaySampleCount++;
+    // last FCC reading != current reading, last FCC reading was non-zero == AP was ON
+    if ((fccGG != fccLast) && (fccLast != 0) && (temperature > NCC_TEMP_THRESH) && (abs(current) < currentThreshold)) {
+        fccDaySampleCount = fccDaySampleCount < UINT32_MAX ? (fccDaySampleCount + 1) : UINT32_MAX;
         for (int k = 0; k < vactModesCount; k++) {
             fccDaySampleAvg[k] = ((fccDaySampleCount - 1) * fccDaySampleAvg[k] + params->sample[k].fcc) / fccDaySampleCount;
-
-            // first day, treat fccDaySampleAvg as ncc
-            if (fccAvgHistoryCount == 0) {
-                ncc[k] = fccDaySampleAvg[k];
-                if (fccDaySampleCount == 1) {
-                    significantChange |= CAPACITY_NCC_CHANGE;
-                }
-            }
         }
-        fccLast = fccGG;
         significantChange |= CAPACITY_FCC_CHANGE;
     }
+    // If the BHUI algorithm samples FCC before the gas gauge resimulates FCC at the lower discharge rate, it will effectively use the high discharge rate FCC in the average,
+    // hence cahce the last sampled FCC for duplicacy checks regardless of it was qualified or not.
+    fccLast = fccGG;
 
-    // Step 3. Check if one day is over
-    if (!hasSamplingTimeExpired()) {
-        DEBUG_LOG("Skipping NCC calculation\n");
-        goto out;
-    }
-    significantChange |= CAPACITY_SAMPLING_EPOCH_CHANGE;
+    // Step 3. Check if one epoch is over
+    if (hasSamplingTimeExpired() && fccDaySampleCount) {
+        significantChange |= CAPACITY_SAMPLING_EPOCH_CHANGE;
 
-    // Step 4: iir filter the fcc average for the day to get the ncc
-    for (int k = 0; k < vactModesCount; k++) {
-        int nccPrev = ncc[k];
-        ncc[k] = (gamma * ncc[k] + (NCC_GAMMA_SCALE - gamma) * fccDaySampleAvg[k]) / NCC_GAMMA_SCALE;
-        fccDaySampleAvg[k] = 0;
-        if (ncc[k] < nccPrev) {
-            significantChange |= CAPACITY_NCC_CHANGE;
+        // Step 4: iir filter the fcc average for the day to get the ncc
+        for (int k = 0; k < vactModesCount; k++) {
+            int nccPrev = ncc[k];
+            ncc[k] = (gamma * ncc[k] + (NCC_GAMMA_SCALE - gamma) * fccDaySampleAvg[k]) / NCC_GAMMA_SCALE;
+            fccDaySampleAvg[k] = 0;
+            if (ncc[k] < nccPrev) {
+                significantChange |= CAPACITY_NCC_CHANGE;
+            }
+            INFO_LOG("Recalculated NCC: %d\n", ncc[k]);
         }
+        fccDaySampleCount = 0;
+        fccAvgHistoryCount = fccAvgHistoryCount < UINT32_MAX ? (fccAvgHistoryCount + 1) : UINT32_MAX;
     }
-    fccDaySampleCount = 0;
-    fccAvgHistoryCount = fccAvgHistoryCount < UINT32_MAX ? (fccAvgHistoryCount + 1) : UINT32_MAX;
 
-out:
     params->fccDaySampleCount = fccDaySampleCount;
     params->fccAvgHistoryCount = fccAvgHistoryCount;
     for (int k = 0; k < vactModesCount; k++) {
@@ -2925,7 +2939,7 @@ out:
 void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef dict,
         IOPSBatteryHealthServiceFlags *svcFlags)
 {
-    int fccp, rawMaxCap = 0, designCap = 0;
+    int fccp, rawMaxCap = 0, designCap = 0, cycleCount = -1;
     struct nominalCapacityParams params;
     CFDictionaryRef batteryData = NULL;
     int capacityUI, nccService;
@@ -2986,6 +3000,11 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         goto out;
     }
 
+    CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+    if (cycleCount == -1) {
+        ERROR_LOG("Invalid cycle count received");
+    }
+
     memset(&params, 0, sizeof(params));
     CFDictionaryGetIntValue(dict, CFSTR(kFccDaySampleCount), params.fccDaySampleCount);
     CFDictionaryGetIntValue(dict, CFSTR(kFccAvgHistoryCount), params.fccAvgHistoryCount);
@@ -3016,9 +3035,10 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         params.sample[vactModeEnabled].fcc = params.sample[vactModeDisabled].fcc = params.fcc;
     }
 
-    DEBUG_LOG("fccGG:%d T:%d I:%d vact:%d fccU:%d fccM:%d\n", params.fcc, params.temperature, params.current, getVactState(), params.sample[vactModeDisabled].fcc,
-        params.sample[vactModeEnabled].fcc);
+    DEBUG_LOG("fccGG:%d T:%d I:%d vact:%d fccU:%d fccM:%d CC:%d\n", params.fcc, params.temperature, params.current, getVactState(), params.sample[vactModeDisabled].fcc,
+        params.sample[vactModeEnabled].fcc, cycleCount);
 
+    params.cycleCount = cycleCount;
     calculateNominalCapacity(&params);
     if (params.significantChange) {
         for (int i = 0; i < vactModesCount; i++) {

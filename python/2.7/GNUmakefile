@@ -148,6 +148,7 @@ $(OBJROOT)/$(PROJECT):
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-http-header-injection-59387782.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-openpty-include.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-system-version-compat.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-support-sealed-system-volume.patch)
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au

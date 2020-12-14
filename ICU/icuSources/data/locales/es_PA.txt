@@ -132,14 +132,14 @@ es_PA{
             dayPeriod{
                 format{
                     abbreviated{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"de la mañana"}
                         night1{"de la noche"}
                         noon{"mediodía"}
                     }
                     wide{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"de la mañana"}
                         night1{"de la noche"}

@@ -749,6 +749,7 @@ static int php_stdiop_set_option(php_stream *stream, int option, int value, void
 				php_stream_mmap_range *range = (php_stream_mmap_range*)ptrparam;
 				HANDLE hfile = (HANDLE)_get_osfhandle(fd);
 				DWORD prot, acc, loffs = 0, delta = 0;
+				LARGE_INTEGER file_size;
 
 				switch (value) {
 					case PHP_STREAM_MMAP_SUPPORTED:
@@ -785,16 +786,27 @@ static int php_stdiop_set_option(php_stream *stream, int option, int value, void
 							return PHP_STREAM_OPTION_RETURN_ERR;
 						}
 
-						size = GetFileSize(hfile, NULL);
-						if (range->length == 0 && range->offset > 0 && range->offset < size) {
-							range->length = size - range->offset;
+						if (!GetFileSizeEx(hfile, &file_size)) {
+							CloseHandle(data->file_mapping);
+							data->file_mapping = NULL;
+							return PHP_STREAM_OPTION_RETURN_ERR;
 						}
-						if (range->length == 0 || range->length > size) {
-							range->length = size;
+# if defined(_WIN64)
+						size = file_size.QuadPart;
+# else
+						if (file_size.HighPart) {
+							CloseHandle(data->file_mapping);
+							data->file_mapping = NULL;
+							return PHP_STREAM_OPTION_RETURN_ERR;
+						} else {
+							size = file_size.LowPart;
 						}
-						if (range->offset >= size) {
+# endif
+						if (range->offset > size) {
 							range->offset = size;
-							range->length = 0;
+						}
+						if (range->length == 0 || range->length > size - range->offset) {
+							range->length = size - range->offset;
 						}
 
 						/* figure out how big a chunk to map to be able to view the part that we need */
@@ -1009,9 +1021,7 @@ PHPAPI php_stream *_php_stream_fopen(const char *filename, const char *mode, zen
 	char *persistent_id = NULL;
 
 	if (FAILURE == php_stream_parse_fopen_modes(mode, &open_flags)) {
-		if (options & REPORT_ERRORS) {
-			php_error_docref(NULL, E_WARNING, "`%s' is not a valid mode for fopen", mode);
-		}
+		php_stream_wrapper_log_error(&php_plain_files_wrapper, options, "`%s' is not a valid mode for fopen", mode);
 		return NULL;
 	}
 

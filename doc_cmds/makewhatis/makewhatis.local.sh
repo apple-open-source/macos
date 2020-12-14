@@ -34,19 +34,25 @@
 # PS: this wrapper works also for catman(1)
 #
 # $FreeBSD: src/usr.bin/makewhatis/makewhatis.local.sh,v 1.7 1999/08/27 23:36:10 peter Exp $
-
 PATH=/bin:/usr/bin:/usr/libexec:$PATH; export PATH
-opt= dirs= localdirs=
+opt= dirs= localdirs= stdout=
 
 for arg
 do
 	case "$arg" in
-		-*) 	opt="$opt $arg";;
+        "-o /dev/fd/1")
+			opt="$opt $arg"
+            stdout=1;;
+		-*) opt="$opt $arg";;
 		*)	dirs="$dirs $arg";;
 	esac
 done
 
-dirs=`echo $dirs | awk -F: '{ for (i = 1; i <= NF; i++) { if ($i !~ "\\.app/" && $i !~ "/CommandLineTools/") { printf $i " " } } printf "\n" }'`
+if [[ -z "$stdout" ]]; then
+    dirs=`echo $dirs | awk -F: '{ for (i = 1; i <= NF; i++) { if ($i !~ "\\.app/" && $i !~ "/CommandLineTools/") { printf $i " " } } printf "\n" }'`
+else
+	dirs=`echo $dirs | sed 's/:/ /g'`
+fi
 case X"$dirs" in X) echo "usage: $0 [options] directories ..."; exit 1;; esac
 
 localdirs=`find -H $dirs -fstype local -type d -prune -print`

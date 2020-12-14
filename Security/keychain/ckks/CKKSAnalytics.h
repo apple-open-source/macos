@@ -67,6 +67,7 @@ extern NSString* const OctagonAnalyticsKeychainSyncProvisioned;
 extern NSString* const OctagonAnalyticsKeychainSyncEnabled;
 extern NSString* const OctagonAnalyticsCloudKitProvisioned;
 extern NSString* const OctagonAnalyticsCloudKitEnabled;
+extern NSString* const OctagonAnalyticsSecureBackupTermsAccepted;
 
 extern NSString* const OctagonAnalyticsBottledUniqueTLKsRecovered;
 extern NSString* const OctagonAnalyticsBottledTotalTLKShares;

@@ -469,6 +469,20 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 100 * NSEC_PER_SEC)
     }
+
+    func testFetchUserControllableViewsSyncingStatusNoAccount() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
+
+        let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
+        self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertFalse(isSyncing, "should not be syncing with no account")
+            fetchExpectation.fulfill()
+        }
+        self.wait(for: [fetchExpectation], timeout: 10)
+    }
 }
 
 #endif // OCTAGON

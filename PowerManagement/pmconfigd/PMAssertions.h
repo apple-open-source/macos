@@ -532,6 +532,7 @@ void checkForAsyncAssertions(void *acknowledgementToken);
 void handleAssertionSuspend(pid_t pid);
 void handleAssertionResume(pid_t pid);
 void processSetAssertionState(xpc_connection_t peer, xpc_object_t msg);
+void logAssertionCount(bool displayOn);
 
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);

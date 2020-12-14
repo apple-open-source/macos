@@ -68,14 +68,14 @@ es_AR{
             dayPeriod{
                 format{
                     abbreviated{
-                        evening1{"tarde"}
+                        afternoon1{"tarde"}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
                         noon{"mediodía"}
                     }
                     wide{
-                        evening1{"tarde"}
+                        afternoon1{"tarde"}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}

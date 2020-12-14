@@ -21,6 +21,7 @@ enum Handler {
 }
 
 class MockCuttlefishAPIAsyncClient: CuttlefishAPIAsync {
+    
     var handlers: [Handler] = []
     var index: Int = 0
 
@@ -172,5 +173,11 @@ class MockCuttlefishAPIAsyncClient: CuttlefishAPIAsync {
     }
     func fetchSosiCloudIdentity(_: FetchSOSiCloudIdentityRequest, completion: @escaping (FetchSOSiCloudIdentityResponse?, Error?) -> Void) {
         completion(FetchSOSiCloudIdentityResponse(), nil)
+    }
+    func addCustodianRecoveryKey(_: AddCustodianRecoveryKeyRequest, completion: @escaping (AddCustodianRecoveryKeyResponse?, Error?) -> Void) {
+        completion(AddCustodianRecoveryKeyResponse(), nil)
+    }
+    func resetAccountCdpcontents(_: ResetAccountCDPContentsRequest, completion: @escaping (ResetAccountCDPContentsResponse?, Error?) -> Void) {
+        completion(ResetAccountCDPContentsResponse(), nil)
     }
 }

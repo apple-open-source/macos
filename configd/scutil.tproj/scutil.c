@@ -94,6 +94,7 @@ static const struct option longopts[] = {
 //	{ "timeout",		required_argument,	NULL,	't'	},
 //	{ "wait-key",		required_argument,	NULL,	'w'	},
 //	{ "watch-reachability",	no_argument,		NULL,	'W'	},
+	{ "configuration",	no_argument,		NULL,	0	},
 	{ "dns",		no_argument,		NULL,	0	},
 	{ "get",		required_argument,	NULL,	0	},
 	{ "error",		required_argument,	NULL,	0	},
@@ -406,11 +407,12 @@ prompt(EditLine *el)
 int
 main(int argc, char * const argv[])
 {
+	const char *		advisoryInterface	= NULL;
 #if	!TARGET_OS_IPHONE
 	Boolean			allowNewInterfaces	= FALSE;
 #endif	// !TARGET_OS_IPHONE
+	Boolean			configuration		= FALSE;
 	Boolean			disableUntilNeeded	= FALSE;
-	const char *		advisoryInterface	= NULL;
 	Boolean			doAdvisory		= FALSE;
 	Boolean			doDNS			= FALSE;
 	Boolean			doNet			= FALSE;
@@ -468,7 +470,10 @@ main(int argc, char * const argv[])
 			watch = TRUE;
 			break;
 		case 0:
-			if        (strcmp(longopts[opti].name, "dns") == 0) {
+			if        (strcmp(longopts[opti].name, "configuration") == 0) {
+				configuration = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "dns") == 0) {
 				doDNS = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "error") == 0) {
@@ -536,6 +541,12 @@ main(int argc, char * const argv[])
 	if (xStore > 1) {
 		// if we are attempting to process more than one type of request
 		usage(prog);
+	}
+
+	/* are we asking for a configuration summary */
+	if (configuration) {
+		do_configuration(argc, (char **)argv);
+		/* NOT REACHED */
 	}
 
 	/* are we checking (or watching) the reachability of a host/address */

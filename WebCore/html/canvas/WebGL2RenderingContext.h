@@ -120,8 +120,8 @@ public:
     // Must override the WebGL 1.0 signature in order to add extra validation.
     void compressedTexSubImage2D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLsizei width, GCGLsizei height, GCGLenum format, ArrayBufferView& srcData);
     // WebGL 2.0 entry points:
-    void compressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, GLintptr offset);
-    void compressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, ArrayBufferView& srcData, GLuint srcOffset, GLuint srcLengthOverride);
+    void compressedTexSubImage2D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLsizei imageSize, GCGLintptr offset);
+    void compressedTexSubImage2D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLsizei width, GCGLsizei height, GCGLenum format, ArrayBufferView& srcData, GCGLuint srcOffset, GCGLuint srcLengthOverride);
 
     void compressedTexSubImage3D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, GCGLsizei width, GCGLsizei height, GCGLsizei depth, GCGLenum format, GCGLsizei imageSize, GCGLint64 offset);
     void compressedTexSubImage3D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, GCGLsizei width, GCGLsizei height, GCGLsizei depth, GCGLenum format, ArrayBufferView& srcData, GCGLuint srcOffset, GCGLuint srcLengthOverride);
@@ -156,26 +156,26 @@ public:
     using WebGLRenderingContextBase::uniform2fv;
     using WebGLRenderingContextBase::uniform3fv;
     using WebGLRenderingContextBase::uniform4fv;
-    void uniform1fv(WebGLUniformLocation* location, Float32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform2fv(WebGLUniformLocation* location, Float32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform3fv(WebGLUniformLocation* location, Float32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform4fv(WebGLUniformLocation* location, Float32List data, GLuint srcOffset, GLuint srcLength);
+    void uniform1fv(WebGLUniformLocation*, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform2fv(WebGLUniformLocation*, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform3fv(WebGLUniformLocation*, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform4fv(WebGLUniformLocation*, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
 
     using WebGLRenderingContextBase::uniform1iv;
     using WebGLRenderingContextBase::uniform2iv;
     using WebGLRenderingContextBase::uniform3iv;
     using WebGLRenderingContextBase::uniform4iv;
-    void uniform1iv(WebGLUniformLocation* location, Int32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform2iv(WebGLUniformLocation* location, Int32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform3iv(WebGLUniformLocation* location, Int32List data, GLuint srcOffset, GLuint srcLength);
-    void uniform4iv(WebGLUniformLocation* location, Int32List data, GLuint srcOffset, GLuint srcLength);
+    void uniform1iv(WebGLUniformLocation*, Int32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform2iv(WebGLUniformLocation*, Int32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform3iv(WebGLUniformLocation*, Int32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniform4iv(WebGLUniformLocation*, Int32List data, GCGLuint srcOffset, GCGLuint srcLength);
 
     using WebGLRenderingContextBase::uniformMatrix2fv;
     using WebGLRenderingContextBase::uniformMatrix3fv;
     using WebGLRenderingContextBase::uniformMatrix4fv;
-    void uniformMatrix2fv(WebGLUniformLocation* location, GLboolean transpose, Float32List data, GLuint srcOffset, GLuint srcLength);
-    void uniformMatrix3fv(WebGLUniformLocation* location, GLboolean transpose, Float32List data, GLuint srcOffset, GLuint srcLength);
-    void uniformMatrix4fv(WebGLUniformLocation* location, GLboolean transpose, Float32List data, GLuint srcOffset, GLuint srcLength);
+    void uniformMatrix2fv(WebGLUniformLocation*, GCGLboolean transpose, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniformMatrix3fv(WebGLUniformLocation*, GCGLboolean transpose, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
+    void uniformMatrix4fv(WebGLUniformLocation*, GCGLboolean transpose, Float32List data, GCGLuint srcOffset, GCGLuint srcLength);
 
     // Writing to the drawing buffer
     void vertexAttribDivisor(GCGLuint index, GCGLuint divisor);
@@ -251,8 +251,8 @@ public:
 
     // Must override the WebGL 1.0 signature in order to add extra validation.
     void readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, ArrayBufferView& pixels) override;
-    void readPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLintptr offset);
-    void readPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, ArrayBufferView& dstData, GLuint dstOffset);
+    void readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLintptr offset);
+    void readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, ArrayBufferView& dstData, GCGLuint dstOffset);
 
     GCGLuint maxTransformFeedbackSeparateAttribs() const;
 
@@ -307,7 +307,7 @@ private:
     void initializeShaderExtensions();
     bool setIndexedBufferBinding(const char *functionName, GCGLenum target, GCGLuint index, WebGLBuffer*);
 
-    IntRect getTextureSourceSubRectangle(GLsizei width, GLsizei height);
+    IntRect getTextureSourceSubRectangle(GCGLsizei width, GCGLsizei height);
 
     RefPtr<WebGLTexture> validateTexImageBinding(const char*, TexImageFunctionID, GCGLenum) final;
 
@@ -316,7 +316,7 @@ private:
     // null. Otherwise, return the texture bound to the target.
     RefPtr<WebGLTexture> validateTexture3DBinding(const char* functionName, GCGLenum target);
 
-    bool validateTexFuncLayer(const char*, GLenum texTarget, GLint layer);
+    bool validateTexFuncLayer(const char*, GCGLenum texTarget, GCGLint layer);
     GCGLint maxTextureLevelForTarget(GCGLenum target) final;
 
 #if !USE(ANGLE)

@@ -84,6 +84,7 @@ NSString* const OctagonAnalyticsKeychainSyncProvisioned = @"OADCKCSProvisioned";
 NSString* const OctagonAnalyticsKeychainSyncEnabled = @"OADCKCSEnabled";
 NSString* const OctagonAnalyticsCloudKitProvisioned = @"OADCCKProvisioned";
 NSString* const OctagonAnalyticsCloudKitEnabled = @"OADCCKEnabled";
+NSString* const OctagonAnalyticsSecureBackupTermsAccepted = @"OASecureBackupTermsAccepted";
 
 static NSString* const CKKSAnalyticsAttributeRecoverableError = @"recoverableError";
 static NSString* const CKKSAnalyticsAttributeZoneName = @"zone";

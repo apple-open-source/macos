@@ -56,16 +56,18 @@ namespace WebCore {
 
 class AudioSampleBufferCompressor;
 class AudioStreamDescription;
+class MediaSample;
 class MediaStreamTrackPrivate;
 class PlatformAudioData;
 class VideoSampleBufferCompressor;
+struct MediaRecorderPrivateOptions;
 
 class WEBCORE_EXPORT MediaRecorderPrivateWriter : public ThreadSafeRefCounted<MediaRecorderPrivateWriter, WTF::DestructionThread::Main>, public CanMakeWeakPtr<MediaRecorderPrivateWriter, WeakPtrFactoryInitialization::Eager> {
 public:
-    static RefPtr<MediaRecorderPrivateWriter> create(bool hasAudio, bool hasVideo);
+    static RefPtr<MediaRecorderPrivateWriter> create(bool hasAudio, bool hasVideo, const MediaRecorderPrivateOptions&);
     ~MediaRecorderPrivateWriter();
 
-    void appendVideoSampleBuffer(CMSampleBufferRef);
+    void appendVideoSampleBuffer(MediaSample&);
     void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t);
     void stopRecording();
     void fetchData(CompletionHandler<void(RefPtr<SharedBuffer>&&)>&&);
@@ -73,11 +75,14 @@ public:
     void appendData(const char*, size_t);
     void appendData(Ref<SharedBuffer>&&);
 
+    const String& mimeType() const;
+
 private:
     MediaRecorderPrivateWriter(bool hasAudio, bool hasVideo);
     void clear();
 
     bool initialize();
+    void setOptions(const MediaRecorderPrivateOptions&);
 
     static void compressedVideoOutputBufferCallback(void*, CMBufferQueueTriggerToken);
     static void compressedAudioOutputBufferCallback(void*, CMBufferQueueTriggerToken);
@@ -127,6 +132,10 @@ private:
 
     bool m_isFlushingSamples { false };
     bool m_shouldStopAfterFlushingSamples { false };
+    bool m_firstVideoFrame { false };
+    Optional<CGAffineTransform> m_videoTransform;
+    CMTime m_firstVideoSampleTime { kCMTimeZero };
+    CMTime m_currentAudioSampleTime { kCMTimeZero };
 };
 
 } // namespace WebCore

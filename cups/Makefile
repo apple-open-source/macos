@@ -25,7 +25,7 @@ CUPS_StaticLibrary=YES
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-494" \
+		  --with-cups-build="cups-494.1" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
@@ -102,6 +102,7 @@ install-all: configure
 # Install the libraries and headers.
 install-libs: configure
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) install-headers install-libs
+	$(_v) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/usb-darwin.entitlements $(DSTROOT)/usr/libexec/cups/backend/usb
 
 
 # The plist keeps track of the open source version we ship...

@@ -41,9 +41,9 @@
 namespace WebKit {
 using namespace WebCore;
 
-std::unique_ptr<RemoteMediaRecorder> RemoteMediaRecorder::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, MediaRecorderIdentifier identifier, bool recordAudio, bool recordVideo)
+std::unique_ptr<RemoteMediaRecorder> RemoteMediaRecorder::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, MediaRecorderIdentifier identifier, bool recordAudio, bool recordVideo, const MediaRecorderPrivateOptions& options)
 {
-    auto writer = MediaRecorderPrivateWriter::create(recordAudio, recordVideo);
+    auto writer = MediaRecorderPrivateWriter::create(recordAudio, recordVideo, options);
     if (!writer)
         return nullptr;
     return std::unique_ptr<RemoteMediaRecorder>(new RemoteMediaRecorder { gpuConnectionToWebProcess, identifier, writer.releaseNonNull(), recordAudio });
@@ -118,15 +118,14 @@ void RemoteMediaRecorder::videoSampleAvailable(WebCore::RemoteVideoSample&& remo
         return;
     }
 
-    m_writer->appendVideoSampleBuffer(sampleBuffer->platformSample().sample.cmSampleBuffer);
+    m_writer->appendVideoSampleBuffer(*sampleBuffer);
 }
 
-void RemoteMediaRecorder::fetchData(CompletionHandler<void(IPC::DataReference&&, const String& mimeType)>&& completionHandler)
+void RemoteMediaRecorder::fetchData(CompletionHandler<void(IPC::DataReference&&)>&& completionHandler)
 {
-    static NeverDestroyed<const String> mp4MimeType(MAKE_STATIC_STRING_IMPL("video/mp4"));
-    m_writer->fetchData([&mp4MimeType = mp4MimeType.get(), completionHandler = WTFMove(completionHandler)](auto&& data) mutable {
+    m_writer->fetchData([completionHandler = WTFMove(completionHandler)](auto&& data) mutable {
         auto* pointer = reinterpret_cast<const uint8_t*>(data ? data->data() : nullptr);
-        completionHandler(IPC::DataReference { pointer, data ? data->size() : 0 }, mp4MimeType);
+        completionHandler(IPC::DataReference { pointer, data ? data->size() : 0 });
     });
 }
 
@@ -136,5 +135,7 @@ void RemoteMediaRecorder::stopRecording()
 }
 
 }
+
+#undef MESSAGE_CHECK
 
 #endif // PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)

@@ -10,6 +10,13 @@
 .Op Fl -
 .Op Ar kext
 .Li \&.\|.\|.
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated.
+Please use the
+.Xr kmutil 8
+equivalents: kmutil load, or kmutil print-diagnostics.
 .Sh DESCRIPTION
 The
 .Nm
@@ -616,6 +623,8 @@ Many single-letter options are inconsistent in meaning
 with (or directly contradictory to) the same letter options
 in other kext tools.
 .Sh SEE ALSO 
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

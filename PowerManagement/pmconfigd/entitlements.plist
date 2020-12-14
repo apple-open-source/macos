@@ -22,5 +22,7 @@
     <true/>
 	<key>com.apple.private.iokit.system-nvram-allow</key>
 	<true/>
+	<key>com.apple.private.security.bootpolicy</key>
+	<true/>
 </dict>
 </plist>

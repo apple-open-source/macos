@@ -823,18 +823,21 @@ uint32_t sAttributesForSides[] = {
     return alternateLocalization;
 }
 
-- (NSString *)engineStrengthForTime:(int)time
-{
+- (NSString *)engineStrengthForTime:(int)time {
     switch (time) {
-        case -3:
+        case 1:
             return NSLocalizedString(@"fixed_depth_mode", @"Computer thinks 1 move ahead");
-        case -2:
-        case -1:
-            return [NSString localizedStringWithFormat:NSLocalizedString(@"fixed_depths_mode", @"Computer thinks %d moves ahead"), 4+time];
-        case 0:
+            break;
+        case 2:
+        case 3:
+            return [NSString localizedStringWithFormat:NSLocalizedString(@"fixed_depths_mode", @"Computer thinks %d moves ahead"), time];
+            break;
+        case 4:
             return NSLocalizedString(@"fixed_time_mode", @"Computer thinks 1 second per move");
+            break;
         default:
             return [NSString localizedStringWithFormat:NSLocalizedString(@"fixed_times_mode", @"Computer thinks %d seconds per move"), [MBCEngine secondsForTime:time]];
+            break;
     }
 }
 

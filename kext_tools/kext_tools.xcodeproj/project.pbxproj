@@ -19,7 +19,6 @@
 				24B79F2A125A6556009FF51B /* PBXTargetDependency */,
 				050972FE094910D30034B52C /* PBXTargetDependency */,
 				4C980EBB22B419C300C30272 /* PBXTargetDependency */,
-				05097300094910D30034B52C /* PBXTargetDependency */,
 				05762B1D09D0C71C00EC18C1 /* PBXTargetDependency */,
 				24EE72D409EC994F008CF6B0 /* PBXTargetDependency */,
 				24C4E57E0DD3EC8500A70AB5 /* PBXTargetDependency */,
@@ -499,13 +498,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 0509726C094910D30034B52C;
 			remoteInfo = "kextcache (Upgraded)";
-		};
-		050972FF094910D30034B52C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 05097284094910D30034B52C;
-			remoteInfo = "kextd (Upgraded)";
 		};
 		05097303094910D30034B52C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2801,11 +2793,6 @@
 			isa = PBXTargetDependency;
 			target = 0509726C094910D30034B52C /* kextcache */;
 			targetProxy = 050972FD094910D30034B52C /* PBXContainerItemProxy */;
-		};
-		05097300094910D30034B52C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 05097284094910D30034B52C /* kextd */;
-			targetProxy = 050972FF094910D30034B52C /* PBXContainerItemProxy */;
 		};
 		05097304094910D30034B52C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

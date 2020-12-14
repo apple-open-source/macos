@@ -1591,38 +1591,25 @@ restart:
    
    /* allocate our time for this move: */
 
-   if (!is_pondering)
-     {
-       if (!fixed_time)
-	 {
-	   if (go_fast)
-	     {
-	       tmptmp = allocate_time();
-	       
-	       if (tmptmp > 40)
-	       {
-		 time_for_move = 40;
-	       }
-	       else
-	       {
-		 time_for_move = tmptmp;
-	       }
-	     }
-	   else
-	     {
-	       time_for_move = allocate_time ();
-	     }	
-	 }
-       else
-	 {
-	   time_for_move = fixed_time;
-	 }
-     }
-   else
-     {
-	/* Pondering is pretty audible on newer macs and has limited benefits, so limit to level time */
-       time_for_move = fixed_time ? fixed_time : 999999;
-     };
+   if (!is_pondering) {
+       if (!fixed_time) {
+           if (go_fast) {
+               tmptmp = allocate_time();
+               if (tmptmp > 40) {
+                   time_for_move = 40;
+               } else {
+                   time_for_move = tmptmp;
+               }
+           } else {
+               time_for_move = allocate_time ();
+           }
+       } else {
+           time_for_move = fixed_time;
+       }
+   } else {
+       // If we're not thinking about a move and we don't have a fixed time, we should default to the allocate_time() which will return a time_for_move that will match the player speed
+       time_for_move = fixed_time ? fixed_time : allocate_time();
+   }
 
    if (pn_restart) time_for_move = (float)time_for_move * (float)2/((float)pn_restart+1.0f);
    

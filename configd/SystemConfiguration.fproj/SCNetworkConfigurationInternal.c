@@ -36,6 +36,10 @@
 #include <net/if.h>
 
 
+#pragma mark -
+#pragma mark SCNetworkConfiguration logging
+
+
 __private_extern__ os_log_t
 __log_SCNetworkConfiguration(void)
 {
@@ -47,6 +51,211 @@ __log_SCNetworkConfiguration(void)
 
 	return log;
 }
+
+
+static void
+logConfiguration_NetworkInterfaces(int level, const char *description, SCPreferencesRef prefs)
+{
+	CFArrayRef	interfaces;
+
+	interfaces = SCPreferencesGetValue(prefs, INTERFACES);
+	if (isA_CFArray(interfaces)) {
+		CFStringRef	model	= SCPreferencesGetValue(prefs, MODEL);
+		CFIndex		n	= CFArrayGetCount(interfaces);
+
+		SC_log(level, "%s%sinterfaces (%@)",
+		       description != NULL ? description : "",
+		       description != NULL ? " " : "",
+		       model != NULL ? model : CFSTR("No model"));
+
+		for (CFIndex i = 0; i < n; i++) {
+			CFStringRef	bsdName;
+			CFDictionaryRef	dict;
+			CFDictionaryRef	info;
+			CFStringRef	name;
+
+			dict = CFArrayGetValueAtIndex(interfaces, i);
+			if (!isA_CFDictionary(dict)) {
+				continue;
+			}
+
+			bsdName = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceBSDName));
+			if (!isA_CFString(bsdName)) {
+				continue;
+			}
+
+			info    = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceInfo));
+			name    = CFDictionaryGetValue(info, kSCPropUserDefinedName);
+			SC_log(level, "  %@ (%@)",
+			       bsdName,
+			       name != NULL ? name : CFSTR("???"));
+		}
+
+	}
+}
+
+static void
+logConfiguration_preferences(int level, const char *description, SCPreferencesRef prefs)
+{
+	CFStringRef		model	= SCPreferencesGetValue(prefs, MODEL);
+	CFIndex			n;
+	CFMutableArrayRef	orphans;
+	CFArrayRef		services;
+	CFArrayRef		sets;
+
+	SC_log(level, "%s%sconfiguration (%@)",
+	       description != NULL ? description : "",
+	       description != NULL ? " " : "",
+	       model != NULL ? model : CFSTR("No model"));
+
+	services = SCNetworkServiceCopyAll(prefs);
+	if (services != NULL) {
+		orphans = CFArrayCreateMutableCopy(NULL, 0, services);
+		CFRelease(services);
+	} else {
+		orphans = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+
+	sets = SCNetworkSetCopyAll(prefs);
+	if (sets != NULL) {
+		n = CFArrayGetCount(sets);
+		for (CFIndex i = 0; i < n; i++) {
+			SCNetworkSetRef	set;
+
+			set = CFArrayGetValueAtIndex(sets, i);
+			SC_log(level, "  Set %@ (%@)",
+			       SCNetworkSetGetSetID(set),
+			       SCNetworkSetGetName(set));
+
+			services = SCNetworkSetCopyServices(set);
+			if (services != NULL) {
+				CFIndex		n;
+				CFIndex		nOrder	= 0;
+				CFArrayRef	order;
+
+				order = SCNetworkSetGetServiceOrder(set);
+				if (order != NULL) {
+					nOrder = CFArrayGetCount(order);
+				}
+
+				n = CFArrayGetCount(services);
+				if (n > 1) {
+					CFMutableArrayRef	sorted;
+
+					sorted = CFArrayCreateMutableCopy(NULL, 0, services);
+					CFArraySortValues(sorted,
+							  CFRangeMake(0, CFArrayGetCount(sorted)),
+							  _SCNetworkServiceCompare,
+							  (void *)order);
+					CFRelease(services);
+					services = sorted;
+				}
+
+				for (CFIndex i = 0; i < n; i++) {
+					CFStringRef		bsdName;
+					SCNetworkInterfaceRef	interface;
+					CFIndex			o;
+					CFIndex			orderIndex	= kCFNotFound;
+					SCNetworkServiceRef	service;
+					CFStringRef		serviceName;
+					CFStringRef		serviceID;
+					CFStringRef		userDefinedName;
+
+					service     = CFArrayGetValueAtIndex(services, i);
+					serviceID   = SCNetworkServiceGetServiceID(service);
+					serviceName = SCNetworkServiceGetName(service);
+					if (serviceName == NULL) serviceName = CFSTR("");
+
+					interface       = SCNetworkServiceGetInterface(service);
+					bsdName         = SCNetworkInterfaceGetBSDName(interface);
+
+					userDefinedName = __SCNetworkInterfaceGetUserDefinedName(interface);
+					if (_SC_CFEqual(serviceName, userDefinedName)) {
+						userDefinedName = NULL;
+					}
+
+					if (order != NULL) {
+						orderIndex  = CFArrayGetFirstIndexOfValue(order,
+											  CFRangeMake(0, nOrder),
+											  serviceID);
+					}
+					if (orderIndex != kCFNotFound) {
+						SC_log(level, "    Service %2ld : %@, %2d (%@%s%@%s%@)",
+						       orderIndex + 1,
+						       serviceID,
+						       __SCNetworkInterfaceOrder(SCNetworkServiceGetInterface(service)),	// temp?
+						       serviceName,
+						       bsdName != NULL ? ", " : "",
+						       bsdName != NULL ? bsdName : CFSTR(""),
+						       userDefinedName != NULL ? " : " : "",
+						       userDefinedName != NULL ? userDefinedName : CFSTR(""));
+					} else {
+						SC_log(level, "    Service    : %@, %2d (%@%s%@%s%@)",
+						       serviceID,
+						       __SCNetworkInterfaceOrder(SCNetworkServiceGetInterface(service)),	// temp?
+						       serviceName,
+						       bsdName != NULL ? ", " : "",
+						       bsdName != NULL ? bsdName : CFSTR(""),
+						       userDefinedName != NULL ? " : " : "",
+						       userDefinedName != NULL ? userDefinedName : CFSTR(""));
+					}
+
+					o = CFArrayGetFirstIndexOfValue(orphans, CFRangeMake(0, CFArrayGetCount(orphans)), service);
+					if (o != kCFNotFound) {
+						CFArrayRemoveValueAtIndex(orphans, o);
+					}
+				}
+
+				CFRelease(services);
+			}
+		}
+
+		CFRelease(sets);
+	}
+
+	n = CFArrayGetCount(orphans);
+	if (n > 0) {
+		SC_log(level, "  Orphans");
+
+		for (CFIndex i = 0; i < n; i++) {
+			CFStringRef		bsdName;
+			SCNetworkInterfaceRef	interface;
+			SCNetworkServiceRef	service;
+			CFStringRef		serviceName;
+			CFStringRef		serviceID;
+
+			service     = CFArrayGetValueAtIndex(orphans, i);
+			serviceID   = SCNetworkServiceGetServiceID(service);
+			serviceName = SCNetworkServiceGetName(service);
+			if (serviceName == NULL) serviceName = CFSTR("");
+
+			interface   = SCNetworkServiceGetInterface(service);
+			bsdName     = SCNetworkInterfaceGetBSDName(interface);
+
+			SC_log(level, "    Service    : %@, %2d (%@%s%@)",
+			       serviceID,
+			       __SCNetworkInterfaceOrder(SCNetworkServiceGetInterface(service)),	// temp?
+			       serviceName,
+			       bsdName != NULL ? ", " : "",
+			       bsdName != NULL ? bsdName : CFSTR(""));
+		}
+	}
+	CFRelease(orphans);
+
+	return;
+}
+
+void
+__SCNetworkConfigurationReport(int level, const char *description, SCPreferencesRef prefs, SCPreferencesRef ni_prefs)
+{
+	logConfiguration_NetworkInterfaces(level, description, ni_prefs);
+	logConfiguration_preferences      (level, description, prefs);
+	return;
+}
+
+
+#pragma mark -
+#pragma mark Misc
 
 
 static Boolean

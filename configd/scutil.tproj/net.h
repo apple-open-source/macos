@@ -132,6 +132,8 @@ void		do_net_upgrade	(int argc, char **argv);
 
 void		do_net_snapshot	(int argc, char **argv);
 
+void		do_configuration(int argc, char **argv);
+
 __END_DECLS
 
 #endif /* !_NET_H */

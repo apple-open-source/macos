@@ -62,6 +62,7 @@
 #include <utilities/SecAKSWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecCoreAnalytics.h>
 #include <utilities/SecDb.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecXPCError.h>
@@ -1547,6 +1548,13 @@ static void securityd_xpc_init(const char *service_name)
         }
     });
 #endif
+
+    xpc_activity_register("com.apple.securityd.entropyhealth", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+        xpc_activity_state_t activityState = xpc_activity_get_state(activity);
+        if (activityState == XPC_ACTIVITY_STATE_RUN) {
+            SecCoreAnalyticsSendKernEntropyHealth();
+        }
+    });
 
     xpc_activity_register("com.apple.securityd.prng", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t state = xpc_activity_get_state(activity);

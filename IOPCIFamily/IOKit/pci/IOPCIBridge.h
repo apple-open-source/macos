@@ -290,8 +290,12 @@ protected:
     virtual IOPCIEventSource * createEventSource(IOPCIDevice * device,
 			OSObject * owner, IOPCIEventSource::Action action, uint32_t options);
 
+    OSMetaClassDeclareReservedUsed(IOPCIBridge,  6);
+    virtual UInt32 extendedFindPCICapability(struct IOPCIConfigEntry * entry,
+                                             UInt32 capabilityID,
+                                             IOByteCount * offset = NULL);
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  6);
+
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  7);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  8);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  9);

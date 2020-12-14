@@ -47,9 +47,18 @@ __FBSDID("$FreeBSD: src/bin/echo/echo.c,v 1.18 2005/01/10 08:39:22 imp Exp $");
 #include <string.h>
 #include <wchar.h>
 
-static char *
-print_one_char(char *cur, int *bytes_len_out)
+static void
+flush_and_exit(void)
 {
+	if (fflush(stdout) != 0)
+		err(1, "fflush");
+	exit(0);
+}
+
+static char *
+print_one_char(char *cur, int posix, int *bytes_len_out)
+{
+	char *next;
 	wchar_t wc;
 	int bytes_len = mbtowc(&wc, cur, MB_CUR_MAX);
 	if (bytes_len <= 0) {
@@ -58,13 +67,26 @@ print_one_char(char *cur, int *bytes_len_out)
 		goto out;
 	}
 
+	/* If this is not an escape sequence, just print the character */
 	if (wc != '\\') {
 		putwchar(wc);
 		goto out;
 	}
 
-	cur += bytes_len;
-	bytes_len = 1;
+	next = cur + bytes_len;
+
+	if (!posix) {
+		/* In non-POSIX mode, the only valid escape sequence is \c */
+		if (*next == 'c') {
+			flush_and_exit();
+		} else {
+			putchar(wc);
+			goto out;
+		}
+	} else {
+		cur = next;
+		bytes_len = 1;
+	}
 
 	switch (*cur) {
 		case 'a':
@@ -76,9 +98,7 @@ print_one_char(char *cur, int *bytes_len_out)
 			goto out;
 
 		case 'c':
-			if (fflush(stdout) != 0)
-				err(1, "fflush");
-			exit(0);
+			flush_and_exit();
 
 		case 'f':
 			putchar('\f');
@@ -146,7 +166,7 @@ main(int argc, char *argv[])
 			int bytes_len = 0;
 
 			for (const char *end = cur + arg_len; cur < end; cur += bytes_len) {
-				cur = print_one_char(cur, &bytes_len);
+				cur = print_one_char(cur, posix, &bytes_len);
 			}
 		}
 		if (last_arg && !nflag)

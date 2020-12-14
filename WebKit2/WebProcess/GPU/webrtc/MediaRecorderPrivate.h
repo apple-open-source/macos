@@ -50,7 +50,7 @@ class MediaRecorderPrivate final
     , public CanMakeWeakPtr<MediaRecorderPrivate> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit MediaRecorderPrivate(WebCore::MediaStreamPrivate&);
+    MediaRecorderPrivate(WebCore::MediaStreamPrivate&, const WebCore::MediaRecorderPrivateOptions&);
     ~MediaRecorderPrivate();
 
 private:
@@ -58,8 +58,9 @@ private:
     void videoSampleAvailable(WebCore::MediaSample&) final;
     void fetchData(CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&, const String& mimeType)>&&) final;
     void stopRecording() final;
-    void startRecording(ErrorCallback&&) final;
+    void startRecording(StartRecordingCallback&&) final;
     void audioSamplesAvailable(const WTF::MediaTime&, const WebCore::PlatformAudioData&, const WebCore::AudioStreamDescription&, size_t) final;
+    const String& mimeType() const final;
 
     // SharedRingBufferStorage::Client
     void storageChanged(SharedMemory*);
@@ -71,6 +72,8 @@ private:
     std::unique_ptr<WebCore::CARingBuffer> m_ringBuffer;
     WebCore::CAAudioStreamDescription m_description { };
     int64_t m_numberOfFrames { 0 };
+    WebCore::MediaRecorderPrivateOptions m_options;
+    bool m_hasVideo { false };
 };
 
 }

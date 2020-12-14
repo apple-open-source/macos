@@ -221,8 +221,6 @@ void DIAGNOSTIC_ValidateChainCache(NodeRecord_s* psNodeRecord)
     // Find the largest element in psLRUEntryToEvict[].
     TAILQ_FOREACH(psLookupEntry,
                   &psNodeRecord->sRecordData.psClusterChainList, psClusterChainCacheListEntry) {
-        MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: failed %llu, %llu", startOffset, psLookupEntry->uFileOffset);
-
         if (startOffset > psLookupEntry->uFileOffset) {
             MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: failed [%p], %llu > %llu", psNodeRecord, startOffset, psLookupEntry->uFileOffset);
             assert(0);
@@ -245,8 +243,6 @@ void DIAGNOSTIC_ValidateChainCache(NodeRecord_s* psNodeRecord)
 
         startOffset = psLookupEntry->uFileOffset;
     }
-    
-    MSDOS_LOG(LEVEL_ERROR, "validate_chain_cache_order %p good", psNodeRecord);
 }
 
 #endif //DIAGNOSTIC

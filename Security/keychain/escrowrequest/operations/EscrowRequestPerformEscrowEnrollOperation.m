@@ -83,6 +83,11 @@
     SecEscrowPendingRecord* record = nil;
 
     for(SecEscrowPendingRecord* existingRecord in records) {
+        if(existingRecord.uploadCompleted) {
+            secnotice("escrowrequest", "Skipping completed escrow request (%@)", existingRecord);
+            continue;
+        }
+
         if(self.enforceRateLimiting && [existingRecord escrowAttemptedWithinLastSeconds:5*60]) {
             secnotice("escrowrequest", "Skipping pending escrow request (%@); it's rate limited", existingRecord);
             continue;

@@ -212,7 +212,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		if ([authAttributes containsObject:@(kDSTagAuthAuthorityLocalCachedUser)] &&
 			CP_SupportsBootstrapToken()) {
 			/* Get token + authenticate. */
-			NSString *token = CP_GetBootstrapToken(NULL);
+			NSString *token = CP_GetBootstrapTokenWithOptions(@{ @"NetworkTimeout" : @20 }, NULL);
 			if (token != NULL && token.length > 0) {
 				if (ODRecordSetNodeCredentialsWithBootstrapToken(cfRecord, (CFStringRef) token, &odErr)) {
 					openpam_log(PAM_LOG_NOTICE, "%s - Authenticated with bootstrap token.", PM_DISPLAY_NAME);

@@ -164,6 +164,7 @@ extension TLKShare {
 }
 
 class FakeCuttlefishServer: CuttlefishAPIAsync {
+    
     struct State {
         var peersByID: [String: Peer] = [:]
         var recoverySigningPubKey: Data?
@@ -205,7 +206,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     var returnRepairErrorResponse: Error?
     var fetchChangesCalledCount: Int = 0
     var fetchChangesReturnEmptyResponse: Bool = false
-
+        
     var fetchViableBottlesEscrowRecordCacheTimeout: TimeInterval = 2.0
 
     var nextEstablishReturnsMoreChanges: Bool = false
@@ -705,7 +706,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     func fetchViableBottles(_ request: FetchViableBottlesRequest, completion: @escaping (FetchViableBottlesResponse?, Error?) -> Void) {
         print("FakeCuttlefish: fetchViableBottles called")
-
+        
         if let fetchViableBottlesListener = self.fetchViableBottlesListener {
             let possibleError = fetchViableBottlesListener(request)
             guard possibleError == nil else {
@@ -845,6 +846,13 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     func fetchSosiCloudIdentity(_: FetchSOSiCloudIdentityRequest, completion: @escaping (FetchSOSiCloudIdentityResponse?, Error?) -> Void) {
         completion(FetchSOSiCloudIdentityResponse(), nil)
+    }
+    
+    func addCustodianRecoveryKey(_: AddCustodianRecoveryKeyRequest, completion: @escaping (AddCustodianRecoveryKeyResponse?, Error?) -> Void) {
+        completion(AddCustodianRecoveryKeyResponse(), nil)
+    }
+    func resetAccountCdpcontents(_: ResetAccountCDPContentsRequest, completion: @escaping (ResetAccountCDPContentsResponse?, Error?) -> Void) {
+        completion(ResetAccountCDPContentsResponse(), nil)
     }
 }
 

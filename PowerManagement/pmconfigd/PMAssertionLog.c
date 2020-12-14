@@ -37,6 +37,13 @@
 
 #define PERIODIC_LOG_INTERVAL                  (15*60)  // 15min
 
+#if __has_include (<CoreAnalytics/CoreAnalytics.h>)
+#include <CoreAnalytics/CoreAnalytics.h>
+#define HAS_COREANALYTICS 1
+#else
+#define HAS_COREANALYTICS 0
+#endif
+
 #define AA_MAX_ENTRIES             64
 
 extern os_log_t    assertions_log;
@@ -65,10 +72,24 @@ typedef struct {
 assertionActivity_t     activity;
 assertionAggregate_t    aggregate;
 static  uint32_t        gActivityLogCnt = 0;  // Has to be explicity enabled on OSX
-
+uint64_t gNumAssertions = 0;
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 __private_extern__ bool isDisplayAsleep(void);
+
+
+void logAssertionCount(bool displayOn)
+{
+#if HAS_COREANALYTICS
+    analytics_send_event_lazy("com.apple.powerd.assertioncount", ^xpc_object_t(void) {
+        xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_bool(dict, "DisplayOn", displayOn);
+        xpc_dictionary_set_uint64(dict, "NumAssertions", gNumAssertions);
+        gNumAssertions = 0;
+        return dict;
+    });
+#endif
+}
 
 static void logAssertionActivity(assertLogAction  action,
                                  assertion_t     *assertion)
@@ -90,6 +111,7 @@ static void logAssertionActivity(assertLogAction  action,
     case kACreateLog:
         logBT = true;
         actionStr = CFSTR(kPMASLAssertionActionCreate);
+        gNumAssertions++;
         break;
 
     case kACreateRetain:

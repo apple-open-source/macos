@@ -217,7 +217,7 @@ OSMetaClassDefineReservedUsed(IOPCIBridge, 2);
 OSMetaClassDefineReservedUsed(IOPCIBridge, 3);
 OSMetaClassDefineReservedUsed(IOPCIBridge, 4);
 OSMetaClassDefineReservedUsed(IOPCIBridge, 5);
-OSMetaClassDefineReservedUnused(IOPCIBridge,  6);
+OSMetaClassDefineReservedUsed(IOPCIBridge,  6);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  7);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  8);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  9);
@@ -3074,6 +3074,22 @@ UInt32 IOPCIBridge::extendedFindPCICapability( IOPCIAddressSpace space,
 		*found = firstOffset;
 
 	return ((UInt32) result);
+}
+
+UInt32 IOPCIBridge::extendedFindPCICapability(struct IOPCIConfigEntry * entry,
+                                              UInt32 capabilityID,
+                                              IOByteCount * offset)
+{
+    uint32_t result;
+    uint32_t firstOffset = 0;
+
+    if (offset)
+        firstOffset = static_cast<uint32_t>(*offset);
+    result = gIOPCIConfigurator->findPCICapability(entry, capabilityID, &firstOffset);
+    if (offset)
+        *offset = firstOffset;
+
+    return ((UInt32) result);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

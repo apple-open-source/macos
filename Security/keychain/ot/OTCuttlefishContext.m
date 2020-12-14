@@ -2889,6 +2889,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchUserControllableViewsSyncingStatus:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply
 {
+    if ([self checkForCKAccount:nil] != CKKSAccountStatusAvailable) {
+        secnotice("octagon-ckks", "No cloudkit account present");
+        reply(NO, [self errorNoiCloudAccount]);
+        return;
+    }
+    
     if(self.viewManager.policy) {
         BOOL syncing = self.viewManager.policy.syncUserControllableViewsAsBoolean;
 

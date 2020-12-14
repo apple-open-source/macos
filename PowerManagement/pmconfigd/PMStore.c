@@ -43,10 +43,9 @@ void PMStoreLoad()
     if (gSCDynamicStore) {
         SCDynamicStoreSetDispatchQueue(gSCDynamicStore, _getPMMainQueue());
     }
-    
+
     SCDynamicStoreSetDisconnectCallBack(gSCDynamicStore, PMDynamicStoreDisconnectCallBack);
 }
-                
 
 bool PMStoreSetValue(CFStringRef key, CFTypeRef value)
 {
@@ -55,24 +54,28 @@ bool PMStoreSetValue(CFStringRef key, CFTypeRef value)
     if (!key || !value || !gPMStore)
         return false;
 
+    if (!isA_CFString(key)) {
+        return false;
+    }
+
     lastValue = CFDictionaryGetValue(gPMStore, key);
-    
+
     if (lastValue && CFEqual(lastValue, value)) {
         return true;
     }
-    
+
     CFDictionarySetValue(gPMStore, key, value);
     return SCDynamicStoreSetValue(gSCDynamicStore, key, value);
 }
 
 bool PMStoreRemoveValue(CFStringRef key)
 {
-    if (key) {
-        CFDictionaryRemoveValue(gPMStore, key);
-        return SCDynamicStoreRemoveValue(gSCDynamicStore, key);
+    if (!key || !isA_CFString(key)) {
+        return false;
     }
-    
-    return false;
+
+    CFDictionaryRemoveValue(gPMStore, key);
+    return SCDynamicStoreRemoveValue(gSCDynamicStore, key);
 }
 
 static void PMDynamicStoreDisconnectCallBack(
@@ -80,6 +83,6 @@ static void PMDynamicStoreDisconnectCallBack(
     void                        *info __unused)
 {
     assert (store == gSCDynamicStore);
-    
+
     SCDynamicStoreSetMultiple(gSCDynamicStore, gPMStore, NULL, NULL);
 }

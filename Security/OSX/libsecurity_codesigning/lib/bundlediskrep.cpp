@@ -24,6 +24,7 @@
 #include "filediskrep.h"
 #include "dirscanner.h"
 #include "notarization.h"
+#include "csutilities.h"
 #include <CoreFoundation/CFBundlePriv.h>
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
@@ -728,7 +729,7 @@ void BundleDiskRep::strictValidateStructure(const CodeDirectory* cd, const Toler
 {
 	// scan our metadirectory (_CodeSignature) for unwanted guests
 	if (!(flags & kSecCSQuickCheck))
-		validateMetaDirectory(cd);
+		validateMetaDirectory(cd, flags);
 	
 	// check accumulated strict errors and report them
 	if (!(flags & kSecCSRestrictSidebandData))	// tolerate resource forks etc.
@@ -752,7 +753,7 @@ void BundleDiskRep::recordStrictError(OSStatus error)
 }
 
 
-void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd)
+void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd, SecCSFlags flags)
 {
 	// we know the resource directory will be checked after this call, so we'll give it a pass here
 	if (cd->slotIsPresent(-cdResourceDirSlot))
@@ -771,6 +772,12 @@ void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd)
 			break;
 		}
 	}
+
+	bool shouldSkipXattrFiles = false;
+	if ((flags & kSecCSSkipXattrFiles) && pathFileSystemUsesXattrFiles(mMetaPath.c_str())) {
+		shouldSkipXattrFiles = true;
+	}
+
 	DirScanner scan(mMetaPath);
 	if (scan.initialized()) {
 		while (struct dirent* ent = scan.getNext()) {
@@ -782,6 +789,9 @@ void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd)
 					AutoFileDesc fd(metaPath(kSecCS_SIGNATUREFILE));
 					if (fd.fileSize() == 0)
 						continue;	// that's okay, then
+				} else if (shouldSkipXattrFiles && pathIsValidXattrFile(mMetaPath + "/" + ent->d_name, "bundlediskrep")) {
+					secinfo("bundlediskrep", "meta directory validation on xattr file skipped: %s", ent->d_name);
+					continue;
 				}
 				// not on list of needed files; it's a freeloading rogue!
 				recordStrictError(errSecCSUnsealedAppRoot);	// funnel through strict set so GKOpaque can override it

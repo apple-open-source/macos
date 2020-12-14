@@ -247,6 +247,7 @@ OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 #define _sensorProperty                 _reserved->sensorProperty
 #define _orientation                    _reserved->orientation
 #define _phase                          _reserved->phase
+#define _proximity                      _reserved->proximity
 #define _workLoop                       _reserved->workLoop
 #define _commandGate                    _reserved->commandGate
 
@@ -311,6 +312,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_sensorProperty.sniffControl);
     OSSafeReleaseNULL(_orientation.cmElements);
     OSSafeReleaseNULL(_orientation.tiltElements);
+    OSSafeReleaseNULL(_proximity.elements);
 
     if (_commandGate) {
         if ( _workLoop ) {
@@ -606,6 +608,7 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
                 parseRelativeElement(element) ||
                 parseScrollElement(element) ||
                 parseLEDElement(element) ||
+                parseProximityElement(element) ||
                 parseKeyboardElement(element) ||
                 parseUnicodeElement(element) ||
                 parseBiometricElement(element) ||
@@ -2893,7 +2896,38 @@ exit:
     return store;
 }
 
+bool IOHIDEventDriver::parseProximityElement(IOHIDElement *element) {
+    UInt32 usagePage    = element->getUsagePage();
+    UInt32 usage        = element->getUsage();
+    bool   store        = false;
 
+    require(usage <= kHIDUsage_MaxUsage, exit);
+    switch (usagePage) {
+        case kHIDPage_Consumer:
+            switch (usage) {
+                case kHIDUsage_Csmr_Proximity:
+                    store = true;
+                    break;
+
+                default:
+                    break;
+            }
+        default:
+            break;
+    }
+
+    require(store, exit);
+
+    if (!_proximity.elements) {
+        _proximity.elements = OSArray::withCapacity(1);
+        require(_proximity.elements, exit);
+    }
+
+    _proximity.elements->setObject(element);
+
+exit:
+    return store;
+}
 
 //====================================================================================================
 // IOHIDEventDriver::checkGameControllerElement
@@ -3080,6 +3114,7 @@ void IOHIDEventDriver::handleInterruptReport (
     handleCompassReport (timeStamp, reportID);
     handleTemperatureReport (timeStamp, reportID);
     handleDeviceOrientationReport (timeStamp, reportID);
+    handleProximityReport(timeStamp, reportID);
 
     handleVendorMessageReport(timeStamp, report, reportID, kIOHandlePrimaryVendorMessageReport);
 
@@ -4855,6 +4890,35 @@ void IOHIDEventDriver::handlePhaseReport(AbsoluteTime timeStamp, UInt32 reportID
                     break;
             }
         }
+    }
+
+exit:
+    return;
+}
+
+void IOHIDEventDriver::handleProximityReport(AbsoluteTime timeStamp, UInt32 reportID)
+{
+    UInt32 index;
+    UInt32 count;
+    require_quiet(_proximity.elements, exit);
+
+    for (index = 0, count = _proximity.elements->getCount(); index < count; ++index) {
+        IOHIDElement *element = OSDynamicCast(IOHIDElement, _proximity.elements->getObject(index));
+
+        UInt32 preValue = element->getValue(kIOHIDValueOptionsFlagPrevious);
+        UInt32 value = element->getValue();
+
+        if (reportID != element->getReportID()) {
+            continue;
+        }
+
+        if (value == preValue) {
+            continue;
+        }
+
+        IOHIDEvent * proxEvent = IOHIDEvent::proximityEvent(timeStamp, value != 0 ? kIOHIDProximityDetectionLargeBodyContact : 0, value, 0);
+        dispatchEvent(proxEvent);
+        proxEvent->release();
     }
 
 exit:

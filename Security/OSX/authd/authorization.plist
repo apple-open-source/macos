@@ -1775,6 +1775,17 @@ See remaining rules for examples.
             <key>shared</key>
             <false/>
         </dict>
+        <key>com.apple.system-migration.launch-password</key>
+        <dict>
+            <key>comment</key>
+            <string>Used by Migration Assistant.</string>
+            <key>class</key>
+            <string>rule</string>
+            <key>rule</key>
+            <string>authenticate-admin-nonshared-password</string>
+            <key>shared</key>
+            <false/>
+        </dict>
         <key>com.apple.system-migration.cleanup</key>
         <dict>
             <key>comment</key>
@@ -1879,6 +1890,21 @@ See remaining rules for examples.
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
+        <key>authenticate-admin-nonshared-password</key>
+        <dict>
+            <key>class</key>
+            <string>user</string>
+            <key>comment</key>
+            <string>Authenticate as an administrator with the password.</string>
+            <key>group</key>
+            <string>admin</string>
+            <key>password-only</key>
+            <true/>
+            <key>timeout</key>
+            <integer>30</integer>
+            <key>version</key>
+            <integer>1</integer>
+        </dict>
         <key>_mbsetupuser-nonshared</key>
         <dict>
             <key>class</key>

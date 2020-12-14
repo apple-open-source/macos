@@ -228,6 +228,24 @@ private:
 // Check if the path is on the root filesystem, protected by the OS.
 bool isOnRootFilesystem(const char *path);
 
+// Check if a path exists.
+bool pathExists(const char *path);
+
+// Check if the path name represents an extended attribute file (on file systems which don't support
+// them natively).
+bool pathMatchesXattrFilenameSpec(const char *path);
+
+// Check if path is a regular file.
+bool pathIsRegularFile(const char *path);
+
+// Check if a path has any extended attributes.
+bool pathHasXattrs(const char *path);
+
+// Check if the path is on a file system that requires files to store extended attributes.
+bool pathFileSystemUsesXattrFiles(const char *path);
+
+// Check if path is a valid extended attribute file.
+bool pathIsValidXattrFile(const string fullPath, const char *scope = "csutilities");
 
 } // end namespace CodeSigning
 } // end namespace Security

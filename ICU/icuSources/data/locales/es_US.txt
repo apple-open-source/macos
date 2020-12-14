@@ -302,7 +302,7 @@ es_US{
             dayPeriod{
                 format{
                     narrow{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"mañana"}
                         night1{"de la noche"}

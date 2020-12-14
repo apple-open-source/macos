@@ -2087,6 +2087,7 @@ _OBJC_CLASS_$_SFAnalyticsSQLiteStore
 _OBJC_CLASS_$_SecCoreAnalytics
 _SecCoreAnalyticsValue
 _SecCoreAnalyticsSendValue
+_SecCoreAnalyticsSendKernEntropyHealth
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
 _SFAnalyticsSamplerIntervalOncePerReport

@@ -1116,6 +1116,22 @@
 			<key>TestName</key>
 			<string>TestHIDNullElement</string>
 		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDProximityEvent.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDProximityEvent&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDProximityEvent</string>
+		</dict>
 	</array>
 </dict>
 </plist>

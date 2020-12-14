@@ -14,5 +14,6 @@ int     ZeroFill_Init       ( void );
 void    ZeroFill_DeInit     ( void );
 int     ZeroFill_Fill       ( int iFd, uint64_t uOffset, uint32_t uLength );
 
+int ZeroFill_FillClusterSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset);
 
 #endif /* ZeroFill_h */

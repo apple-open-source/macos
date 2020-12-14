@@ -78,6 +78,9 @@
 
 #import <CoreCDP/CDPFollowUpController.h>
 
+#import <SoftLinking/SoftLinking.h>
+#import <CloudServices/SecureBackup.h>
+
 #import "keychain/TrustedPeersHelper/TPHObjcTranslation.h"
 #import "keychain/SecureObjectSync/SOSAccountTransaction.h"
 #pragma clang diagnostic push
@@ -86,6 +89,9 @@
 #pragma clang diagnostic pop
 
 #import "utilities/SecTapToRadar.h"
+
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
+SOFT_LINK_CLASS(CloudServices, SecureBackup);
 
 static NSString* const kOTRampForEnrollmentRecordName = @"metadata_rampstate_enroll";
 static NSString* const kOTRampForRestoreRecordName = @"metadata_rampstate_restore";
@@ -1113,6 +1119,11 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                 values[OctagonAnalyticsKeychainSyncEnabled] = @([primaryAccount isEnabledForDataclass:ACAccountDataclassKeychainSync]);
                 values[OctagonAnalyticsCloudKitProvisioned] = @([primaryAccount isProvisionedForDataclass:ACAccountDataclassCKDatabaseService]);
                 values[OctagonAnalyticsCloudKitEnabled] = @([primaryAccount isEnabledForDataclass:ACAccountDataclassCKDatabaseService]);
+
+                NSString *altDSID = primaryAccount.aa_altDSID;
+                if(altDSID) {
+                    values[OctagonAnalyticsSecureBackupTermsAccepted] = @([getSecureBackupClass() getAcceptedTermsForAltDSID:altDSID withError:nil] != nil);
+                }
             }
         }
 

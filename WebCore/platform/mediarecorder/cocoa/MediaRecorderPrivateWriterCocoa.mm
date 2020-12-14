@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,13 +31,14 @@
 #include "AudioSampleBufferCompressor.h"
 #include "AudioStreamDescription.h"
 #include "Logging.h"
+#include "MediaRecorderPrivateOptions.h"
 #include "MediaStreamTrackPrivate.h"
 #include "VideoSampleBufferCompressor.h"
 #include "WebAudioBufferList.h"
 #include <AVFoundation/AVAssetWriter.h>
 #include <AVFoundation/AVAssetWriterInput.h>
-#include <AVFoundation/AVAssetWriter_Private.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
+#include <pal/spi/cocoa/AVAssetWriterSPI.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/FileSystem.h>
@@ -114,11 +115,12 @@ namespace WebCore {
 
 using namespace PAL;
 
-RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(bool hasAudio, bool hasVideo)
+RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(bool hasAudio, bool hasVideo, const MediaRecorderPrivateOptions& options)
 {
     auto writer = adoptRef(*new MediaRecorderPrivateWriter(hasAudio, hasVideo));
     if (!writer->initialize())
         return nullptr;
+    writer->setOptions(options);
     return writer;
 }
 
@@ -176,6 +178,14 @@ bool MediaRecorderPrivateWriter::initialize()
     return true;
 }
 
+void MediaRecorderPrivateWriter::setOptions(const MediaRecorderPrivateOptions& options)
+{
+    if (options.audioBitsPerSecond && m_audioCompressor)
+        m_audioCompressor->setBitsPerSecond(*options.audioBitsPerSecond);
+    if (options.videoBitsPerSecond && m_videoCompressor)
+        m_videoCompressor->setBitsPerSecond(*options.videoBitsPerSecond);
+}
+
 void MediaRecorderPrivateWriter::processNewCompressedVideoSampleBuffers()
 {
     ASSERT(m_hasVideo);
@@ -214,6 +224,9 @@ void MediaRecorderPrivateWriter::startAssetWriter()
     if (m_hasVideo) {
         m_videoAssetWriterInput = adoptNS([PAL::allocAVAssetWriterInputInstance() initWithMediaType:AVMediaTypeVideo outputSettings:nil sourceFormatHint:m_videoFormatDescription.get()]);
         [m_videoAssetWriterInput setExpectsMediaDataInRealTime:true];
+        if (m_videoTransform)
+            m_videoAssetWriterInput.get().transform = *m_videoTransform;
+
         if (![m_writer.get() canAddInput:m_videoAssetWriterInput.get()]) {
             RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateWriter::startAssetWriter failed canAddInput for video");
             return;
@@ -343,6 +356,7 @@ void MediaRecorderPrivateWriter::flushCompressedSampleBuffers(CompletionHandler<
         return;
     }
 
+    ASSERT(!m_isFlushingSamples);
     m_isFlushingSamples = true;
     auto block = makeBlockPtr([this, weakThis = makeWeakPtr(*this), hasPendingAudioSamples, hasPendingVideoSamples, audioSampleQueue = WTFMove(m_pendingAudioSampleQueue), videoSampleQueue = WTFMove(m_pendingVideoSampleQueue), completionHandler = WTFMove(completionHandler)]() mutable {
         if (!weakThis) {
@@ -389,9 +403,8 @@ void MediaRecorderPrivateWriter::clear()
 }
 
 
-static inline RetainPtr<CMSampleBufferRef> copySampleBufferWithCurrentTimeStamp(CMSampleBufferRef originalBuffer)
+static inline RetainPtr<CMSampleBufferRef> copySampleBufferWithCurrentTimeStamp(CMSampleBufferRef originalBuffer, CMTime startTime)
 {
-    CMTime startTime = CMClockGetTime(CMClockGetHostTimeClock());
     CMItemCount count = 0;
     CMSampleBufferGetSampleTimingInfoArray(originalBuffer, 0, nil, &count);
 
@@ -411,10 +424,20 @@ static inline RetainPtr<CMSampleBufferRef> copySampleBufferWithCurrentTimeStamp(
     return adoptCF(newBuffer);
 }
 
-void MediaRecorderPrivateWriter::appendVideoSampleBuffer(CMSampleBufferRef sampleBuffer)
+void MediaRecorderPrivateWriter::appendVideoSampleBuffer(MediaSample& sample)
 {
-    // FIXME: We should not set the timestamps if they are already set.
-    if (auto bufferWithCurrentTime = copySampleBufferWithCurrentTimeStamp(sampleBuffer))
+    if (!m_firstVideoFrame) {
+        m_firstVideoFrame = true;
+        m_firstVideoSampleTime = CMClockGetTime(CMClockGetHostTimeClock());
+        if (sample.videoRotation() != MediaSample::VideoRotation::None || sample.videoMirrored()) {
+            m_videoTransform = CGAffineTransformMakeRotation(static_cast<int>(sample.videoRotation()) * M_PI / 180);
+            if (sample.videoMirrored())
+                m_videoTransform = CGAffineTransformScale(*m_videoTransform, -1, 1);
+        }
+    }
+
+    CMTime sampleTime = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), m_firstVideoSampleTime);
+    if (auto bufferWithCurrentTime = copySampleBufferWithCurrentTimeStamp(sample.platformSample().sample.cmSampleBuffer, sampleTime))
         m_videoCompressor->addSampleBuffer(bufferWithCurrentTime.get());
 }
 
@@ -430,14 +453,14 @@ static inline RetainPtr<CMFormatDescriptionRef> createAudioFormatDescription(con
     return adoptCF(format);
 }
 
-static inline RetainPtr<CMSampleBufferRef> createAudioSampleBuffer(const PlatformAudioData& data, const AudioStreamDescription& description, const WTF::MediaTime& time, size_t sampleCount)
+static inline RetainPtr<CMSampleBufferRef> createAudioSampleBuffer(const PlatformAudioData& data, const AudioStreamDescription& description, CMTime time, size_t sampleCount)
 {
     auto format = createAudioFormatDescription(description);
     if (!format)
         return nullptr;
 
     CMSampleBufferRef sampleBuffer = nullptr;
-    auto error = CMAudioSampleBufferCreateWithPacketDescriptions(kCFAllocatorDefault, NULL, false, NULL, NULL, format.get(), sampleCount, toCMTime(time), NULL, &sampleBuffer);
+    auto error = CMAudioSampleBufferCreateWithPacketDescriptions(kCFAllocatorDefault, NULL, false, NULL, NULL, format.get(), sampleCount, time, NULL, &sampleBuffer);
     if (error) {
         RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateWriter createAudioSampleBufferWithPacketDescriptions failed with %d", error);
         return nullptr;
@@ -452,10 +475,11 @@ static inline RetainPtr<CMSampleBufferRef> createAudioSampleBuffer(const Platfor
     return buffer;
 }
 
-void MediaRecorderPrivateWriter::appendAudioSampleBuffer(const PlatformAudioData& data, const AudioStreamDescription& description, const WTF::MediaTime& time, size_t sampleCount)
+void MediaRecorderPrivateWriter::appendAudioSampleBuffer(const PlatformAudioData& data, const AudioStreamDescription& description, const WTF::MediaTime&, size_t sampleCount)
 {
-    if (auto sampleBuffer = createAudioSampleBuffer(data, description, time, sampleCount))
+    if (auto sampleBuffer = createAudioSampleBuffer(data, description, m_currentAudioSampleTime, sampleCount))
         m_audioCompressor->addSampleBuffer(sampleBuffer.get());
+    m_currentAudioSampleTime = CMTimeAdd(m_currentAudioSampleTime, toCMTime(MediaTime(sampleCount, description.sampleRate())));
 }
 
 void MediaRecorderPrivateWriter::finishedFlushingSamples()
@@ -571,6 +595,14 @@ void MediaRecorderPrivateWriter::appendData(Ref<SharedBuffer>&& buffer)
         return;
     }
     m_data->append(WTFMove(buffer));
+}
+
+const String& MediaRecorderPrivateWriter::mimeType() const
+{
+    static NeverDestroyed<const String> audioMP4(MAKE_STATIC_STRING_IMPL("audio/mp4"));
+    static NeverDestroyed<const String> videoMP4(MAKE_STATIC_STRING_IMPL("video/mp4"));
+    // FIXME: we will need to support MIME type codecs parameter values.
+    return m_hasVideo ? videoMP4 : audioMP4;
 }
 
 } // namespace WebCore

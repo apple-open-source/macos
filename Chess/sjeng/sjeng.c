@@ -790,10 +790,6 @@ int main (int argc, char *argv[]) {
       else if (!strncmp (input, "test", 4)) {
 	run_epd_testsuite();
       }
-      else if (!strncmp (input, "st", 2)) {
-	sscanf(input+3, "%d", &fixed_time);
-	fixed_time = fixed_time * 100;
-      }
       else if (!strncmp (input, "book", 4)) {
 	build_book();
       }
@@ -877,7 +873,7 @@ int main (int argc, char *argv[]) {
 	continue;
       }
       else if (!strncmp (input, "sd", 2)) {
-	sscanf(input+3, "%d", &maxdepth);
+	sscanf(input, "%d", &maxdepth);
 	printf("New max depth set to: %d\n", maxdepth);
 	continue;
       }
@@ -956,7 +952,6 @@ int main (int argc, char *argv[]) {
 	printf ("distribution:    show distribution details\n");
 	printf( "proof:           try to prove or disprove the current pos\n");
 	printf( "sd <x>:          limit thinking to depth x\n");
-	printf( "st <x>:          limit thinking to x centiseconds\n");
 	printf( "setboard <FEN>:  set board to a specified FEN string\n");
 	printf( "undo:            back up a half move\n");
 	printf( "remove:          back up a full move\n");

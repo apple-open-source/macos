@@ -11,8 +11,8 @@
 
 #include "Common.h"
 
-#define CHAIN_CAHCE_ACCESS_LOCK(psFSRecord)      (assert(!pthread_mutex_lock(&psFSRecord->psClusterChainCache->sClusterChainMutex)))
-#define CHAIN_CAHCE_ACCESS_FREE(psFSRecord)     (assert(!pthread_mutex_unlock(&psFSRecord->psClusterChainCache->sClusterChainMutex)))
+#define CHAIN_CACHE_ACCESS_LOCK(psFSRecord)      (assert(!pthread_mutex_lock(&psFSRecord->psClusterChainCache->sClusterChainMutex)))
+#define CHAIN_CACHE_ACCESS_FREE(psFSRecord)     (assert(!pthread_mutex_unlock(&psFSRecord->psClusterChainCache->sClusterChainMutex)))
 
 // --------------------------- File Record perations -----------------------------------
 

@@ -35,13 +35,6 @@ The
 flag temporarily sets the log spec within the kernel,
 and captures any log messages from the kernel to print along with the tool's own log messages.
 .Pp
-If you wish to alter the logging behavior of
-.Xr kextd 8 ,
-you will need to edit its
-.Xr launchd.plist 5
-file in
-.Pa /System/Library/LaunchDaemons/com.apple.kextd.plist .
-.Pp
 To enable kernel kext logging (in
 .Pa /var/log/kernel.log )
 on a long-term basis,
@@ -235,12 +228,6 @@ equivalent to 0xff2,
 .Xr kextcache 8
 and
 .Xr kextunload 8 ,
-0xff3 for
-.Xr kextd 8
-and for
-.Xr kextcache 8
-spawned by
-.Xr kextd 8 .
 .It 1 (or none)
 equivalent to 0xff3, or 0xffa for
 .Xr kextcache 8
@@ -269,24 +256,11 @@ and
 .It 6
 equivalent to 0xfff for all tools.
 .El
-.Sh FILES
-.Bl -tag -width "/var/log/kernel.log"
-.It Pa /var/log/kernel.log
-The kernel log file, where kernel kext activity is logged.
-.It Pa /var/log/system.log
-The system log file, where
-.Xr kextd 8
-activity is logged.
-.It Pa /System/Library/LaunchDaemons/com.apple.kextd.plist
-Edit this
-.Xr launchd.plist 5
-file to specify verbose logging for
-.Xr kextd 8 .
-.El
 .Sh SEE ALSO
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr syslog 1 ,
 .Xr kextcache 8 ,
-.Xr kextd 8 ,
 .Xr kextlibs 8 ,
 .Xr kextload 8 ,
 .Xr kextunload 8 ,

@@ -487,7 +487,7 @@ zend_string* ZEND_FASTCALL accel_new_interned_string(zend_string *str)
 		} while (pos != STRTAB_INVALID_POS);
 	}
 
-	if (UNEXPECTED(ZCSG(interned_strings).end - ZCSG(interned_strings).top < STRTAB_STR_SIZE(str))) {
+	if (UNEXPECTED((char*)ZCSG(interned_strings).end - (char*)ZCSG(interned_strings).top < STRTAB_STR_SIZE(str))) {
 	    /* no memory, return the same non-interned string */
 		zend_accel_error(ACCEL_LOG_WARNING, "Interned string buffer overflow");
 		return str;
@@ -2692,6 +2692,9 @@ static void accel_gen_system_id(void)
 	unsigned char digest[16], c;
 	char *md5str = ZCG(system_id);
 	int i;
+	zend_module_entry *module;
+	zend_extension *extension;
+	zend_llist_position pos;
 
 	PHP_MD5Init(&context);
 	PHP_MD5Update(&context, PHP_VERSION, sizeof(PHP_VERSION)-1);
@@ -2701,6 +2704,23 @@ static void accel_gen_system_id(void)
 		/* Development versions may be changed from build to build */
 		PHP_MD5Update(&context, __DATE__, sizeof(__DATE__)-1);
 		PHP_MD5Update(&context, __TIME__, sizeof(__TIME__)-1);
+	}
+	/* Modules may have changed after restart which can cause dangling pointers from
+     * custom opcode handlers in the second-level cache files
+     */
+	ZEND_HASH_FOREACH_PTR(&module_registry, module) {
+		PHP_MD5Update(&context, module->name, strlen(module->name));
+		if (module->version != NULL) {
+			PHP_MD5Update(&context, module->version, strlen(module->version));
+		}
+	} ZEND_HASH_FOREACH_END();
+	extension = (zend_extension *) zend_llist_get_first_ex(&zend_extensions, &pos);
+	while (extension) {
+		PHP_MD5Update(&context, extension->name, strlen(extension->name));
+		if (extension->version != NULL) {
+			PHP_MD5Update(&context, extension->version, strlen(extension->version));
+		}
+		extension = (zend_extension *) zend_llist_get_next_ex(&zend_extensions, &pos);
 	}
 	PHP_MD5Final(digest, &context);
 	for (i = 0; i < 16; i++) {

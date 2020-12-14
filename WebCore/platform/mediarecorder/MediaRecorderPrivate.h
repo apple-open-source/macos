@@ -24,10 +24,11 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
+#include "MediaRecorderPrivateOptions.h"
+#include "RealtimeMediaSource.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
-#include "Exception.h"
-#include "RealtimeMediaSource.h"
 
 #if ENABLE(MEDIA_STREAM)
 
@@ -59,15 +60,26 @@ public:
     using FetchDataCallback = CompletionHandler<void(RefPtr<SharedBuffer>&&, const String& mimeType)>;
     virtual void fetchData(FetchDataCallback&&) = 0;
     virtual void stopRecording() = 0;
+    virtual const String& mimeType() const = 0;
 
-    using ErrorCallback = CompletionHandler<void(Optional<Exception>&&)>;
-    virtual void startRecording(ErrorCallback&& callback) { callback({ }); }
+    using StartRecordingCallback = CompletionHandler<void(ExceptionOr<String>&&)>;
+    virtual void startRecording(StartRecordingCallback&& callback) { callback(String(mimeType())); }
+
+    void trackMutedChanged(MediaStreamTrackPrivate& track) { checkTrackState(track); }
+    void trackEnabledChanged(MediaStreamTrackPrivate& track) { checkTrackState(track); }
 
 protected:
     void setAudioSource(RefPtr<RealtimeMediaSource>&&);
     void setVideoSource(RefPtr<RealtimeMediaSource>&&);
 
+    void checkTrackState(const MediaStreamTrackPrivate&);
+
+    bool shouldMuteAudio() const { return m_shouldMuteAudio; }
+    bool shouldMuteVideo() const { return m_shouldMuteVideo; }
+
 private:
+    bool m_shouldMuteAudio { false };
+    bool m_shouldMuteVideo { false };
     RefPtr<RealtimeMediaSource> m_audioSource;
     RefPtr<RealtimeMediaSource> m_videoSource;
 };

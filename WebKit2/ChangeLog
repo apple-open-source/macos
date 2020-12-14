@@ -1,6 +1,276 @@
-2020-10-28  Alan Coon  <alancoon@apple.com>
+2020-11-10  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r269094. rdar://problem/70769706
+        Cherry-pick r269651. rdar://problem/71256353
+
+    [macOS] Allow IOGLESBundleName for Apple Silicon Macs
+    https://bugs.webkit.org/show_bug.cgi?id=218774
+    <rdar://problem/67473780>
+    
+    Unreviewed follow-up fix to r269649.
+    
+    Two additional keys are needed: MetalPluginClassName and MetalPluginName
+    
+    * WebProcess/com.apple.WebProcess.sb.in:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269651 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-10  Brent Fulgham  <bfulgham@apple.com>
+
+            [macOS] Allow IOGLESBundleName for Apple Silicon Macs
+            https://bugs.webkit.org/show_bug.cgi?id=218774
+            <rdar://problem/67473780>
+
+            Unreviewed follow-up fix to r269649.
+
+            Two additional keys are needed: MetalPluginClassName and MetalPluginName
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2020-11-10  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r269649. rdar://problem/71256353
+
+    [macOS] Allow IOGLESBundleName for Apple Silicon Macs
+    https://bugs.webkit.org/show_bug.cgi?id=218774
+    <rdar://problem/67473780>
+    
+    Reviewed by Tim Horton.
+    
+    The WebContent should be able to read the IOGLESBundleName IOKit property on
+    Apple Silicon Macs. This will help the OpenGL stack make better choices about
+    which bundles to load when processing WebGL content.
+    
+    * WebProcess/com.apple.WebProcess.sb.in:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269649 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-10  Brent Fulgham  <bfulgham@apple.com>
+
+            [macOS] Allow IOGLESBundleName for Apple Silicon Macs
+            https://bugs.webkit.org/show_bug.cgi?id=218774
+            <rdar://problem/67473780>
+
+            Reviewed by Tim Horton.
+
+            The WebContent should be able to read the IOGLESBundleName IOKit property on
+            Apple Silicon Macs. This will help the OpenGL stack make better choices about
+            which bundles to load when processing WebGL content.
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2020-11-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268386. rdar://problem/70970067
+
+    Cocoa: Make WebGLLayer not dependent on  GraphicsContextGLOpenGL
+    https://bugs.webkit.org/show_bug.cgi?id=217212
+    <rdar://problem/69876022>
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2020-10-13
+    Reviewed by Dean Jackson.
+    
+    Source/WebCore:
+    
+    WebGLLayer was needlessly using GraphicsContextGLOpenGL.
+    This is problematic because WebGLLayer should work with
+    upcoming remote GraphicsContextGL implementation.
+    
+    The prepare callgraph was:
+        GCGLOpenGL -> WebGLLayer -> GCGLOpenGL
+    Refactor it to be:
+        GCGLOpenGL -> WebGLLayer
+    
+    Move the back buffer ownership to the GraphicsContextGLOpenGL.
+    Make the front buffer ownership explicit in WebGLLayer.
+    Move the EGL bindings ownerships of all buffers to
+    GraphicsContextGLOpenGL.
+    
+    Make the WebGLLayer not use EGL or OpenGL, it does not
+    need and cannot use it as not all of its clients use OpenGL
+    (i.e. the above mentioned remote use-case).
+    
+    Improves the memory usage by not allocating front buffers
+    unless needed. In case the canvas does not present, will
+    not allocate front buffers at all.
+    
+    Improves error handling of the allocations and EGL bindings.
+    
+    No new tests, a refactor.
+    
+    * WebCore.xcodeproj/project.pbxproj:
+    * platform/graphics/angle/GraphicsContextGLANGLE.cpp:
+    (WebCore::GraphicsContextGLOpenGL::reshapeFBOs):
+    (WebCore::GraphicsContextGLOpenGL::prepareTexture):
+    (WebCore::GraphicsContextGLOpenGL::prepareTextureImpl):
+    * platform/graphics/angle/GraphicsContextGLANGLEUtilities.h: Added.
+    (WebCore::ScopedRestoreTextureBinding::ScopedRestoreTextureBinding):
+    (WebCore::ScopedRestoreTextureBinding::~ScopedRestoreTextureBinding):
+    * platform/graphics/cocoa/GraphicsContextGLOpenGLCocoa.mm:
+    (WebCore::GraphicsContextGLOpenGL::GraphicsContextGLOpenGL):
+    (WebCore::GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL):
+    (WebCore::GraphicsContextGLOpenGL::makeContextCurrent):
+    (WebCore::GraphicsContextGLOpenGL::reshapeDisplayBufferBacking):
+    (WebCore::GraphicsContextGLOpenGL::bindDisplayBufferBacking):
+    (WebCore::GraphicsContextGLOpenGL::prepareForDisplay):
+    (WebCore::GraphicsContextGLOpenGL::didDisplay):
+    * platform/graphics/cocoa/WebGLLayer.h:
+    * platform/graphics/cocoa/WebGLLayer.mm:
+    (-[WebGLLayer initWithClient:devicePixelRatio:]):
+    (-[WebGLLayer copyImageSnapshotWithColorSpace:]):
+    (-[WebGLLayer recycleBuffer]):
+    (-[WebGLLayer prepareForDisplayWithContents:]):
+    (-[WebGLLayer display]):
+    (-[WebGLLayer detachClient]):
+    * platform/graphics/cocoa/WebGLLayerClient.h: Copied from Source/WebCore/platform/graphics/cocoa/WebGLLayer.h.
+    (WebCore::WebGLLayerClient::~WebGLLayerClient):
+    * platform/graphics/opengl/GraphicsContextGLOpenGL.h:
+    * platform/graphics/opengl/GraphicsContextGLOpenGLBase.cpp:
+    (WebCore::GraphicsContextGLOpenGL::reshapeFBOs):
+    
+    Source/WebKit:
+    
+    Removed unneeded inclusions of GraphicsContextGLOpenGL.h. The
+    file is now using non-public headers.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    * WebProcess/WebPage/mac/WebPageMac.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268386 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-13  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            Cocoa: Make WebGLLayer not dependent on  GraphicsContextGLOpenGL
+            https://bugs.webkit.org/show_bug.cgi?id=217212
+            <rdar://problem/69876022>
+
+            Reviewed by Dean Jackson.
+
+            Removed unneeded inclusions of GraphicsContextGLOpenGL.h. The
+            file is now using non-public headers.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            * WebProcess/WebPage/mac/WebPageMac.mm:
+
+2020-11-02  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268199. rdar://problem/70952726
+
+    Crash under WebKit::WebProcessCache::clear()
+    https://bugs.webkit.org/show_bug.cgi?id=217480
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/WebKit:
+    
+    Protect |process| in the responsiveness check lambda in WebProcessCache::addProcessIfPossible().
+    If we fail to do so and WebProcessCache::clear() gets called while the responsiveness check is
+    pending, the WebProcessProxy destructor may get called while clear() clears m_pendingAddRequests,
+    which would resolve the responsiveness check with responsive=false, and cause the lambda to
+    try and remove the entry from m_pendingAddRequests (while clear() is clearing it).
+    
+    * UIProcess/WebProcessCache.cpp:
+    (WebKit::WebProcessCache::addProcessIfPossible):
+    
+    Tools:
+    
+    Add API test coverage.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268199 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-08  Chris Dumez  <cdumez@apple.com>
+
+            Crash under WebKit::WebProcessCache::clear()
+            https://bugs.webkit.org/show_bug.cgi?id=217480
+
+            Reviewed by Geoffrey Garen.
+
+            Protect |process| in the responsiveness check lambda in WebProcessCache::addProcessIfPossible().
+            If we fail to do so and WebProcessCache::clear() gets called while the responsiveness check is
+            pending, the WebProcessProxy destructor may get called while clear() clears m_pendingAddRequests,
+            which would resolve the responsiveness check with responsive=false, and cause the lambda to
+            try and remove the entry from m_pendingAddRequests (while clear() is clearing it).
+
+            * UIProcess/WebProcessCache.cpp:
+            (WebKit::WebProcessCache::addProcessIfPossible):
+
+2020-10-29  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r269118. rdar://problem/70795320
+
+    macCatalyst WebGL on Apple Silicon devices is using a software renderer
+    https://bugs.webkit.org/show_bug.cgi?id=218303
+    <rdar://problem/70587571>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/ThirdParty/ANGLE:
+    
+    * src/gpu_info_util/SystemInfo.h:
+    * src/gpu_info_util/SystemInfo_apple.mm:
+    (angle::GetSystemInfo):
+    We can just use the macOS version of GetSystemInfo in macCatalyst.
+    
+    * src/gpu_info_util/SystemInfo_macos.mm:
+    (angle::GetSystemInfo_mac):
+    * src/libANGLE/Display.cpp:
+    * src/libANGLE/formatutils.cpp:
+    (gl::BuildInternalFormatInfoMap):
+    * src/libANGLE/renderer/gl/renderergl_utils.cpp:
+    (rx::nativegl_gl::GenerateCaps):
+    It turns out we must use EAGL in macCatalyst on Apple Silicon in all cases,
+    not just in-process in iOS apps (the problem is not just about coexistence
+    of the two GLs, but actually about our ability to load the accelerated
+    renderer /at all/ in macCatalyst processes).
+    
+    I left the runtime switching in place, because there is a future in which
+    we /can/ use CGL in non-iOS-app processes, but that future is not now.
+    
+    Source/WebCore:
+    
+    * platform/graphics/cocoa/GraphicsContextGLOpenGLCocoa.mm:
+    (WebCore::needsEAGLOnMac):
+    (WebCore::GraphicsContextGLOpenGL::GraphicsContextGLOpenGL):
+    (WebCore::GraphicsContextGLOpenGL::IOSurfaceTextureTarget):
+    (WebCore::GraphicsContextGLOpenGL::IOSurfaceTextureTargetQuery):
+    (WebCore::GraphicsContextGLOpenGL::EGLIOSurfaceTextureTarget):
+    (WebCore::isiOSAppOnMac): Deleted.
+    See ANGLE ChangeLog.
+    
+    Source/WebKit:
+    
+    * UIProcess/mac/HighPerformanceGPUManager.mm:
+    (WebKit::HighPerformanceGPUManager::addProcessRequiringHighPerformance):
+    (WebKit::HighPerformanceGPUManager::removeProcessRequiringHighPerformance):
+    (WebKit::HighPerformanceGPUManager::updateState):
+    (WebKit::isiOSAppOnMac): Deleted.
+    HighPerformanceGPUManager is PLATFORM(MAC)-only, which is not true
+    for MACCATALYST, so delete this dead code.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269118 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-28  Tim Horton  <timothy_horton@apple.com>
+
+            macCatalyst WebGL on Apple Silicon devices is using a software renderer
+            https://bugs.webkit.org/show_bug.cgi?id=218303
+            <rdar://problem/70587571>
+
+            Reviewed by Geoffrey Garen.
+
+            * UIProcess/mac/HighPerformanceGPUManager.mm:
+            (WebKit::HighPerformanceGPUManager::addProcessRequiringHighPerformance):
+            (WebKit::HighPerformanceGPUManager::removeProcessRequiringHighPerformance):
+            (WebKit::HighPerformanceGPUManager::updateState):
+            (WebKit::isiOSAppOnMac): Deleted.
+            HighPerformanceGPUManager is PLATFORM(MAC)-only, which is not true
+            for MACCATALYST, so delete this dead code.
+
+2020-10-28  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r269094. rdar://problem/70795299
 
     Use _CFURLConnectionSetFrameworkStubs for SecItemShim instead of DYLD_INTERPOSE on Apple Silicon Macs
     https://bugs.webkit.org/show_bug.cgi?id=218269
@@ -45,61 +315,115 @@
             * Shared/mac/SecItemShim.cpp:
             (WebKit::initializeSecItemShim):
 
-2020-10-22  Russell Epstein  <repstein@apple.com>
+2020-10-27  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r268377. rdar://problem/70320656
+        Cherry-pick r268878. rdar://problem/70733353
 
-    Unreviewed build fix after r268367.
+    UIClient isn't notified when page muted state changes
+    https://bugs.webkit.org/show_bug.cgi?id=218085
+    <rdar://problem/70462420>
     
-    * Configurations/WebKit.xcconfig: Corrected the definition of
-    WK_PDFKIT_LDFLAGS_maccatalyst.
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268377 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-10-12  Andy Estes  <aestes@apple.com>
-
-            Unreviewed build fix after r268367.
-
-            * Configurations/WebKit.xcconfig: Corrected the definition of
-            WK_PDFKIT_LDFLAGS_maccatalyst.
-
-2020-10-22  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r268367. rdar://problem/70320656
-
-    [macCatalyst] Enable WKPDFView
-    https://bugs.webkit.org/show_bug.cgi?id=217403
-    <rdar://problem/48217791>
-    
-    Reviewed by Tim Horton.
+    Reviewed by Youenn Fablet.
     
     Source/WebKit:
     
-    * Configurations/WebKit.xcconfig: Linked PDFKit.framework when building for the Catalyst
-    variant on Big Sur or later.
+    API test: WKWebView.MediaMuted
     
-    Source/WTF:
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageGetMediaState): reportedMediaCaptureState -> reportedMediaState.
     
-    * wtf/PlatformEnableCocoa.h: Enabled WKPDFView when building for the Catalyst variant on
-    Big Sur or later.
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _mediaCaptureState]): Ditto.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::updateReportedMediaCaptureState): Only record current capture
+    state in m_reportedMediaCaptureState. m_delayStopCapturingReporting isn't necessary,
+    remove it.
+    
+    * UIProcess/WebPageProxy.h:
+    (WebKit::WebPageProxy::reportedMediaState const): Renamed from reportedMediaCaptureState
+    to reflect what it returns.
+    (WebKit::WebPageProxy::mediaStateFlags const): Deleted.
+    (WebKit::WebPageProxy::reportedMediaCaptureState const): Deleted.
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/xcshareddata/xcschemes/TestWebKitAPI.xcscheme:
+    * TestWebKitAPI/Tests/WebKitCocoa/MediaMutedState.mm: Added.
+    (-[AudioStateObserver initWithWebView:]):
+    (-[AudioStateObserver observeValueForKeyPath:ofObject:change:context:]):
+    (-[AudioStateTestView setMuted:]):
+    (TestWebKitAPI::TEST):
     
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268367 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268878 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2020-10-12  Andy Estes  <aestes@apple.com>
+    2020-10-22  Eric Carlson  <eric.carlson@apple.com>
 
-            [macCatalyst] Enable WKPDFView
-            https://bugs.webkit.org/show_bug.cgi?id=217403
-            <rdar://problem/48217791>
+            UIClient isn't notified when page muted state changes
+            https://bugs.webkit.org/show_bug.cgi?id=218085
+            <rdar://problem/70462420>
 
-            Reviewed by Tim Horton.
+            Reviewed by Youenn Fablet.
 
-            * Configurations/WebKit.xcconfig: Linked PDFKit.framework when building for the Catalyst
-            variant on Big Sur or later.
+            API test: WKWebView.MediaMuted
 
-2020-10-19  Kocsen Chung  <kocsen_chung@apple.com>
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageGetMediaState): reportedMediaCaptureState -> reportedMediaState.
 
-        Cherry-pick r268570. rdar://problem/70447631
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _mediaCaptureState]): Ditto.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::updateReportedMediaCaptureState): Only record current capture
+            state in m_reportedMediaCaptureState. m_delayStopCapturingReporting isn't necessary,
+            remove it.
+
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::reportedMediaState const): Renamed from reportedMediaCaptureState
+            to reflect what it returns.
+            (WebKit::WebPageProxy::mediaStateFlags const): Deleted.
+            (WebKit::WebPageProxy::reportedMediaCaptureState const): Deleted.
+
+2020-10-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268537. rdar://problem/70733338
+
+    Crash in -[WKDateTimePicker setDateTimePickerToInitialValue]
+    https://bugs.webkit.org/show_bug.cgi?id=217763
+    <rdar://problem/68635008>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Crash occurs due to the use of an autoreleased NSString in
+    setDateTimePickerToInitialValue. To fix, make the variable
+    a RetainPtr.
+    
+    * UIProcess/ios/forms/WKDateTimeInputControl.mm:
+    (-[WKDateTimePicker setDateTimePickerToInitialValue]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268537 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-15  Aditya Keerthi  <akeerthi@apple.com>
+
+            Crash in -[WKDateTimePicker setDateTimePickerToInitialValue]
+            https://bugs.webkit.org/show_bug.cgi?id=217763
+            <rdar://problem/68635008>
+
+            Reviewed by Wenson Hsieh.
+
+            Crash occurs due to the use of an autoreleased NSString in
+            setDateTimePickerToInitialValue. To fix, make the variable
+            a RetainPtr.
+
+            * UIProcess/ios/forms/WKDateTimeInputControl.mm:
+            (-[WKDateTimePicker setDateTimePickerToInitialValue]):
+
+2020-10-21  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268570. rdar://problem/70541887
 
     v2: WebKit::XPCServiceEventHandler block should call exit() on the main thread
     <https://webkit.org/b/217773>
@@ -129,9 +453,109 @@
               thread since libdispatch can randomly pick a new main thread when
               exit() is called on the original main thread.
 
-2020-10-14  Alan Coon  <alancoon@apple.com>
+2020-10-21  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r268376. rdar://problem/70312257
+        Cherry-pick r268602. rdar://problem/70541712
+
+    [WebAuthn] Remove the "alg" field in the attestation statement
+    https://bugs.webkit.org/show_bug.cgi?id=217720
+    <rdar://problem/70349734>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebKit:
+    
+    This old field was used in an unreleased old attestation statement format and is not used by
+    the final attestation statement format that will be added to the spec:
+    https://github.com/w3c/webauthn/pull/1491.
+    
+    Therefore, remove it to resolve confusion.
+    
+    Covered by existing tests.
+    
+    * UIProcess/WebAuthentication/Cocoa/LocalAuthenticator.mm:
+    (WebKit::LocalAuthenticator::continueMakeCredentialAfterAttested):
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/public-key-credential-create-success-local.https.html:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268602 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-16  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Remove the "alg" field in the attestation statement
+            https://bugs.webkit.org/show_bug.cgi?id=217720
+            <rdar://problem/70349734>
+
+            Reviewed by Brent Fulgham.
+
+            This old field was used in an unreleased old attestation statement format and is not used by
+            the final attestation statement format that will be added to the spec:
+            https://github.com/w3c/webauthn/pull/1491.
+
+            Therefore, remove it to resolve confusion.
+
+            Covered by existing tests.
+
+            * UIProcess/WebAuthentication/Cocoa/LocalAuthenticator.mm:
+            (WebKit::LocalAuthenticator::continueMakeCredentialAfterAttested):
+
+2020-10-21  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268507. rdar://problem/70541950
+
+    [iOS] Allow additional sysctl reads needed by image decoding
+    https://bugs.webkit.org/show_bug.cgi?id=217733
+    <rdar://problem/68649171>
+    
+    Reviewed by Per Arne Vollan.
+    
+    Telemetry on iOS 14 shows that we are hitting some sandbox violations during image decoding. We should
+    grant access to hw.byteorder, hw.cachelinesize_compat, and hw.vectorunit. We should silence warnings
+    about hw.cpufrequency_compat since it is not needed in web-facing use cases.
+    
+    * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268507 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-14  Brent Fulgham  <bfulgham@apple.com>
+
+            [iOS] Allow additional sysctl reads needed by image decoding
+            https://bugs.webkit.org/show_bug.cgi?id=217733
+            <rdar://problem/68649171>
+
+            Reviewed by Per Arne Vollan.
+
+            Telemetry on iOS 14 shows that we are hitting some sandbox violations during image decoding. We should
+            grant access to hw.byteorder, hw.cachelinesize_compat, and hw.vectorunit. We should silence warnings
+            about hw.cpufrequency_compat since it is not needed in web-facing use cases.
+
+            * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+
+2020-10-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268377. rdar://problem/70321875
+
+    Unreviewed build fix after r268367.
+    
+    * Configurations/WebKit.xcconfig: Corrected the definition of
+    WK_PDFKIT_LDFLAGS_maccatalyst.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268377 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Andy Estes  <aestes@apple.com>
+
+            Unreviewed build fix after r268367.
+
+            * Configurations/WebKit.xcconfig: Corrected the definition of
+            WK_PDFKIT_LDFLAGS_maccatalyst.
+
+2020-10-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268376. rdar://problem/70321635
 
     Cursor window is transparent - but not hidden - when `cursor: none` is specified
     https://bugs.webkit.org/show_bug.cgi?id=217639
@@ -170,77 +594,132 @@
             This is important, because on some platforms, hiding the cursor is a performance improvement
             over simply making it transparent.
 
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
+2020-10-15  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r268330. rdar://problem/70189394
+        Cherry-pick r268367. rdar://problem/70321875
 
-    Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
-    or later
-    https://bugs.webkit.org/show_bug.cgi?id=217594
-    rdar://70188497
+    [macCatalyst] Enable WKPDFView
+    https://bugs.webkit.org/show_bug.cgi?id=217403
+    <rdar://problem/48217791>
     
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
-    Reviewed by Darin Adler.
+    Reviewed by Tim Horton.
     
-    To ensure successful Mac Catalyst WebKit builds, strip the patch version from
-    TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
+    Source/WebKit:
     
-    * Configurations/Base.xcconfig:
+    * Configurations/WebKit.xcconfig: Linked PDFKit.framework when building for the Catalyst
+    variant on Big Sur or later.
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268330 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-10-11  Luming Yin  <luming_yin@apple.com>
-
-            Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
-            or later
-            https://bugs.webkit.org/show_bug.cgi?id=217594
-            rdar://70188497
-
-            Reviewed by Darin Adler.
-
-            To ensure successful Mac Catalyst WebKit builds, strip the patch version from
-            TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
-
-            * Configurations/Base.xcconfig:
-
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r268327. rdar://problem/70189401
-
-    Ignore deployment suffix and identifier when computing major OS version for macOS
-    Big Sur and newer
-    https://bugs.webkit.org/show_bug.cgi?id=217584
-    rdar://70168426
+    Source/WTF:
     
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
-    Reviewed by Darin Adler.
+    * wtf/PlatformEnableCocoa.h: Enabled WKPDFView when building for the Catalyst variant on
+    Big Sur or later.
     
-    Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
-    Only use the deployment target base for macOS Big Sur and newer. Keep the manual
-    definitions for legacy versions of macOS.
     
-    * Configurations/Base.xcconfig:
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268367 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Andy Estes  <aestes@apple.com>
+
+            [macCatalyst] Enable WKPDFView
+            https://bugs.webkit.org/show_bug.cgi?id=217403
+            <rdar://problem/48217791>
+
+            Reviewed by Tim Horton.
+
+            * Configurations/WebKit.xcconfig: Linked PDFKit.framework when building for the Catalyst
+            variant on Big Sur or later.
+
+2020-10-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268246. rdar://problem/70321627
+
+    AX: Website Warning page is inaccessible
+    https://bugs.webkit.org/show_bug.cgi?id=217489
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268327 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    Reviewed by Zalan Bujtas.
+    
+    If we have a safe browsing window, we need to use that instead of the content view.
+    
+    * UIProcess/Cocoa/WKSafeBrowsingWarning.h:
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::WebViewImpl::accessibilityAttributeValue):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268246 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2020-10-11  Luming Yin  <luming_yin@apple.com>
+    2020-10-08  Chris Fleizach  <cfleizach@apple.com>
 
-            Ignore deployment suffix and identifier when computing major OS version for macOS
-            Big Sur and newer
-            https://bugs.webkit.org/show_bug.cgi?id=217584
-            rdar://70168426
+            AX: Website Warning page is inaccessible
+            https://bugs.webkit.org/show_bug.cgi?id=217489
 
-            Reviewed by Darin Adler.
+            Reviewed by Zalan Bujtas.
 
-            Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
-            Only use the deployment target base for macOS Big Sur and newer. Keep the manual
-            definitions for legacy versions of macOS.
+            If we have a safe browsing window, we need to use that instead of the content view.
 
-            * Configurations/Base.xcconfig:
+            * UIProcess/Cocoa/WKSafeBrowsingWarning.h:
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::accessibilityAttributeValue):
 
-2020-10-09  Russell Epstein  <repstein@apple.com>
+2020-10-14  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r268003. rdar://problem/70142496
+        Cherry-pick r267203. rdar://problem/70310545
+
+    Rename ShouldAllowExternalSchemes to ShouldAllowExternalSchemesButNotAppLinks to clarify what this enum value is for.
+    https://bugs.webkit.org/show_bug.cgi?id=216651
+    
+    Patch by Hoa Dinh <dvh@apple.com> on 2020-09-17
+    Reviewed by Alex Christensen.
+    
+    Rename ShouldAllowExternalSchemes to ShouldAllowExternalSchemesButNotAppLinks and reflects the change where it's used.
+    
+    Source/WebCore:
+    
+    Source/WebCore:
+    * loader/FrameLoaderTypes.h:
+    * page/ContextMenuController.cpp:
+    (WebCore::ContextMenuController::contextMenuItemSelected):
+    
+    Source/WebKit:
+    
+    Source/WebKit:
+    * Shared/SessionState.cpp:
+    (WebKit::isValidEnum):
+    * UIProcess/API/APINavigationAction.h:
+    * UIProcess/API/glib/WebKitWebViewSessionState.cpp:
+    (toExternalURLsPolicy):
+    (toWebCoreExternalURLsPolicy):
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/mac/LegacySessionStateCoding.cpp:
+    (WebKit::decodeSessionHistoryEntry):
+    * WebProcess/InjectedBundle/InjectedBundleNavigationAction.cpp:
+    (WebKit::InjectedBundleNavigationAction::InjectedBundleNavigationAction):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267203 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-17  Hoa Dinh  <dvh@apple.com>
+
+            Rename ShouldAllowExternalSchemes to ShouldAllowExternalSchemesButNotAppLinks to clarify what this enum value is for.
+            https://bugs.webkit.org/show_bug.cgi?id=216651
+
+            Reviewed by Alex Christensen.
+
+            Rename ShouldAllowExternalSchemes to ShouldAllowExternalSchemesButNotAppLinks and reflects the change where it's used.
+
+            Source/WebKit:
+            * Shared/SessionState.cpp:
+            (WebKit::isValidEnum):
+            * UIProcess/API/APINavigationAction.h:
+            * UIProcess/API/glib/WebKitWebViewSessionState.cpp:
+            (toExternalURLsPolicy):
+            (toWebCoreExternalURLsPolicy):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/mac/LegacySessionStateCoding.cpp:
+            (WebKit::decodeSessionHistoryEntry):
+            * WebProcess/InjectedBundle/InjectedBundleNavigationAction.cpp:
+            (WebKit::InjectedBundleNavigationAction::InjectedBundleNavigationAction):
+
+2020-10-14  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268003. rdar://problem/70267725
 
     Make NetscapePlugInStreamLoaderClient a weak pointer on NetscapePlugInStreamLoader
     <https://webkit.org/b/217237>
@@ -349,6 +828,1462 @@
             (WebKit::PDFPlugin::didReceiveData): Ditto.
             (WebKit::PDFPlugin::didFail): Ditto.
             (WebKit::PDFPlugin::didFinishLoading): Ditto.
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268371. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    The previous workaround turns out to be ineffective because we can't set the value of
+    TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+    variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+    adjust MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268371 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            The previous workaround turns out to be ineffective because we can't set the value of
+            TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+            variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+            adjust MAC_OS_X_VERSION_MAJOR to 110000.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268353. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+    minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+    to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+    
+    To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+    drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    Note: This change should be reverted after <rdar://70185899> is resolved.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+            minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+            to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+
+            To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+            drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+
+            Note: This change should be reverted after <rdar://70185899> is resolved.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267352. rdar://problem/70267163
+
+    WKWebView Swift overlay has mis-annotated nullability for evaluateJavaScript
+    <http://webkit.org/b/216198>
+    <rdar://problem/68035950>
+    
+    Reviewed by Darin Adler.
+    
+    Due to a mistranslation of evaluateJavaScript, we are vending an API which does not expect
+    to receive nil as a valid result value. This change fixes the crash, but does not yet fix
+    the API to have the correct signature. That will come in a later patch.
+    
+    To fix the crash, we need to produce a valid Result<Any, Error> to pass back to clients.
+    Fortunately, instead of inventing something clever, we can just use nil. It's valid to box
+    optional values into Any, and clients can technically retrieve them with the right dynamic cast
+    as well. Since client code must be using dynamic casting to convert the result Any to a usable
+    type, and because in the case where we now return a new value at runtime we would have previously
+    crashed, this shouldn't have any binary compatibility impact either.
+    
+    To better validate these changes, I also add new unit tests for the conversion of JavaScript
+    results into Swift values, including a test for the deprecated API.
+    
+    * SwiftOverlay/SwiftOverlay/ObjectiveCBlockConversions.swift: Added. For clarity I'm factoring
+    helper methods into a single namespace, as it also makes a nice place to document their expectations.
+    (ObjectiveCBlockConversion.exclusive.exclusive(_:)): This is renamed from the free function,
+        makeResultHandler(_:). It still has the same fatalError (now precondition) as before, but
+        hopefully a better name to clarify that it expects exactly-one value.
+    (ObjectiveCBlockConversions.boxingNilAsAnyForCompatibility(_:)): This is a variant of exclusive(_:)
+        that makes the tradeoff of boxing any nil values as Any to avoid crashing. This is still safe,
+        since as mentioned our clients will need to cast the value they recieve to do anything with it,
+        and since the deprecated API expects `Any`, no one could have been successfully comparing it
+        to `nil` today anyways.
+    
+    * SwiftOverlay/Tests/JavaScriptToSwiftTypeConversions.swift: Added.
+    (JavaScriptToSwiftConversions.setUp): Construct a new web view, and add it to a window so that it is
+        in an expected state. I'm using about:blank as the URL, since page content doesn't matter for
+        these tests and I want the web content to be ready immediately.
+    (JavaScriptToSwiftConversions.tearDown): Just perform some window cleanup.
+    (JavaScriptToSwiftConversions.evaluateJavaScript(_:andExpect:)): Helper method to evaluate script and
+        check its result. I'm using String.debugDescription because it escapes quotes and special characters
+        which makes the readout easier to parse.
+    (JavaScriptToSwiftConversions.testNull): JavaScript's null is actually mapped to NSNull, not nil.
+    (JavaScriptToSwiftConversions.testInteger): Some standard type coercion tests. The underlying value for
+        all number types should be NSNumber, so this is actually check against a float or integer type
+        without issue.
+    (JavaScriptToSwiftConversions.testDecimal): Ditto.
+    (JavaScriptToSwiftConversions.testBoolean): Ditto.
+    (JavaScriptToSwiftConversions.testString): Ditto.
+    (JavaScriptToSwiftConversions.testArray): Ditto.
+    (JavaScriptToSwiftConversions.testDictionary): Ditto, only you can't evaluate an object literal directly
+        so I need to store it in a temporary location first.
+    (JavaScriptToSwiftConversions.testUndefined): Test our boxing of nil. The exact value matters less than
+        not crashing at all.
+    
+    * SwiftOverlay/WebKitSwiftOverlay.xcodeproj/project.pbxproj: Added new files to project. I kept the
+        new test file and helper files within the SwiftOverlay group, because they do not contribute any API.
+    
+    * UIProcess/API/Cocoa/WebKitSwiftOverlay.swift:
+    (WKWebView.callAsyncJavaScript(_:arguments:in:in:completionHandler:)): Switch to a conversion which does
+        not trap on nil.
+    (WKWebView.createPDF(_:completionHandler:)): Updated to use new helper method name.
+    (WKWebView.createWebArchiveData(_:)): Ditto.
+    (WKWebView.evaluateJavaScript(_:in:in:completionHandler:Error:)): See above.
+    (makeResultHandler(_:): This has been subsumed by ObjCBlockConversions.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267352 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-21  James Savage  <james.savage@apple.com>
+
+            WKWebView Swift overlay has mis-annotated nullability for evaluateJavaScript
+            <http://webkit.org/b/216198>
+            <rdar://problem/68035950>
+
+            Reviewed by Darin Adler.
+
+            Due to a mistranslation of evaluateJavaScript, we are vending an API which does not expect
+            to receive nil as a valid result value. This change fixes the crash, but does not yet fix
+            the API to have the correct signature. That will come in a later patch.
+
+            To fix the crash, we need to produce a valid Result<Any, Error> to pass back to clients.
+            Fortunately, instead of inventing something clever, we can just use nil. It's valid to box
+            optional values into Any, and clients can technically retrieve them with the right dynamic cast
+            as well. Since client code must be using dynamic casting to convert the result Any to a usable
+            type, and because in the case where we now return a new value at runtime we would have previously
+            crashed, this shouldn't have any binary compatibility impact either.
+
+            To better validate these changes, I also add new unit tests for the conversion of JavaScript
+            results into Swift values, including a test for the deprecated API.
+
+            * SwiftOverlay/SwiftOverlay/ObjectiveCBlockConversions.swift: Added. For clarity I'm factoring
+            helper methods into a single namespace, as it also makes a nice place to document their expectations.
+            (ObjectiveCBlockConversion.exclusive.exclusive(_:)): This is renamed from the free function,
+                makeResultHandler(_:). It still has the same fatalError (now precondition) as before, but
+                hopefully a better name to clarify that it expects exactly-one value.
+            (ObjectiveCBlockConversions.boxingNilAsAnyForCompatibility(_:)): This is a variant of exclusive(_:)
+                that makes the tradeoff of boxing any nil values as Any to avoid crashing. This is still safe,
+                since as mentioned our clients will need to cast the value they recieve to do anything with it,
+                and since the deprecated API expects `Any`, no one could have been successfully comparing it
+                to `nil` today anyways.
+
+            * SwiftOverlay/Tests/JavaScriptToSwiftTypeConversions.swift: Added.
+            (JavaScriptToSwiftConversions.setUp): Construct a new web view, and add it to a window so that it is
+                in an expected state. I'm using about:blank as the URL, since page content doesn't matter for
+                these tests and I want the web content to be ready immediately.
+            (JavaScriptToSwiftConversions.tearDown): Just perform some window cleanup.
+            (JavaScriptToSwiftConversions.evaluateJavaScript(_:andExpect:)): Helper method to evaluate script and
+                check its result. I'm using String.debugDescription because it escapes quotes and special characters
+                which makes the readout easier to parse.
+            (JavaScriptToSwiftConversions.testNull): JavaScript's null is actually mapped to NSNull, not nil.
+            (JavaScriptToSwiftConversions.testInteger): Some standard type coercion tests. The underlying value for
+                all number types should be NSNumber, so this is actually check against a float or integer type
+                without issue.
+            (JavaScriptToSwiftConversions.testDecimal): Ditto.
+            (JavaScriptToSwiftConversions.testBoolean): Ditto.
+            (JavaScriptToSwiftConversions.testString): Ditto.
+            (JavaScriptToSwiftConversions.testArray): Ditto.
+            (JavaScriptToSwiftConversions.testDictionary): Ditto, only you can't evaluate an object literal directly
+                so I need to store it in a temporary location first.
+            (JavaScriptToSwiftConversions.testUndefined): Test our boxing of nil. The exact value matters less than
+                not crashing at all.
+
+            * SwiftOverlay/WebKitSwiftOverlay.xcodeproj/project.pbxproj: Added new files to project. I kept the
+                new test file and helper files within the SwiftOverlay group, because they do not contribute any API.
+
+            * UIProcess/API/Cocoa/WebKitSwiftOverlay.swift:
+            (WKWebView.callAsyncJavaScript(_:arguments:in:in:completionHandler:)): Switch to a conversion which does
+                not trap on nil.
+            (WKWebView.createPDF(_:completionHandler:)): Updated to use new helper method name.
+            (WKWebView.createWebArchiveData(_:)): Ditto.
+            (WKWebView.evaluateJavaScript(_:in:in:completionHandler:Error:)): See above.
+            (makeResultHandler(_:): This has been subsumed by ObjCBlockConversions.
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267619. rdar://problem/70296953
+
+    Add -[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:] to provide a way to allow app link
+    https://bugs.webkit.org/show_bug.cgi?id=216977
+    
+    Patch by Hoa Dinh <dvh@apple.com> on 2020-09-25
+    Reviewed by Alex Christensen.
+    
+    The method -[WKWebView _loadRequest:shouldOpenExternalURLs:] would only allow opening external or not.
+    It wasn't providing the ability to allow external URL but not app links.
+    This patch adds -[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:]. The parameters value for
+    shouldOpenExternalURLsPolicy has the same meaning than WebCore::ShouldOpenExternalURLsPolicy.
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:]):
+    * UIProcess/API/Cocoa/WKWebViewPrivate.h: Added enum _WKShouldOpenExternalURLsPolicy,
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267619 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-25  Hoa Dinh  <dvh@apple.com>
+
+            Add -[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:] to provide a way to allow app link
+            https://bugs.webkit.org/show_bug.cgi?id=216977
+
+            Reviewed by Alex Christensen.
+
+            The method -[WKWebView _loadRequest:shouldOpenExternalURLs:] would only allow opening external or not.
+            It wasn't providing the ability to allow external URL but not app links.
+            This patch adds -[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:]. The parameters value for
+            shouldOpenExternalURLsPolicy has the same meaning than WebCore::ShouldOpenExternalURLsPolicy.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _loadRequest:shouldOpenExternalURLsPolicy:]):
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h: Added enum _WKShouldOpenExternalURLsPolicy,
+
+2020-10-13  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268381. rdar://problem/70260409
+
+    Fix the macCatalyst build ("reference to 'Rect' is ambiguous")
+    https://bugs.webkit.org/show_bug.cgi?id=217642
+    <rdar://problem/70224629>
+    
+    Reviewed by Wenson Hsieh.
+    
+    * UIProcess/ios/forms/WKDateTimeInputControl.mm:
+    (-[WKDateTimePicker initWithView:datePickerMode:]):
+    (-[WKDateTimePicker shouldPresentGregorianCalendar:]):
+    (-[WKDateTimePicker controlBeginEditing]):
+    (-[WKDateTimeInputControl initWithView:]):
+    An earlier unified source's `using namespace WebCore` inside `namespace WebKit`
+    and then WKDateTimeInputControl's `using namespace WebKit` in the global namespace
+    resulted in once-again conflicting definitions of `Rect` between CSS
+    code and MacTypes.h.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268381 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Tim Horton  <timothy_horton@apple.com>
+
+            Fix the macCatalyst build ("reference to 'Rect' is ambiguous")
+            https://bugs.webkit.org/show_bug.cgi?id=217642
+            <rdar://problem/70224629>
+
+            Reviewed by Wenson Hsieh.
+
+            * UIProcess/ios/forms/WKDateTimeInputControl.mm:
+            (-[WKDateTimePicker initWithView:datePickerMode:]):
+            (-[WKDateTimePicker shouldPresentGregorianCalendar:]):
+            (-[WKDateTimePicker controlBeginEditing]):
+            (-[WKDateTimeInputControl initWithView:]):
+            An earlier unified source's `using namespace WebCore` inside `namespace WebKit`
+            and then WKDateTimeInputControl's `using namespace WebKit` in the global namespace
+            resulted in once-again conflicting definitions of `Rect` between CSS
+            code and MacTypes.h.
+
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r268330. rdar://problem/70189394
+
+    Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
+    or later
+    https://bugs.webkit.org/show_bug.cgi?id=217594
+    rdar://70188497
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
+    Reviewed by Darin Adler.
+    
+    To ensure successful Mac Catalyst WebKit builds, strip the patch version from
+    TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
+    
+    * Configurations/Base.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268330 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-11  Luming Yin  <luming_yin@apple.com>
+
+            Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
+            or later
+            https://bugs.webkit.org/show_bug.cgi?id=217594
+            rdar://70188497
+
+            Reviewed by Darin Adler.
+
+            To ensure successful Mac Catalyst WebKit builds, strip the patch version from
+            TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
+
+            * Configurations/Base.xcconfig:
+
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r268327. rdar://problem/70189401
+
+    Ignore deployment suffix and identifier when computing major OS version for macOS
+    Big Sur and newer
+    https://bugs.webkit.org/show_bug.cgi?id=217584
+    rdar://70168426
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
+    Reviewed by Darin Adler.
+    
+    Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
+    Only use the deployment target base for macOS Big Sur and newer. Keep the manual
+    definitions for legacy versions of macOS.
+    
+    * Configurations/Base.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268327 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-11  Luming Yin  <luming_yin@apple.com>
+
+            Ignore deployment suffix and identifier when computing major OS version for macOS
+            Big Sur and newer
+            https://bugs.webkit.org/show_bug.cgi?id=217584
+            rdar://70168426
+
+            Reviewed by Darin Adler.
+
+            Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
+            Only use the deployment target base for macOS Big Sur and newer. Keep the manual
+            definitions for legacy versions of macOS.
+
+            * Configurations/Base.xcconfig:
+
+2020-10-09  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268257. rdar://problem/70142057
+
+    Switch Allow/Don't Allow buttons in getUserMedia prompt
+    https://bugs.webkit.org/show_bug.cgi?id=217513
+    <rdar://problem/70134429>
+    
+    Reviewed by Eric Carlson.
+    
+    Return NotAllowedError instead of SecurityError in case user denies with default prompt.
+    Make sure to have the Allow button in iOS prompt on the right instead of the left.
+    Tested in MiniBrowser and MobileMiniBrowser.
+    
+    * UIProcess/Cocoa/UserMediaPermissionRequestProxy.mm:
+    (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268257 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-09  Youenn Fablet  <youenn@apple.com>
+
+            Switch Allow/Don't Allow buttons in getUserMedia prompt
+            https://bugs.webkit.org/show_bug.cgi?id=217513
+            <rdar://problem/70134429>
+
+            Reviewed by Eric Carlson.
+
+            Return NotAllowedError instead of SecurityError in case user denies with default prompt.
+            Make sure to have the Allow button in iOS prompt on the right instead of the left.
+            Tested in MiniBrowser and MobileMiniBrowser.
+
+            * UIProcess/Cocoa/UserMediaPermissionRequestProxy.mm:
+            (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+
+2020-10-09  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268256. rdar://problem/70142054
+
+    Implement TCC checks in UserMediaPermissionRequestManagerProxy
+    https://bugs.webkit.org/show_bug.cgi?id=217508
+    <rdar://problem/70129993>
+    
+    Reviewed by Eric Carlson.
+    
+    TCC checks must be done before asking the page client to decide whether to grant or not camera and/or microphone.
+    This ensures that, should the default action be done (default prompt), for instance in case the WKWebView application does not provide any delegate,
+    the TCC checks will happen before the default prompt.
+    
+    For that reason, we move the TCC checks from UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest to UserMediaPermissionRequestManagerProxy::requestSystemValidation.
+    
+    Manually tested in Safari and MiniBrowser.
+    
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+    (WebKit::requestUserMediaAuthorizationForFrame): Deleted.
+    (WebKit::requestAVCaptureAccessForMediaType): Deleted.
+    * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm:
+    (WebKit::requestAVCaptureAccessForMediaType):
+    (WebKit::UserMediaPermissionRequestManagerProxy::requestSystemValidation):
+    * UIProcess/UserMediaPermissionRequestManagerProxy.cpp:
+    (WebKit::UserMediaPermissionRequestManagerProxy::processUserMediaPermissionValidRequest):
+    (WebKit::UserMediaPermissionRequestManagerProxy::decidePolicyForUserMediaPermissionRequest):
+    (WebKit::UserMediaPermissionRequestManagerProxy::requestSystemValidation):
+    * UIProcess/UserMediaPermissionRequestManagerProxy.h:
+    * UIProcess/WebPageProxy.h:
+    (WebKit::WebPageProxy::preferences const):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268256 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-09  Youenn Fablet  <youenn@apple.com>
+
+            Implement TCC checks in UserMediaPermissionRequestManagerProxy
+            https://bugs.webkit.org/show_bug.cgi?id=217508
+            <rdar://problem/70129993>
+
+            Reviewed by Eric Carlson.
+
+            TCC checks must be done before asking the page client to decide whether to grant or not camera and/or microphone.
+            This ensures that, should the default action be done (default prompt), for instance in case the WKWebView application does not provide any delegate,
+            the TCC checks will happen before the default prompt.
+
+            For that reason, we move the TCC checks from UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest to UserMediaPermissionRequestManagerProxy::requestSystemValidation.
+
+            Manually tested in Safari and MiniBrowser.
+
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+            (WebKit::requestUserMediaAuthorizationForFrame): Deleted.
+            (WebKit::requestAVCaptureAccessForMediaType): Deleted.
+            * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm:
+            (WebKit::requestAVCaptureAccessForMediaType):
+            (WebKit::UserMediaPermissionRequestManagerProxy::requestSystemValidation):
+            * UIProcess/UserMediaPermissionRequestManagerProxy.cpp:
+            (WebKit::UserMediaPermissionRequestManagerProxy::processUserMediaPermissionValidRequest):
+            (WebKit::UserMediaPermissionRequestManagerProxy::decidePolicyForUserMediaPermissionRequest):
+            (WebKit::UserMediaPermissionRequestManagerProxy::requestSystemValidation):
+            * UIProcess/UserMediaPermissionRequestManagerProxy.h:
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::preferences const):
+
+2020-10-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268052. rdar://problem/70097377
+
+    Enable video capture in WebProcess by default on MacOS
+    https://bugs.webkit.org/show_bug.cgi?id=217385
+    <rdar://problem/69999542>
+    
+    Reviewed by Sam Weinig.
+    
+    Source/WebKit:
+    
+    Manually tested in MiniBrowser.
+    
+    * Shared/WebPreferencesDefaultValues.cpp:
+    * Shared/WebPreferencesDefaultValues.h:
+    
+    Source/WTF:
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268052 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-06  Youenn Fablet  <youenn@apple.com>
+
+            Enable video capture in WebProcess by default on MacOS
+            https://bugs.webkit.org/show_bug.cgi?id=217385
+            <rdar://problem/69999542>
+
+            Reviewed by Sam Weinig.
+
+            Manually tested in MiniBrowser.
+
+            * Shared/WebPreferencesDefaultValues.cpp:
+            * Shared/WebPreferencesDefaultValues.h:
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268012. rdar://problem/70056589
+
+    Disable media capture if an app's entitlements won't allow access to capture devices
+    https://bugs.webkit.org/show_bug.cgi?id=217319
+    <rdar://problem/69956112>
+    
+    Reviewed by Youenn Fablet.
+    
+    Source/WebKit:
+    
+    No new tests, tested manually with MiniBrowser and Safari.
+    
+    * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm:
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio): If the
+    app is sandboxed, check for the entitlement required for audio capture. Don't
+    bother checking for usage string if TCC has already authorized capture.
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo): Ditto
+    for video capture.
+    
+    * UIProcess/Cocoa/WebPreferencesCocoa.mm:
+    (WebKit::WebPreferences::platformInitializeStore): Initialize `mediaDevicesEnabled`
+    manually because its default value is always `false` in the WebProcess and may be
+    `true` in the UIProcess. WebPreferences assumes the default will always be the same
+    in both processes, and so has an optimization that only sends values to the
+    WebProcess if they differ from the default value. This means if the default in the
+    UIProcess is true it won't be pushed to the WebProcess, so capture won't work.
+    
+    * Platform/spi/ios/TCCSPI.h: Update TCCAccessPreflightResult.
+    
+    Tools:
+    
+    * MiniBrowser/MiniBrowser.xcodeproj/project.pbxproj:
+    * MiniBrowser/mac/AppDelegate.m:
+    (-[BrowserAppDelegate defaultConfiguration]): Don't set configuration._mediaCaptureEnabled,
+    it should no longer be necessary.
+    
+    * MiniBrowser/mac/Info.plist: Remove unneeded keys.
+    
+    * MobileMiniBrowser/MobileMiniBrowser/Info.plist: Ditto. Add usage strings.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268012 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-05  Eric Carlson  <eric.carlson@apple.com>
+
+            Disable media capture if an app's entitlements won't allow access to capture devices
+            https://bugs.webkit.org/show_bug.cgi?id=217319
+            <rdar://problem/69956112>
+
+            Reviewed by Youenn Fablet.
+
+            No new tests, tested manually with MiniBrowser and Safari.
+
+            * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm:
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio): If the
+            app is sandboxed, check for the entitlement required for audio capture. Don't
+            bother checking for usage string if TCC has already authorized capture.
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo): Ditto
+            for video capture.
+
+            * UIProcess/Cocoa/WebPreferencesCocoa.mm:
+            (WebKit::WebPreferences::platformInitializeStore): Initialize `mediaDevicesEnabled`
+            manually because its default value is always `false` in the WebProcess and may be
+            `true` in the UIProcess. WebPreferences assumes the default will always be the same
+            in both processes, and so has an optimization that only sends values to the
+            WebProcess if they differ from the default value. This means if the default in the
+            UIProcess is true it won't be pushed to the WebProcess, so capture won't work.
+
+            * Platform/spi/ios/TCCSPI.h: Update TCCAccessPreflightResult.
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267844. rdar://problem/70056601
+
+    Prevent media capture unless the application has correct data for system permission prompt
+    https://bugs.webkit.org/show_bug.cgi?id=217104
+    <rdar://problem/69761929>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    Tested manually with MiniBrowser.
+    
+    * SourcesCocoa.txt:
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::requestAVCaptureAccessForMediaType): Renamed from requestAccessForMediaType.
+    (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest): Deny
+    requests of the application is not permitted to capture. Restructure logic to
+    make it easier to understand.
+    (WebKit::requestAccessForMediaType): Deleted.
+    
+    * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm: Added.
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio): Check
+    for required Info.plist string.
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo): Ditto.
+    
+    * UIProcess/Cocoa/WebPageProxyCocoa.mm: Update for unified build.
+    
+    * UIProcess/UserMediaPermissionRequestManagerProxy.cpp:
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio):
+    (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo):
+    * UIProcess/UserMediaPermissionRequestManagerProxy.h:
+    * WebKit.xcodeproj/project.pbxproj:
+    
+    Tools:
+    
+    * MiniBrowser/mac/Info.plist: Add necessary entitlements and usage strings.
+    
+    * MobileMiniBrowser/MobileMiniBrowserFramework/WebViewController.m:
+    (-[WebViewController createWebView]): Setting the private capture preference is
+    not necessary because we set configuration._mediaCaptureEnabled.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267844 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-01  Eric Carlson  <eric.carlson@apple.com>
+
+            Prevent media capture unless the application has correct data for system permission prompt
+            https://bugs.webkit.org/show_bug.cgi?id=217104
+            <rdar://problem/69761929>
+
+            Reviewed by Darin Adler.
+
+            Tested manually with MiniBrowser.
+
+            * SourcesCocoa.txt:
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::requestAVCaptureAccessForMediaType): Renamed from requestAccessForMediaType.
+            (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest): Deny
+            requests of the application is not permitted to capture. Restructure logic to
+            make it easier to understand.
+            (WebKit::requestAccessForMediaType): Deleted.
+
+            * UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm: Added.
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio): Check
+            for required Info.plist string.
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo): Ditto.
+
+            * UIProcess/Cocoa/WebPageProxyCocoa.mm: Update for unified build.
+
+            * UIProcess/UserMediaPermissionRequestManagerProxy.cpp:
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureAudio):
+            (WebKit::UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo):
+            * UIProcess/UserMediaPermissionRequestManagerProxy.h:
+            * WebKit.xcodeproj/project.pbxproj:
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267698. rdar://problem/70056601
+
+    Make sure our calls to AVCaptureDevice requestAccessForMediaType do processing on the main thread
+    https://bugs.webkit.org/show_bug.cgi?id=216974
+    
+    Reviewed by Darin Adler.
+    
+    The completion handler to [AVCaptureDeviceClass requestAccessForMediaType:] may sometimes be called in a background thread on iOS.
+    Make sure to hop to the main thread if that is the case.
+    Also make sure to ref/weakref lambda captured variables.
+    
+    * UIProcess/Cocoa/UIDelegate.h:
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::requestAccessForMediaType):
+    (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267698 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-28  Youenn Fablet  <youenn@apple.com>
+
+            Make sure our calls to AVCaptureDevice requestAccessForMediaType do processing on the main thread
+            https://bugs.webkit.org/show_bug.cgi?id=216974
+
+            Reviewed by Darin Adler.
+
+            The completion handler to [AVCaptureDeviceClass requestAccessForMediaType:] may sometimes be called in a background thread on iOS.
+            Make sure to hop to the main thread if that is the case.
+            Also make sure to ref/weakref lambda captured variables.
+
+            * UIProcess/Cocoa/UIDelegate.h:
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::requestAccessForMediaType):
+            (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267563. rdar://problem/70056594
+
+    Introduce WKWebViewConfiguration mediaCaptureEnabled
+    https://bugs.webkit.org/show_bug.cgi?id=216872
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebKit:
+    
+    Add a new boolean configuration to enable/disable mediaDevices exposure.
+    Value is off by default.
+    A future patch will remove the mediaDevices WebPreferences based API, given there is no need
+    to enable/disable mediaDevices during the lifetime of a page.
+    
+    Covered by existing tests.
+    
+    * UIProcess/API/APIPageConfiguration.cpp:
+    (API::PageConfiguration::copy const):
+    * UIProcess/API/APIPageConfiguration.h:
+    (API::PageConfiguration::setMediaDevicesEnabled):
+    (API::PageConfiguration::mediaDevicesEnabled const):
+    * UIProcess/API/Cocoa/WKPreferencesPrivate.h:
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _setupPageConfiguration:]):
+    * UIProcess/API/Cocoa/WKWebViewConfiguration.mm:
+    (-[WKWebViewConfiguration _mediaDevicesEnabled]):
+    (-[WKWebViewConfiguration _setMediaDevicesEnabled:]):
+    * UIProcess/API/Cocoa/WKWebViewConfigurationPrivate.h:
+    
+    Tools:
+    
+    Make use of new configuration boolean instead of mediaDevicesEnabled WebPreferences API.
+    
+    * MiniBrowser/mac/AppDelegate.m:
+    (-[BrowserAppDelegate defaultConfiguration]):
+    * TestWebKitAPI/Tests/WebKit/GetUserMedia.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKit/GetUserMediaNavigation.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKit/GetUserMediaReprompt.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKit/MediaStreamTrackDetached.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKitCocoa/GetDisplayMedia.mm:
+    (TestWebKitAPI::GetDisplayMediaTest::SetUp):
+    * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+    * TestWebKitAPI/Tests/WebKitCocoa/UserMediaDisabled.mm:
+    (MediaCaptureDisabledTest::SetUp):
+    * TestWebKitAPI/Tests/WebKitCocoa/UserMediaSimulateFailedSandbox.mm:
+    (MediaCaptureSimulateFailedSandbox::SetUp):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267563 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-25  Youenn Fablet  <youenn@apple.com>
+
+            Introduce WKWebViewConfiguration mediaCaptureEnabled
+            https://bugs.webkit.org/show_bug.cgi?id=216872
+
+            Reviewed by Alex Christensen.
+
+            Add a new boolean configuration to enable/disable mediaDevices exposure.
+            Value is off by default.
+            A future patch will remove the mediaDevices WebPreferences based API, given there is no need
+            to enable/disable mediaDevices during the lifetime of a page.
+
+            Covered by existing tests.
+
+            * UIProcess/API/APIPageConfiguration.cpp:
+            (API::PageConfiguration::copy const):
+            * UIProcess/API/APIPageConfiguration.h:
+            (API::PageConfiguration::setMediaDevicesEnabled):
+            (API::PageConfiguration::mediaDevicesEnabled const):
+            * UIProcess/API/Cocoa/WKPreferencesPrivate.h:
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _setupPageConfiguration:]):
+            * UIProcess/API/Cocoa/WKWebViewConfiguration.mm:
+            (-[WKWebViewConfiguration _mediaDevicesEnabled]):
+            (-[WKWebViewConfiguration _setMediaDevicesEnabled:]):
+            * UIProcess/API/Cocoa/WKWebViewConfigurationPrivate.h:
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267081. rdar://problem/70056594
+
+    End of media capture should not be reported before 3 seconds of the start of capture
+    https://bugs.webkit.org/show_bug.cgi?id=216415
+    Source/WebCore:
+    
+    Reviewed by Eric Carlson.
+    
+    Add a timer that allows taking a function and a delay as parameter.
+    Covered by added API test.
+    
+    * platform/Timer.h:
+    (WebCore::DeferrableTaskTimer::fired):
+    (WebCore::DeferrableTaskTimer::doTask):
+    (WebCore::DeferrableTaskTimer::cancel):
+    
+    Source/WebKit:
+    
+    <rdar://problem/68512358>
+    
+    Reviewed by Eric Carlson.
+    
+    Add support for delaying of end of capture notification to the application.
+    This allows to ensure that a capture indicator stays for long enough for the user to notice it.
+    A capture indicator should be visible to the user for at least three seconds.
+    
+    A timer is scheduled when starting a capture and there is no ongoing capture.
+    As long as the timer is active, the capture state cannot be transitioned to no capture.
+    Other transitions are allowed.
+    Once the timer kicks in, any capture state update is done synchronously.
+    Ensure to update the capture state when the timer kicks in.
+    
+    Note that even navigations will not allow transitioning the capture state sooner.
+    This is done to ensure a page does not try to capture one frame before navigating to another page.
+    In practice, very few pages should navigate quickly after starting capture.
+    
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageGetMediaState):
+    (WKPageSetMediaCaptureReportingDelayForTesting):
+    * UIProcess/API/C/WKPagePrivate.h:
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _mediaCaptureState]):
+    * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+    * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+    (-[WKWebView _mediaCaptureReportingDelayForTesting]):
+    (-[WKWebView _setMediaCaptureReportingDelayForTesting:]):
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::updatePlayingMediaDidChange):
+    (WebKit::WebPageProxy::updateReportedMediaCaptureState):
+    * UIProcess/WebPageProxy.h:
+    (WebKit::WebPageProxy::reportedMediaCaptureState const):
+    (WebKit::WebPageProxy::mediaCaptureReportingDelay const):
+    (WebKit::WebPageProxy::setMediaCaptureReportingDelay):
+    
+    Tools:
+    
+    Reviewed by Eric Carlson.
+    
+    * TestWebKitAPI/Tests/WebKit/GetUserMedia.mm:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+    (-[GetUserMediaUIDelegate _webView:mediaCaptureStateDidChange:]):
+    Add a notCapturing boolean and wait for the notification before going back to the capturing page.
+    Decrease delay to 1 second to make the test run faster.
+    * WebKitTestRunner/TestController.cpp:
+    (WTR::TestController::resetStateToConsistentValues):
+    Make sure to set media capture state delay to zero.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267081 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-15  Youenn Fablet  <youenn@apple.com>
+
+            End of media capture should not be reported before 3 seconds of the start of capture
+            https://bugs.webkit.org/show_bug.cgi?id=216415
+            <rdar://problem/68512358>
+
+            Reviewed by Eric Carlson.
+
+            Add support for delaying of end of capture notification to the application.
+            This allows to ensure that a capture indicator stays for long enough for the user to notice it.
+            A capture indicator should be visible to the user for at least three seconds.
+
+            A timer is scheduled when starting a capture and there is no ongoing capture.
+            As long as the timer is active, the capture state cannot be transitioned to no capture.
+            Other transitions are allowed.
+            Once the timer kicks in, any capture state update is done synchronously.
+            Ensure to update the capture state when the timer kicks in.
+
+            Note that even navigations will not allow transitioning the capture state sooner.
+            This is done to ensure a page does not try to capture one frame before navigating to another page.
+            In practice, very few pages should navigate quickly after starting capture.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageGetMediaState):
+            (WKPageSetMediaCaptureReportingDelayForTesting):
+            * UIProcess/API/C/WKPagePrivate.h:
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _mediaCaptureState]):
+            * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+            * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+            (-[WKWebView _mediaCaptureReportingDelayForTesting]):
+            (-[WKWebView _setMediaCaptureReportingDelayForTesting:]):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::updatePlayingMediaDidChange):
+            (WebKit::WebPageProxy::updateReportedMediaCaptureState):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::reportedMediaCaptureState const):
+            (WebKit::WebPageProxy::mediaCaptureReportingDelay const):
+            (WebKit::WebPageProxy::setMediaCaptureReportingDelay):
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267568. rdar://problem/70056584
+
+    Implement default behavior for getUserMedia requests in case where there is no delegate set
+    https://bugs.webkit.org/show_bug.cgi?id=216968
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebKit:
+    
+    In case page UIDelegate is not set, make the getUserMedia request do its default action.
+    In case there is a UIDelegate but no getUserMedia specific delegates, make the getUserMedia request do its default action.
+    Default action is deny for getDisplayMedia and for non cocoa ports.
+    For cocoa ports, a prompt is shown.
+    
+    Manually tested with MiniBrowser and MobileMiniBrowser.
+    
+    * SourcesCocoa.txt:
+    * UIProcess/API/APIUIClient.h:
+    (API::UIClient::decidePolicyForUserMediaPermissionRequest):
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::requestUserMediaAuthorizationForFrame):
+    * UIProcess/Cocoa/UserMediaPermissionRequestProxy.mm: Renamed from Source/WebKit/UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.mm.
+    (WebKit::alertMessageText):
+    (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+    * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.h: Removed.
+    * UIProcess/UserMediaPermissionRequestProxy.cpp:
+    (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+    * UIProcess/UserMediaPermissionRequestProxy.h:
+    * WebKit.xcodeproj/project.pbxproj:
+    
+    Tools:
+    
+    Add camera and microphone entitlements to MobileMiniBrowser.
+    Expose mediaDevices to web pages and use mock devices.
+    
+    * MobileMiniBrowser/MobileMiniBrowser/Info.plist:
+    * MobileMiniBrowser/MobileMiniBrowserFramework/WebViewController.m:
+    (-[WebViewController createWebView]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267568 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-25  Youenn Fablet  <youenn@apple.com>
+
+            Implement default behavior for getUserMedia requests in case where there is no delegate set
+            https://bugs.webkit.org/show_bug.cgi?id=216968
+
+            Reviewed by Eric Carlson.
+
+            In case page UIDelegate is not set, make the getUserMedia request do its default action.
+            In case there is a UIDelegate but no getUserMedia specific delegates, make the getUserMedia request do its default action.
+            Default action is deny for getDisplayMedia and for non cocoa ports.
+            For cocoa ports, a prompt is shown.
+
+            Manually tested with MiniBrowser and MobileMiniBrowser.
+
+            * SourcesCocoa.txt:
+            * UIProcess/API/APIUIClient.h:
+            (API::UIClient::decidePolicyForUserMediaPermissionRequest):
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::requestUserMediaAuthorizationForFrame):
+            * UIProcess/Cocoa/UserMediaPermissionRequestProxy.mm: Renamed from Source/WebKit/UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.mm.
+            (WebKit::alertMessageText):
+            (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+            * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.h: Removed.
+            * UIProcess/UserMediaPermissionRequestProxy.cpp:
+            (WebKit::UserMediaPermissionRequestProxy::doDefaultAction):
+            * UIProcess/UserMediaPermissionRequestProxy.h:
+            * WebKit.xcodeproj/project.pbxproj:
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267414. rdar://problem/70056613
+
+    Implement a default prompt for getUserMedia
+    https://bugs.webkit.org/show_bug.cgi?id=216821
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Manually tested by running Minibrowser.
+    
+    * en.lproj/Localizable.strings:
+    
+    Source/WebKit:
+    
+    Move preferences used by WebRTC develop menu to internals.
+    This allows having them in MiniBrowser.
+    
+    Enable video capture in UIProcess by default for non Safari applications.
+    Add support for a getUserMedia prompt, very similar to iOS current prompt.
+    Use the prompt in case the application does not implement any of the two delegates.
+    
+    * Shared/WebPreferences.yaml:
+    * Shared/WebPreferencesDefaultValues.cpp:
+    (WebKit::defaultCaptureVideoInUIProcessEnabled):
+    * Shared/WebPreferencesDefaultValues.h:
+    * Shared/WebPreferencesExperimental.yaml:
+    * Shared/WebPreferencesInternal.yaml:
+    * UIProcess/Cocoa/UIDelegate.h:
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::UIDelegate::setDelegate):
+    (WebKit::requestUserMediaAuthorizationForFrame):
+    (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+    * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.h: Added.
+    * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.mm: Added.
+    (WebKit::visibleDomain):
+    (WebKit::alertMessageText):
+    (WebKit::presentUserMediaCaptureAccessAlert):
+    * WebKit.xcodeproj/project.pbxproj:
+    
+    Tools:
+    
+    Remove getUserMedia delegate implementations to use WebKit built-in prompt.
+    Add camera and microphone entitlements to allow using real cameras and microphones.
+    Keep using mock devices as the default.
+    
+    * MiniBrowser/MiniBrowser.entitlements:
+    * MiniBrowser/mac/WK2BrowserWindowController.m:
+    (-[WK2BrowserWindowController _webView:requestMediaCaptureAuthorization:decisionHandler:]): Deleted.
+    (-[WK2BrowserWindowController _webView:includeSensitiveMediaDeviceDetails:]): Deleted.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267414 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-22  Youenn Fablet  <youenn@apple.com>
+
+            Implement a default prompt for getUserMedia
+            https://bugs.webkit.org/show_bug.cgi?id=216821
+
+            Reviewed by Eric Carlson.
+
+            Move preferences used by WebRTC develop menu to internals.
+            This allows having them in MiniBrowser.
+
+            Enable video capture in UIProcess by default for non Safari applications.
+            Add support for a getUserMedia prompt, very similar to iOS current prompt.
+            Use the prompt in case the application does not implement any of the two delegates.
+
+            * Shared/WebPreferences.yaml:
+            * Shared/WebPreferencesDefaultValues.cpp:
+            (WebKit::defaultCaptureVideoInUIProcessEnabled):
+            * Shared/WebPreferencesDefaultValues.h:
+            * Shared/WebPreferencesExperimental.yaml:
+            * Shared/WebPreferencesInternal.yaml:
+            * UIProcess/Cocoa/UIDelegate.h:
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::UIDelegate::setDelegate):
+            (WebKit::requestUserMediaAuthorizationForFrame):
+            (WebKit::UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest):
+            * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.h: Added.
+            * UIProcess/Cocoa/WKUserMediaCaptureAccessAlert.mm: Added.
+            (WebKit::visibleDomain):
+            (WebKit::alertMessageText):
+            (WebKit::presentUserMediaCaptureAccessAlert):
+            * WebKit.xcodeproj/project.pbxproj:
+
+2020-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267237. rdar://problem/70056605
+
+    Unified build fixes in media code
+    https://bugs.webkit.org/show_bug.cgi?id=216691
+    
+    Reviewed by Sam Weinig.
+    
+    Add missing includes and/or missing undef.
+    No change of behavior.
+    
+    * GPUProcess/webrtc/RemoteAudioMediaStreamTrackRenderer.cpp:
+    * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+    * WebProcess/WebPage/WebPageOverlay.h:
+    * WebProcess/cocoa/RemoteRealtimeMediaSource.cpp:
+    * WebProcess/cocoa/RemoteRealtimeMediaSource.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267237 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-18  Youenn Fablet  <youenn@apple.com>
+
+            Unified build fixes in media code
+            https://bugs.webkit.org/show_bug.cgi?id=216691
+
+            Reviewed by Sam Weinig.
+
+            Add missing includes and/or missing undef.
+            No change of behavior.
+
+            * GPUProcess/webrtc/RemoteAudioMediaStreamTrackRenderer.cpp:
+            * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+            * WebProcess/WebPage/WebPageOverlay.h:
+            * WebProcess/cocoa/RemoteRealtimeMediaSource.cpp:
+            * WebProcess/cocoa/RemoteRealtimeMediaSource.h:
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/70026315
+
+    2020-10-06  Youenn Fablet  <youennf@gmail.com>
+
+            Enable MediaRecorder by default on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=216664
+            <rdar://problem/69319607>
+
+            Reviewed by Eric Carlson and Darin Adler.
+            Enable it on all platforms supporting HAVE(AVASSETWRITERDELEGATE).
+
+            * Shared/WebPreferences.yaml:
+            * Shared/WebPreferencesDefaultValues.cpp:
+            (WebKit::defaultMediaRecorderEnabled):
+            * Shared/WebPreferencesDefaultValues.h:
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267833. rdar://problem/70024626
+
+    MediaRecorder should support MediaRecorderOptions.mimeType
+    https://bugs.webkit.org/show_bug.cgi?id=215018
+    <rdar://problem/66681508>
+    
+    Reviewed by Eric Carlson.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/mediacapture-record/MediaRecorder-mimetype-expected.txt:
+    
+    Source/WebCore:
+    
+    Instead of setting mime type right away, set it just before firing start event as per spec.
+    This will allow in the future to populate exact codec parameters if proven useful.
+    
+    Covered by rebased and updated tests.
+    
+    * Modules/mediarecorder/MediaRecorder.cpp:
+    (WebCore::MediaRecorder::create):
+    (WebCore::MediaRecorder::startRecording):
+    * platform/mediarecorder/MediaRecorderPrivate.h:
+    (WebCore::MediaRecorderPrivate::startRecording):
+    * platform/mediarecorder/MediaRecorderPrivateAVFImpl.h:
+    
+    Source/WebKit:
+    
+    Update code to pass mimeType as part of startRecording callback.
+    
+    * GPUProcess/webrtc/RemoteMediaRecorder.h:
+    (WebKit::RemoteMediaRecorder::mimeType const):
+    * GPUProcess/webrtc/RemoteMediaRecorderManager.cpp:
+    (WebKit::RemoteMediaRecorderManager::createRecorder):
+    * GPUProcess/webrtc/RemoteMediaRecorderManager.h:
+    * GPUProcess/webrtc/RemoteMediaRecorderManager.messages.in:
+    * WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp:
+    (WebKit::MediaRecorderPrivate::startRecording):
+    * WebProcess/GPU/webrtc/MediaRecorderPrivate.h:
+    
+    LayoutTests:
+    
+    Update test to expect setting of the mime type after start event.
+    
+    * http/wpt/mediarecorder/mimeType.html:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267833 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-01  Youenn Fablet  <youenn@apple.com>
+
+            MediaRecorder should support MediaRecorderOptions.mimeType
+            https://bugs.webkit.org/show_bug.cgi?id=215018
+            <rdar://problem/66681508>
+
+            Reviewed by Eric Carlson.
+
+            Update code to pass mimeType as part of startRecording callback.
+
+            * GPUProcess/webrtc/RemoteMediaRecorder.h:
+            (WebKit::RemoteMediaRecorder::mimeType const):
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.cpp:
+            (WebKit::RemoteMediaRecorderManager::createRecorder):
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.h:
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.messages.in:
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp:
+            (WebKit::MediaRecorderPrivate::startRecording):
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.h:
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267825. rdar://problem/70024248
+
+    MediaRecorder should support isTypeSupported
+    https://bugs.webkit.org/show_bug.cgi?id=216856
+    LayoutTests/imported/w3c:
+    
+    Reviewed by Darin Adler.
+    
+    * web-platform-tests/mediacapture-record/MediaRecorder-mimetype-expected.txt:
+    * web-platform-tests/mediacapture-record/MediaRecorder-peerconnection.https-expected.txt:
+    * web-platform-tests/mediacapture-record/idlharness.window-expected.txt:
+    * web-platform-tests/mediacapture-record/passthrough/MediaRecorder-passthrough.https-expected.txt:
+    * web-platform-tests/mediacapture-record/passthrough/MediaRecorder-passthrough.https.html:
+    Remove JS console log error line.
+    
+    Source/WebCore:
+    
+    <rdar://problem/69767695>
+    
+    Reviewed by Darin Adler.
+    
+    Introduce MediaRecorder::isMimeTypeSupported whose result is exposed as MediaRecoder.isTypeSupported.
+    Cocoa port allows mp4 audio and video mime types, with H264 and AAC codecs.
+    Add a routine to get the mime type from the MediaRecorderPrivate.
+    Store it in MediaRecorder and add a mimeType getter.
+    
+    Test: http/wpt/mediarecorder/mimeType.html
+    
+    * Modules/mediarecorder/MediaRecorder.cpp:
+    (WebCore::MediaRecorder::isTypeSupported):
+    (WebCore::MediaRecorder::create):
+    * Modules/mediarecorder/MediaRecorder.h:
+    * Modules/mediarecorder/MediaRecorder.idl:
+    * Modules/mediarecorder/MediaRecorderProvider.cpp:
+    (WebCore::MediaRecorderProvider::isSupported):
+    * Modules/mediarecorder/MediaRecorderProvider.h:
+    * platform/mediarecorder/MediaRecorderPrivate.h:
+    * platform/mediarecorder/MediaRecorderPrivateAVFImpl.cpp:
+    (WebCore::MediaRecorderPrivateAVFImpl::mimeType const):
+    * platform/mediarecorder/MediaRecorderPrivateAVFImpl.h:
+    * platform/mediarecorder/MediaRecorderPrivateMock.cpp:
+    (WebCore::MediaRecorderPrivateMock::mimeType const):
+    * platform/mediarecorder/MediaRecorderPrivateMock.h:
+    * platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.h:
+    * platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.mm:
+    (WebCore::MediaRecorderPrivateWriter::mimeType const):
+    * platform/mediastream/MediaStreamPrivate.h:
+    
+    Source/WebKit:
+    
+    <rdar://problem/69767695>
+    
+    Reviewed by Darin Adler.
+    
+    Stop passing mimeType for each data blob.
+    Instead, compute it on WebProcess side.
+    
+    * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+    (WebKit::RemoteMediaRecorder::fetchData):
+    * GPUProcess/webrtc/RemoteMediaRecorder.h:
+    * GPUProcess/webrtc/RemoteMediaRecorder.messages.in:
+    * WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp:
+    (WebKit::MediaRecorderPrivate::MediaRecorderPrivate):
+    (WebKit::MediaRecorderPrivate::fetchData):
+    (WebKit::MediaRecorderPrivate::mimeType const):
+    * WebProcess/GPU/webrtc/MediaRecorderPrivate.h:
+    
+    LayoutTests:
+    
+    Reviewed by Darin Adler.
+    
+    * http/wpt/mediarecorder/mimeType-expected.txt: Added.
+    * http/wpt/mediarecorder/mimeType.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267825 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-01  Youenn Fablet  <youenn@apple.com>
+
+            MediaRecorder should support isTypeSupported
+            https://bugs.webkit.org/show_bug.cgi?id=216856
+            <rdar://problem/69767695>
+
+            Reviewed by Darin Adler.
+
+            Stop passing mimeType for each data blob.
+            Instead, compute it on WebProcess side.
+
+            * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+            (WebKit::RemoteMediaRecorder::fetchData):
+            * GPUProcess/webrtc/RemoteMediaRecorder.h:
+            * GPUProcess/webrtc/RemoteMediaRecorder.messages.in:
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp:
+            (WebKit::MediaRecorderPrivate::MediaRecorderPrivate):
+            (WebKit::MediaRecorderPrivate::fetchData):
+            (WebKit::MediaRecorderPrivate::mimeType const):
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.h:
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267366. rdar://problem/70023908
+
+    [iOS] MediaRecorder incorrect screen orientation handling
+    https://bugs.webkit.org/show_bug.cgi?id=198912
+    <rdar://problem/51802521>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Update MediaRecorderPrivateWriterCocoa to pass a MediaSample down to handle rotation.
+    Set AVAssetWriterInput transform according the first MediaSample rotation value.
+    
+    Test: http/wpt/mediarecorder/video-rotation.html
+    
+    * platform/mediarecorder/MediaRecorderPrivateAVFImpl.cpp:
+    (WebCore::MediaRecorderPrivateAVFImpl::videoSampleAvailable):
+    * platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.h:
+    * platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.mm:
+    (WebCore::MediaRecorderPrivateWriter::appendVideoSampleBuffer):
+    
+    Source/WebKit:
+    
+    * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+    (WebKit::RemoteMediaRecorder::videoSampleAvailable):
+    
+    LayoutTests:
+    
+    * http/wpt/mediarecorder/video-rotation-expected.txt: Added.
+    * http/wpt/mediarecorder/video-rotation.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267366 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-21  Youenn Fablet  <youenn@apple.com>
+
+            [iOS] MediaRecorder incorrect screen orientation handling
+            https://bugs.webkit.org/show_bug.cgi?id=198912
+            <rdar://problem/51802521>
+
+            Reviewed by Eric Carlson.
+
+            * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+            (WebKit::RemoteMediaRecorder::videoSampleAvailable):
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/70010322
+
+    2020-10-06  Youenn Fablet  <youenn@apple.com>
+
+            Add support for MediaRecorder bitrate options
+            https://bugs.webkit.org/show_bug.cgi?id=214973
+
+            Reviewed by Eric Carlson.
+
+            Serialize options when creating remote media recorder.
+
+            * GPUProcess/webrtc/RemoteMediaRecorder.cpp:
+            (WebKit::RemoteMediaRecorder::create):
+            * GPUProcess/webrtc/RemoteMediaRecorder.h:
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.cpp:
+            (WebKit::RemoteMediaRecorderManager::createRecorder):
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.h:
+            * GPUProcess/webrtc/RemoteMediaRecorderManager.messages.in:
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp:
+            (WebKit::MediaRecorderPrivate::MediaRecorderPrivate):
+            (WebKit::MediaRecorderPrivate::startRecording):
+            * WebProcess/GPU/webrtc/MediaRecorderPrivate.h:
+            * WebProcess/GPU/webrtc/MediaRecorderProvider.cpp:
+            (WebKit::MediaRecorderProvider::createMediaRecorderPrivate):
+            * WebProcess/GPU/webrtc/MediaRecorderProvider.h:
 
 2020-10-06  Alan Coon  <alancoon@apple.com>
 

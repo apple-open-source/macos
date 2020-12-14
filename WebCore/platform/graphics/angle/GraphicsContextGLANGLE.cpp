@@ -29,9 +29,6 @@
 #if ENABLE(GRAPHICS_CONTEXT_GL) && USE(ANGLE)
 #include "GraphicsContextGL.h"
 
-#if PLATFORM(IOS_FAMILY)
-#include "GraphicsContextGLOpenGLESIOS.h"
-#endif
 #include "ExtensionsGLANGLE.h"
 #include "ImageBuffer.h"
 #include "ImageData.h"
@@ -212,12 +209,11 @@ bool GraphicsContextGLOpenGL::reshapeFBOs(const IntSize& size)
     ASSERT(m_texture);
 
 #if PLATFORM(COCOA)
-    if (!allocateIOSurfaceBackingStore(size)) {
+    if (!reshapeDisplayBufferBacking()) {
         RELEASE_LOG(WebGL, "Fatal: Unable to allocate backing store of size %d x %d", width, height);
         forceContextLost();
         return true;
     }
-    updateFramebufferTextureBackingStoreFromLayer();
     if (m_preserveDrawingBufferTexture) {
         // The context requires the use of an intermediate texture in order to implement
         // preserveDrawingBuffer:true without antialiasing.
@@ -231,10 +227,10 @@ bool GraphicsContextGLOpenGL::reshapeFBOs(const IntSize& size)
         gl::BindTexture(GL_TEXTURE_2D, texture2DBinding);
         // Attach m_texture to m_preserveDrawingBufferFBO for later blitting.
         gl::BindFramebuffer(GL_FRAMEBUFFER, m_preserveDrawingBufferFBO);
-        gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GraphicsContextGL::IOSurfaceTextureTarget(), m_texture, 0);
+        gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, IOSurfaceTextureTarget(), m_texture, 0);
         gl::BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     } else
-        gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GraphicsContextGL::IOSurfaceTextureTarget(), m_texture, 0);
+        gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, IOSurfaceTextureTarget(), m_texture, 0);
 #elif PLATFORM(GTK)
     gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, m_texture);
     gl::TexImage2D(GL_TEXTURE_RECTANGLE_ANGLE, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
@@ -486,11 +482,6 @@ void GraphicsContextGLOpenGL::paintRenderingResultsToCanvas(ImageBuffer* imageBu
     }
 
     paintToCanvas(pixels.get(), IntSize(m_currentWidth, m_currentHeight), imageBuffer->backendSize(), imageBuffer->context());
-
-#if PLATFORM(COCOA) && USE(OPENGL_ES)
-    // FIXME: work on iOS integration.
-    presentRenderbuffer();
-#endif
 }
 
 bool GraphicsContextGLOpenGL::paintCompositedResultsToCanvas(ImageBuffer*)
@@ -528,6 +519,12 @@ void GraphicsContextGLOpenGL::prepareTexture()
         return;
 
     makeContextCurrent();
+    prepareTextureImpl();
+}
+
+void GraphicsContextGLOpenGL::prepareTextureImpl()
+{
+    ASSERT(!m_layerComposited);
 
     if (contextAttributes().antialias)
         resolveMultisamplingIfNecessary();
@@ -563,7 +560,6 @@ void GraphicsContextGLOpenGL::prepareTexture()
         } else
             gl::BindFramebuffer(GL_FRAMEBUFFER, m_state.boundDrawFBO);
     }
-    gl::Flush();
 #endif
 }
 
@@ -644,6 +640,7 @@ void GraphicsContextGLOpenGL::reshape(int width, int height)
     m_currentHeight = height;
 
     makeContextCurrent();
+    moveErrorsToSyntheticErrorList();
     validateAttributes();
 
     TemporaryANGLESetting scopedScissor(GL_SCISSOR_TEST, GL_FALSE);

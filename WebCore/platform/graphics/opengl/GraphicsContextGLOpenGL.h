@@ -27,7 +27,6 @@
 
 #if ENABLE(GRAPHICS_CONTEXT_GL)
 
-#include "ANGLEWebKitBridge.h"
 #include "GraphicsContextGL.h"
 #include <memory>
 #include <wtf/HashCountedSet.h>
@@ -36,8 +35,16 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/UniqueArray.h>
 
+#if PLATFORM(COCOA)
+#include "IOSurface.h"
+#endif
+
 #if USE(CA)
 #include "PlatformCALayer.h"
+#endif
+
+#if !USE(ANGLE)
+#include "ANGLEWebKitBridge.h"
 #endif
 
 // FIXME: Find a better way to avoid the name confliction for NO_ERROR.
@@ -49,15 +56,8 @@
 #endif
 
 #if PLATFORM(COCOA)
-#if USE(OPENGL_ES)
-#include <OpenGLES/ES2/gl.h>
-#ifdef __OBJC__
-#import <OpenGLES/EAGL.h>
-#endif // __OBJC__
-#endif // USE(OPENGL_ES)
 OBJC_CLASS CALayer;
 OBJC_CLASS WebGLLayer;
-typedef struct __IOSurface* IOSurfaceRef;
 #endif // PLATFORM(COCOA)
 
 #if USE(NICOSIA)
@@ -70,9 +70,9 @@ namespace WebCore {
 class ExtensionsGL;
 #if USE(ANGLE)
 class ExtensionsGLANGLE;
-#elif !PLATFORM(COCOA) && USE(OPENGL_ES)
+#elif USE(OPENGL_ES)
 class ExtensionsGLOpenGLES;
-#elif USE(OPENGL) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#elif USE(OPENGL)
 class ExtensionsGLOpenGL;
 #endif
 class HostWindow;
@@ -86,7 +86,8 @@ typedef WTF::HashMap<CString, uint64_t> ShaderNameHash;
 
 class GraphicsContextGLOpenGLPrivate;
 
-class GraphicsContextGLOpenGL : public GraphicsContextGL {
+class GraphicsContextGLOpenGL : public GraphicsContextGL
+{
 public:
     class Client {
     public:
@@ -102,16 +103,14 @@ public:
 
 #if PLATFORM(COCOA)
     static Ref<GraphicsContextGLOpenGL> createShared(GraphicsContextGLOpenGL& sharedContext);
-#endif
-
-#if PLATFORM(COCOA)
     PlatformGraphicsContextGL platformGraphicsContextGL() const override { return m_contextObj; }
     PlatformGLObject platformTexture() const override { return m_texture; }
     CALayer* platformLayer() const override { return reinterpret_cast<CALayer*>(m_webGLLayer.get()); }
-#if USE(ANGLE)
     PlatformGraphicsContextGLDisplay platformDisplay() const { return m_displayObj; }
     PlatformGraphicsContextGLConfig platformConfig() const { return m_configObj; }
-#endif // USE(ANGLE)
+    static GCGLenum IOSurfaceTextureTarget();
+    static GCGLenum IOSurfaceTextureTargetQuery();
+    static GCGLint EGLIOSurfaceTextureTarget();
 #else
     PlatformGraphicsContextGL platformGraphicsContextGL() const final;
     PlatformGLObject platformTexture() const final;
@@ -119,7 +118,7 @@ public:
 #endif
 
     bool makeContextCurrent();
-#if PLATFORM(IOS_FAMILY) && USE(ANGLE)
+#if PLATFORM(IOS_FAMILY)
     enum class ReleaseBehavior {
         PreserveThreadResources,
         ReleaseThreadResources
@@ -548,18 +547,10 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
-    bool texImageIOSurface2D(GCGLenum target, GCGLenum internalFormat, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, IOSurfaceRef, GCGLuint plane);
-
-#if USE(OPENGL_ES)
-    void presentRenderbuffer();
-#endif
-
-#if USE(OPENGL) || USE(ANGLE)
-    bool allocateIOSurfaceBackingStore(IntSize);
-    void updateFramebufferTextureBackingStoreFromLayer();
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    bool reshapeDisplayBufferBacking();
+    bool bindDisplayBufferBacking(std::unique_ptr<IOSurface> backing, void* pbuffer);
+#if PLATFORM(MAC)
     void updateCGLContext();
-#endif
 #endif
 #endif // PLATFORM(COCOA)
 
@@ -694,8 +685,9 @@ private:
 #endif
 
     bool reshapeFBOs(const IntSize&);
+    void prepareTextureImpl();
     void resolveMultisamplingIfNecessary(const IntRect& = IntRect());
-    void attachDepthAndStencilBufferIfNeeded(GLuint internalDepthStencilFormat, int width, int height);
+    void attachDepthAndStencilBufferIfNeeded(GCGLuint internalDepthStencilFormat, int width, int height);
 
 #if PLATFORM(COCOA)
     bool allowOfflineRenderers() const;
@@ -707,16 +699,15 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<WebGLLayer> m_webGLLayer;
     PlatformGraphicsContextGL m_contextObj { nullptr };
-#if USE(ANGLE)
     PlatformGraphicsContextGLDisplay m_displayObj { nullptr };
     PlatformGraphicsContextGLConfig m_configObj { nullptr };
-#endif // USE(ANGLE)
 #endif // PLATFORM(COCOA)
 
 #if PLATFORM(WIN) && USE(CA)
     RefPtr<PlatformCALayer> m_webGLLayer;
 #endif
 
+#if !USE(ANGLE)
     typedef HashMap<String, sh::ShaderVariable> ShaderSymbolMap;
 
     struct ShaderSourceEntry {
@@ -745,7 +736,6 @@ private:
         }
     };
 
-#if !USE(ANGLE)
     // FIXME: Shaders are never removed from this map, even if they and their program are deleted.
     // This is bad, and it also relies on the fact we never reuse PlatformGLObject numbers.
     typedef HashMap<PlatformGLObject, ShaderSourceEntry> ShaderSourceMap;
@@ -789,11 +779,11 @@ private:
 #if USE(ANGLE)
     friend class ExtensionsGLANGLE;
     std::unique_ptr<ExtensionsGLANGLE> m_extensions;
-#elif !PLATFORM(COCOA) && USE(OPENGL_ES)
+#elif USE(OPENGL_ES)
     friend class ExtensionsGLOpenGLES;
     friend class ExtensionsGLOpenGLCommon;
     std::unique_ptr<ExtensionsGLOpenGLES> m_extensions;
-#elif USE(OPENGL) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#elif USE(OPENGL)
     friend class ExtensionsGLOpenGL;
     friend class ExtensionsGLOpenGLCommon;
     std::unique_ptr<ExtensionsGLOpenGL> m_extensions;
@@ -819,10 +809,6 @@ private:
 
     bool m_layerComposited { false };
     GCGLuint m_internalColorFormat { 0 };
-
-#if USE(ANGLE) && PLATFORM(COCOA)
-    PlatformGraphicsContextGLSurface m_pbuffer;
-#endif
 
     struct GraphicsContextGLState {
         GCGLuint boundReadFBO { 0 };
@@ -908,12 +894,14 @@ private:
     PlatformGLObject m_vao { 0 };
 #endif
 
-#if PLATFORM(COCOA) && (USE(OPENGL) || USE(ANGLE))
-    bool m_hasSwitchedToHighPerformanceGPU { false };
-#endif
+#if PLATFORM(COCOA)
+    // Backing store for the the buffer which is eventually used for display.
+    // When preserveDrawingBuffer == false, this is the drawing buffer backing store.
+    // When preserveDrawingBuffer == true, this is blitted to during display prepare.
+    std::unique_ptr<IOSurface> m_displayBufferBacking;
+    void* m_displayBufferPbuffer { nullptr };
 
-#if PLATFORM(MAC) && USE(OPENGL)
-    bool m_needsFlushBeforeDeleteTextures { false };
+    bool m_hasSwitchedToHighPerformanceGPU { false };
 #endif
 };
 

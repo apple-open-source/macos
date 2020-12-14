@@ -41,6 +41,10 @@ struct IOUserHIDEventDriver_IVars
         OSArray *collections;
         IOHIDElement *relativeScanTime;
     } digitizer;
+
+    struct {
+        OSArray *elements;
+    } proximity;
 };
 
 #define _elements       ivars->elements
@@ -49,6 +53,7 @@ struct IOUserHIDEventDriver_IVars
 #define _scroll         ivars->scroll
 #define _led            ivars->led
 #define _digitizer      ivars->digitizer
+#define _proximity      ivars->proximity
 
 #define kHIDUsage_MaxUsage 0xFFFF
 
@@ -116,6 +121,7 @@ void IOUserHIDEventDriver::free()
         OSSafeReleaseNULL(_led.elements);
         OSSafeReleaseNULL(_digitizer.collections);
         OSSafeReleaseNULL(_digitizer.relativeScanTime);
+        OSSafeReleaseNULL(_proximity.elements);
     }
     
     IOSafeDeleteNULL(ivars, IOUserHIDEventDriver_IVars, 1);
@@ -162,7 +168,8 @@ bool IOUserHIDEventDriver::parseElements(OSArray *elements)
             continue;
         }
         
-        if (parseKeyboardElement(element) ||
+        if (parseProximityElement(element) ||
+            parseKeyboardElement(element) ||
             parseDigitizerElement(element) ||
             parsePointerElement(element) ||
             parseScrollElement(element) ||
@@ -684,6 +691,37 @@ exit:
     return result;
 }
 
+bool IOUserHIDEventDriver::parseProximityElement(IOHIDElement *element)
+{
+    bool result = false;
+    uint32_t usagePage = element->getUsagePage();
+    uint32_t usage = element->getUsage();
+
+    switch (usagePage) {
+        case kHIDPage_Consumer:
+            switch (usage) {
+                case kHIDUsage_Csmr_Proximity:
+                    result = true;
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+
+    require_quiet(result, exit);
+
+    if (!_proximity.elements) {
+        _proximity.elements = OSArray::withCapacity(1);
+        require(_proximity.elements, exit);
+    }
+
+    _proximity.elements->setObject(element);
+
+exit:
+    return result;
+}
+
 void IOUserHIDEventDriver::handleReport(uint64_t              timestamp,
                                         uint8_t               *report __unused,
                                         uint32_t              reportLength __unused,
@@ -695,6 +733,7 @@ void IOUserHIDEventDriver::handleReport(uint64_t              timestamp,
     handleAbsolutePointerReport(timestamp, reportID);
     handleScrollReport(timestamp, reportID);
     handleDigitizerReport(timestamp, reportID);
+    handleProximityReport(timestamp, reportID);
 }
 
 void IOUserHIDEventDriver::handleKeyboardReport(uint64_t timestamp,
@@ -731,6 +770,56 @@ void IOUserHIDEventDriver::handleKeyboardReport(uint64_t timestamp,
         dispatchKeyboardEvent(timestamp, usagePage, usage, value, 0, true);
     }
     
+exit:
+    return;
+}
+
+void IOUserHIDEventDriver::handleProximityReport(uint64_t timestamp,
+                                                 uint32_t reportID)
+{
+    require_quiet(_proximity.elements, exit);
+
+    for (unsigned int i = 0; i < _proximity.elements->getCount(); i++) {
+        IOHIDElementPrivate *element = NULL;
+        uint64_t elementTimeStamp;
+        uint32_t usagePage, usage, value, preValue;
+        IOHIDEvent *event = NULL;
+
+        element = OSDynamicCast(IOHIDElementPrivate, _proximity.elements->getObject(i));
+        if (!element) {
+            continue;
+        }
+
+        if (element->getReportID() != reportID) {
+            continue;
+        }
+
+        elementTimeStamp = element->getTimeStamp();
+        if (timestamp != elementTimeStamp) {
+            continue;
+        }
+
+        usagePage = element->getUsagePage();
+        usage = element->getUsage();
+
+        value = element->getValue();
+        preValue = element->getValue(kIOHIDValueOptionsFlagPrevious);
+        if (value == preValue) {
+            continue;
+        }
+
+        event = IOHIDEvent::withType(kIOHIDEventTypeProximity, timestamp, 0, 0);
+        if (!event) {
+            continue;
+        }
+
+        event->setIntegerValue(kIOHIDEventFieldProximityLevel, value);
+        event->setIntegerValue(kIOHIDEventFieldProximityDetectionMask, value != 0 ? kIOHIDProximityDetectionLargeBodyContact : 0);
+
+        dispatchEvent(event);
+        event->release();
+    }
+
 exit:
     return;
 }

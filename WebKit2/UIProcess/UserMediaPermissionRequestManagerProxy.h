@@ -58,6 +58,8 @@ public:
 #if ENABLE(MEDIA_STREAM)
     static void forEach(const WTF::Function<void(UserMediaPermissionRequestManagerProxy&)>&);
 #endif
+    static bool permittedToCaptureAudio();
+    static bool permittedToCaptureVideo();
 
     void invalidatePendingRequests();
 
@@ -118,11 +120,14 @@ private:
     void processUserMediaPermissionInvalidRequest(const String& invalidConstraint);
     void processUserMediaPermissionValidRequest(Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, String&& deviceIdentifierHashSalt);
     void startProcessingUserMediaPermissionRequest(Ref<UserMediaPermissionRequestProxy>&&);
+
+    static void requestSystemValidation(const WebPageProxy&, UserMediaPermissionRequestProxy&, CompletionHandler<void(bool)>&&);
 #endif
 
     void watchdogTimerFired();
 
     void processNextUserMediaRequestIfNeeded();
+    void decidePolicyForUserMediaPermissionRequest();
 
     RefPtr<UserMediaPermissionRequestProxy> m_currentUserMediaRequest;
     Deque<Ref<UserMediaPermissionRequestProxy>> m_pendingUserMediaRequests;

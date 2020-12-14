@@ -203,12 +203,20 @@ PMSystemEventsRootDomainInterest(void)
     }
     if (create_file) {
         int fd;
-        mkdir(THERMAL_NOTIFICATION_DIR, 0777);
-        chmod(THERMAL_NOTIFICATION_DIR, 0777);
         
-        fd = open(THERMAL_NOTIFICATION_FILE, O_CREAT|O_RDWR, 0777);
-        fchmod(fd, 0777);
-        close(fd);
+        if (!mkdir(THERMAL_NOTIFICATION_DIR, 0777)) {
+            lchmod(THERMAL_NOTIFICATION_DIR, 0777);
+        }
+
+        fd = open(THERMAL_NOTIFICATION_FILE, O_CREAT|O_RDWR|O_NOFOLLOW_ANY, 0777);
+        if (fd >= 0) {
+            struct stat ss = {0};
+            if (!fstat(fd, &ss) && (ss.st_nlink == 1)) {
+                // Don't change the mode of hard linked files
+                fchmod(fd, 0777);
+            }
+            close(fd);
+        }
     }
 
 exit:    

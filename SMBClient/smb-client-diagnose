@@ -1,0 +1,235 @@
+#!/bin/sh
+# Copyright (c) 2018 Apple Inc.
+#
+# smb-client-diagnose
+#
+# version 1.0
+#
+# Collects SMB Client diagnostic information.
+#
+
+#
+# Disclaimer
+#
+disclaimer () {
+cat <<_END_OF_DISCLAIMER
+
+This diagnostic tool generates files that allow Apple to investigate issues
+with your computer and help Apple to improve its products. The generated files
+may contain some of your personal information, which may include, but not be
+limited to, the serial number or similar unique number for your device, your
+user name, or your computer name. The information is used by Apple in
+accordance with its privacy policy (www.apple.com/privacy) and is not shared
+with any third party. By enabling this diagnostic tool and sending a copy of
+the generated files to Apple, you are consenting to Apple's use of the content
+of such files.
+
+_END_OF_DISCLAIMER
+
+/bin/echo "Press 'Enter' to continue."
+read reply
+}
+
+setup_workdirs () {
+	if [ -d ~/Desktop ]; then
+		OUTDIR=~/Desktop
+	elif [ -d /var/tmp ]; then
+		OUTDIR="/var/tmp"
+	else
+		echo "ERROR: Could not setup output directory"
+		exit 1
+	fi
+
+	OUT="smb-client-diagnose-`date +'%m.%d.%Y.%H%M%S'`"
+	WORKDIR=`mktemp -d -q "/tmp/${OUT}"`
+	if [ $? -ne 0 ]; then
+		echo "ERROR: Could not create snapshot directory"
+		exit 1
+	fi
+
+	ARCHIVE=`mktemp -q "${OUTDIR}/${OUT}.tar${GZ_EXT}"`
+	if [ $? -ne 0 ]; then
+		echo "ERROR: Could not create snapshot archive"
+		cd "${WORKDIR}/.."
+		rm -rf ${WORKDIR}
+		exit 1
+	fi
+	echo ${ARCHIVE} > ${WORKDIR}/archive
+}
+
+# enable verbose logging
+#
+enable_verbose () {
+	echo "Enable verbosity in SMB Client"
+	# Make sure SMB Client kext is loaded
+	kextload -q /System/Library/Extensions/smbfs.kext
+	sysctl -w net.smb.fs.loglevel=63
+}
+
+#
+# disable verbose logging
+#
+disable_verbose () {
+	echo "Disable verbosity in SMB Client"
+	sysctl -w net.smb.fs.loglevel=0
+}
+
+#
+# start packet capture
+#
+start_pktcapture () {
+	echo "Starting packet capture"
+	tcpdump -s 500 -w ${PCAP_DIR}/${PCAP_FILE} &
+	echo $! > ${WORKDIR}/tcpdump_pid
+	sleep 1
+}
+
+#
+# stop packet capture
+#
+stop_pktcapture () {
+	if [ -r ${WORKDIR}/tcpdump_pid ]; then
+		read TCPDUMP_PID < ${WORKDIR}/tcpdump_pid 
+		kill -INT ${TCPDUMP_PID}
+	else
+		echo "ERROR: Couldn't find tcpdump PID"
+	fi
+}
+
+#
+# Collect the sysdiagnose
+#
+collect_state () {
+	echo ""
+	echo ""
+	echo "Stop screen recording now"
+	echo "Please wait..., running sysdiagnose to collect information and statistics"
+	echo ""
+	echo | /usr/bin/sysdiagnose -l -b -Q -f ${WORKDIR} -A ${SYSDIAGNOSE_FILE}
+}
+
+#
+# Archive the packet trace, sysdiagnose output, and /etc/nsmb.conf if it exists
+#
+archive_logs () {
+	if [ -r ${WORKDIR}/archive ]; then
+		read ARCHIVE < ${WORKDIR}/archive 
+	else
+		echo "ERROR: Couldn't find archive"
+		return
+	fi
+
+	if [ ! -r ${WORKDIR}/${SYSDIAGNOSE_FILE}.tar.gz ]; then
+		echo "ERROR: Couldn't find sysdiagnose files"
+		return
+	fi
+
+	# Add packet trace to the archive
+	tar -C ${PCAP_DIR} -r -f ${ARCHIVE} ${PCAP_FILE}
+
+	# If they have a com.apple.desktopservices.plist, add it to the archive
+	if [ -r ~/Library/Preferences/${DSERVICES_FILE} ]; then
+		tar -C ~/Library/Preferences/ -r -f ${ARCHIVE} ${DSERVICES_FILE}
+	fi
+
+	# Add sysdiagnose output to the archive
+	tar -C ${WORKDIR} -r -f ${ARCHIVE} ${SYSDIAGNOSE_FILE}.tar.gz  
+
+	# If they have a /etc/nsmb.conf, add it to the archive
+	if [ -r /etc/nsmb.conf ]; then
+		tar -C /etc -r -f ${ARCHIVE} nsmb.conf
+	fi
+
+	if [ ${UID} -eq 0 ]; then
+		if [ -n "${SUDO_UID}" -a -n "${SUDO_GID}" ]; then
+			if [ ${UID} -ne ${SUDO_UID} ]; then
+				chown ${SUDO_UID}:${SUDO_GID} "${ARCHIVE}"
+			fi
+		fi
+	fi
+
+	echo ""
+	echo "*********************************************************"
+	echo "SMB Client diagnostic data collected in \"${ARCHIVE}\""
+	echo "Please send this file to Apple along with the screen recording"
+	echo "*********************************************************"
+	echo ""
+}
+
+#
+# cleanup
+#
+cleanup () {
+	if [ -d ${WORKDIR} ]; then
+		cd "${WORKDIR}/.."
+		rm -rf ${WORKDIR}
+	fi
+
+	if [ -e ${PCAP_DIR}/${PCAP_FILE} ]; then
+		rm -f ${PCAP_DIR}/${PCAP_FILE}
+	fi
+}
+
+#
+# Ensure invoked as sudo or root
+#
+check_creds () {
+	if [ ${EUID} -ne 0 ]; then
+		echo "relaunching with sudo"
+		exec sudo $0
+	fi
+}
+
+print_for_user_action ()
+{
+	echo ""
+	echo "*******************************************************"
+	echo "Start screen recording now and reproduce the issue"
+	echo "Refer to https://support.apple.com/en-us/HT208721 for how to do screen recordings"
+	echo ""
+	echo "Hit Ctrl-C after the issue is reproduced"
+	echo "*******************************************************"
+	echo ""
+}
+
+stop () {
+	stop_pktcapture
+	collect_state
+	disable_verbose
+	archive_logs
+	cleanup
+}
+
+start () {
+	check_creds
+	disclaimer
+	setup_workdirs
+	enable_verbose
+	start_pktcapture
+	print_for_user_action
+}
+
+wait_loop () {
+	while true; do
+		sleep 10000;
+	done
+}
+
+sigint_handler () {
+	trap '' SIGINT
+	stop
+	exit 0
+}
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+umask 077
+PCAP_DIR="/Library/Logs/CrashReporter"
+PCAP_FILE="PacketTrace.pcapng"
+DSERVICES_FILE="com.apple.desktopservices.plist"
+SYSDIAGNOSE_FILE="sysdiagnose_file"
+
+start
+trap sigint_handler SIGINT
+wait_loop
+exit 0
+

@@ -39,8 +39,6 @@
 #import <algorithm>
 #import <wtf/RetainPtr.h>
 
-using namespace WebKit;
-
 @interface WKDateTimeContextMenuViewController : UIViewController
 @end
 
@@ -51,7 +49,7 @@ using namespace WebKit;
 > {
     RetainPtr<UIDatePicker> _datePicker;
     NSString *_formatString;
-    NSString *_initialValue;
+    RetainPtr<NSString> _initialValue;
     NSTimeInterval _initialValueAsNumber;
     BOOL _shouldRemoveTimeZoneInformation;
     BOOL _isTimeInput;
@@ -117,17 +115,17 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
     _shouldRemoveTimeZoneInformation = NO;
     _isTimeInput = NO;
     switch (view.focusedElementInformation.elementType) {
-    case InputType::Date:
+    case WebKit::InputType::Date:
         _formatString = kDateFormatString;
         break;
-    case InputType::Month:
+    case WebKit::InputType::Month:
         _formatString = kMonthFormatString;
         break;
-    case InputType::Time:
+    case WebKit::InputType::Time:
         _formatString = kTimeFormatString;
         _isTimeInput = YES;
         break;
-    case InputType::DateTimeLocal:
+    case WebKit::InputType::DateTimeLocal:
         _shouldRemoveTimeZoneInformation = YES;
         break;
     default:
@@ -307,7 +305,7 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
     [super dealloc];
 }
 
-- (BOOL)shouldPresentGregorianCalendar:(const FocusedElementInformation&)nodeInfo
+- (BOOL)shouldPresentGregorianCalendar:(const WebKit::FocusedElementInformation&)nodeInfo
 {
     return nodeInfo.autofillFieldName == WebCore::AutofillFieldName::CcExpMonth
         || nodeInfo.autofillFieldName == WebCore::AutofillFieldName::CcExp
@@ -385,7 +383,7 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
     } else if (_formatString) {
         // Convert the string value to a date object for the fields where we have a format string.
         RetainPtr<NSDateFormatter> dateFormatter = [self dateFormatterForPicker];
-        NSDate *parsedDate = [dateFormatter dateFromString:[self _sanitizeInputValueForFormatter:_initialValue]];
+        NSDate *parsedDate = [dateFormatter dateFromString:[self _sanitizeInputValueForFormatter:_initialValue.get()]];
         [_datePicker setDate:parsedDate ? parsedDate : [NSDate date]];
     } else {
         // Convert the number value to a date object for the fields affected by timezones.
@@ -404,7 +402,7 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
     _presenting = YES;
 
     auto elementType = _view.focusedElementInformation.elementType;
-    if (elementType == InputType::Time || elementType == InputType::DateTimeLocal)
+    if (elementType == WebKit::InputType::Time || elementType == WebKit::InputType::DateTimeLocal)
         [_view startRelinquishingFirstResponderToFocusedElement];
 
     // Set the time zone in case it changed.
@@ -456,16 +454,16 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
     UIDatePickerMode mode;
 
     switch (view.focusedElementInformation.elementType) {
-    case InputType::Date:
+    case WebKit::InputType::Date:
         mode = UIDatePickerModeDate;
         break;
-    case InputType::DateTimeLocal:
+    case WebKit::InputType::DateTimeLocal:
         mode = UIDatePickerModeDateAndTime;
         break;
-    case InputType::Time:
+    case WebKit::InputType::Time:
         mode = UIDatePickerModeTime;
         break;
-    case InputType::Month:
+    case WebKit::InputType::Month:
         mode = (UIDatePickerMode)UIDatePickerModeYearAndMonth;
         break;
     default:

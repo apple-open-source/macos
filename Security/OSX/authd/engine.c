@@ -1414,10 +1414,10 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         }
         os_log_debug(AUTHD_LOG, "engine %lld: using rule %{public}s", engine->engine_index, rule_name);
 
+        _set_right_hints(engine->hints, key); // set authorization right name for authorizationhost as well
         // only need the hints & mechanisms if we are going to show ui
         if (engine->flags & kAuthorizationFlagInteractionAllowed || engine->flags & kAuthorizationFlagSheet) {
             os_log_debug(AUTHD_LOG, "setting hints for UI authorization");
-            _set_right_hints(engine->hints, key);
             _set_localization_hints(dbconn, engine->hints, rule);
             if (!engine->authenticateRule) {
                 engine->authenticateRule = rule_create_with_string("authenticate", dbconn);

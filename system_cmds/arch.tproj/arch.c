@@ -89,6 +89,9 @@ static const CPUTypes knownArchs[] = {
     {"x86_64h", CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_H},
     {"arm", CPU_TYPE_ARM, CPU_SUBTYPE_ARM_ALL},
     {"arm64", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL},
+    /* rdar://65725144 ("arch -arm64" command should launch arm64e slice for 2-way fat x86_64+arm64e binaries) */
+    /* This will modify the order if someone, for whatever reason, specifies -arch arm64 -arch x86_64 -arch arm64e */
+    {"arm64", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E},
     {"arm64e", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E},
     {"arm64_32", CPU_TYPE_ARM64_32, CPU_SUBTYPE_ARM64_32_ALL},
 };
@@ -296,14 +299,21 @@ static void
 addCPUbyname(CPU *cpu, const char *name)
 {
     int i;
+    size_t numKnownArchs = sizeof(knownArchs)/sizeof(knownArchs[0]);
     
-    for (i=0; i < sizeof(knownArchs)/sizeof(knownArchs[0]); i++) {
+    for (i=0; i < numKnownArchs; i++) {
         if (!isSupportedCPU(knownArchs[i].cpu))
             continue;
-        if (0 == strcasecmp(name, knownArchs[i].arch)) {
+        int start = i;
+        /* rdar://65725144 ("arch -arm64" command should launch arm64e slice for 2-way fat x86_64+arm64e binaries) */
+        /* Add subtypes that closely match the specified name */
+        while ( i < numKnownArchs &&
+                0 == strcasecmp(name, knownArchs[i].arch) ) {
             addCPU(cpu, knownArchs[i].cpu, knownArchs[i].cpusubtype);
-            return;
+            i++;
         }
+        if (start != i)
+            return;
     }
     
     /* Didn't match a string in knownArchs */

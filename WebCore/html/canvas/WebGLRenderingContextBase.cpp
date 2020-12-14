@@ -81,6 +81,7 @@
 #include "WebGLCompressedTextureETC1.h"
 #include "WebGLCompressedTexturePVRTC.h"
 #include "WebGLCompressedTextureS3TC.h"
+#include "WebGLCompressedTextureS3TCsRGB.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLContextEvent.h"
 #include "WebGLContextGroup.h"
@@ -717,13 +718,6 @@ std::unique_ptr<WebGLRenderingContextBase> WebGLRenderingContextBase::create(Can
     auto& extensions = context->getExtensions();
     if (extensions.supports("GL_EXT_debug_marker"_s))
         extensions.pushGroupMarkerEXT("WebGLRenderingContext"_s);
-
-#if ENABLE(WEBGL2) && PLATFORM(MAC) && !USE(ANGLE)
-    // glTexStorage() was only added to Core in OpenGL 4.2.
-    // However, according to https://developer.apple.com/opengl/capabilities/ all Apple GPUs support this extension.
-    if (attributes.isWebGL2 && !extensions.supports("GL_ARB_texture_storage"))
-        return nullptr;
-#endif
 
     std::unique_ptr<WebGLRenderingContextBase> renderingContext;
 #if ENABLE(WEBGL2)
@@ -3728,6 +3722,7 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
     CHECK_EXTENSION(m_webglCompressedTextureETC1, "WEBGL_compressed_texture_etc1");
     CHECK_EXTENSION(m_webglCompressedTexturePVRTC, "WEBKIT_WEBGL_compressed_texture_pvrtc");
     CHECK_EXTENSION(m_webglCompressedTextureS3TC, "WEBGL_compressed_texture_s3tc");
+    CHECK_EXTENSION(m_webglCompressedTextureS3TCsRGB, "WEBGL_compressed_texture_s3tc_srgb");
     CHECK_EXTENSION(m_webglDepthTexture, "WEBGL_depth_texture");
     CHECK_EXTENSION(m_webglDrawBuffers, "WEBGL_draw_buffers");
     CHECK_EXTENSION(m_angleInstancedArrays, "ANGLE_instanced_arrays");
@@ -4339,7 +4334,7 @@ void WebGLRenderingContextBase::readPixels(GCGLint x, GCGLint y, GCGLsizei width
     void* data = pixels.baseAddress();
 
 #if USE(ANGLE)
-        GLsizei length, columns, rows;
+        GCGLsizei length, columns, rows;
         m_context->makeContextCurrent();
         m_context->getExtensions().readnPixelsRobustANGLE(x, y, width, height, format, type, pixels.byteLength(), &length, &columns, &rows, data, false);
 #else
@@ -6615,6 +6610,8 @@ bool WebGLRenderingContextBase::validateCompressedTexFuncData(const char* functi
     switch (format) {
     case ExtensionsGL::COMPRESSED_RGB_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_ATC_RGB_AMD:
     case ExtensionsGL::ETC1_RGB8_OES: {
         const int kBlockSize = 8;
@@ -6627,6 +6624,8 @@ bool WebGLRenderingContextBase::validateCompressedTexFuncData(const char* functi
     }
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT3_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
     case ExtensionsGL::COMPRESSED_ATC_RGBA_EXPLICIT_ALPHA_AMD:
     case ExtensionsGL::COMPRESSED_ATC_RGBA_INTERPOLATED_ALPHA_AMD:
         {
@@ -6737,7 +6736,11 @@ bool WebGLRenderingContextBase::validateCompressedTexDimensions(const char* func
     case ExtensionsGL::COMPRESSED_RGB_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT3_EXT:
-    case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT5_EXT: {
+    case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: {
         const GCGLsizei kBlockWidth = 4;
         const GCGLsizei kBlockHeight = 4;
         const GCGLint maxTextureSize = target ? m_maxTextureSize : m_maxCubeMapTextureSize;
@@ -6817,7 +6820,11 @@ bool WebGLRenderingContextBase::validateCompressedTexSubDimensions(const char* f
     case ExtensionsGL::COMPRESSED_RGB_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT1_EXT:
     case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT3_EXT:
-    case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT5_EXT: {
+    case ExtensionsGL::COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+    case ExtensionsGL::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: {
         const int kBlockWidth = 4;
         const int kBlockHeight = 4;
         if ((xoffset % kBlockWidth) || (yoffset % kBlockHeight)) {

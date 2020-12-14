@@ -1,6 +1,113 @@
-2020-10-22  Russell Epstein  <repstein@apple.com>
+2020-10-27  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r268367. rdar://problem/70320656
+        Apply patch. rdar://problem/70733375
+
+    2020-10-27  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Sign MacroAssembler::jumpsToLink
+            https://bugs.webkit.org/show_bug.cgi?id=217774
+            <rdar://problem/69433058>
+
+            Reviewed by Saam Barati.
+
+            * wtf/PtrTag.h:
+            (WTF::untagInt):
+            (WTF::tagInt):
+
+2020-10-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r269019. rdar://problem/70733412
+
+    Add extra validation to MetaAllocator::findAndRemoveFreeSpace
+    https://bugs.webkit.org/show_bug.cgi?id=217792
+    <rdar://problem/69433015>
+    
+    Reviewed Saam Barati.
+    
+    * wtf/MetaAllocator.cpp:
+    (WTF::MetaAllocator::findAndRemoveFreeSpace):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269019 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-15  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Add extra validation to MetaAllocator::findAndRemoveFreeSpace
+            https://bugs.webkit.org/show_bug.cgi?id=217792
+            <rdar://problem/69433015>
+
+            Reviewed Saam Barati.
+
+            * wtf/MetaAllocator.cpp:
+            (WTF::MetaAllocator::findAndRemoveFreeSpace):
+
+2020-10-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r269017. rdar://problem/70733371
+
+    Assert that WTF::HashTable does not visit the same bucket twice
+    https://bugs.webkit.org/show_bug.cgi?id=217691
+    <rdar://problem/69887843>
+    
+    Reviewed by Saam Barati.
+    
+    * wtf/HashTable.h:
+    (WTF::KeyTraits>::inlineLookup):
+    (WTF::KeyTraits>::lookupForWriting):
+    (WTF::KeyTraits>::fullLookupForWriting):
+    (WTF::KeyTraits>::addUniqueForInitialization):
+    (WTF::KeyTraits>::add):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269017 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-13  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Assert that WTF::HashTable does not visit the same bucket twice
+            https://bugs.webkit.org/show_bug.cgi?id=217691
+            <rdar://problem/69887843>
+
+            Reviewed by Saam Barati.
+
+            * wtf/HashTable.h:
+            (WTF::KeyTraits>::inlineLookup):
+            (WTF::KeyTraits>::lookupForWriting):
+            (WTF::KeyTraits>::fullLookupForWriting):
+            (WTF::KeyTraits>::addUniqueForInitialization):
+            (WTF::KeyTraits>::add):
+
+2020-10-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268135. rdar://problem/70733407
+
+    Add maximum depth check to RedBlackTree
+    https://bugs.webkit.org/show_bug.cgi?id=217249
+    <rdar://problem/69432957>
+    
+    Reviewed by Saam Barati.
+    
+    We limit all tree traversals to 128 levels deep. That's a very conservative upper bound that
+    would work for a tree that used all of the available address space.
+    
+    * wtf/RedBlackTree.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268135 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-07  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Add maximum depth check to RedBlackTree
+            https://bugs.webkit.org/show_bug.cgi?id=217249
+            <rdar://problem/69432957>
+
+            Reviewed by Saam Barati.
+
+            We limit all tree traversals to 128 levels deep. That's a very conservative upper bound that
+            would work for a tree that used all of the available address space.
+
+            * wtf/RedBlackTree.h:
+
+2020-10-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268367. rdar://problem/70321875
 
     [macCatalyst] Enable WKPDFView
     https://bugs.webkit.org/show_bug.cgi?id=217403
@@ -32,7 +139,242 @@
             * wtf/PlatformEnableCocoa.h: Enabled WKPDFView when building for the Catalyst variant on
             Big Sur or later.
 
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
+2020-10-14  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r267116. rdar://problem/70267318
+
+    [macOS Big Sur] CGFontRenderingGetFontSmoothingDisabled() is no longer useful
+    https://bugs.webkit.org/show_bug.cgi?id=216588
+    <rdar://problem/68657748>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    No new tests because there is no behavior change.
+    
+    * platform/graphics/coretext/FontCascadeCoreText.cpp:
+    (WebCore::FontCascade::isSubpixelAntialiasingAvailable):
+    
+    Source/WTF:
+    
+    We can eliminate WebKit's use of it to eventually phase it out entirely.
+    
+    * wtf/PlatformHave.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267116 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-09-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [macOS Big Sur] CGFontRenderingGetFontSmoothingDisabled() is no longer useful
+            https://bugs.webkit.org/show_bug.cgi?id=216588
+            <rdar://problem/68657748>
+
+            Reviewed by Simon Fraser.
+
+            We can eliminate WebKit's use of it to eventually phase it out entirely.
+
+            * wtf/PlatformHave.h:
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268371. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    The previous workaround turns out to be ineffective because we can't set the value of
+    TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+    variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+    adjust MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268371 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            The previous workaround turns out to be ineffective because we can't set the value of
+            TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+            variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+            adjust MAC_OS_X_VERSION_MAJOR to 110000.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268353. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+    minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+    to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+    
+    To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+    drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    Note: This change should be reverted after <rdar://70185899> is resolved.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+            minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+            to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+
+            To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+            drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+
+            Note: This change should be reverted after <rdar://70185899> is resolved.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
 
         Cherry-pick r268330. rdar://problem/70189394
 
@@ -65,7 +407,7 @@
 
             * Configurations/Base.xcconfig:
 
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
 
         Cherry-pick r268327. rdar://problem/70189401
 
@@ -99,6 +441,90 @@
             definitions for legacy versions of macOS.
 
             * Configurations/Base.xcconfig:
+
+2020-10-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268052. rdar://problem/70097377
+
+    Enable video capture in WebProcess by default on MacOS
+    https://bugs.webkit.org/show_bug.cgi?id=217385
+    <rdar://problem/69999542>
+    
+    Reviewed by Sam Weinig.
+    
+    Source/WebKit:
+    
+    Manually tested in MiniBrowser.
+    
+    * Shared/WebPreferencesDefaultValues.cpp:
+    * Shared/WebPreferencesDefaultValues.h:
+    
+    Source/WTF:
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268052 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-06  Youenn Fablet  <youenn@apple.com>
+
+            Enable video capture in WebProcess by default on MacOS
+            https://bugs.webkit.org/show_bug.cgi?id=217385
+            <rdar://problem/69999542>
+
+            Reviewed by Sam Weinig.
+
+            * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2020-10-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r267870. rdar://problem/70025703
+
+    Add AVAssetWriter SPI header
+    https://bugs.webkit.org/show_bug.cgi?id=217169
+    <rdar://problem/69793050>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    No change of behavior, include SPI header instead of private SDK header.
+    
+    * platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.mm:
+    
+    Source/WebCore/PAL:
+    
+    * PAL.xcodeproj/project.pbxproj:
+    * pal/spi/cocoa/AVAssetWriterSPI.h: Added.
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    Remove dependency on AVAssetWriter_private.h.
+    Introduce HAVE_AVASSETWRITERDELEGATE_API for older OSes that only have delegate as SPI.
+    
+    LayoutTests:
+    
+    Enable tests by default on Catalina+, disable them on Mojave and WK1.
+    Disable tests for iOS13.
+    
+    * TestExpectations:
+    * platform/ios-13/TestExpectations:
+    * platform/mac/TestExpectations:
+    * platform/mac-wk1/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@267870 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-02  Youenn Fablet  <youenn@apple.com>
+
+            Add AVAssetWriter SPI header
+            https://bugs.webkit.org/show_bug.cgi?id=217169
+            <rdar://problem/69793050>
+
+            Reviewed by Eric Carlson.
+
+            * wtf/PlatformHave.h:
+            Remove dependency on AVAssetWriter_private.h.
+            Introduce HAVE_AVASSETWRITERDELEGATE_API for older OSes that only have delegate as SPI.
 
 2020-09-17  Alan Coon  <alancoon@apple.com>
 

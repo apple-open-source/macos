@@ -86,7 +86,19 @@ argument must be one of the currently supported architectures:
 64-bit intel
 .It x86_64h
 64-bit intel (haswell)
+.It arm64
+64-bit arm
+.It arm64e
+64-bit arm (Apple Silicon)
 .El
+.Pp
+If the binary does not contain code for
+.Ar arch_name ,
+the
+.Nm arch
+command may try to select a close match. If arm64 is specified and not found,
+arm64e will be tried next. If this happens, the order the architectures will
+be tried is not guaranteed.
 .Pp
 Either prefix the architecture with a hyphen, or (for compatibility with
 other commands), use
@@ -207,17 +219,17 @@ If not specified as a second field in a specifier, the executable path will
 be looked up in the corresponding property list file.
 .Ss Example ARCHPREFERENCE Values
 .Bl -tag -width "    "
-.It i386,x86_64,x86_64h
+.It i386,x86_64,x86_64h,arm64,arm64e
 A specifier that matches any name.
-.It foo:i386,x86_64,x86_64h
+.It foo:i386,x86_64,x86_64h,arm64,arm64e
 A specifier that matches the program named
 .Nm foo
 (the full executable path is in the
 .Pa foo.plist
 file).
-.It foo:/op/bin/boo:i386,x86_64,x86_64h
+.It foo:/op/bin/boo:i386,x86_64,x86_64h,arm64,arm64e
 A specifier with all fields specified.
-.It baz:i386;x86_64;x86_64h
+.It baz:i386;x86_64;x86_64h,arm64,arm64e
 A specifier for
 .Nm baz
 and a second specifier that would match any other name.

@@ -900,7 +900,7 @@ dayPeriods:table(nofallback){
             }
         }
         set13{
-            evening1{
+            afternoon1{
                 before{"20:00"}
                 from{"12:00"}
             }
@@ -1141,7 +1141,7 @@ dayPeriods:table(nofallback){
             }
         }
         set14{
-            evening1{
+            afternoon1{
                 before{"20:00"}
                 from{"12:00"}
             }
@@ -3593,7 +3593,7 @@ dayPeriods:table(nofallback){
             }
         }
         set91{
-            evening1{
+            afternoon1{
                 before{"20:00"}
                 from{"12:00"}
             }
@@ -3611,7 +3611,7 @@ dayPeriods:table(nofallback){
             }
         }
         set92{
-            evening1{
+            afternoon1{
                 before{"20:00"}
                 from{"12:00"}
             }

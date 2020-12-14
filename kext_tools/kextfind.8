@@ -11,6 +11,13 @@
 .Op Ar kext_or_directory Li \&.\|.\|.
 .Op Ar query
 .Op Fl report Oo Fl no-header Oc Ar report_predicate Li \&.\|.\|.
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated.
+Please use the
+.Xr kmutil 8
+equivalent: kmutil find.
 .Sh DESCRIPTION
 The
 .Nm
@@ -638,6 +645,8 @@ utility exits with a status of 0 on completion
 or with a nonzero status if an error occurs.
 .Sh SEE ALSO
 .Xr find 1 ,
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

@@ -35,9 +35,17 @@
 #include "XCTest_FunctionDefinitions.h"
 
 // kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
+#if TARGET_OS_OSX
+#define kMinTimeDeltaForBattRead           (4*60*60)  // 4hrs
+#else
 #define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
+#endif
 
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
+
+// kTrueNCCCycleCountThreshold - If previously calculated NCCP is not available, NCCP is set to h/w specified value only if
+// battery cycle count is above kTrueNCCCycleCountThreshold. Otherwise, NCCP is set to kInitialNominalCapacityPercentage
+#define kTrueNCCCycleCountThreshold         20  // CycleCount above which NCCP is set to true value(in case past data is not available)
 #define kBatteryHealthUsesUPO        0x594553 // YES
 #define kBatteryHealthWithoutUPO     0x4e4f   // NO
 
@@ -47,12 +55,9 @@
 #define kBHSvcFlagsVersion3     3
 #define kBatteryHealthCurrentVersion        kBHSvcFlagsVersion3
 
-#endif
-#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 
-// kTrueNCCCycleCountThreshold - If previously calculated NCCP is not available, NCCP is set to h/w specified value only if
-// battery cycle count is above kTrueNCCCycleCountThreshold. Otherwise, NCCP is set to kInitialNominalCapacityPercentage
-#define kTrueNCCCycleCountThreshold         20  // CycleCount above which NCCP is set to true value(in case past data is not available)
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 
 // kNCCMinCycleCountChange - Change in battery cycle count required before triggering change in NCCP.
 #define kNCCMinCycleCountChange             5

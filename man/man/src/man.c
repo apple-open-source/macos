@@ -1225,7 +1225,7 @@ do_global_apropos (char *name, char *section) {
 					       "> /dev/null 2> /dev/null",
 				 expander, *gf, name);
 		    else
-			 command = my_xsprintf("grep '%Q' %S"
+			 command = my_xsprintf("grep '%Q' '%Q'"
 					       "> /dev/null 2> /dev/null",
 				 name, *gf);
 		    res = do_system_command (command, 1);

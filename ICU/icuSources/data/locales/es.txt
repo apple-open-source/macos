@@ -913,21 +913,21 @@ es{
             dayPeriod{
                 format{
                     abbreviated{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"de la mañana"}
                         night1{"de la noche"}
                         noon{"del mediodía"}
                     }
                     narrow{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"de la mañana"}
                         night1{"de la noche"}
                         noon{"del mediodía"}
                     }
                     wide{
-                        evening1{"de la tarde"}
+                        afternoon1{"de la tarde"}
                         morning1{"de la madrugada"}
                         morning2{"de la mañana"}
                         night1{"de la noche"}
@@ -936,8 +936,8 @@ es{
                 }
                 stand-alone{
                     abbreviated{
+                        afternoon1{"tarde"}
                         am{"a. m."}
-                        evening1{"tarde"}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
@@ -945,8 +945,8 @@ es{
                         pm{"p. m."}
                     }
                     narrow{
+                        afternoon1{"tarde"}
                         am{"a. m."}
-                        evening1{"tarde"}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
@@ -954,8 +954,8 @@ es{
                         pm{"p. m."}
                     }
                     wide{
+                        afternoon1{"tarde"}
                         am{"a. m."}
-                        evening1{"tarde"}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}

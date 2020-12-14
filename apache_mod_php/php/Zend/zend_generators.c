@@ -709,6 +709,9 @@ static int zend_generator_get_next_delegated_value(zend_generator *generator) /*
 		}
 
 		if (iter->funcs->valid(iter) == FAILURE) {
+			if (UNEXPECTED(EG(exception) != NULL)) {
+				goto exception;
+			}
 			/* reached end of iteration */
 			goto failure;
 		}
@@ -737,7 +740,7 @@ static int zend_generator_get_next_delegated_value(zend_generator *generator) /*
 	return SUCCESS;
 
 exception:
-	zend_rethrow_exception(generator->execute_data);
+	zend_generator_throw_exception(generator, NULL);
 
 failure:
 	zval_ptr_dtor(&generator->values);

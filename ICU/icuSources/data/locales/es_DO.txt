@@ -71,7 +71,7 @@ es_DO{
             dayPeriod{
                 format{
                     narrow{
-                        evening1{"tarde"}
+                        afternoon1{"tarde"}
                         morning1{"día"}
                         morning2{"mañana"}
                         night1{"noche"}

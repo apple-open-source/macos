@@ -155,14 +155,21 @@ NSString* const LKABackupLastSuccessDate = @"backupLastSuccess";
         [self logSuccessForEventNamed:LKAEventBackup timestampBucket:SFAnalyticsTimestampBucketHour];
     } else {
         NSInteger daysSinceSuccess = [SFAnalytics fuzzyDaysSinceDate:[self datePropertyForKey:LKABackupLastSuccessDate]];
-        [self logResultForEvent:LKAEventBackup
-                    hardFailure:YES
-                         result:error
-                 withAttributes:@{@"daysSinceSuccess" : @(daysSinceSuccess),
-                                  @"duration" : @(backupDuration),
-                                  @"type" : @(_backupType),
-                                  }
-                timestampBucket:SFAnalyticsTimestampBucketHour];
+
+        // Backups fail all the time due to devices being locked. If a backup has happened recently,
+        // let's not even report it, to avoid crowding out more useful data
+        bool boringError = error.code == errSecInteractionNotAllowed && daysSinceSuccess == 0;
+
+        if(!boringError) {
+            [self logResultForEvent:LKAEventBackup
+                        hardFailure:YES
+                             result:error
+                     withAttributes:@{@"daysSinceSuccess" : @(daysSinceSuccess),
+                                      @"duration" : @(backupDuration),
+                                      @"type" : @(_backupType),
+                     }
+                    timestampBucket:SFAnalyticsTimestampBucketHour];
+        }
     }
 }
 

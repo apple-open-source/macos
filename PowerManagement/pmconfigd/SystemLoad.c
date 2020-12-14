@@ -832,6 +832,7 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
 
     shareTheSystemLoad(kYesNotify);
     evaluateHidIdleNotification();
+    logAssertionCount(displayIsOff);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

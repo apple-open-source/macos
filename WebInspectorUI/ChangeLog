@@ -1,4 +1,277 @@
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
+2020-10-21  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268473. rdar://problem/70541789
+
+    Web Inspector: REGRESSION(r267148): new Big Sur styles are not used
+    https://bugs.webkit.org/show_bug.cgi?id=217682
+    <rdar://problem/70269030>
+    
+    Reviewed by Brian Burg.
+    
+    r267148 changed `navigator.userAgent` from `11_0` to `10_15_7`. This breaks Web Inspector
+    styling, which relied on this value to know what OS version it was running on in order to
+    know which styles to use.
+    
+    Source/WebCore:
+    
+    * inspector/InspectorFrontendHost.idl:
+    * inspector/InspectorFrontendHost.h:
+    * inspector/InspectorFrontendHost.cpp:
+    (WebCore::InspectorFrontendHost::platformVersionName const): Added.
+    Derive a lowercased kekab-cased platform version name from `__MAC_OS_X_VERSION_MIN_REQUIRED`.
+    
+    Source/WebInspectorUI:
+    
+    * UserInterface/Base/Platform.js:
+    * UserInterface/Views/Variables.css:
+    (body.mac-platform): Added.
+    (body.mac-platform:not(.sierra, .high-sierra)): Deleted.
+    Use `InspectorFrontendHost.platformVersionName` instead of `navigator.userAgent`. Remove
+    unnecessary platform version names and other unused data.
+    
+    * UserInterface/Base/Main.js:
+    (WI.contentLoaded):
+    (WI.undockedTitleAreaHeight): Added.
+    * UserInterface/Views/Popover.js:
+    (WI.Popover.prototype._update):
+    Provide a way to get the undocked title area height for use in JavaScript calculations.
+    
+    * UserInterface/Controllers/HARBuilder.js:
+    (WI.HARBuilder.creator):
+    The `WI.Platform.version.build` hasn't changed in a long time, so just remove it.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268473 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-14  Devin Rousso  <drousso@apple.com>
+
+            Web Inspector: REGRESSION(r267148): new Big Sur styles are not used
+            https://bugs.webkit.org/show_bug.cgi?id=217682
+            <rdar://problem/70269030>
+
+            Reviewed by Brian Burg.
+
+            r267148 changed `navigator.userAgent` from `11_0` to `10_15_7`. This breaks Web Inspector
+            styling, which relied on this value to know what OS version it was running on in order to
+            know which styles to use.
+
+            * UserInterface/Base/Platform.js:
+            * UserInterface/Views/Variables.css:
+            (body.mac-platform): Added.
+            (body.mac-platform:not(.sierra, .high-sierra)): Deleted.
+            Use `InspectorFrontendHost.platformVersionName` instead of `navigator.userAgent`. Remove
+            unnecessary platform version names and other unused data.
+
+            * UserInterface/Base/Main.js:
+            (WI.contentLoaded):
+            (WI.undockedTitleAreaHeight): Added.
+            * UserInterface/Views/Popover.js:
+            (WI.Popover.prototype._update):
+            Provide a way to get the undocked title area height for use in JavaScript calculations.
+
+            * UserInterface/Controllers/HARBuilder.js:
+            (WI.HARBuilder.creator):
+            The `WI.Platform.version.build` hasn't changed in a long time, so just remove it.
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268371. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    The previous workaround turns out to be ineffective because we can't set the value of
+    TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+    variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+    adjust MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268371 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            The previous workaround turns out to be ineffective because we can't set the value of
+            TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
+            variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
+            adjust MAC_OS_X_VERSION_MAJOR to 110000.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r268353. rdar://problem/70267767
+
+    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+    with Xcode 12 on macOS Big Sur SUs
+    https://bugs.webkit.org/show_bug.cgi?id=217602
+    rdar://70194453
+    
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
+    Reviewed by Darin Adler.
+    
+    Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+    minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+    to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+    
+    To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+    drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+    
+    Note: This change should be reverted after <rdar://70185899> is resolved.
+    
+    PerformanceTests:
+    
+    * DecoderTest/Configurations/DebugRelease.xcconfig:
+    * MediaTime/Configurations/DebugRelease.xcconfig:
+    
+    Source/bmalloc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty:
+    
+    * gtest/xcode/Config/General.xcconfig:
+    
+    Source/ThirdParty/ANGLE:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/ThirdParty/libwebrtc:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Source/WTF:
+    
+    * Configurations/DebugRelease.xcconfig:
+    
+    Tools:
+    
+    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+    * MiniBrowser/Configurations/DebugRelease.xcconfig:
+    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+    * WebEditingTester/Configurations/DebugRelease.xcconfig:
+    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
+            with Xcode 12 on macOS Big Sur SUs
+            https://bugs.webkit.org/show_bug.cgi?id=217602
+            rdar://70194453
+
+            Reviewed by Darin Adler.
+
+            Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
+            minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
+            to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+
+            To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
+            drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+
+            Note: This change should be reverted after <rdar://70185899> is resolved.
+
+            * Configurations/DebugRelease.xcconfig:
+
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
 
         Cherry-pick r268330. rdar://problem/70189394
 
@@ -31,7 +304,7 @@
 
             * Configurations/Base.xcconfig:
 
-2020-10-12  Babak Shafiei  <bshafiei@apple.com>
+2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
 
         Cherry-pick r268327. rdar://problem/70189401
 

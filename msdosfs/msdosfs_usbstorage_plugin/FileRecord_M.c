@@ -575,7 +575,7 @@ FILERECORD_FindClusterToCreateChainCacheEntry(bool* pbFoundLocation, NodeRecord_
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
     while (!(*pbFoundLocation))
     {
-        uint32_t NextCluster;
+        uint32_t NextCluster = 0;
         uint32_t uNewChainLength = FAT_Access_M_ContiguousClustersInChain(psFSRecord, *puWantedCluster, &NextCluster, &iError);
         if (iError || uNewChainLength == 0)
         {
@@ -783,7 +783,7 @@ FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(NodeRecord_s* psNodeReco
 {
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
     // Lock Cache for write
-    if (bLock) CHAIN_CAHCE_ACCESS_LOCK(psFSRecord);
+    if (bLock) CHAIN_CACHE_ACCESS_LOCK(psFSRecord);
 
     ClusterChainCacheEntry_s* psClusterChainToEvict = TAILQ_FIRST(&psNodeRecord->sRecordData.psClusterChainList);
     ClusterChainCacheEntry_s* psClusterChainNext;
@@ -801,7 +801,7 @@ FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(NodeRecord_s* psNodeReco
     }
 
     // Unlock Cache
-    if (bLock) CHAIN_CAHCE_ACCESS_FREE(psFSRecord);
+    if (bLock) CHAIN_CACHE_ACCESS_FREE(psFSRecord);
 }
 
 static void
@@ -883,7 +883,7 @@ FILERECORD_GetChainFromCache(NodeRecord_s* psNodeRecord, uint64_t uWantedOffsetI
     }
 
     //Lock the cache for write
-    CHAIN_CAHCE_ACCESS_LOCK(psFSRecord);
+    CHAIN_CACHE_ACCESS_LOCK(psFSRecord);
 
     *puWantedCluster = psNodeRecord->sRecordData.uFirstCluster;
     uint32_t uOffsetLocationInClusterChain = (uint32_t) (uWantedOffsetInFile/CLUSTER_SIZE(psFSRecord));
@@ -938,7 +938,7 @@ FILERECORD_GetChainFromCache(NodeRecord_s* psNodeRecord, uint64_t uWantedOffsetI
 
 exit:
     //Unlock the cache
-    CHAIN_CAHCE_ACCESS_FREE(psFSRecord);
+    CHAIN_CACHE_ACCESS_FREE(psFSRecord);
 }
 
 static int

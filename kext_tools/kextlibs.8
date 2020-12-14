@@ -9,6 +9,13 @@
 .Op Ar options
 .Op Fl -
 .Ar kext Li \&.\|.\|.
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated.
+Please use the
+.Xr kmutil 8
+equivalent: kmutil libraries.
 .Sh DESCRIPTION
 The
 .Nm
@@ -186,6 +193,8 @@ Many single-letter options are inconsistent in meaning
 with (or directly contradictory to) the same letter options
 in other kext tools.
 .Sh SEE ALSO
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextutil 8 ,
 .Xr kextfind 8 ,
 .Xr kext_logging 8

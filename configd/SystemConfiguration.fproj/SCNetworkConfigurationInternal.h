@@ -37,6 +37,7 @@
 #include "SCPreferencesPathKey.h"
 #include "IPMonitorControl.h"
 #include <IOKit/IOKitLib.h>
+#include <IOKit/IOBSD.h>
 
 
 #define	NETWORK_CONFIGURATION_VERSION	20191120

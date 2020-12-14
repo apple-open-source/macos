@@ -233,7 +233,7 @@ CF_ENUM(uint32_t) {
 	// NOTE: These values needs to align with the public definitions for static code validity too.
 	kSecCSStrictValidateStructure = 1 << 13,
 	kSecCSSkipRootVolumeExceptions = 1 << 14,
-
+    kSecCSSkipXattrFiles = 1 << 15,
 };
 
 #if TARGET_OS_OSX

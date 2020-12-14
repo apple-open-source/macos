@@ -384,7 +384,7 @@ typedef struct
 
 typedef struct
 {
-    bool bIsPreAllocated;
+    volatile bool bIsPreAllocated;
 } FileData_s;
 
 typedef struct

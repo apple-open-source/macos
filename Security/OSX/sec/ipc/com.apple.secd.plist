@@ -55,6 +55,13 @@
 				<key>Interval</key>
 				<real>86400</real>
 			</dict>
+			<key>com.apple.securityd.entropyhealth</key>
+			<dict>
+				<key>Priority</key>
+				<string>Utility</string>
+				<key>Interval</key>
+				<real>86400</real>
+			</dict>
 			<key>com.apple.securityd.prng</key>
 			<dict>
 				<key>Priority</key>

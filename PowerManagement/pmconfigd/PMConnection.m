@@ -45,6 +45,16 @@
 #include <libspindump_priv.h>
 #endif
 #include <CoreFoundation/CFXPCBridge.h>
+#if __has_include (<CoreAnalytics/CoreAnalytics.h>)
+#include <CoreAnalytics/CoreAnalytics.h>
+#define HAS_COREANALYTICS 1
+#else
+#define HAS_COREANALYTICS 0
+#endif
+
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include <bootpolicy/bootpolicy.h>
+#endif
 
 #include "PrivateLib.h"
 #include "PMConnection.h"
@@ -145,7 +155,7 @@ static uint64_t gCurrentWakeEnd = 0; // updated on capability change callback
 bool gIsDarkWake = false;
 bool gWakeFromDarkWake = false;
 bool gCapabilityChangeDone = false;
-
+bool gEmergencySleep = false;
 // gPowerState - Tracks various wake types the system is currently in
 // by setting appropriate bits. 
 static uint32_t                 gPowerState;
@@ -182,11 +192,7 @@ typedef struct {
     int                     notificationType;
     int                     awaitingResponsesCount;
     int                     awaitResponsesTimeoutSeconds;
-    int                     completedStatus;    // status after timed out or, all acked
-    bool                    completed;
-    bool                    nextIsValid;
-    long                    nextKernelAcknowledgementID;
-    int                     nextInterestBits;
+    uint16_t                generationCount;
 } PMResponseWrangler;
 
 
@@ -268,7 +274,7 @@ static void checkResponses(PMResponseWrangler *wrangler);
 
 static void PMScheduleWakeEventChooseBest(CFAbsoluteTime scheduleTime, wakeType_e type);
 
-static void responsesTimedOut(PMResponseWrangler * info);
+static void cleanClientResponses(PMResponseWrangler *wrangler, bool timeout);
 
 static void cleanupConnection(PMConnection *reap);
 
@@ -341,6 +347,7 @@ static uint32_t                 globalConnectionIDTally = 0;
 static io_connect_t             gRootDomainConnect = IO_OBJECT_NULL;
 
 static PMResponseWrangler *     gLastResponseWrangler = NULL;
+static uint16_t                 gWranglerGenerationCount = 0;
 
 SleepServiceStruct              gSleepService;
 
@@ -642,7 +649,6 @@ static PMResponse *_io_pm_acknowledge_event_findOutstandingResponseForToken(PMCo
     PMResponse          *checkResponse = NULL;
     PMResponse          *foundResponse = NULL;
     long                i;
-    
     
     if (!connection
         || !connection->responseHandler
@@ -1160,20 +1166,8 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap)
     CFIndex         i,  connectionsCount;
     CFIndex         responseCount;
 
-    long nextAcknowledgementID;
-    int  nextInterestBits;
-    bool nextIsValid;
-
-    if (!reap) 
+    if (!reap || !gConnections)
         return;
-        
-    if (!gConnections)
-        return;
-
-    // Cache the next response fields.
-    nextInterestBits      = reap->nextInterestBits;
-    nextAcknowledgementID = reap->nextKernelAcknowledgementID;
-    nextIsValid           = reap->nextIsValid;
 
     // Loop through all connections. If any connections are referring to
     // responseWrangler in their tracking structs, zero that out.
@@ -1220,20 +1214,6 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap)
     }
 
     free(reap);
-
-    // Create a new response wrangler if the reaped wrangler has a queued
-    // notification stored. If new wrangler is NULL, make sure to ack any
-    // sleep message.
-    if (nextIsValid)
-    {
-        PMResponseWrangler * resp;
-        resp = connectionFireNotification(nextInterestBits, nextAcknowledgementID);
-        if (!resp)
-        {
-            if (nextAcknowledgementID)
-                IOAllowPowerChange(gRootDomainConnect, nextAcknowledgementID);
-        }
-    }
 }
 
 /*****************************************************************************/
@@ -2183,6 +2163,24 @@ void updateCurrentWakeEnd(uint64_t timestamp)
     INFO_LOG("Updating wake end timestamp to %llu\n", timestamp);
     gCurrentWakeEnd = timestamp;
 }
+
+void logAwakeTime(void)
+{
+#if HAS_COREANALYTICS
+    CFAbsoluteTime last_wake_time = 0;
+    CFAbsoluteTime adjusted_interval = 0;
+    IOReturn ret = IOPMGetLastWakeTime(&last_wake_time, &adjusted_interval);
+    if (ret == kIOReturnSuccess) {
+        uint64_t awake_time = (uint64_t)(CFAbsoluteTimeGetCurrent() - last_wake_time);
+        analytics_send_event_lazy("com.apple.powerd.awaketime", ^xpc_object_t(void) {
+            xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+            xpc_dictionary_set_uint64(dict, "WakeTime", awake_time);
+            return dict;
+        });
+    }
+#endif
+}
+
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
 /*****************************************************************************/
@@ -2219,6 +2217,9 @@ static void PMConnectionPowerCallBack(
     else if (inMessageType == kIOMessageCanSystemSleep)
     {
         sleepReason = _updateSleepReason();
+        if (IS_EMERGENCY_SLEEP(sleepReason)) {
+            gEmergencySleep = true;
+        }
         handleCanSleepMsg(messageData, sleepReason);
         return;
     }
@@ -2226,6 +2227,7 @@ static void PMConnectionPowerCallBack(
     {
         gMachineStateRevertible = true;
         checkPendingWakeReqs(ALLOW_PURGING);
+        gEmergencySleep = false;
         return;
     }
     else if ((inMessageType == kIOPMMessageIdleSleepPreventers) ||
@@ -2294,6 +2296,20 @@ static void PMConnectionPowerCallBack(
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(0);
         notify_post(kIOPMSystemPowerStateNotify);
+
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+        // <rdar://problem/70694092> [GGC] powerd changes to support hibernating after the boot policy file has changed
+        // on Apple Silicon, we need to inform the BootPolicy library that we're hibernating so that it can
+        // update the SEP state needed to generate the hibernation encryption key
+        uint32_t sleepType = kIOPMSleepTypeInvalid;
+        getPlatformSleepType(&sleepType, NULL);
+        if (sleepType == kIOPMSleepTypeHibernate) {
+            bootpolicy_error_t err = bootpolicy_prepare_for_hibernation(BOOTPOLICY_DEFAULT_POLICY_VOLUME_PATH);
+            if (err != BOOTPOLICY_SUCCESS) {
+                ERROR_LOG("bootpolicy_prepare_for_hibernation failed (%x)\n", err);
+            }
+        }
+#endif
 
         _resetWakeReason();
 #if !TARGET_OS_IPHONE
@@ -2376,8 +2392,10 @@ static void PMConnectionPowerCallBack(
 
         // reset display state
         resetDisplayState();
+        gEmergencySleep = false;
 #endif
         incrementSleepCnt();
+        logAwakeTime();
         return;
     } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {
@@ -2688,6 +2706,7 @@ static void PMConnectionPowerCallBack(
     }
     else if (SYSTEM_WILL_WAKE(capArgs) )
     {
+        gEmergencySleep = false;
 #if !TARGET_OS_IPHONE
         // reset delta to standby
         resetDeltaToStandby();
@@ -2714,6 +2733,10 @@ static void PMConnectionPowerCallBack(
 
 }
 
+bool isEmergencySleep(void)
+{
+    return gEmergencySleep;
+}
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
@@ -2744,13 +2767,25 @@ static PMResponseWrangler *connectionFireNotification(
      */
     if (gLastResponseWrangler)
     {
-        gLastResponseWrangler->nextIsValid = true;
-        gLastResponseWrangler->nextInterestBits = interestBitsNotify;
-        gLastResponseWrangler->nextKernelAcknowledgementID = kernelAcknowledgementID;
-        return gLastResponseWrangler;
+        // rdar://problem/69725628
+        // The previous response wrangler created by connectionFireNotification(),
+        // due to an upcoming loss of CPU capability bit, is still waiting for
+        // client responses. One scenario is when a dark->sleep transition is
+        // aborted and there is a slow client that doesn't ack before the next
+        // dark->sleep transition. When that happens, rather than stacking the
+        // response wranglers which can lead to a delayed and out-of-order
+        // notification that crosses those sent by sendNoRespNotification(),
+        // just invalidate gLastResponseWrangler as though all clients have
+        // already responded. Client responses for an invalidated wrangler are
+        // rejected based on the rolling generation count in the message token.
+        cleanClientResponses(gLastResponseWrangler, false);
     }
 
-    INFO_LOG("connectionFireNotification: 0x%x\n", interestBitsNotify);
+    gWranglerGenerationCount++;
+    if (gWranglerGenerationCount == 0) {
+        gWranglerGenerationCount = 1;
+    }
+    INFO_LOG("connectionFireNotification: 0x%x gen 0x%x\n", interestBitsNotify, gWranglerGenerationCount);
     // We only send state change notifications out to entities interested in the changing
     // bits, or interested in a subset of the changing bits.
     // Any client who is interested in a superset of the changing bits shall not receive
@@ -2783,8 +2818,8 @@ static PMResponseWrangler *connectionFireNotification(
     responseWrangler->notificationType = interestBitsNotify;
     responseWrangler->awaitResponsesTimeoutSeconds = (int)kPMConnectionNotifyTimeoutDefault;
     responseWrangler->kernelAcknowledgementID = kernelAcknowledgementID;
+    responseWrangler->generationCount = gWranglerGenerationCount;
 
-    
     /*
      * We will track each notification we're sending out with an individual response.
      * Record that response in the "active response array" so we can group them
@@ -2811,8 +2846,8 @@ static PMResponseWrangler *connectionFireNotification(
          *
          * callCount is incremented by 1 to make sure messageToken is  not NULL
          */
-        messageToken = (interestBitsNotify << 16)
-                            | (calloutCount+1);
+        messageToken = (responseWrangler->generationCount << 16)
+                            | ((calloutCount+1) & 0xFFFF);
 
         // Mark this connection with the responseWrangler that's awaiting its responses
         connection->responseHandler = responseWrangler;
@@ -2848,7 +2883,7 @@ static PMResponseWrangler *connectionFireNotification(
     dispatch_time_t     when = dispatch_time(DISPATCH_TIME_NOW, responseWrangler->awaitResponsesTimeoutSeconds * NSEC_PER_SEC);
     dispatch_source_set_timer(timer, when, DISPATCH_TIME_FOREVER, 0);
     dispatch_source_set_event_handler(timer, ^{
-        responsesTimedOut(responseWrangler);
+        cleanClientResponses(responseWrangler, true);
     });
     responseWrangler->awaitingResponsesTimeout = timer;
     dispatch_activate(timer);
@@ -2939,16 +2974,14 @@ static void sendNoRespNotificationToInterestedClients( int interestBitsNotify )
            logASLPMConnectionNotify(connection->callerName, interestBitsNotify );
          
     }
-
-
 }
+
 /*****************************************************************************/
 /*****************************************************************************/
 
-static void responsesTimedOut(PMResponseWrangler  *responseWrangler)
+static void cleanClientResponses(PMResponseWrangler *responseWrangler, bool timeout)
 {
-    PMResponse          *one_response = NULL;
-
+    PMResponse      *one_response = NULL;
     CFIndex         i, responsesCount = 0;
 #if !TARGET_OS_IPHONE
     char            appName[32];
@@ -2960,11 +2993,13 @@ static void responsesTimedOut(PMResponseWrangler  *responseWrangler)
     if (!responseWrangler)
         return;
 
+    INFO_LOG("cleanClientResponses: gen 0x%x timeout %d\n",
+        responseWrangler->generationCount, timeout);
     dispatch_source_cancel(responseWrangler->awaitingResponsesTimeout);
     dispatch_release(responseWrangler->awaitingResponsesTimeout);
     responseWrangler->awaitingResponsesTimeout = NULL;
 
-    // Iterate list of awaiting responses, and tattle on anyone who hasn't 
+    // Iterate list of awaiting responses, and tattle on anyone who hasn't
     // acknowledged yet.
     // Artificially mark them as "replied", with their reason being "timed out"
     responsesCount = CFArrayGetCount(responseWrangler->awaitingResponses);
@@ -2979,13 +3014,13 @@ static void responsesTimedOut(PMResponseWrangler  *responseWrangler)
 
         // Caught a tardy reply
         one_response->replied = true;
-        one_response->timedout = true;
+        one_response->timedout = timeout;
         one_response->repliedWhen = CFAbsoluteTimeGetCurrent();
         
         cacheResponseStats(one_response);
 
 #if !TARGET_OS_IPHONE
-        if (isA_CFString(one_response->connection->callerName) && 
+        if (isA_CFString(one_response->connection->callerName) &&
                 CFStringGetCString(one_response->connection->callerName, appName, sizeof(appName), kCFStringEncodingUTF8))
             snprintf(pidbuf, sizeof(pidbuf), "%s %s(%d)",pidbuf, appName, one_response->connection->callerPID);
         else
@@ -2995,7 +3030,6 @@ static void responsesTimedOut(PMResponseWrangler  *responseWrangler)
 
     checkResponses(responseWrangler);
 }
-
 
 /*****************************************************************************/
 /*****************************************************************************/

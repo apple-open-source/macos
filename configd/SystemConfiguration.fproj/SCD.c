@@ -586,15 +586,18 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 	char		buffer[256];
 	const char	*buffer_ptr	= buffer;
 	char		*composed	= NULL;
+	Boolean		do_log		= FALSE;
 	Boolean		do_print	= FALSE;
 	Boolean		do_syslog	= FALSE;
 
 	if (_sc_log > kSCLogDestinationFile) {
+		do_log = TRUE;
+
 		if (_SC_isInstallEnvironment()) {
 			/*
 			 * os_log(3) messages are not persisted in the
-			 * install environment.  So, we use syslog(3)
-			 * instead.
+			 * install environment.  But, the installer does
+			 * capture syslog(3) messages.
 			 */
 			do_syslog = TRUE;
 		}
@@ -606,14 +609,16 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 		do_print = TRUE;		// print requested
 	}
 
-	if (!do_print && !do_syslog) {
-		// if only os_log requested
-		os_log_pack_send(pack, log, type);
-	} else if (do_print && !do_syslog) {
-		// if os_log and print requested
-		composed = os_log_pack_send_and_compose(pack, log, type, buffer, sizeof(buffer));
+	if (do_log) {
+		if (!do_print && !do_syslog) {
+			// if only os_log requested
+			os_log_pack_send(pack, log, type);
+		} else {
+			// if os_log and print (or syslog) requested
+			composed = os_log_pack_send_and_compose(pack, log, type, buffer, sizeof(buffer));
+		}
 	} else {
-		// if print-only and/or syslog requested
+		// if print-only requested
 		mach_get_times(NULL, &pack->olp_continuous_time, &pack->olp_wall_time);
 		composed = os_log_pack_compose(pack, log, type, buffer, sizeof(buffer));
 	}

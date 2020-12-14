@@ -12,6 +12,13 @@
 .Op Fl l
 .Op Fl b Ar identifier
 .Li \&.\|.\|.
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated.
+Please use the
+.Xr kmutil 8
+equivalent: kmutil showloaded.
 .Sh DESCRIPTION
 The
 .Nm
@@ -73,6 +80,8 @@ The
 utility exits with a status of 0 on success
 and with a nonzero status if an error occurs.
 .Sh SEE ALSO
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

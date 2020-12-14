@@ -9,6 +9,7 @@
 
 #include "ZeroFill.h"
 #include "Logger.h"
+#include "RawFile_Access_M.h"
 
 #define ZERO_BUF_SIZE   (1024*1024)
 
@@ -81,5 +82,19 @@ ZeroFill_Fill( int iFd, uint64_t uOffset, uint32_t uLength )
     }
 
 exit:
+    return iErr;
+}
+
+int
+ZeroFill_FillClusterSuffixWithZeros( NodeRecord_s* psNodeRecord, uint64_t uFillFromOffset)
+{
+    MSDOS_LOG( LEVEL_DEBUG, "ZeroFill_FillClusterSuffixWithZeros = %llu\n", uFillFromOffset);
+
+    int iErr = 0;
+    FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
+    uint64_t uBytesToFill = ROUND_UP(uFillFromOffset,CLUSTER_SIZE(psFSRecord)) - uFillFromOffset;
+
+    RAWFILE_write(psNodeRecord, uFillFromOffset, uBytesToFill, gpvZeroBuf, &iErr);
+
     return iErr;
 }

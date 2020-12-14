@@ -127,6 +127,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSSingleThreaded
 		| kSecCSApplyEmbeddedPolicy
 		| kSecCSSkipRootVolumeExceptions
+		| kSecCSSkipXattrFiles
 	);
 
 	if (errors)

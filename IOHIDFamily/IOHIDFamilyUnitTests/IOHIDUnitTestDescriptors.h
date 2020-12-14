@@ -3675,5 +3675,25 @@ typedef struct __attribute__((packed))
 
 } HIDPhaseKeyboardReport;
 
+#define HIDKeyboardProxmityDescriptor \
+0x05, 0x0C,                               /* Usage Page (Consumer) */\
+0x09, 0x01,                               /* Usage (Consumer Control) */\
+0xA1, 0x01,                               /* Collection (Application) */\
+0x85, 0x01,                               /*   ReportID................ (1) */\
+0x05, 0x0C,                               /*   Usage Page (Consumer) */\
+0x0A, 0x09, 0x01,                         /*   Usage (Proxmity) */\
+0x75, 0x08,                               /*   Report Size........... (8) */\
+0x95, 0x01,                               /*   Report Count.......... (1) */\
+0x15, 0x00,                               /*   Logical Minimum....... (0) */\
+0x26, 0xFF, 0x00,                         /*   Logical Maximum....... (255) */\
+0x81, 0x02,                               /*   Input (Data, Variable, Absolute) */\
+0xC0,                                     /*  End Collection */
+
+typedef struct __attribute__((packed)) {
+    uint8_t reportID;                    // Report ID = 0x01 (1)
+
+    uint8_t CD_ConsumerProxity;          // Usage 0x000C0109: Proximity, Value = 0 to 255
+} HIDKeyboardProximityReport;
+
 #endif /* IOHIDUnitTestDescriptors_h */
 

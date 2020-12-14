@@ -938,6 +938,7 @@
 		7E94A36B2408B2A50010C29D /* IOHIDReportElementQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E94A3682408B1050010C29D /* IOHIDReportElementQueue.h */; };
 		7E94A36D2408B2F70010C29D /* IOHIDReportElementQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E94A36C2408B2F70010C29D /* IOHIDReportElementQueue.cpp */; };
 		7E94A36E2408B3040010C29D /* IOHIDReportElementQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E94A36C2408B2F70010C29D /* IOHIDReportElementQueue.cpp */; };
+		7EC2B21D253A5F6A0077FF40 /* TestHIDProximityEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */; };
 		84061D6E1606B247003855D6 /* IOHIDEventSystemMonitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 84061D5C1606AF8C003855D6 /* IOHIDEventSystemMonitor.c */; };
 		84061D6F1606B24E003855D6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B963F4B700BC660708CA29FD /* CoreFoundation.framework */; };
 		84061D701606B252003855D6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 014C794B00027ECC11CA2CF6 /* IOKit.framework */; };
@@ -3512,6 +3513,7 @@
 		7E94A3682408B1050010C29D /* IOHIDReportElementQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDReportElementQueue.h; sourceTree = "<group>"; };
 		7E94A36C2408B2F70010C29D /* IOHIDReportElementQueue.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDReportElementQueue.cpp; sourceTree = "<group>"; };
 		7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = hidtalkd.xcodeproj; path = hidtalkd/hidtalkd.xcodeproj; sourceTree = "<group>"; };
+		7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDProximityEvent.m; sourceTree = "<group>"; };
 		7EE71E77233136E100520E8C /* HIDTalkDaemon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDTalkDaemon.h; sourceTree = "<group>"; };
 		7EE71E792331525100520E8C /* hidtalkd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = hidtalkd.xcconfig; sourceTree = "<group>"; };
 		7EEB35112330A7C200F7459E /* com.apple.iohid.hidtalkd-bridge.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "com.apple.iohid.hidtalkd-bridge.plist"; sourceTree = "<group>"; };
@@ -5631,6 +5633,7 @@
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */,
 				7E78FA8025132F0600E45638 /* TestHIDNullElement.m */,
 				7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */,
 				D83821A92159F7E600E700B0 /* IOHIDFamily_dev.plist */,
@@ -9252,6 +9255,7 @@
 				72588AF2234F7CEC002342D2 /* TestHIDPreferences.m in Sources */,
 				D81A990B1DBF0A9700B35A3A /* IOHIDUnitTestUtility.m in Sources */,
 				0FEEB7B8222468F7004530DC /* TestDFRKeyboard.m in Sources */,
+				7EC2B21D253A5F6A0077FF40 /* TestHIDProximityEvent.m in Sources */,
 				0FEEB7BA22246902004530DC /* HIDDeviceTester.m in Sources */,
 				721CB56C2165567900A8C678 /* TestKeyboardEscKeyProperty.m in Sources */,
 				0FEF2A182192066200672220 /* TestElementBatching.m in Sources */,

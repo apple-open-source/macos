@@ -46,6 +46,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        OctagonSetPlatformSupportsSOS(true)
 
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
@@ -135,12 +136,15 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+       
+        OctagonSetPlatformSupportsSOS(true)
 
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -178,6 +182,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -270,11 +275,14 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
+        OctagonSetPlatformSupportsSOS(true)
+
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -309,6 +317,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -337,6 +346,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchBottlesFromCuttlefishFetchExpectation.fulfill()
             return nil
         }
@@ -419,11 +429,14 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
+        OctagonSetPlatformSupportsSOS(true)
+
         //now call fetchviablebottles, we should get records from cuttlefish
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -449,6 +462,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -473,6 +487,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         OctagonSetOptimizationEnabled(true)
         OctagonSetEscrowRecordFetchEnabled(true)
+        OctagonSetPlatformSupportsSOS(true)
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
@@ -481,6 +496,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let fetchViableBottlesExpectation = self.expectation(description: "fetch Cached ViableBottles")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -549,6 +565,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.fakeCuttlefishServer.injectLegacyEscrowRecords = true
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -574,6 +591,8 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+
             let legacy = container.containerMO.legacyEscrowRecords as! Set<EscrowRecordMO>
             let partial = container.containerMO.partiallyViableEscrowRecords as! Set<EscrowRecordMO>
             let full = container.containerMO.fullyViableEscrowRecords as! Set<EscrowRecordMO>
@@ -607,6 +626,8 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let fetchViableBottlesAfterExpiredTimeoutExpectation = self.expectation(description: "fetch Cached ViableBottles expectaiton after timeout")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+
             XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
             XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
             XCTAssertEqual(container.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO>, [], "fully viable escrowRecords should be empty")
@@ -669,10 +690,14 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
 
+        OctagonSetPlatformSupportsSOS(true)
+
         let fetchViableBottlesAfterExpiredTimeoutExpectation = self.expectation(description: "fetch Cached ViableBottles expectaiton after timeout")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+
             container.moc.performAndWait {
                 XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
                 XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
@@ -737,6 +762,8 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
+        OctagonSetPlatformSupportsSOS(true)
+
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
             let escrowRecords: [OTEscrowRecord] = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
@@ -761,6 +788,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let fetchViableBottlesAfterCacheRemovalExpectation = self.expectation(description: "fetchViableBottles expectation after cache removal")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
             XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
             XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
             XCTAssertEqual(container.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO>, [], "fully viable escrowRecords should be empty")
@@ -781,7 +809,95 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchViableBottlesAfterCacheRemovalExpectation], timeout: 10)
+    }
+    
+    func testFetchViableBottlesFilteringOctagonOnly() throws {
+        OctagonSetOptimizationEnabled(true)
+        OctagonSetEscrowRecordFetchEnabled(true)
+        OctagonSetPlatformSupportsSOS(false)
+        
+        let initiatorContextID = "initiator-context-id"
+        let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
+        bottlerContext.startOctagonStateMachine()
+        let ckacctinfo = CKAccountInfo()
+        ckacctinfo.accountStatus = .available
+        ckacctinfo.hasValidCredentials = true
+        ckacctinfo.accountPartition = .production
+
+        bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
+        self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = initiatorContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: bottlerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: bottlerContext)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords: [OTEscrowRecord] = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 1, "should be 1 escrow record")
+            let reduced = escrowRecords.compactMap { $0.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+
+        let removeExpectation = self.expectation(description: "remove expectation")
+        self.manager.invalidateEscrowCache(OTCKContainerName, contextID: initiatorContextID) { error in
+            XCTAssertNil(error, "error should not be nil")
+            removeExpectation.fulfill()
+        }
+        self.wait(for: [removeExpectation], timeout: 10)
+
+        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
+
+        let fetchViableBottlesAfterCacheRemovalExpectation = self.expectation(description: "fetchViableBottles expectation after cache removal")
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+            self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be unknown")
+            XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
+            XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
+            XCTAssertEqual(container.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO>, [], "fully viable escrowRecords should be empty")
+
+            fetchViableBottlesAfterCacheRemovalExpectation.fulfill()
+            return nil
+        }
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 1, "should be 1 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+        self.wait(for: [fetchViableBottlesAfterCacheRemovalExpectation], timeout: 10)
     }
 }
 

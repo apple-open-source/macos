@@ -43,6 +43,10 @@
 #include <security_utilities/errors.h>
 #include <sys/mount.h>
 #include <sys/utsname.h>
+#include <errno.h>
+#include <sys/attr.h>
+#include <sys/xattr.h>
+#include <libgen.h>
 #include "debugging.h"
 
 extern "C" {
@@ -333,6 +337,208 @@ bool isOnRootFilesystem(const char *path)
 		return false;
 	}
 	return ((sfb.f_flags & MNT_ROOTFS) == MNT_ROOTFS);
+}
+
+bool pathExists(const char *path)
+{
+	int rc;
+
+	if (!path) {
+		secerror("path is NULL");
+		return false;
+	}
+
+	rc = access(path, F_OK);
+	if (rc != 0) {
+		if (errno != ENOENT) {
+			secerror("Unable to check if path exists: %d, %s", errno, path);
+		}
+		return false;
+	}
+
+	return true;
+}
+
+bool pathMatchesXattrFilenameSpec(const char *path)
+{
+	char *baseName = NULL;
+	bool ret = false;
+
+	if (!path) {
+		secerror("path is NULL");
+		goto done;
+	}
+
+	// Extra byte for NULL storage.
+	baseName = (char *)malloc(strlen(path) + 1);
+	if (!baseName) {
+		secerror("Unable to allocate space for storing basename: %d [%s]", errno, strerror(errno));
+		goto done;
+	}
+
+	// basename_r will return a "/" if path is only slashes. It will return
+	// a "." for a NULL/empty path. Both of these cases are handled by the logic
+	// later. The only situation where basename_r will return a NULL is when path
+	// is longer than MAXPATHLEN.
+
+	if (basename_r(path, baseName) == NULL) {
+		secerror("Could not get basename of %s: %d [%s]", path, errno, strerror(errno));
+		goto done;
+	}
+
+	// The file name must start with "._", followed by the name
+	// of the file for which it stores the xattrs. Hence, its length
+	// must be at least three --> 2 for "._" and 1 for a non-empty file
+	// name.
+	if (strlen(baseName) < 3) {
+		goto done;
+	}
+
+	if (baseName[0] != '.' || baseName[1] != '_') {
+		goto done;
+	}
+
+	ret = true;
+
+done:
+	if (baseName) {
+		free(baseName);
+	}
+
+	return ret;
+}
+
+bool pathIsRegularFile(const char *path)
+{
+	if (!path) {
+		secerror("path is NULL");
+		return false;
+	}
+
+	struct stat sb;
+	if (stat(path, &sb)) {
+		secerror("Unable to stat %s: %d [%s]", path, errno, strerror(errno));
+		return false;
+	}
+
+	return (sb.st_mode & S_IFREG) == S_IFREG;
+}
+
+bool pathHasXattrs(const char *path)
+{
+	if (!path) {
+		secerror("path is NULL");
+		return false;
+	}
+
+	ssize_t xattrSize = listxattr(path, NULL, 0, 0);
+	if (xattrSize == -1) {
+		secerror("Unable to acquire the xattr list from %s", path);
+		return false;
+	}
+
+	return (xattrSize > 0);
+}
+
+bool pathFileSystemUsesXattrFiles(const char *path)
+{
+	struct _VolumeCapabilitiesWrapped {
+		uint32_t length;
+		vol_capabilities_attr_t volume_capabilities;
+	} __attribute__((aligned(4), packed));
+
+	struct attrlist attr_list;
+	struct _VolumeCapabilitiesWrapped volume_cap_wrapped;
+	struct statfs sfb;
+
+	if (!path) {
+		secerror("path is NULL");
+		return false;
+	}
+
+	int ret = statfs(path, &sfb);
+	if (ret != 0) {
+		secerror("Unable to convert %s to its filesystem mount [statfs failed]: %d [%s]", path, errno, strerror(errno));
+		return false;
+	}
+	path = sfb.f_mntonname;
+
+	memset(&attr_list, 0, sizeof(attr_list));
+	attr_list.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attr_list.volattr = ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES;
+
+	ret = getattrlist(path, &attr_list, &volume_cap_wrapped, sizeof(volume_cap_wrapped), 0);
+	if (ret) {
+		secerror("Unable to get volume capabilities from %s: %d [%s]", path, errno, strerror(errno));
+		return false;
+	}
+
+	if (volume_cap_wrapped.length != sizeof(volume_cap_wrapped)) {
+		secerror("getattrlist return length incorrect, expected %lu, got %u", sizeof(volume_cap_wrapped), volume_cap_wrapped.length);
+		return false;
+	}
+
+	// The valid bit tells us whether the corresponding bit in capabilities is valid
+	// or not. For file systems where the valid bit isn't set, we can safely assume that
+	// extended attributes aren't supported natively.
+
+	bool xattr_valid = (volume_cap_wrapped.volume_capabilities.valid[VOL_CAPABILITIES_INTERFACES] & VOL_CAP_INT_EXTENDED_ATTR) == VOL_CAP_INT_EXTENDED_ATTR;
+	if (!xattr_valid) {
+		return true;
+	}
+
+	bool xattr_capability = (volume_cap_wrapped.volume_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] & VOL_CAP_INT_EXTENDED_ATTR) == VOL_CAP_INT_EXTENDED_ATTR;
+	if (!xattr_capability) {
+		return true;
+	}
+
+	return false;
+}
+
+bool pathIsValidXattrFile(const string fullPath, const char *scope)
+{
+	// Confirm that fullPath begins from root.
+	if (fullPath[0] != '/') {
+		secinfo(scope, "%s isn't a full path, but a relative path", fullPath.c_str());
+		return false;
+	}
+
+	// Confirm that fullPath is a regular file.
+	if (!pathIsRegularFile(fullPath.c_str())) {
+		secinfo(scope, "%s isn't a regular file", fullPath.c_str());
+		return false;
+	}
+
+	// Check that the file name matches the Xattr file spec.
+	if (!pathMatchesXattrFilenameSpec(fullPath.c_str())) {
+		secinfo(scope, "%s doesn't match Xattr file path spec", fullPath.c_str());
+		return false;
+	}
+
+	// We are guaranteed to have at least one "/" by virtue of fullPath
+	// being a path from the root of the filesystem hierarchy.
+	//
+	// We construct the real file name by copying everything up to
+	// the last "/", adding the "/" back in, then skipping
+	// over the backslash (+1) and the "._" (+2) in the rest of the
+	// string.
+
+	size_t lastBackSlash = fullPath.find_last_of("/");
+	const string realFilePath = fullPath.substr(0, lastBackSlash) + "/" + fullPath.substr(lastBackSlash + 1 + 2);
+
+	if (!pathExists(realFilePath.c_str())) {
+		secinfo(scope, "%s does not exist, forcing resource validation on %s", realFilePath.c_str(), fullPath.c_str());
+		return false;
+	}
+
+	// Lastly, we need to confirm that the real file contains some xattrs. If not,
+	// then the file represented by fullPath isn't an xattr file.
+	if (!pathHasXattrs(realFilePath.c_str())) {
+		secinfo(scope, "%s does not contain xattrs, forcing resource validation on %s", realFilePath.c_str(), fullPath.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 } // end namespace CodeSigning

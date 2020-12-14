@@ -620,11 +620,7 @@ public:
         ALREADY_SIGNALED = 0x911A,
         TIMEOUT_EXPIRED = 0x911B,
         CONDITION_SATISFIED = 0x911C,
-#if PLATFORM(WIN)
-        WAIT_FAILED_WIN = 0x911D,
-#else
-        WAIT_FAILED = 0x911D,
-#endif
+        WAIT_FAILED_WEBGL = 0x911D,
         SYNC_FLUSH_COMMANDS_BIT = 0x00000001,
         VERTEX_ATTRIB_ARRAY_DIVISOR = 0x88FE,
         ANY_SAMPLES_PASSED = 0x8C2F,
@@ -780,15 +776,6 @@ public:
         Video,
         DOMSourceNone,
     };
-
-#if USE(ANGLE)
-    // These constants are redefined here from ANGLE's OpenGL ES headers to
-    // provide a single place where multiple portions of platform code can
-    // reference them.
-    static GCGLenum IOSurfaceTextureTarget();
-    static GCGLenum IOSurfaceTextureTargetQuery();
-    static GCGLint EGLIOSurfaceTextureTarget();
-#endif // USE(ANGLE)
 
     virtual PlatformGraphicsContextGL platformGraphicsContextGL() const = 0;
     virtual PlatformGLObject platformTexture() const = 0;

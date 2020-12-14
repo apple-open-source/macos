@@ -2558,8 +2558,15 @@ class Container: NSObject {
                 reply(cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
                 return
             }
-
-            self.cuttlefish.fetchViableBottles { response, error in
+            
+            let request = FetchViableBottlesRequest.with {
+                $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
+            }
+            if request.filterRequest == .byOctagonOnly {
+                os_log("Requesting Cuttlefish sort records by Octagon Only", log: tplogDebug, type: .default)
+            }
+            
+            self.cuttlefish.fetchViableBottles(request) { response, error in
                 guard error == nil else {
                     os_log("fetchViableBottles failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                     reply(nil, nil, error)
@@ -2662,7 +2669,14 @@ class Container: NSObject {
                 return
             }
 
-            self.cuttlefish.fetchViableBottles { response, error in
+            let request = FetchViableBottlesRequest.with {
+                $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
+            }
+            if request.filterRequest == .byOctagonOnly {
+                os_log("Requesting Cuttlefish sort records by Octagon Only", log: tplogDebug, type: .default)
+            }
+            
+            self.cuttlefish.fetchViableBottles(request) { response, error in
                 guard error == nil else {
                     os_log("fetchViableBottles failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                     reply(nil, error)

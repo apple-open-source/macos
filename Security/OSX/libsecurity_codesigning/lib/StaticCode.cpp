@@ -1227,7 +1227,6 @@ void SecStaticCode::validateExecutable()
 		MacOSError::throwMe(mExecutableValidResult);
 }
 
-
 //
 // Perform static validation of sealed resources and nested code.
 //
@@ -1257,11 +1256,14 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 	if (doit) {
 		string root = cfStringRelease(copyCanonicalPath());
 		bool itemIsOnRootFS = isOnRootFilesystem(root.c_str());
-		bool requestForcedValidation = (mValidationFlags & kSecCSSkipRootVolumeExceptions);
-		bool useRootFSPolicy = itemIsOnRootFS && !requestForcedValidation;
+		bool skipRootVolumeExceptions = (mValidationFlags & kSecCSSkipRootVolumeExceptions);
+		bool useRootFSPolicy = itemIsOnRootFS && !skipRootVolumeExceptions;
 
-		secinfo("staticCode", "performing resource validation for %s (%d, %d, %d)", root.c_str(),
-				itemIsOnRootFS, requestForcedValidation, useRootFSPolicy);
+		bool itemMightUseXattrFiles = pathFileSystemUsesXattrFiles(root.c_str());
+		bool skipXattrFiles = itemMightUseXattrFiles && (mValidationFlags & kSecCSSkipXattrFiles);
+
+		secinfo("staticCode", "performing resource validation for %s (%d, %d, %d, %d, %d)", root.c_str(),
+				itemIsOnRootFS, skipRootVolumeExceptions, useRootFSPolicy, itemMightUseXattrFiles, skipXattrFiles);
 
 		if (mLimitedAsync == NULL) {
 			bool runMultiThreaded = ((flags & kSecCSSingleThreaded) == kSecCSSingleThreaded) ? false :
@@ -1312,6 +1314,11 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 
 				void (^validate)() = ^{
 					bool needsValidation = true;
+
+					if (skipXattrFiles && pathIsValidXattrFile(cfString(resourceBase()) + "/" + relpath, "staticCode")) {
+						secinfo("staticCode", "resource validation on xattr file skipped: %s", relpath.c_str());
+						needsValidation = false;
+					}
 
 					if (useRootFSPolicy) {
 						CFRef<CFURLRef> itemURL = makeCFURL(relpath, false, resourceBase());

@@ -9,6 +9,13 @@
 .Op Ar options
 .Op Fl -
 .Op Ar kext Li \&.\|.\|.
+.Sh DEPRECATED
+The
+.Nm
+utility has been deprecated.
+Please use the
+.Xr kmutil 8
+equivalent: kmutil load.
 .Sh DESCRIPTION
 The
 .Nm
@@ -185,6 +192,8 @@ If your kext fails to load, try using
 .Xr kextutil 8
 to examine the kext for problems.
 .Sh SEE ALSO 
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextstat 8 ,

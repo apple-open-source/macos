@@ -7,6 +7,11 @@
 .Sh SYNOPSIS
 .Nm
 .Op Ar options
+.Sh DEPRECATED
+The
+.Nm
+daemon has been deprecated. It has been replaced by
+.Xr kernelmanagerd 8
 .Sh DESCRIPTION
 .Nm
 is the kernel extension server.
@@ -136,6 +141,8 @@ or to the console if the system log facility isn't available.
 When running in debug mode all output is printed
 to the standard output and error streams.
 .Sh SEE ALSO 
+.Xr kmutil 8 ,
+.Xr kernelmanagerd 8 ,
 .Xr kextcache 8 ,
 .Xr kextload 8 ,
 .Xr kextutil 8 ,

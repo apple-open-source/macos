@@ -387,6 +387,8 @@
 		D083E23F1F0481AA00A0AAB8 /* powerd.codes in Resources */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
 		D083E2411F04821A00A0AAB8 /* powerd.codes in CopyFiles */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
 		D3C425EE206C561E00D0AC63 /* libspindump.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3C425ED206C561E00D0AC63 /* libspindump.tbd */; };
+		E1A3EFBB254AA9380092E7A0 /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E1A3EFBA254AA9380092E7A0 /* libbootpolicy.tbd */; };
+		E1DFDBF6254E654F004AE461 /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E1A3EFBA254AA9380092E7A0 /* libbootpolicy.tbd */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1089,6 +1091,7 @@
 		D083E23E1F0481AA00A0AAB8 /* powerd.codes */ = {isa = PBXFileReference; lastKnownFileType = text; path = powerd.codes; sourceTree = "<group>"; };
 		D3C425ED206C561E00D0AC63 /* libspindump.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libspindump.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/lib/libspindump.tbd; sourceTree = DEVELOPER_DIR; };
 		D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */ = {isa = PBXFileReference; explicitFileType = file.bplist; path = "com.apple.powerd-embedded.plist"; sourceTree = "<group>"; };
+		E1A3EFBA254AA9380092E7A0 /* libbootpolicy.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbootpolicy.tbd; path = usr/lib/libbootpolicy.tbd; sourceTree = SDKROOT; };
 		F7828183058E83D30055547B /* ioupspluginmig.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ioupspluginmig.defs; sourceTree = "<group>"; };
 		F7828184058E83D30055547B /* IOUPSPrivate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOUPSPrivate.c; sourceTree = "<group>"; };
 		F7828185058E83D30055547B /* upsd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = upsd.c; sourceTree = "<group>"; };
@@ -1121,6 +1124,7 @@
 				119B32601E4165B000EB0780 /* SystemConfiguration.framework in Frameworks */,
 				119B32561E4162B400EB0780 /* IOKit.framework in Frameworks */,
 				119B32621E4165BD00EB0780 /* libbsm.dylib in Frameworks */,
+				E1DFDBF6254E654F004AE461 /* libbootpolicy.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1200,6 +1204,7 @@
 				4878DC781E7769C900CF1891 /* libbsm.dylib in Frameworks */,
 				4878DC761E7769BA00CF1891 /* DiskArbitration.framework in Frameworks */,
 				4878DC741E7769B300CF1891 /* libenergytrace.dylib in Frameworks */,
+				E1A3EFBB254AA9380092E7A0 /* libbootpolicy.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1606,6 +1611,7 @@
 				40882BA7019747120ACA2928 /* IOKit.framework */,
 				40882BA8019747120ACA2928 /* SystemConfiguration.framework */,
 				4878DC361E77593400CF1891 /* Foundation.framework */,
+				E1A3EFBA254AA9380092E7A0 /* libbootpolicy.tbd */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -4485,6 +4491,8 @@
 					__CGPreLoginApp,
 					__cgpreloginapp,
 					/dev/null,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				"OTHER_LDFLAGS[arch=arm64e]" = (
 					"-weak_framework",
@@ -4497,6 +4505,8 @@
 					/dev/null,
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_NAME = powerd;
 				RUN_CLANG_STATIC_ANALYZER = YES;
@@ -4633,6 +4643,8 @@
 					__CGPreLoginApp,
 					__cgpreloginapp,
 					/dev/null,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				"OTHER_LDFLAGS[arch=arm64e]" = (
 					"-weak_framework",
@@ -4645,6 +4657,8 @@
 					/dev/null,
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_NAME = powerd;
 				RUN_CLANG_STATIC_ANALYZER = YES;
@@ -4998,6 +5012,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -5070,6 +5086,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -5131,6 +5149,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -5200,6 +5220,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
