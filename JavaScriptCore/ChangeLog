@@ -1,6 +1,321 @@
-2020-12-02  Russell Epstein  <repstein@apple.com>
+2021-01-15  Russell Epstein  <repstein@apple.com>
 
-        Apply patch. rdar://problem/70289034
+        Cherry-pick r271544. rdar://problem/73267306
+
+    [JSC] Clean up DFGPreciseLocalClobberize to avoid duplicate code
+    https://bugs.webkit.org/show_bug.cgi?id=220670
+    
+    Reviewed by Filip Pizlo.
+    
+    This patch cleans up DFGPreciseLocalClobberize by extracting code to lambda to remove duplicate code.
+    
+    * dfg/DFGPreciseLocalClobberize.h:
+    (JSC::DFG::PreciseLocalClobberizeAdaptor::readTop):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@271544 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Clean up DFGPreciseLocalClobberize to avoid duplicate code
+            https://bugs.webkit.org/show_bug.cgi?id=220670
+
+            Reviewed by Filip Pizlo.
+
+            This patch cleans up DFGPreciseLocalClobberize by extracting code to lambda to remove duplicate code.
+
+            * dfg/DFGPreciseLocalClobberize.h:
+            (JSC::DFG::PreciseLocalClobberizeAdaptor::readTop):
+
+2021-01-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r271144. rdar://problem/72935460
+
+    propertyNameEnumerator must check it can still take the fast path after getGenericPropertyNames
+    https://bugs.webkit.org/show_bug.cgi?id=219957
+    <rdar://71156284>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    We need to check if we still `canAccessPropertiesQuicklyForEnumeration` on
+    `structureAfterGettingPropertyNames`, since we might call out out to a proxy's
+    `getPrototypeOf` callback through `getGenericPropertyNames`.
+    
+    * runtime/JSPropertyNameEnumerator.h:
+    (JSC::propertyNameEnumerator):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@271144 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-16  Tadeu Zagallo  <tzagallo@apple.com>
+
+            propertyNameEnumerator must check it can still take the fast path after getGenericPropertyNames
+            https://bugs.webkit.org/show_bug.cgi?id=219957
+            <rdar://71156284>
+
+            Reviewed by Yusuke Suzuki.
+
+            We need to check if we still `canAccessPropertiesQuicklyForEnumeration` on
+            `structureAfterGettingPropertyNames`, since we might call out out to a proxy's
+            `getPrototypeOf` callback through `getGenericPropertyNames`.
+
+            * runtime/JSPropertyNameEnumerator.h:
+            (JSC::propertyNameEnumerator):
+
+2021-01-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r271143. rdar://problem/72893965
+
+    Validate every instruction in AssemblerBuffer
+    https://bugs.webkit.org/show_bug.cgi?id=218104
+    <rdar://problem/69433094>
+    
+    Reviewed by Saam Barati.
+    
+    * assembler/AssemblerBuffer.cpp:
+    (JSC::threadSpecificAssemblerHashes):
+    * assembler/AssemblerBuffer.h:
+    (JSC::AssemblerBuffer::AssemblerBuffer):
+    (JSC::AssemblerBuffer::~AssemblerBuffer):
+    (JSC::AssemblerBuffer::releaseAssemblerData):
+    (JSC::AssemblerBuffer::releaseAssemblerHashes):
+    (JSC::AssemblerBuffer::putIntegralUnchecked):
+    (JSC::AssemblerBuffer::grow):
+    (JSC::AssemblerBuffer::outOfLineGrow):
+    (JSC::ARM64EHash::update): Deleted.
+    (JSC::ARM64EHash::finalHash const): Deleted.
+    (): Deleted.
+    (JSC::AssemblerBuffer::hash const): Deleted.
+    * assembler/LinkBuffer.cpp:
+    (JSC::LinkBuffer::copyCompactAndLinkCode):
+    * assembler/LinkBuffer.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@271143 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-17  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Validate every instruction in AssemblerBuffer
+            https://bugs.webkit.org/show_bug.cgi?id=218104
+            <rdar://problem/69433094>
+
+            Reviewed by Saam Barati.
+
+            * assembler/AssemblerBuffer.cpp:
+            (JSC::threadSpecificAssemblerHashes):
+            * assembler/AssemblerBuffer.h:
+            (JSC::AssemblerBuffer::AssemblerBuffer):
+            (JSC::AssemblerBuffer::~AssemblerBuffer):
+            (JSC::AssemblerBuffer::releaseAssemblerData):
+            (JSC::AssemblerBuffer::releaseAssemblerHashes):
+            (JSC::AssemblerBuffer::putIntegralUnchecked):
+            (JSC::AssemblerBuffer::grow):
+            (JSC::AssemblerBuffer::outOfLineGrow):
+            (JSC::ARM64EHash::update): Deleted.
+            (JSC::ARM64EHash::finalHash const): Deleted.
+            (): Deleted.
+            (JSC::AssemblerBuffer::hash const): Deleted.
+            * assembler/LinkBuffer.cpp:
+            (JSC::LinkBuffer::copyCompactAndLinkCode):
+            * assembler/LinkBuffer.h:
+
+2021-01-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r271034. rdar://problem/72894016
+
+    DFG should make sure replacement watchpoint is fired before folding to PutByOffset
+    https://bugs.webkit.org/show_bug.cgi?id=220031
+    <rdar://72045350>
+    
+    Reviewed by Saam Barati.
+    
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::presenceConditionIfConsistent):
+    (JSC::DFG::ByteCodeParser::checkPresence):
+    (JSC::DFG::ByteCodeParser::checkPresenceForReplace):
+    (JSC::DFG::ByteCodeParser::load):
+    (JSC::DFG::ByteCodeParser::store):
+    (JSC::DFG::ByteCodeParser::presenceLike): Deleted.
+    (JSC::DFG::ByteCodeParser::checkPresenceLike): Deleted.
+    * dfg/DFGConstantFoldingPhase.cpp:
+    (JSC::DFG::ConstantFoldingPhase::tryFoldAsPutByOffset):
+    * runtime/Structure.cpp:
+    (JSC::Structure::dump const):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@271034 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-21  Keith Miller  <keith_miller@apple.com>
+
+            DFG should make sure replacement watchpoint is fired before folding to PutByOffset
+            https://bugs.webkit.org/show_bug.cgi?id=220031
+            <rdar://72045350>
+
+            Reviewed by Saam Barati.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::presenceConditionIfConsistent):
+            (JSC::DFG::ByteCodeParser::checkPresence):
+            (JSC::DFG::ByteCodeParser::checkPresenceForReplace):
+            (JSC::DFG::ByteCodeParser::load):
+            (JSC::DFG::ByteCodeParser::store):
+            (JSC::DFG::ByteCodeParser::presenceLike): Deleted.
+            (JSC::DFG::ByteCodeParser::checkPresenceLike): Deleted.
+            * dfg/DFGConstantFoldingPhase.cpp:
+            (JSC::DFG::ConstantFoldingPhase::tryFoldAsPutByOffset):
+            * runtime/Structure.cpp:
+            (JSC::Structure::dump const):
+
+2020-12-16  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r270981. rdar://problem/72552976
+
+    2020-12-17  Mark Lam  <mark.lam@apple.com>
+
+            Add tagging to JIT probe's return address.
+            https://bugs.webkit.org/show_bug.cgi?id=220008
+            rdar://71279530
+
+            Reviewed by Keith Miller and Robin Morisset.
+
+            * assembler/MacroAssemblerARM64.cpp:
+            * assembler/testmasm.cpp:
+            (JSC::testProbeModifiesProgramCounter):
+            * runtime/JSCPtrTag.h:
+
+2020-12-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r270993. rdar://problem/72552973
+
+    Build fix after r270988.
+    https://bugs.webkit.org/show_bug.cgi?id=220021
+    <rdar://problem/72474809>
+    
+    Not reviewed.
+    
+    * JavaScriptCore.xcodeproj/project.pbxproj:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270993 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-18  Mark Lam  <mark.lam@apple.com>
+
+            Build fix after r270988.
+            https://bugs.webkit.org/show_bug.cgi?id=220021
+            <rdar://problem/72474809>
+
+            Not reviewed.
+
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2020-12-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r270988. rdar://problem/72552973
+
+    Fix MacroAssemblerARM64E::validateUntaggedPtr() to account for TBI.
+    https://bugs.webkit.org/show_bug.cgi?id=220021
+    <rdar://problem/72474809>
+    
+    Reviewed by Saam Barati.
+    
+    * assembler/AbstractMacroAssembler.h:
+    * assembler/DisallowMacroScratchRegisterUsage.h:
+    - templatized the DisallowMacroScratchRegisterUsage class so that we can #include
+      it in MacroAssembler implementations.
+    * assembler/MacroAssemblerARM64E.h:
+    (JSC::MacroAssemblerARM64E::validateUntaggedPtr):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270988 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-18  Mark Lam  <mark.lam@apple.com>
+
+            Fix MacroAssemblerARM64E::validateUntaggedPtr() to account for TBI.
+            https://bugs.webkit.org/show_bug.cgi?id=220021
+            <rdar://problem/72474809>
+
+            Reviewed by Saam Barati.
+
+            * assembler/AbstractMacroAssembler.h:
+            * assembler/DisallowMacroScratchRegisterUsage.h:
+            - templatized the DisallowMacroScratchRegisterUsage class so that we can #include
+              it in MacroAssembler implementations.
+            * assembler/MacroAssemblerARM64E.h:
+            (JSC::MacroAssemblerARM64E::validateUntaggedPtr):
+
+2020-12-16  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r270686. rdar://problem/72321615
+
+    2020-12-11  Mark Lam  <mark.lam@apple.com>
+
+            Add extra validation after untagging code pointers.
+            https://bugs.webkit.org/show_bug.cgi?id=219765
+            rdar://72069920
+
+            Reviewed by Robin Morisset.
+
+            * assembler/AbstractMacroAssembler.h:
+            (JSC::AbstractMacroAssembler::untagReturnAddress):
+            (JSC::AbstractMacroAssembler::validateUntaggedPtr):
+            * assembler/MacroAssemblerARM64E.h:
+            (JSC::MacroAssemblerARM64E::untagReturnAddress):
+            (JSC::MacroAssemblerARM64E::validateUntaggedPtr):
+            * dfg/DFGOSRExitCompilerCommon.cpp:
+            (JSC::DFG::reifyInlinedCallFrames):
+            * ftl/FTLThunks.cpp:
+            (JSC::FTL::genericGenerationThunkGenerator):
+            * jit/CCallHelpers.h:
+            (JSC::CCallHelpers::prepareForTailCallSlow):
+            * jit/CallFrameShuffler.cpp:
+            (JSC::CallFrameShuffler::prepareForTailCall):
+            * jit/ThunkGenerators.cpp:
+            (JSC::emitPointerValidation):
+            (JSC::arityFixupGenerator):
+            * llint/LLIntThunks.cpp:
+            (JSC::LLInt::createTailCallGate):
+            (JSC::LLInt::untagGateThunk):
+            * wasm/js/WebAssemblyFunction.cpp:
+            (JSC::WebAssemblyFunction::jsCallEntrypointSlow):
+
+2020-12-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r270052. rdar://problem/72099688
+
+    Use os_thread_self_restrict_rwx_is_supported instead of pthread_jit_write_protect_supported_np on Apple Internal SDK builds
+    https://bugs.webkit.org/show_bug.cgi?id=219099
+    <rdar://problem/71547048>
+    
+    Reviewed by Mark Lam.
+    
+    Source/JavaScriptCore:
+    
+    * assembler/FastJITPermissions.h:
+    (useFastJITPermissions):
+    (threadSelfRestrictRWXToRW):
+    (threadSelfRestrictRWXToRX):
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    * wtf/PlatformUse.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270052 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-19  Saam Barati  <sbarati@apple.com>
+
+            Use os_thread_self_restrict_rwx_is_supported instead of pthread_jit_write_protect_supported_np on Apple Internal SDK builds
+            https://bugs.webkit.org/show_bug.cgi?id=219099
+            <rdar://problem/71547048>
+
+            Reviewed by Mark Lam.
+
+            * assembler/FastJITPermissions.h:
+            (useFastJITPermissions):
+            (threadSelfRestrictRWXToRW):
+            (threadSelfRestrictRWXToRX):
+
+2020-12-02  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/71921536
 
     2020-12-02  Saam Barati  <sbarati@apple.com>
 
@@ -15,9 +330,9 @@
             * parser/Parser.cpp:
             (JSC::Parser<LexerType>::parseInner):
 
-2020-11-18  Russell Epstein  <repstein@apple.com>
+2020-12-01  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r269931. rdar://problem/71540532
+        Cherry-pick r269931. rdar://problem/71836676
 
     Add more info to the RELEASE_ASSERT inside Parser::parseInner
     https://bugs.webkit.org/show_bug.cgi?id=219054
@@ -51,41 +366,6 @@
             (JSC::Lexer::codeLength):
             * parser/Parser.cpp:
             (JSC::Parser<LexerType>::parseInner):
-
-2020-11-05  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r269338. rdar://problem/71021911
-
-    Don't assert there is no checkpoint side state when dropping the JSLock
-    https://bugs.webkit.org/show_bug.cgi?id=218537
-    
-    Reviewed by Filip Pizlo.
-    
-    You may have multiple OSR exit sidestate data on the stack, and then call into
-    API code, which might DropAllLocks. Hence, this assert is wrong.
-    
-    Working on a test. Will land in a followup.
-    
-    * runtime/JSLock.cpp:
-    (JSC::JSLock::willReleaseLock):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269338 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-11-03  Saam Barati  <sbarati@apple.com>
-
-            Don't assert there is no checkpoint side state when dropping the JSLock
-            https://bugs.webkit.org/show_bug.cgi?id=218537
-
-            Reviewed by Filip Pizlo.
-
-            You may have multiple OSR exit sidestate data on the stack, and then call into
-            API code, which might DropAllLocks. Hence, this assert is wrong.
-
-            Working on a test. Will land in a followup.
-
-            * runtime/JSLock.cpp:
-            (JSC::JSLock::willReleaseLock):
 
 2020-10-27  Russell Epstein  <repstein@apple.com>
 

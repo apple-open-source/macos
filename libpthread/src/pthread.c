@@ -1152,6 +1152,8 @@ pthread_setname_np(const char *name)
 
 }
 
+#if TARGET_OS_OSX
+
 void
 pthread_jit_write_protect_np(int enable)
 {
@@ -1170,6 +1172,8 @@ int pthread_jit_write_protect_supported_np()
 {
        return os_thread_self_restrict_rwx_is_supported();
 }
+
+#endif // TARGET_OS_OSX
 
 OS_ALWAYS_INLINE
 static inline void

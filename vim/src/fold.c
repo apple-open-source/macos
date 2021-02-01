@@ -636,7 +636,10 @@ foldCreate(linenr_T start, linenr_T end)
 	}
     }
 
-    i = (int)(fp - (fold_T *)gap->ga_data);
+    if (gap->ga_len == 0)
+      i = 0;
+    else
+      i = (int)(fp - (fold_T *)gap->ga_data);
     if (ga_grow(gap, 1) == OK)
     {
 	fp = (fold_T *)gap->ga_data + i;

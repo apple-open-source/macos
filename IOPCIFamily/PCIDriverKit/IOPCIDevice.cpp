@@ -213,7 +213,7 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
     *readData = *reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
 #else
     uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit,
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit | memoryIndex,
                      offset,
                      0,
                      readData,
@@ -258,7 +258,7 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
     }
 #else
     uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit,
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
                      offset,
                      0,
                      &bounceData,
@@ -307,7 +307,7 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
     }
 #else
     uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit,
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
                      offset,
                      0,
                      &bounceData,
@@ -356,7 +356,7 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
     }
 #else
     uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit,
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
                      offset,
                      0,
                      &bounceData,

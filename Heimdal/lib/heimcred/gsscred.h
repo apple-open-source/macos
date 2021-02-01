@@ -34,6 +34,7 @@
 #import <heim-ipc.h>
 #import "common.h"
 #import "GSSCredHelperClient.h"
+#import "gssoslog.h"
 
 #ifndef gsscred_h
 #define gsscred_h
@@ -121,8 +122,6 @@ struct HeimMech {
     bool readRestricted;
     CFArrayRef readOnlyCommands;
 };
-
-os_log_t GSSOSLog(void);
 
 typedef enum {
     READ_SUCCESS = 0,

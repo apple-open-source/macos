@@ -17,6 +17,12 @@
 #include <ptrauth.h>
 #endif
 
+#include <TargetConditionals.h>
+
+#if !TARGET_OS_OSX
+#error "These tests are only expected to run on macOS"
+#endif // TARGET_OS_OSX
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 /* Enumerations */

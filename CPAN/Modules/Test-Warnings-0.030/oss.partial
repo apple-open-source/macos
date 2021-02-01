@@ -6,9 +6,9 @@
         <key>OpenSourceWebsiteURL</key>
         <string>http://search.cpan.org/</string>
         <key>OpenSourceURL</key>
-        <string>https://cpan.metacpan.org/authors/id/E/ET/ETHER/Test-Warnings-0.030.tar.gz</string>
+        <string>http://search.cpan.org/CPAN/authors/id/E/ET/ETHER/Test-Warnings-0.030.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2020-04-12</string>
+        <string>2020-10-29</string>
         <key>OpenSourceLicense</key>
         <string>Perl</string>
         <key>OpenSourceLicenseFile</key>

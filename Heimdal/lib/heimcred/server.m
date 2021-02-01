@@ -43,11 +43,20 @@
 #import <bsm/audit_session.h>
 #include <sandbox.h>
 
+#include <dirhelper_priv.h>
+#include <sysexits.h>
+#include <sys/errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <pwd.h>
+
 #import <os/log.h>
 #import <os/log_private.h>
 #import <os/transaction_private.h>
 
 #import "common.h"
+#import "aks.h"
 #import "heimbase.h"
 #import "gsscred.h"
 #import "ManagedAppManager.h"
@@ -674,6 +683,71 @@ SessionMonitor(void)
 /*
  *
  */
+#if TARGET_OS_OSX
+static void
+enterSandbox(void)
+{
+	char buf[PATH_MAX] = "";
+
+	char *home_env = getenv("HOME");
+	if (home_env == NULL) {
+		os_log_debug(OS_LOG_DEFAULT, "$HOME not set, falling back to using getpwuid");
+		struct passwd *pwd = getpwuid(getuid());
+		if (pwd == NULL) {
+			os_log_error(OS_LOG_DEFAULT, "failed to get passwd entry for uid %u", getuid());
+			exit(EXIT_FAILURE);
+		}
+		home_env = pwd->pw_dir;
+	}
+
+	char *home = realpath(home_env, NULL);
+	if (home == NULL) {
+		os_log_error(OS_LOG_DEFAULT, "failed to resolve user's home directory: %{darwin.errno}d", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	if (!_set_user_dir_suffix("com.apple.GSSCred") ||
+	    confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof(buf)) == 0) {
+		os_log_error(OS_LOG_DEFAULT, "failed to initialize temporary directory: %{darwin.errno}d", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	char *tempdir = realpath(buf, NULL);
+	if (tempdir == NULL) {
+		os_log_error(OS_LOG_DEFAULT, "failed to resolve temporary directory: %{darwin.errno}d", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	if (confstr(_CS_DARWIN_USER_CACHE_DIR, buf, sizeof(buf)) == 0) {
+		os_log_error(OS_LOG_DEFAULT, "failed to initialize cache directory: %{darwin.errno}d", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	char *cachedir = realpath(buf, NULL);
+	if (cachedir == NULL) {
+		os_log_error(OS_LOG_DEFAULT, "failed to resolve cache directory: %{darwin.errno}d", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	const char *parameters[] = {
+		"HOME", home,
+		"TMPDIR", tempdir,
+		"DARWIN_CACHE_DIR", cachedir,
+		NULL
+	};
+
+	char *sberror = NULL;
+	// Note: The name of the sandbox profile here does not include the '.sb' extension.
+	if (sandbox_init_with_parameters("com.apple.GSSCred", SANDBOX_NAMED, parameters, &sberror) != 0) {
+		os_log_error(OS_LOG_DEFAULT, "Failed to enter sandbox: %{public}s", sberror);
+		exit(EXIT_FAILURE);
+	}
+
+	free(home);
+	free(tempdir);
+	free(cachedir);
+}
+#endif
 
 int main(int argc, const char *argv[])
 {
@@ -682,13 +756,10 @@ int main(int argc, const char *argv[])
     
     os_log_set_client_type(OS_LOG_CLIENT_TYPE_LOGD_DEPENDENCY, 0);
 
+    umask(S_IRWXG | S_IRWXO);
+
 #if TARGET_OS_OSX
-    char *sberr = NULL;
-    if (sandbox_init("com.apple.GSSCred", SANDBOX_NAMED, &sberr) < 0) {
-	os_log_error(GSSOSLog(), "sandbox_init %s failed: %s", "com.apple.GSSCred", sberr);
-	sandbox_free_error(sberr);
-	exit (EXIT_FAILURE);
-    }
+    enterSandbox();
 #endif
     
     @autoreleasepool {

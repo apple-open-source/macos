@@ -153,24 +153,8 @@ private:
 
         struct {
             
-#if TARGET_OS_IPHONE
-            struct {
-                UInt32                  startMask;
-                UInt32                  mask;
-                UInt32                  nmiHoldMask;
-                UInt32                  nmiDelay;
-                UInt32                  nmiTriplePressMask;
-                UInt32                  nmiPressCount;
-                UInt64                  nmiStartTime;
-                IOTimerEventSource *    nmiTimer;
-                UInt32                  stackshotHeld;
-                IOTimerEventSource *    stackshotTimer;
-            } debug;
-            bool                    swapISO;
-#else
             Key                     pressedKeys[10];
             UInt32                  pressedKeysMask;
-#endif
             bool                    appleVendorSupported;
         } keyboard;
 
@@ -190,7 +174,6 @@ private:
             UInt32                  buttonState;
         } relativePointer;
 
-#if TARGET_OS_OSX
 
         struct {
             UInt32                  buttonState;
@@ -199,15 +182,12 @@ private:
         int                   pointingShim;
 #endif
         int                   keyboardShim;
-#endif
         UInt32                debugMask;
         bool                  powerButtonNmi;
         bool                  disableAcceleration;
     };
-#if TARGET_OS_OSX
     static KeyValueMask   keyMonitorTable[];
     static DebugKeyAction debugKeyActionTable[];
-#endif
     
     ExpansionData *         _reserved;
 
@@ -233,16 +213,7 @@ private:
 
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
-#if TARGET_OS_IPHONE
-    void                    debuggerTimerCallback(IOTimerEventSource *sender);
-    
-    void                    triggerDebugger();
-
-    void                    stackshotTimerCallback(IOTimerEventSource *sender);
-
-#elif TARGET_OS_OSX
     bool                    isPowerButtonNmiEnabled() const;
-#endif
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
 
@@ -692,11 +663,9 @@ protected:
     
     OSMetaClassDeclareReservedUsed(IOHIDEventService, 10);
     virtual UInt32          getPrimaryUsage();
-#if TARGET_OS_OSX
     static void debugActionSysdiagnose(IOHIDEventService* self, void *parameter);
     static void debugActionNMI(IOHIDEventService* self, void *parameter);
     static void powerButtonNMI(IOHIDEventService* self, void *parameter);
-#endif
   
 public:
     OSMetaClassDeclareReservedUsed(IOHIDEventService,  11);

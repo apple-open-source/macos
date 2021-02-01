@@ -569,6 +569,11 @@
 		8C33572A247D8EE80095B996 /* GSSCredTestUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C335728247D8EE80095B996 /* GSSCredTestUtil.m */; };
 		8C33572C247D99180095B996 /* GSSCredKerberosAcquireCredTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C33572B247D99180095B996 /* GSSCredKerberosAcquireCredTests.m */; };
 		8C3D073623AE7DC600FC23C0 /* lex_et.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56F20F2181E90009D37C /* lex_et.h */; };
+		8C4217DD25781BF8000EBE7C /* aks.m in Sources */ = {isa = PBXBuildFile; fileRef = EB670F651C5EB301003D49CA /* aks.m */; };
+		8C42185E25781C66000EBE7C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB04E8570F3476B2009A5B13 /* Security.framework */; };
+		8C421B64257826CD000EBE7C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C4319DC241B029D00BC1F3B /* IOKit.framework */; };
+		8C421FF12578321A000EBE7C /* aks.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C421FF02578321A000EBE7C /* aks.h */; };
+		8C4221722578325F000EBE7C /* aks.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C421FF02578321A000EBE7C /* aks.h */; };
 		8C4319E8241B251500BC1F3B /* gsscred.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C4319E7241B251500BC1F3B /* gsscred.h */; };
 		8C4319EB241B2BB800BC1F3B /* gsscred.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C4319E4241B218800BC1F3B /* gsscred.m */; };
 		8C431A0D241BE62400BC1F3B /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C46F09724088EAA00739184 /* libbsm.tbd */; };
@@ -588,6 +593,10 @@
 		8C6FBE69246B4100000B3EB3 /* acquirecred.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C6FBE62246B38F8000B3EB3 /* acquirecred.m */; };
 		8C6FBE6A246B4116000B3EB3 /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
 		8C6FBE6B246B4135000B3EB3 /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
+		8C763C8B2579556900E87243 /* gssoslog.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C763C892579556900E87243 /* gssoslog.h */; };
+		8C763C8C2579556900E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
+		8C763D8D257955DF00E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
+		8C763E0E257955E200E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
 		8C820D83249948BE00FD3522 /* GSSCredHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C820D82249948BE00FD3522 /* GSSCredHelperClient.h */; };
 		8C820D84249948BE00FD3522 /* GSSCredHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C820D82249948BE00FD3522 /* GSSCredHelperClient.h */; };
 		8C820D852499497500FD3522 /* GSSCredXPCHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CB25C39247462A30080D987 /* GSSCredXPCHelperClient.h */; };
@@ -8197,6 +8206,7 @@
 		8C3D072323AD833400FC23C0 /* gen-error-tables-input.xcfilelist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcfilelist; name = "gen-error-tables-input.xcfilelist"; path = "packages/mac/gen-error-tables-input.xcfilelist"; sourceTree = "<group>"; };
 		8C3D072423AD922600FC23C0 /* gss-rewrite-headers-input.xcfilelist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcfilelist; name = "gss-rewrite-headers-input.xcfilelist"; path = "packages/mac/gss-rewrite-headers-input.xcfilelist"; sourceTree = "<group>"; };
 		8C3D072523AD922600FC23C0 /* gss-rewrite-headers-output.xcfilelist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcfilelist; name = "gss-rewrite-headers-output.xcfilelist"; path = "packages/mac/gss-rewrite-headers-output.xcfilelist"; sourceTree = "<group>"; };
+		8C421FF02578321A000EBE7C /* aks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = aks.h; path = lib/heimcred/aks.h; sourceTree = "<group>"; };
 		8C4319DC241B029D00BC1F3B /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		8C4319E4241B218800BC1F3B /* gsscred.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = gsscred.m; path = lib/heimcred/gsscred.m; sourceTree = "<group>"; };
 		8C4319E7241B251500BC1F3B /* gsscred.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gsscred.h; path = lib/heimcred/gsscred.h; sourceTree = "<group>"; };
@@ -8205,6 +8215,8 @@
 		8C62310024943596004900EE /* heim-ordered-test-3.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "heim-ordered-test-3.plist"; path = "lib/heimcred/heim-ordered-test-3.plist"; sourceTree = "<group>"; };
 		8C6FBE61246B38F8000B3EB3 /* acquirecred.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = acquirecred.h; path = lib/heimcred/acquirecred.h; sourceTree = "<group>"; };
 		8C6FBE62246B38F8000B3EB3 /* acquirecred.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = acquirecred.m; path = lib/heimcred/acquirecred.m; sourceTree = "<group>"; };
+		8C763C892579556900E87243 /* gssoslog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gssoslog.h; path = lib/heimcred/gssoslog.h; sourceTree = "<group>"; };
+		8C763C8A2579556900E87243 /* gssoslog.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = gssoslog.m; path = lib/heimcred/gssoslog.m; sourceTree = "<group>"; };
 		8C820D82249948BE00FD3522 /* GSSCredHelperClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GSSCredHelperClient.h; path = lib/heimcred/GSSCredHelperClient.h; sourceTree = "<group>"; };
 		8C820D8624994CBD00FD3522 /* GSSCredMockHelperClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GSSCredMockHelperClient.h; path = lib/heimcred/GSSCredMockHelperClient.h; sourceTree = "<group>"; };
 		8C820D8724994CBD00FD3522 /* GSSCredMockHelperClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GSSCredMockHelperClient.m; path = lib/heimcred/GSSCredMockHelperClient.m; sourceTree = "<group>"; };
@@ -10273,6 +10285,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C421B64257826CD000EBE7C /* IOKit.framework in Frameworks */,
+				8C42185E25781C66000EBE7C /* Security.framework in Frameworks */,
 				8C105C11247F54B9000DD060 /* libipc-server.a in Frameworks */,
 				8CEB5AAD24225AB80017B4F0 /* CommonAuth.framework in Frameworks */,
 				8CEB5AAA2421C75D0017B4F0 /* XCTest.framework in Frameworks */,
@@ -11761,6 +11775,7 @@
 			isa = PBXGroup;
 			children = (
 				8C0BF15524081BD800D5840F /* gsscred.entitlements */,
+				8C421FF02578321A000EBE7C /* aks.h */,
 				EB670F651C5EB301003D49CA /* aks.m */,
 				EB8E475517B3C3BC00FB52C2 /* com.apple.GSSCred.plist */,
 				EB2C3E0416CC08E400D75FA0 /* client.c */,
@@ -11781,6 +11796,8 @@
 				8C4319E4241B218800BC1F3B /* gsscred.m */,
 				8C6FBE61246B38F8000B3EB3 /* acquirecred.h */,
 				8C6FBE62246B38F8000B3EB3 /* acquirecred.m */,
+				8C763C892579556900E87243 /* gssoslog.h */,
+				8C763C8A2579556900E87243 /* gssoslog.m */,
 				EB670F681C5ED0E6003D49CA /* test_aks.m */,
 				8C98B5582437B88800BBAF30 /* ManagedAppManager.h */,
 				8C98B5592437B88800BBAF30 /* ManagedAppManager.m */,
@@ -14129,6 +14146,7 @@
 				8CEB5A882421299F0017B4F0 /* heimntlm-protos.h in Headers */,
 				8CEB5A81242129070017B4F0 /* common.h in Headers */,
 				8CEB5A80242128E70017B4F0 /* heimbase.h in Headers */,
+				8C4221722578325F000EBE7C /* aks.h in Headers */,
 				8CEB5A7F242128DF0017B4F0 /* krb5-types.h in Headers */,
 				8CEB5A7B242128BD0017B4F0 /* roken-common.h in Headers */,
 				8C820D8824994CBD00FD3522 /* GSSCredMockHelperClient.h in Headers */,
@@ -14680,6 +14698,7 @@
 				EBC8FD9918A42D6A00FC2E0A /* roken-common.h in Headers */,
 				8CADD4B6244FA67D0024E8DF /* krb5.h in Headers */,
 				EBC8FD9818A42D4C00FC2E0A /* config-apple.h in Headers */,
+				8C421FF12578321A000EBE7C /* aks.h in Headers */,
 				8C6FBE63246B38F8000B3EB3 /* acquirecred.h in Headers */,
 				8C6FBE5F246B3585000B3EB3 /* asn1-common.h in Headers */,
 				EBA19B9117B388D400AC1073 /* com_right.h in Headers */,
@@ -14695,6 +14714,7 @@
 				8CB0E361246F727D00C64006 /* common.h in Headers */,
 				727ABBCC1FD8FD4C00EFD46A /* heimntlm.h in Headers */,
 				727ABBCD1FD8FD5100EFD46A /* heimntlm-protos.h in Headers */,
+				8C763C8B2579556900E87243 /* gssoslog.h in Headers */,
 				8C820D83249948BE00FD3522 /* GSSCredHelperClient.h in Headers */,
 				8CADD4B8244FA96C0024E8DF /* config.h in Headers */,
 			);
@@ -19370,7 +19390,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${PLATFORM_NAME}\" == \"macosx\" ]; then\n    mkdir -p ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles\n    cp ${SRCROOT}/packages/mac/com.apple.GSSCred.sb ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles/com.apple.GSSCred.sb\n    sandbox-exec -df ${SRCROOT}/packages/mac/com.apple.GSSCred.sb > /dev/null\nfi\n";
+			shellScript = "if [ \"${PLATFORM_NAME}\" == \"macosx\" ]; then\n    mkdir -p ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles\n    cp ${SRCROOT}/packages/mac/com.apple.GSSCred.sb ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles/com.apple.GSSCred.sb\n    #compile the sb file using placeholder variables\n    sbutil compile -D HOME=/Users/local -D TMPDIR=/tmp -D DARWIN_CACHE_DIR=/whatever ${SRCROOT}/packages/mac/com.apple.GSSCred.sb > /dev/null\nfi\n";
 		};
 		8C7D2F4723B1303B0044EAA8 /* Rewrite headers for GSS project */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -19793,6 +19813,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C763E0E257955E200E87243 /* gssoslog.m in Sources */,
 				8CC66BBA24784E7E00772CF1 /* kerberosacquirecred.m in Sources */,
 				8CEB5A87242129690017B4F0 /* common.c in Sources */,
 				8CEB5A862421295F0017B4F0 /* ntlm.m in Sources */,
@@ -19804,6 +19825,7 @@
 				8CB25C3D247465540080D987 /* GSSCredXPCHelperClient.m in Sources */,
 				8C86684F24CA2186007628D1 /* GSSCredHoldTests.m in Sources */,
 				8C33572C247D99180095B996 /* GSSCredKerberosAcquireCredTests.m in Sources */,
+				8C4217DD25781BF8000EBE7C /* aks.m in Sources */,
 				8C2A198724D0E589009A1791 /* GSSCredLoadTests.m in Sources */,
 				8C98B5612437CDD600BBAF30 /* MockManagedAppManager.m in Sources */,
 				8CFB9DCC24257D720015AF99 /* mock_aks.m in Sources */,
@@ -20011,6 +20033,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8C4319EB241B2BB800BC1F3B /* gsscred.m in Sources */,
+				8C763C8C2579556900E87243 /* gssoslog.m in Sources */,
 				EB312E5817B2F22C00BD74D9 /* ntlm.m in Sources */,
 				EB2C3E2116CC438D00D75FA0 /* common.c in Sources */,
 				EB2C3E2016CC438500D75FA0 /* server.m in Sources */,
@@ -20225,6 +20248,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C763D8D257955DF00E87243 /* gssoslog.m in Sources */,
 				EB670F781C5ED214003D49CA /* test_aks.m in Sources */,
 				EB670F7F1C5ED326003D49CA /* aks.m in Sources */,
 			);
@@ -25942,7 +25966,10 @@
 					"-DHEIMCRED_SERVER=1",
 					"-DHAVE_MOBILE_KEYBAG_SUPPORT",
 				);
-				OTHER_LDFLAGS = "$(GSSCRED_IPC_SERVER)";
+				OTHER_LDFLAGS = (
+					"$(GSSCRED_IPC_SERVER)",
+					"$(HEIMDAL_AKS_LIBS)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -26011,7 +26038,10 @@
 					"-DHEIMCRED_SERVER=1",
 					"-DHAVE_MOBILE_KEYBAG_SUPPORT",
 				);
-				OTHER_LDFLAGS = "$(GSSCRED_IPC_SERVER)";
+				OTHER_LDFLAGS = (
+					"$(GSSCRED_IPC_SERVER)",
+					"$(HEIMDAL_AKS_LIBS)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -26073,7 +26103,10 @@
 					"-DHEIMCRED_SERVER=1",
 					"-DHAVE_MOBILE_KEYBAG_SUPPORT",
 				);
-				OTHER_LDFLAGS = "$(GSSCRED_IPC_SERVER)";
+				OTHER_LDFLAGS = (
+					"$(GSSCRED_IPC_SERVER)",
+					"$(HEIMDAL_AKS_LIBS)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;

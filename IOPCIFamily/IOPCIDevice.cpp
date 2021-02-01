@@ -1986,7 +1986,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
     else
 #endif
     {
-        switch (operation)
+        switch (operation & (~kPCIDriverKitMemoryAccessOperationDeviceMemoryIndexMask))
         {
             case kPCIDriverKitMemoryAccessOperationConfigurationRead | kPCIDriverKitMemoryAccessOperation32Bit:
             {

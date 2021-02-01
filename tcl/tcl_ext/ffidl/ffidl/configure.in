@@ -167,7 +167,7 @@ AC_ARG_WITH(libffi-lib,
     [with_libffi_lib=${withval}])
 AC_CACHE_CHECK([for directory with libffi library], tcl_cv_path_libffi, [
     l="$with_libffi_lib $exec_prefix/lib $prefix/lib /usr/local/lib /usr/lib"
-    for d in $l; do if test -r "$d/libffi.dylib" -o -r "$d/libffi.a"; then
+    for d in $l; do if test -r "$d/libffi.tbd" -o -r "$d/libffi.dylib" -o -r "$d/libffi.a"; then
 	tcl_cv_path_libffi="$d"; break; fi; done])
 if test "$tcl_cv_path_libffi" != "built-in"; then
     TEA_ADD_LIBS([-L$tcl_cv_path_libffi -lffi])

@@ -355,6 +355,8 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         policy = SecPolicyCreateAppleComponentCertificate(rootDigest);
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleAggregateMetricTransparency)) {
         policy = SecPolicyCreateAggregateMetricTransparency(!client);
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleAggregateMetricEncryption)) {
+        policy = SecPolicyCreateAggregateMetricEncryption(!client);
     }
     /* For a couple of common patterns we use the macro, but some of the
      * policies are deprecated (or not yet available), so we need to ignore the warning. */
@@ -4511,6 +4513,52 @@ SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
     // require(SecPolicyRemoveWeakHashOptions(options), errOut); // the current WWDR CA cert is signed with SHA1
     require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricTransparency,
                                      kSecPolicyNameAggregateMetricTransparency, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
+{
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicX509Options(options);
+
+    /* Anchored to the Apple Roots */
+    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAggregateMetricEncryption), errOut);
+
+    /* Exactly 3 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Intermediate marker OID matches AAICA 6 */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.26"));
+
+    /* Leaf marker OID matches expected OID for either Facilitator or Partner */
+    if (facilitator) {
+        add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.15.2"));
+    } else {
+        add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.15.3"));
+    }
+
+    /* Check revocation using any available method */
+    add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    /* Require CT */
+    if (!SecIsInternalRelease() || !isCFPreferenceInSecurityDomain(CFSTR("disableAggregateMetricsCTCheck"))) {
+        add_element(options, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
+    }
+
+    require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricEncryption,
+                                     kSecPolicyNameAggregateMetricEncryption, options), errOut);
 
 errOut:
     CFReleaseSafe(options);

@@ -103,16 +103,3 @@ unsigned int ApplePIODMARequestPool::maximumCommandsSupported()
 {
     return _maxOutstandingCommands;
 }
-
-IOReturn ApplePIODMARequestPool::gatedGetCommand(IOCommand** command, bool blockForCommand)
-{
-    IOReturn            result  = super::gatedGetCommand(command, blockForCommand);
-    ApplePIODMARequest* request = NULL;
-    if(   (command != NULL)
-       && ((request = OSDynamicCast(ApplePIODMARequest, *command)) != NULL))
-    {
-        request->setCommandTag(_currentCommandTag++);
-    }
-
-    return result;
-}

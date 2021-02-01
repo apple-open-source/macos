@@ -23,9 +23,7 @@
 
 #include "IOHIDFamilyPrivate.h"
 
-#if TARGET_OS_OSX
 #include "IOHIDSystem.h"
-#endif
 #include "OSStackRetain.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
@@ -436,17 +434,12 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 
 void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
 {
-#if TARGET_OS_OSX
     HIDLogInfo("HID Activity Tickle (type:%d sender:%llx)", nxEventType, sender ? sender->getRegistryEntryID() : 0);
     IOHIDSystem *ioSys = IOHIDSystem::instance();
     if (ioSys) {
         intptr_t event = nxEventType;
         ioSys->message(kIOHIDSystemActivityTickle, sender, (void*)event);
     }
-#else
-    (void)nxEventType;
-    (void)sender;
-#endif
 }
 
 extern "C" int  kern_stack_snapshot_with_reason(char *reason);

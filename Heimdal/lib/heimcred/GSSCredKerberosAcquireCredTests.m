@@ -37,6 +37,7 @@
 #import "heimbase.h"
 #import "heimcred.h"
 #import "mock_aks.h"
+#import "aks.h"
 #import "acquirecred.h"
 #import "GSSCredMockHelperClient.h"
 
@@ -82,8 +83,8 @@
     HeimCredGlobalCTX.hasEntitlement = haveBooleanEntitlementMock;
     HeimCredGlobalCTX.getUid = getUidMock;
     HeimCredGlobalCTX.getAsid = getAsidMock;
-    HeimCredGlobalCTX.encryptData = encryptDataMock;
-    HeimCredGlobalCTX.decryptData = decryptDataMock;
+    HeimCredGlobalCTX.encryptData = ksEncryptData;
+    HeimCredGlobalCTX.decryptData = ksDecryptData;
     HeimCredGlobalCTX.managedAppManager = self.mockManagedAppManager;
     HeimCredGlobalCTX.useUidMatching = NO;
     HeimCredGlobalCTX.verifyAppleSigned = verifyAppleSignedMock;
@@ -540,7 +541,7 @@
     
     HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(self.peer->session->items, credUUID);
     time_t test = [[NSDate dateWithTimeIntervalSinceNow:300] timeIntervalSince1970];
-    XCTAssertTrue(test - cred->renew_time < 5, "The next renew time should be about 300 seconds from now");  //This is not an exact match to handle vaiance in response times.
+    XCTAssertLessThan(test - cred->renew_time, 5, "The next renew time should be about 300 seconds from now");  //This is not an exact match to handle vaiance in response times.
     XCTAssertFalse(heim_ipc_event_is_cancelled(cred->renew_event), "The renew event should not be cancelled");
     XCTAssertEqual(cred->acquire_status, CRED_STATUS_ACQUIRE_FAILED , "The status should be failed");
     

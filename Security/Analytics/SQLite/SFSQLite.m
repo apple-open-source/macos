@@ -301,7 +301,6 @@ allDone:
 */
 - (void)attemptProperDatabasePermissions
 {
-#if TARGET_OS_IPHONE
     NSFileManager* fm = [NSFileManager defaultManager];
     [fm setAttributes:@{NSFilePosixPermissions : [NSNumber numberWithShort:0666]}
          ofItemAtPath:_path
@@ -312,7 +311,6 @@ allDone:
     [fm setAttributes:@{NSFilePosixPermissions : [NSNumber numberWithShort:0666]}
          ofItemAtPath:[NSString stringWithFormat:@"%@-shm",_path]
                 error:nil];
-#endif
 }
 
 - (BOOL)openWithError:(NSError **)error {

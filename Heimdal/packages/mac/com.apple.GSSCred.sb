@@ -58,12 +58,18 @@
        (literal "/private/var/db"))
        
 (allow file-write* file-read*
-       (literal "/private/var/db/heim-credential-store.archive"))
+       (literal "/private/var/db/heim-credential-store.archive")
+       (literal "/private/var/db/heim-credential-store.archive*"))
 
 (allow file-write-data
        (literal "/dev/dtracehelper")
        (literal "/private/var/db/mds/system/mds.lock"))
-       
+
+;; Read/write access to a temporary directory.
+(allow file-read* file-write*
+       (subpath (param "TMPDIR"))
+       (subpath (param "DARWIN_CACHE_DIR")))
+
 (allow ipc-posix-shm)
 
 (allow mach-lookup
@@ -89,7 +95,8 @@
 (allow file-map-executable
       (subpath "/System/Library/KerberosPlugins/"))
 
-(allow iokit-open (iokit-user-client-class "AppleFDEKeyStoreUserClient"))
+(allow iokit-open (iokit-user-client-class "AppleFDEKeyStoreUserClient")
+      (iokit-user-client-class "AppleKeyStoreUserClient"))
 
 (allow process-info-dirtycontrol (target self))
 (allow process-info-pidfdinfo (target self))

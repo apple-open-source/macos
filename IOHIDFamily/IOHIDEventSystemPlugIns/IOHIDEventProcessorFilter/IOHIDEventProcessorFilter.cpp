@@ -399,26 +399,10 @@ SInt32 IOHIDEventProcessor::match(void * self, IOHIDServiceRef service, IOOption
 
 SInt32 IOHIDEventProcessor::match(IOHIDServiceRef service, IOOptionBits options __unused)
 {
-#if TARGET_OS_IPHONE
-    CFNumberRef queueSize = (CFNumberRef)IOHIDServiceCopyProperty(service, CFSTR(kIOHIDEventServiceQueueSize));
-    if (queueSize) {
-        uint32_t value = 0;
-        CFNumberGetValue (queueSize, kCFNumberSInt32Type, &value);
-        if (value != 0) {
-            _matchScore = 200;
-            _service = service;
-        }
-        CFRelease(queueSize);
-    } else {
-        _matchScore = 200;
-        _service = service;
-    }
-#else
     // Event processor filter should load before NX translator filter.
     // see 31636239.
     _matchScore = 200;
     _service = service;
-#endif
     
     HIDLogDebug("(%p) for ServiceID %@ with score %d", this, IOHIDServiceGetRegistryID(service), (int)_matchScore);
     

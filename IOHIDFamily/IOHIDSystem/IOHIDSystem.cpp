@@ -599,11 +599,9 @@ bool IOHIDSystem::start(IOService * provider)
      * life).  Register ourselves as a nub to kick off matching.
      */
     
-#if TARGET_OS_OSX
     _hidActivityThread = thread_call_allocate(hidActivityThread_cb, (thread_call_param_t)this);
     _hidActivityIdle = true;
     require(_hidActivityThread, exit_early);
-#endif
 
     registerService();
     iWasStarted = true;
@@ -1499,12 +1497,10 @@ void IOHIDSystem::dispatchEvent(IOHIDEvent *event, IOOptionBits options __unused
 
 void IOHIDSystem::updateHidActivity()
 {
-#if TARGET_OS_OSX
     clock_get_uptime(&_lastTickleTime);
     _forceIdle = false;
     if (_hidActivityIdle)
         thread_call_enter(_hidActivityThread);
-#endif
 }
 
 void IOHIDSystem::hidActivityChecker( )
@@ -3149,7 +3145,6 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
     UInt32      options             = 0;
     // rdar://problem/8689199
     int         extPID              = proc_selfpid();
-    char        tickleReason[PM_REASON_STRING_LENGTH];
 
     IOHID_DEBUG(kIOHIDDebugCode_ExtPostEvent, event->type, *(UInt32*)&(event->location), event->setFlags, event->flags);
 

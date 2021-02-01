@@ -54,9 +54,6 @@ __BEGIN_DECLS
 #include <ipc/ipc_port.h>
 __END_DECLS
 
-#if TARGET_OS_IPHONE
-#include <AppleMobileFileIntegrity/AppleMobileFileIntegrity.h>
-#endif
 
 #define kIOHIDManagerUserAccessKeyboardEntitlement          "com.apple.hid.manager.user-access-keyboard"
 #define kIOHIDManagerUserAccessPrivilegedEntitlement        "com.apple.hid.manager.user-access-privileged"
@@ -454,7 +451,6 @@ void IOHIDLibUserClient::resourceNotificationGated()
         
         ret = kIOReturnError;
 
-#if TARGET_OS_OSX
         OSObject * obj;
         OSData * data;
         IOService * service = getResourceService();
@@ -506,7 +502,6 @@ void IOHIDLibUserClient::resourceNotificationGated()
         if (ret == kIOReturnSuccess) {
             break;
         }
-#endif
         if (fNubIsKeyboard) {
             if (ret != kIOReturnSuccess) {
                 proc_t      process;
@@ -519,11 +514,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
             break;
         }
 
-#if TARGET_OS_IPHONE
-        ret = kIOReturnSuccess;
-#else
         ret = clientHasPrivilege(fClient, kIOClientPrivilegeConsoleUser);
-#endif
     } while (false);
   
     setValid(kIOReturnSuccess == ret);
@@ -622,14 +613,10 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
         // RY: If this is a keyboard and the client is attempting to seize,
         // the client needs to be admin
         if ( !fNubIsKeyboard || ((options & kIOHIDOptionsTypeSeizeDevice) == 0) ) {
-#if TARGET_OS_IPHONE
-            ret = kIOReturnSuccess;
-#else
             ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser);
             if (ret == kIOReturnSuccess) {
               break;
             }
-#endif
         }
     } while (false);
 

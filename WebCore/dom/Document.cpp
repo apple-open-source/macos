@@ -3457,8 +3457,11 @@ bool Document::canNavigateInternal(Frame& targetFrame)
     if (!isSandboxed(SandboxTopNavigation) && &targetFrame == &m_frame->tree().top())
         return true;
 
+    // The user gesture only relaxes permissions for the purpose of navigating if its impacts the current document.
+    bool isProcessingUserGestureForDocument = UserGestureIndicator::processingUserGesture(m_frame->document());
+
     // ii. A frame can navigate its top ancestor when its 'allow-top-navigation-by-user-activation' flag is set and navigation is triggered by user activation.
-    if (!isSandboxed(SandboxTopNavigationByUserActivation) && UserGestureIndicator::processingUserGesture() && &targetFrame == &m_frame->tree().top())
+    if (!isSandboxed(SandboxTopNavigationByUserActivation) && isProcessingUserGestureForDocument && &targetFrame == &m_frame->tree().top())
         return true;
 
     // iii. A sandboxed frame can always navigate its descendants.
@@ -3475,14 +3478,13 @@ bool Document::canNavigateInternal(Frame& targetFrame)
 
     // 2. Otherwise, if B is a top-level browsing context, and is one of the ancestor browsing contexts of A, then:
     if (m_frame != &targetFrame && &targetFrame == &m_frame->tree().top()) {
-        bool triggeredByUserActivation = UserGestureIndicator::processingUserGesture();
         // 1. If this algorithm is triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation with user activation browsing context flag set, then abort these steps negatively.
-        if (triggeredByUserActivation && isSandboxed(SandboxTopNavigationByUserActivation)) {
+        if (isProcessingUserGestureForDocument && isSandboxed(SandboxTopNavigationByUserActivation)) {
             printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation-by-user-activation' flag is not set and navigation is not triggered by user activation."_s);
             return false;
         }
         // 2. Otherwise, If this algorithm is not triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation without user activation browsing context flag set, then abort these steps negatively.
-        if (!triggeredByUserActivation && isSandboxed(SandboxTopNavigation)) {
+        if (!isProcessingUserGestureForDocument && isSandboxed(SandboxTopNavigation)) {
             printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation' flag is not set."_s);
             return false;
         }
@@ -3556,8 +3558,12 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
 
     // Only prevent navigations by unsandboxed iframes. Such navigations by unsandboxed iframes would have already been blocked unless
     // "allow-top-navigation" / "allow-top-navigation-by-user-activation" was explicitly specified.
-    if (sandboxFlags() != SandboxNone)
-        return false;
+    if (sandboxFlags() != SandboxNone) {
+        // Navigation is only allowed if the parent of the sandboxed iframe is first-party.
+        auto* parentDocument = m_frame->tree().parent() ? m_frame->tree().parent()->document() : nullptr;
+        if (parentDocument && canAccessAncestor(parentDocument->securityOrigin(), &targetFrame))
+            return false;
+    }
 
     // Only prevent navigations by third-party iframes or untrusted first-party iframes.
     bool isUntrustedIframe = m_hasLoadedThirdPartyScript && m_hasLoadedThirdPartyFrame;
@@ -5542,18 +5548,20 @@ void Document::registerForCaptionPreferencesChangedCallbacks(HTMLMediaElement& e
     if (page())
         page()->group().captionPreferences().setInterestedInCaptionPreferenceChanges();
 
-    m_captionPreferencesChangedElements.add(&element);
+    m_captionPreferencesChangedElements.add(element);
 }
 
 void Document::unregisterForCaptionPreferencesChangedCallbacks(HTMLMediaElement& element)
 {
-    m_captionPreferencesChangedElements.remove(&element);
+    m_captionPreferencesChangedElements.remove(element);
 }
 
 void Document::captionPreferencesChanged()
 {
-    for (auto* element : m_captionPreferencesChangedElements)
-        element->captionPreferencesChanged();
+    ASSERT(!m_captionPreferencesChangedElements.hasNullReferences());
+    m_captionPreferencesChangedElements.forEach([](HTMLMediaElement& element) {
+        element.captionPreferencesChanged();
+    });
 }
 
 void Document::setMediaElementShowingTextTrack(const HTMLMediaElement& element)

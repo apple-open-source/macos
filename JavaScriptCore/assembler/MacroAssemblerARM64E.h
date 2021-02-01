@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
 
 #if ENABLE(ASSEMBLER) && CPU(ARM64E)
 
+#include "DisallowMacroScratchRegisterUsage.h"
+
 // We need to include this before MacroAssemblerARM64.h because MacroAssemblerARM64
 // will be defined in terms of ARM64EAssembler for ARM64E.
 #include "ARM64EAssembler.h"
@@ -47,9 +49,10 @@ public:
         tagPtr(ARM64Registers::sp, ARM64Registers::lr);
     }
 
-    ALWAYS_INLINE void untagReturnAddress()
+    ALWAYS_INLINE void untagReturnAddress(RegisterID scratch = InvalidGPR)
     {
         untagPtr(ARM64Registers::sp, ARM64Registers::lr);
+        validateUntaggedPtr(ARM64Registers::lr, scratch);
     }
 
     ALWAYS_INLINE void tagPtr(PtrTag tag, RegisterID target)
@@ -73,6 +76,18 @@ public:
         auto tagGPR = getCachedDataTempRegisterIDAndInvalidate();
         move(TrustedImm64(tag), tagGPR);
         m_assembler.autib(target, tagGPR);
+    }
+
+    ALWAYS_INLINE void validateUntaggedPtr(RegisterID target, RegisterID scratch = InvalidGPR)
+    {
+        if (scratch == InvalidGPR)
+            scratch = getCachedDataTempRegisterIDAndInvalidate();
+
+        DisallowMacroScratchRegisterUsage disallowScope(*this);
+        rshift64(target, TrustedImm32(8), scratch);
+        and64(TrustedImm64(0xff000000000000), scratch, scratch);
+        or64(target, scratch, scratch);
+        load8(Address(scratch), scratch);
     }
 
     ALWAYS_INLINE void untagPtr(RegisterID tag, RegisterID target)

@@ -197,6 +197,8 @@ extern const CFStringRef kSecPolicyApplePCSEscrowServiceIdKeySigning
     API_AVAILABLE(macos(10.15.6), ios(13.5.5));
 extern const CFStringRef kSecPolicyAppleAggregateMetricTransparency
     API_AVAILABLE(macos(10.15.6), ios(13.6), watchos(6.2), tvos(13.4));
+extern const CFStringRef kSecPolicyAppleAggregateMetricEncryption
+    API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
 
 
 /*!
@@ -1852,6 +1854,28 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
     API_AVAILABLE(macos(10.15.6), ios(13.6), watchos(6.2), tvos(13.4));
 
+/*!
+ @function SecPolicyCreateAggregateMetricEncryption
+ @abstract Returns a policy object for verifying Aggregate Metric Encryption certificates
+ @param facilitator A boolean to indicate whether the facilitator or partner encryption
+ certificate is being checked.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.26.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.15.2 if facilitator is true or
+      1.2.840.113635.100.15.3 if facilitator is false.
+     * Revocation is checked via any available method.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Require a positive CT verification result using the non-TLS CT log list
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
+    API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
+
 /*
  *  Legacy functions (OS X only)
  */
@@ -1944,6 +1968,7 @@ extern const CFStringRef kSecPolicyCheckMissingIntermediate;
 extern const CFStringRef kSecPolicyCheckNameConstraints;
 extern const CFStringRef kSecPolicyCheckNoNetworkAccess;
 extern const CFStringRef kSecPolicyCheckNonEmptySubject;
+extern const CFStringRef kSecPolicyCheckNonTlsCTRequired;
 extern const CFStringRef kSecPolicyCheckNotCA;
 extern const CFStringRef kSecPolicyCheckNotValidBefore;
 extern const CFStringRef kSecPolicyCheckPinningRequired;

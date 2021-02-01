@@ -10580,6 +10580,10 @@ do
 	LIBXML2_LIBDIR="$d"
 	break
     fi
+    if test -f "$d/libxml2.tbd" ; then
+	LIBXML2_LIBDIR="$d"
+	break
+    fi
     if test -f "$d/libxml2.a" ; then
 	LIBXML2_LIBDIR="$d"
 	break
@@ -10687,6 +10691,10 @@ do
         LIBXSLT_LIBDIR="$d"
         break
     fi
+    if test -f "$d/libxslt.tbd" ; then
+        LIBXSLT_LIBDIR="$d"
+        break
+    fi
     if test -f "$d/libxslt.a" ; then
         LIBXSLT_LIBDIR="$d"
         break
@@ -10791,6 +10799,10 @@ do
 	break
     fi
     if test -f "$d/libexslt.dylib" ; then
+        LIBEXSLT_LIBDIR="$d"
+        break
+    fi
+    if test -f "$d/libexslt.tbd" ; then
         LIBEXSLT_LIBDIR="$d"
         break
     fi

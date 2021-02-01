@@ -272,10 +272,13 @@ IOReturn ApplePIODMA::executeRequestGated(ApplePIODMARequest* request)
 
     _completionTail = (_completionTail + 1) % _completionQueueSize;
 
-    IOReturn result = _commandGate->commandSleep(request, THREAD_ABORTSAFE);
+    IOReturn result = _commandGate->commandSleep(request, THREAD_UNINT);
     if(result != THREAD_AWAKENED)
     {
-        debug(kApplePIODMADebugLoggingAlways, "request tag 0x%x thread did not wake normally\n", commandTag);
+        debug(kApplePIODMADebugLoggingAlways,
+              "request tag 0x%x thread did not wake normally, result = 0x%x\n",
+              commandTag,
+              result);
     }
 
     return kIOReturnSuccess;

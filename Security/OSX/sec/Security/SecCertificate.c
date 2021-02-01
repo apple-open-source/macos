@@ -1249,13 +1249,15 @@ static bool isAppleExtensionOID(const DERItem *extnID)
     static const uint8_t appleComponentExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0b };
     static const uint8_t appleSigningExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0c };
     static const uint8_t appleEncryptionExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0d };
+    static const uint8_t appleExternalEncryptionExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0f };
     if (!extnID || !extnID->data || (extnID->length <= sizeof(appleExtensionArc))) {
         return false;
     }
     return (!memcmp(extnID->data, appleExtensionArc, sizeof(appleExtensionArc)) ||
             !memcmp(extnID->data, appleComponentExtensionArc, sizeof(appleComponentExtensionArc)) ||
             !memcmp(extnID->data, appleSigningExtensionArc, sizeof(appleSigningExtensionArc)) ||
-            !memcmp(extnID->data, appleEncryptionExtensionArc, sizeof(appleEncryptionExtensionArc)));
+            !memcmp(extnID->data, appleEncryptionExtensionArc, sizeof(appleEncryptionExtensionArc)) ||
+            !memcmp(extnID->data, appleExternalEncryptionExtensionArc, sizeof(appleExternalEncryptionExtensionArc)));
 }
 
 static bool isCCCExtensionOID(const DERItem *extnID)

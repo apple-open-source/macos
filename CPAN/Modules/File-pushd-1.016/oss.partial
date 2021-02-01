@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>File-pushd</string>
+        <key>OpenSourceVersion</key>
+        <string>1.016</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DA/DAGOLDEN/File-pushd-1.016.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-10-30</string>
+        <key>OpenSourceLicense</key>
+        <string>Apache 2.0</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

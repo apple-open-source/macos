@@ -1,40 +1,66 @@
 CPAN_PROJECTS := \
+    inc-latest-0.500 \
     Module-Build-0.4231 \
     File-Remove-1.58 \
     YAML-Tiny-1.73 \
+    Test-Simple-1.302183 \
+    Test-Requires-0.10 \
+    Module-ScanDeps-1.27 \
     Module-Install-1.19 \
     MLDBM-2.05 \
     Mac-Errors-1.192 \
     Time-Epoch-0.02 \
+    Test-Needs-0.002006 \
     URI-1.76 \
     HTML-Tagset-3.20 \
     HTML-Parser-3.72 \
+    TimeDate-2.32 \
     HTTP-Date-6.05 \
     File-Listing-6.04 \
+    Try-Tiny-0.30 \
+    Test-Fatal-0.014 \
     LWP-MediaTypes-6.04 \
     Encode-Locale-1.05 \
     IO-HTML-1.001 \
     HTTP-Message-6.22 \
     HTML-Form-6.07 \
     HTTP-Cookies-6.08 \
+    ExtUtils-Config-0.008 \
+    ExtUtils-Helpers-0.026 \
+    ExtUtils-InstallPaths-0.012 \
+    Module-Build-Tiny-0.039 \
     HTTP-Daemon-6.06 \
     HTTP-Negotiate-6.01 \
     Net-HTTP-6.19 \
     WWW-RobotRules-6.02 \
+    Test-RequiresInternet-0.05 \
     libwww-perl-6.44 \
+    Net-SSLeay-1.88 \
     IO-Socket-SSL-2.068 \
     LWP-Protocol-https-6.07 \
+    Test-Deep-1.130 \
+    Sub-Uplevel-0.2800 \
+    Test-Warn-0.36 \
+    Algorithm-Diff-1.1903 \
+    Text-Diff-1.45 \
+    Capture-Tiny-0.48 \
+    Test-Differences-0.67 \
+    Test-Exception-0.43 \
+    Class-Data-Inheritable-0.08 \
+    Devel-StackTrace-2.04 \
+    Exception-Class-1.44 \
+    Test-Most-0.37 \
+    File-Slurp-9999.30 \
     Convert-BinHex-1.125 \
     Canary-Stability-2013 \
+    common-sense-3.75 \
     Convert-UUlib-1.71 \
     IO-String-1.08 \
     Archive-Zip-1.68 \
     BerkeleyDB-0.54 \
     Test-Pod-1.52 \
-    TimeDate-2.32 \
     MailTools-2.21 \
     IO-stringy-2.111 \
-    Test-Deep-1.130 \
     MIME-tools-5.509 \
     Convert-TNEF-0.18 \
     Digest-SHA1-2.13 \
@@ -46,24 +72,23 @@ CPAN_PROJECTS := \
     Net-IP-1.26 \
     Net-DNS-0.74 \
     Proc-Reliable-1.16 \
-    Sub-Uplevel-0.2800 \
-    Test-Exception-0.43 \
     Carp-Clan-6.08 \
     Bit-Vector-7.4 \
     Date-Calc-6.4 \
     Convert-ASN1-0.27 \
     GSSAPI-0.28 \
-    Net-SSLeay-1.88 \
     Authen-SASL-2.16 \
     XML-NamespaceSupport-1.12 \
     XML-SAX-Base-1.09 \
     XML-SAX-1.02 \
+    Text-Soundex-3.05 \
     perl-ldap-0.66 \
     DBI-1.643 \
     DBD-SQLite-1.64 \
     XML-LibXML-2.0110 \
     XML-Parser-2.46 \
     XML-Writer-0.625 \
+    Path-Tiny-0.114 \
     XML-XPath-1.44 \
     XML-SAX-Expat-0.51 \
     XML-Simple-2.25 \
@@ -71,9 +96,51 @@ CPAN_PROJECTS := \
     IO-Tty-1.14 \
     Expect-1.35 \
     Regexp-Common-2017060201 \
+    CPAN-Changes-0.400002 \
+    Class-Method-Modifiers-2.13 \
+    XSLoader-0.24 \
+    List-MoreUtils-XS-0.428 \
+    Exporter-Tiny-1.002002 \
+    List-MoreUtils-0.428 \
+    Module-Runtime-0.016 \
+    Role-Tiny-2.001004 \
+    Test-Output-1.031 \
+    ExtUtils-Depends-0.8000 \
+    B-Hooks-OP-Check-0.22 \
+    bareword-filehandles-0.007 \
+    indirect-0.39 \
+    multidimensional-0.014 \
+    strictures-2.000006 \
+    Data-Perl-0.002011 \
+    Sub-Quote-2.006006 \
+    Moo-2.004000 \
+    MooX-Types-MooseLike-0.29 \
+    MooX-HandlesVia-0.001009 \
+    Sub-Delete-1.00002 \
+    Hook-LexWrap-0.26 \
+    Import-Into-1.002005 \
+    Test-Kit-2.15 \
+    Type-Tiny-1.012000 \
+    Module-Implementation-0.09 \
+    Params-Validate-1.29 \
+    Params-Util-1.07 \
+    Sub-Install-0.928 \
+    Data-OptList-0.110 \
+    Sub-Exporter-0.987 \
+    Test-Warnings-0.030 \
+    CPAN-Meta-Check-0.014 \
+    Getopt-Long-Descriptive-0.105 \
+    Sub-Exporter-Progressive-0.001013 \
+    Variable-Magic-0.62 \
+    B-Hooks-EndOfScope-0.24 \
+    Dist-CheckConflicts-0.11 \
+    Package-Stash-XS-0.29 \
+    Package-Stash-0.38 \
+    namespace-clean-0.27 \
+    Sub-Identify-0.14 \
+    namespace-autoclean-0.29 \
     Pod-Readme-v1.2.3 \
     Class-Accessor-0.51 \
-    File-Slurp-9999.30 \
     UNIVERSAL-require-0.18 \
     File-chdir-0.1010 \
     Net-CIDR-Lite-0.21 \
@@ -84,6 +151,8 @@ CPAN_PROJECTS := \
     Error-0.17029 \
     PAR-Dist-0.49 \
     PAR-1.016 \
+    Getopt-ArgvFile-1.11 \
+    IPC-Run3-0.048 \
     PAR-Packer-1.050 \
     NetAddr-IP-4.079 \
     Net-DNS-Resolver-Programmable-0.009 \
@@ -91,75 +160,73 @@ CPAN_PROJECTS := \
     Crypt-OpenSSL-Guess-0.11 \
     Crypt-OpenSSL-Random-0.15 \
     Crypt-OpenSSL-RSA-0.31 \
+    JSON-4.02 \
+    Mail-AuthenticationResults-1.20200824.1 \
+    Net-DNS-Resolver-Mock-1.20200215 \
+    YAML-LibYAML-0.82 \
     Mail-DKIM-0.58 \
-    Try-Tiny-0.30 \
     Sub-Name-0.26 \
     Scope-Guard-0.21 \
-    Params-Util-1.07 \
-    Sub-Install-0.928 \
-    Data-OptList-0.110 \
-    Sub-Exporter-0.987 \
-    Sub-Exporter-Progressive-0.001013 \
     Devel-GlobalDestruction-0.14 \
     Algorithm-C3-0.10 \
     Class-C3-0.34 \
     MRO-Compat-0.13 \
     Task-Weaken-1.06 \
-    Test-Fatal-0.014 \
-    Test-Requires-0.10 \
-    Exporter-Tiny-1.002002 \
-    XSLoader-0.24 \
-    List-MoreUtils-XS-0.428 \
-    List-MoreUtils-0.428 \
-    Dist-CheckConflicts-0.11 \
     Package-DeprecationManager-0.17 \
-    Package-Stash-XS-0.29 \
-    Package-Stash-0.38 \
-    Capture-Tiny-0.48 \
-    Test-Output-1.031 \
     Eval-Closure-0.14 \
-    Module-Runtime-0.016 \
-    Module-Implementation-0.09 \
     Module-Pluggable-5.2 \
     Class-Load-0.25 \
     Class-Load-XS-0.10 \
-    Devel-StackTrace-2.04 \
     Devel-OverloadInfo-0.005 \
+    Module-Runtime-Conflicts-0.003 \
+    File-pushd-1.016 \
+    Test-CleanNamespaces-0.24 \
     Moose-2.2012 \
-    HTML-Tree-5.07 \
     Font-AFM-1.20 \
+    HTML-Tree-5.07 \
     HTML-Format-2.11 \
     Geography-Countries-2009041301 \
     IP-Country-2.28 \
     Encode-Detect-1.01 \
     Parse-RecDescent-1.967015 \
+    File-Slurp-Tiny-0.004 \
     Tree-DAG_Node-1.31 \
-    Test-Warn-0.36 \
     Inline-0.86 \
+    Proc-ProcessTable-0.59 \
+    Test-Number-Delta-1.06 \
     Inline-Python-0.56 \
+    Test-utf8-1.02 \
+    Test-File-1.443 \
+    File-Copy-Recursive-0.45 \
+    Tie-IxHash-1.23 \
+    YAML-PP-0.026 \
+    XXX-0.35 \
+    File-ShareDir-Install-0.13 \
+    Pegex-0.75 \
+    Inline-C-0.81 \
     Inline-Struct-0.27 \
     Inline-Wrapper-0.05 \
-    Getopt-ArgvFile-1.11 \
-    Module-ScanDeps-1.27 \
+    Parse-Yapp-1.21 \
     Parse-Eyapp-1.21 \
     Data-Dumper-Concise-2.023 \
     Config-Any-0.32 \
     Class-Inspector-1.36 \
     Class-XSAccessor-1.19 \
     Class-Accessor-Grouped-0.10014 \
+    IO-All-0.87 \
+    Module-Install-AuthorRequires-0.02 \
+    Module-Manifest-Skip-0.23 \
+    Module-Install-ManifestSkip-0.24 \
     Module-Package-0.30 \
     Test-use-ok-0.11 \
     Context-Preserve-0.03 \
     Path-Class-0.37 \
+    B-COW-0.004 \
     Clone-0.45 \
+    Test-Without-Module-0.20 \
     Clone-Choose-0.010 \
     Hash-Merge-0.300 \
-    Params-Validate-1.29 \
-    Getopt-Long-Descriptive-0.105 \
     SQL-Abstract-1.86 \
-    Variable-Magic-0.62 \
-    B-Hooks-EndOfScope-0.24 \
-    namespace-clean-0.27 \
     Class-Accessor-Chained-0.01 \
     Data-Page-2.03 \
     Number-Compare-0.03 \
@@ -168,22 +235,7 @@ CPAN_PROJECTS := \
     Data-Compare-1.27 \
     Class-C3-Componentised-1.001002 \
     Module-Find-0.15 \
-    ExtUtils-Config-0.008 \
-    ExtUtils-Helpers-0.026 \
-    ExtUtils-InstallPaths-0.012 \
-    Module-Build-Tiny-0.039 \
-    Class-Method-Modifiers-2.13 \
-    Role-Tiny-2.001004 \
     Lexical-SealRequireHints-0.011 \
-    ExtUtils-Depends-0.8000 \
-    B-Hooks-OP-Check-0.22 \
-    bareword-filehandles-0.007 \
-    indirect-0.39 \
-    multidimensional-0.014 \
-    strictures-2.000006 \
-    Import-Into-1.002005 \
-    Moo-2.004000 \
-    Sub-Quote-2.006006 \
     DBIx-Class-0.082841 \
     IPC-System-Simple-1.30 \
     autobox-v3.0.1 \
@@ -191,7 +243,6 @@ CPAN_PROJECTS := \
     syntax-0.004 \
     Syntax-Keyword-Junction-0.003008 \
     Moose-Autobox-0.16 \
-    namespace-autoclean-0.29 \
     MooseX-StrictConstructor-0.21 \
     PadWalker-2.3 \
     Devel-Caller-2.06 \
@@ -207,32 +258,32 @@ CPAN_PROJECTS := \
     Devel-CallChecker-0.008 \
     Params-Classify-0.015 \
     Class-Singleton-1.5 \
+    XString-0.005 \
+    Specio-0.46 \
+    Importer-0.026 \
+    Sub-Info-0.002 \
+    Term-Table-0.015 \
+    Test2-Suite-0.000138 \
+    Test2-Plugin-NoWarnings-0.09 \
+    Params-ValidationCompiler-0.30 \
     DateTime-TimeZone-2.39 \
-    File-ShareDir-Install-0.13 \
+    File-ShareDir-Dist-0.07 \
+    Class-Tiny-1.006 \
+    File-ShareDir-1.116 \
+    Test-File-ShareDir-1.001002 \
     DateTime-Locale-1.25 \
     Math-Round-0.07 \
-    Specio-0.46 \
-    Sub-Identify-0.14 \
-    Params-ValidationCompiler-0.30 \
-    Exception-Class-1.44 \
-    File-ShareDir-1.116 \
     DateTime-1.52 \
     MooseX-Types-DateTime-0.13 \
-    Class-Tiny-1.006 \
     Devel-PartialDump-0.20 \
     MooseX-Types-Structured-0.36 \
     aliased-0.34 \
     Test-Object-0.08 \
-    Hook-LexWrap-0.26 \
     Test-SubCalls-1.10 \
     PPI-1.270 \
     MooseX-Traits-0.13 \
-    Algorithm-Diff-1.1903 \
-    Text-Diff-1.45 \
-    Test-Differences-0.67 \
     Parse-Method-Signatures-1.003019 \
     MooseX-TransactionalMethods-0.009 \
-    CPAN-Meta-Check-0.014 \
     Test-CheckDeps-0.010 \
     MooseX-LazyRequire-0.11 \
     Devel-Declare-0.006022 \
@@ -243,7 +294,15 @@ CPAN_PROJECTS := \
     MooseX-ClassAttribute-0.29 \
     MooseX-NonMoose-0.26 \
     String-RewritePrefix-0.008 \
+    JSON-MaybeXS-1.004002 \
+    Test-Deep-JSON-0.05 \
+    Test-Deep-Type-0.008 \
+    Spiffy-0.46 \
+    Test-Base-0.89 \
+    Test-YAML-1.07 \
+    YAML-1.30 \
     MooseX-Storage-0.53 \
+    Types-Serialiser-1.0 \
     JSON-XS-4.02 \
     CGI-4.48
 
@@ -258,10 +317,8 @@ SVK_PROJECTS := \
     PerlIO-eol-0.17 \
     Class-Autouse-2.01 \
     App-CLI-0.50 \
-    Class-Data-Inheritable-0.08 \
     TermReadKey-2.38 \
     Locale-Maketext-Lexicon-1.00 \
-    IPC-Run3-0.048 \
     Probe-Perl-0.03 \
     Test-Script-1.26 \
     File-Which-1.23 \

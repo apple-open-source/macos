@@ -556,6 +556,9 @@ const CFStringRef kOSKextDiagnosticExecutableArchNotFoundKey =
 const CFStringRef kOSKextDiagnosticSymlinkKey =
                   CFSTR("The booter does not recognize symbolic links; "
                   "confirm these files/directories aren't needed for startup");
+const CFStringRef kOSKextDiagnosticInvalidSymlinkKey =
+                  CFSTR("The kext contains a symlink which is either not readable "
+                  "or points outside of its bundle; please remove");
 
 const CFStringRef kOSKextDiagnosticDeprecatedPropertyKey =
                   CFSTR("Deprecated property (ignored)");
@@ -13486,11 +13489,14 @@ static Boolean __OSKextBasicFilesystemAuthenticationRecursive(
     CFURLRef anURL,
     CFURLRef pluginsURL)
 {
-    Boolean      result   = true;  // until we hit a bad one
-    CFStringRef  filename = NULL;   // must release
-    CFURLRef     absURL   = NULL;   // must release
+    Boolean      result   = true;    // until we hit a bad one
+    CFStringRef  filename = NULL;    // must release
+    CFURLRef     absURL   = NULL;    // must release
+
     char         kextPath[PATH_MAX];
     char         urlPath[PATH_MAX];
+    char        *linkPath = NULL;    // must free
+
     struct stat  stat_buf;
     struct stat  lstat_buf;
     CFArrayRef   urlContents = NULL; // must release
@@ -13561,6 +13567,44 @@ static Boolean __OSKextBasicFilesystemAuthenticationRecursive(
     }
 
     if ((lstat_buf.st_mode & S_IFMT) == S_IFLNK) {
+        linkPath = realpath(urlPath, NULL);
+        if (!linkPath) {
+            const char *errorString = strerror(errno);
+            __OSKextAddDiagnostic(aKext, kOSKextDiagnosticsFlagAuthentication,
+                kOSKextDiagnosticInvalidSymlinkKey, anURL, /* note */ errorString);
+
+            OSKextLog(/* kext */ aKext,
+                kOSKextLogErrorLevel |
+                kOSKextLogFileAccessFlag,
+                "Can't determine real path for %s (%s)",
+                urlPath,
+                errorString);
+            result = false;
+            goto finish;
+        }
+
+       OSKextLog(/* kext */ aKext,
+            kOSKextLogStepLevel |
+            kOSKextLogFileAccessFlag,
+            "Realpath for %s is %s",
+            urlPath,
+            linkPath);
+
+        if (strncmp(kextPath, linkPath, strlen(kextPath)) != 0) {
+            __OSKextAddDiagnostic(aKext, kOSKextDiagnosticsFlagAuthentication,
+                kOSKextDiagnosticInvalidSymlinkKey, anURL,
+                /* note */ "Symlink points outside of bundle.");
+
+            OSKextLog(/* kext */ aKext,
+                kOSKextLogErrorLevel |
+                kOSKextLogFileAccessFlag,
+                "Kext contains symlink at %s which points outside of its bundle at %s; rejecting.",
+                urlPath,
+                kextPath);
+            result = false;
+            goto finish;
+        }
+
         __OSKextAddDiagnostic(aKext, kOSKextDiagnosticsFlagWarnings,
             kOSKextDiagnosticSymlinkKey, anURL, /* note */ NULL);
         /* We don't consider this a hard failure. */
@@ -13601,6 +13645,7 @@ finish:
     SAFE_RELEASE(filename);
     SAFE_RELEASE(absURL);
     SAFE_RELEASE(urlContents);
+    SAFE_FREE(linkPath);
     return result;
 }
 

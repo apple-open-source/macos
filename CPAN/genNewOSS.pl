@@ -53,6 +53,11 @@ http://www.apache.org/licenses/LICENSE-2.0
 EOF
 
 my %modules = (
+    'B-COW-0.004' => {
+	copyright => 'This software is copyright (c) 2018 by Nicolas R.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'Capture-Tiny-0.23' => {
 	copyright => 'This software is Copyright (c) 2009 by David Golden.',
 	license => 'Apache 2.0',
@@ -62,6 +67,16 @@ my %modules = (
 	copyright => 'This software is Copyright (c) 2013 by David Golden.',
 	license => 'Apache 2.0',
 	licensestr => $Apache20License,
+    },
+    'CPAN-Changes-0.400002' => {
+	copyright => 'Copyright 2011-2013 by Brian Cassidy.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Data-Perl-0.002011' => {
+	copyright => 'This software is copyright (c) 2020 by Matthew Phillips <mattp@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
     },
     'Devel-CallChecker-0.008' => {
 	copyright => 'This software is copyright (c) 2011, 2012, 2013, 2015, 2017 Andrew Main (Zefram) <zefram@fysh.org>',
@@ -103,10 +118,30 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'File-Copy-Recursive-0.45' => {
+	copyright => 'Copyright 2004 by Daniel Muey.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'File-Remove-1.58' => {
 	copyright => 'This software is copyright (c) 1998 by Gabor Egressy.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
+    },
+    'File-ShareDir-Dist-0.07' => {
+	copyright => 'This software is copyright (c) 2017,2018 by Graham Ollis.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'File-Slurp-Tiny-0.004' => {
+	copyright => 'This software is copyright (c) 2013 by Leon Timmermans.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'File-pushd-1.016' => {
+	copyright => 'This software is Copyright (c) 2018 by David A Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
     },
     'HTML-Tree-5.07' => {
 	copyright => 'This software is copyright (c) 1995-1998 by Gisle Aas, 1999-2004 by Sean M. Burke, 2005 by Andy Lester, 2006 by Pete Krawczyk, 2010 by Jeff Fearn, 2012 by Christopher J. Madsen. (Except the articles contained in HTML::Tree::AboutObjects, HTML::Tree::AboutTrees, and HTML::Tree::Scanning, which are all copyright (c) 2000 by The Perl Journal.)',
@@ -118,8 +153,33 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'Inline-C-0.81' => {
+	copyright => 'Copyright 2000-2019. Ingy döt Net, 2008, 2010-2014. Sisyphus.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'IO-All-0.87' => {
+	copyright => 'Copyright 2004-2017. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'IPC-System-Simple-1.26' => {
 	copyright => 'This software is copyright (c) 2006-2008 by Paul Fenwick.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Importer-0.026' => {
+	copyright => 'Copyright 2015 Chad Granum <exodist7@gmail.com>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'JSON-4.02' => {
+	copyright => 'Copyright 2005-2013 by Makamaka Hannyaharamitu.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'JSON-MaybeXS-1.004002' => {
+	copyright => 'Copyright (c) 2013 mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>, Clinton Gormley <drtech@cpan.org>, Karen Etheridge <ether@cpan.org>, Kieren Diment <diment@gmail.com>.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -138,6 +198,11 @@ my %modules = (
 	license => 'Apache 2.0',
 	licensestr => $Apache20License,
     },
+    'Mail-AuthenticationResults-1.20200824.1' => {
+	copyright => 'This software is copyright (c) 2020 by Marc Bradshaw.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'Module-Build-Tiny-0.034' => {
 	copyright => 'This software is copyright (c) 2011 by Leon Timmermans, David Golden.',
 	license => 'Perl',
@@ -153,8 +218,43 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'Module-Install-AuthorRequires-0.02' => {
+	copyright => 'Copyright (c) 2009 Florian Ragwitz.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Module-Install-ManifestSkip-0.24' => {
+	copyright => 'Copyright 2010-2014. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Module-Manifest-Skip-0.23' => {
+	copyright => 'Copyright 2011-2014. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'Module-Package-0.30' => {
 	copyright => 'This software is copyright (c) 2011 Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Module-Runtime-Conflicts-0.003' => {
+	copyright => 'This software is copyright (c) 2014 by Karen Etheridge.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'MooX-HandlesVia-0.001009' => {
+	copyright => 'This software is copyright (c) 2020 by Matthew Phillips <mattp@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'MooX-Types-MooseLike-0.29' => {
+	copyright => 'Copyright (c) 2011-2015 mateu - Mateu X. Hunter (cpan:MATEU) <hunter@missoula.org>, mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>, Mithaldu - Christian Walde (cpan:MITHALDU) <walde.christian@googlemail.com>, Matt Phillips (cpan:MATTP) <mattp@cpan.org>, Arthur Axel fREW Schmidt (cpan:FREW) <frioux@gmail.com>, Toby Inkster (cpan:TOBYINK) <tobyink@cpan.org>, Graham Knop (cpan:HAARG) <haarg@cpan.org>, Dmitry Matrosov (cpan:AMIDOS) <amidos@amidos.ru>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Net-DNS-Resolver-Mock-1.20200215' => {
+	copyright => 'Copyright (c) 2017, Marc Bradshaw.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -163,8 +263,28 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'Parse-Yapp-1.21' => {
+	copyright => 'Copyright © 1998, 1999, 2000, 2001, Francois Desarmenien. Copyright © 2017 William N. Braswell, Jr.',
+	license => 'ArtisticLicense',
+	licensestr => $ArtisticLicense,
+    },
     'Params-Classify-0.015' => {
 	copyright => 'This software is copyright (c) 2004, 2006, 2007, 2009, 2010, 2017 by Andrew Main (Zefram) <zefram@fysh.org>, 2009, 2010 by PhotoBox Ltd.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Path-Tiny-0.114' => {
+	copyright => 'This software is Copyright (c) 2014 by David Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
+    },
+    'Pegex-0.75' => {
+	copyright => 'Copyright 2010-2020. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Proc-ProcessTable-0.59' => {
+	copyright => 'Copyright (c) 1998-2008 Daniel J. Urist. All rights reserved.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -173,13 +293,168 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'Spiffy-0.46' => {
+	copyright => 'Copyright 2004-2014. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Sub-Delete-1.00002' => {
+	copyright => 'Copyright (C) 2008-2010 Father Chrysostomos <sprout@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Sub-Info-0.002' => {
+	copyright => 'Copyright 2016 Chad Granum <exodist@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'TermReadKey-2.38' => {
 	copyright => 'This software is copyright (c) 1994-1999 by Kenneth Albanowski, 2001-2016 by Jonathan Stowe and others.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'Term-Table-0.015' => {
+	copyright => 'Copyright 2016 Chad Granum <exodist@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-Base-0.89' => {
+        copyright => 'Copyright 2005-2018. Ingy döt Net.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-CleanNamespaces-0.24' => {
+        copyright => 'This software is copyright (c) 2009 by Florian Ragwitz.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-Deep-JSON-0.05' => {
+        copyright => 'This software is copyright (c) 2014 by motemen <motemen@gmail.com>.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-Deep-Type-0.008' => {
+        copyright => 'This software is copyright (c) 2013 by Karen Etheridge.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-File-1.443' => {
+        copyright => 'Copyright © 2002-2016, brian d foy <bdfoy@cpan.org>. All rights reserved.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-File-ShareDir-1.001002' => {
+        copyright => 'This software is copyright (c) 2017 by Kent Fredric <kentnl@cpan.org>.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-Kit-2.15' => {
+        copyright => 'Copyright (c) 2014 Alex Balhatchet <kaoru@slackwise.net>.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-Most-0.37' => {
+        copyright => 'Copyright 2008 Curtis Poe, all rights reserved.',
+        license => 'Perl',
+        licensestr => $PerlLicense,
+    },
+    'Test-Needs-0.002006' => {
+	copyright => 'Copyright (c) 2016 haarg - Graham Knop (cpan:HAARG) <haarg@haarg.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-Number-Delta-1.06' => {
+	copyright => 'This software is Copyright (c) 2014 by David Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
+    },
+    'Test-RequiresInternet-0.05' => {
+	copyright => 'This software is copyright (c) 2014 by Mark Allen.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-Simple-1.302183' => {
+	copyright => 'Copyright 2001-2008 by Michael G Schwern <schwern@pobox.com>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-Warnings-0.030' => {
+	copyright => 'This software is copyright (c) 2013 by Karen Etheridge.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-Without-Module-0.20' => {
+	copyright => 'Copyright (c) 2003-2014 Max Maischein, <corion@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-YAML-1.07' => {
+	copyright => 'Copyright 2001-2018. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test-utf8-1.02' => {
+	copyright => 'Copyright Mark Fowler 2004,2012. All rights reserved.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Text-Soundex-3.05' => {
+	copyright => 'This software is copyright (c) 1998-2003 by Mark Mielke.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Test2-Plugin-NoWarnings-0.09' => {
+	copyright => 'This software is Copyright (c) 2020 by Dave Rolsky.',
+	license => 'ArtisticLicense',
+	licensestr => $ArtisticLicense,
+    },
+    'Test2-Suite-0.000138' => {
+	copyright => 'Copyright 2018 Chad Granum <exodist@cpan.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Tie-IxHash-1.23' => {
+	copyright => 'Copyright (c) 1995 Gurusamy Sarathy.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Type-Tiny-1.012000' => {
+	copyright => 'This software is copyright (c) 2013-2014, 2017-2020 by Toby Inkster.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Types-Serialiser-1.0' => {
+	copyright => 'Copyright (c) Marc Lehmann <schmorp@schmorp.de>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'XSLoader-0.24' => {
 	copyright => 'Copyright (c) 1990-2011 by Larry Wall and others.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'XString-0.005' => {
+	copyright => 'This software is copyright (c) 2018 by cPanel, Inc.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'XXX-0.35' => {
+	copyright => 'Copyright 2006-2020. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'YAML-1.30' => {
+	copyright => 'Copyright 2001-2020. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'YAML-LibYAML-0.82' => {
+	copyright => 'Copyright 2007-2020. Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'YAML-PP-0.026' => {
+	copyright => 'Copyright 2017-2020 by Tina Müller.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -197,6 +472,16 @@ my %modules = (
 	copyright => 'This software is copyright (c) 2011-2016 by Dagfinn Ilmari Mannsåker.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
+    },
+    'common-sense-3.75' => {
+	copyright => 'This software is copyright Marc Lehmann <schmorp@schmorp.de>, Robin Redeker <elmex@ta-sa.org>.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'inc-latest-0.500' => {
+	copyright => 'This software is Copyright (c) 2009 by David Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
     },
     'indirect-0.39' => {
 	copyright => 'Copyright 2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2019 Vincent Pit, all rights reserved.',
@@ -318,7 +603,10 @@ for my $m (sort(keys(%modules))) {
     $url = join('/', $URLprefix, $a, $a2, $url);
     my $t = File::Spec->join($tardir, "$m.*");
     my @t = glob($t);
-    die "\"$t\" produces no matches\n" if scalar(@t) == 0;
+    if(scalar(@t) == 0) {
+        warn "\"$t\" produces no matches\n";
+        next;
+    }
     die "\"$t\" produces multiple matches\n" if scalar(@t) > 1;
     $t = $t[0];
     my($tail, $dir, $suf) = File::Basename::fileparse($t, qr/\.(tar\.gz|tgz)/);

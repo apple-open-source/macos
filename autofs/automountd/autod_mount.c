@@ -651,6 +651,10 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	newargv[i++] = mntpnt;
 	newargv[i] = NULL;
 
+	if (trace > 5) {
+		trace_prt(1, "  newargv size is %d out of %d before run_mount_cmd", i, ARGV_MAX);
+	}
+
 	res = run_mount_cmd(fstype, newargv, sendereuid, asid);
 	if (res == 0) {
 		res = get_triggered_mount_info(mntpnt, mntpnt_fsid,
@@ -782,8 +786,8 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 					  sizeof(CFENVFORMATSTRING) +
 					  /* accounts for %X expansion of UID */
 					  20];
-	char **spawn_environ;
-	int child_pid;
+	char **spawn_environ = NULL;
+	int child_pid = -1;
 	int stat_loc;
 	int res;
 	int i, nenviron;
@@ -832,11 +836,12 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 				c -= snprintf(p, c, "%s ", newargv[i]);
 				p += strlen(newargv[i]) + 1;
 			}
-			trace_prt(1, "  run_mount_cmd: %s %s\n", path, bufp);
+			trace_prt(1, "  run_mount_cmd: %s %s[%d/%d]\n", path, bufp, i, ARG_MAX);
 			free(bufp);
 		}
 	}
 
+	/* This is save, since caller will star filling out from index 1*/
 	newargv[0] = path;
 
 	/*
@@ -870,6 +875,9 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		syslog(LOG_ERR, "Failed to set spawn's uid, %m");
 		goto done_attrs;
 	}
+	if (trace > 5) {
+		trace_prt(1, "  run_mount_cmd: sendereuid: %d", sendereuid);
+	}
 
 	/*
 	 * get the mach port for the audit session.
@@ -878,6 +886,9 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	if (res) {
 		syslog(LOG_ERR, "Failed to retrieve automount port, %m");
 		goto done_attrs;
+	}
+	if (trace > 5) {
+		trace_prt(1, "  run_mount_cmd: asid: %d", asid);
 	}
 
 	/*
@@ -909,9 +920,17 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		 getuid());
 
 	nenviron = count_environ();
+	if (trace > 5) {
+		trace_prt(1, "  run_mount_cmd: environment count: %d\n", nenviron);
+	}
 
-	spawn_environ = calloc(nenviron + 1, sizeof(char *));
+	/*
+	 * We allocate extra two spaces in case encoding is not specified, and we need to add to the end,
+	 * plus NULL to terminate the list, since size is not passed into the kernel
+	 */
+	spawn_environ = calloc(nenviron + 2, sizeof(char *));
 	if (!spawn_environ) {
+		syslog(LOG_ERR, "Failed to allocate space for spawn environment");
 		goto done_attrs;
 	}
 
@@ -921,8 +940,14 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		    strncmp(environ[i], CFENVVAR, strlen(CFENVVAR)) == 0) {
 			spawn_environ[i] = CFUserTextEncodingEnvSetting;
 			did_set_encoding = 1;
+			if (trace > 6) {
+				trace_prt(1, "  run_mount_cmd: replacing encoding @ index: %d", i);
+			}
 		} else {
 			spawn_environ[i] = environ[i];
+			if (trace > 6) {
+				trace_prt(1, "  run_mount_cmd: env[%d] -> [%s]", i, spawn_environ[i]);
+			}
 		}
 	}
 
@@ -932,6 +957,9 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 */
 	if (!did_set_encoding) {
 		spawn_environ[i] = CFUserTextEncodingEnvSetting;
+		if (trace > 5) {
+			trace_prt(1, "  run_mount_cmd: set user encoding at index %d\n", i);
+		}
 	}
 
 	/*
@@ -939,6 +967,7 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 */
 	res = posix_spawn(&child_pid, path, NULL, &spawn_attr, newargv, spawn_environ);
 	if (res) {
+		syslog(LOG_ERR, "Could not spawn mount subprocess: %s[%d] - %d", strerror(errno), errno, res);
 		goto done_dealloc;
 	}
 

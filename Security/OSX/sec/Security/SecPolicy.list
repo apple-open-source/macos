@@ -105,3 +105,4 @@ POLICYMACRO(AccessoryUpdateSigning,                 99, E, AccessoryUpdateSignin
 POLICYMACRO(EscrowServiceIdKeySigning,             100, E, AppleEscrowServiceIdKeySigning,        , Y, EscrowServiceIdKeySigning)
 POLICYMACRO(PCSEscrowServiceIdKeySigning,          101, E, ApplePCSEscrowServiceIdKeySigning,     , Y, PCSEscrowServiceIdKeySigning)
 POLICYMACRO(AggregateMetricTransparency,           102, E, AggregateMetricTransparency,           ,  , AggregateMetricTransparency)
+POLICYMACRO(AggregateMetricEncryption,             103, E, AggregateMetricEncryption,             ,  , AggregateMetricEncryption)

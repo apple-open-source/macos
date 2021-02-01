@@ -262,6 +262,10 @@ do
 	LIBXML2_LIBDIR="$d"
 	break
     fi
+    if test -f "$d/libxml2.tbd" ; then
+	LIBXML2_LIBDIR="$d"
+	break
+    fi
     if test -f "$d/libxml2.a" ; then
 	LIBXML2_LIBDIR="$d"
 	break

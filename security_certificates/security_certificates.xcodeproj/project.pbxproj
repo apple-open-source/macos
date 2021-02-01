@@ -92,6 +92,7 @@
 		BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7E71A72D3F900C14393 /* AppleESCertificates.plist */; };
 		BED9C8051ED64DB60052A224 /* ValidUpdate.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED9C8031ED64DA30052A224 /* ValidUpdate.plist */; };
 		D443E1691E28264800CD9CB0 /* CertificatePinning.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */; };
+		D46127422552199100CFA05B /* TrustedCTLogs_nonTLS.plist in Resources */ = {isa = PBXBuildFile; fileRef = D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */; };
 		D4AE94301FD6453F002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */; };
 		D4AE94311FD6454E002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist in Copy PKITrustSupplementals AssetTypeDescriptor */ = {isa = PBXBuildFile; fileRef = D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */; };
 		D4CE8BDA201C178900E342E6 /* AnalyticsSamplingRates.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */; };
@@ -254,6 +255,7 @@
 		D4143DA21FF7127D001A441B /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		D418CC761E69F42200330A44 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = Pinning/Makefile; sourceTree = "<group>"; usesTabs = 1; };
 		D418CC771E69F46D00330A44 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = Pinning/README.txt; sourceTree = "<group>"; };
+		D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs_nonTLS.plist; sourceTree = "<group>"; };
 		D4AE94221FD64257002FE721 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = TrustSupplementalsAsset/Makefile; sourceTree = "<group>"; usesTabs = 1; };
 		D4AE94251FD64257002FE721 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TrustSupplementalsAsset/Info.plist; sourceTree = "<group>"; };
 		D4AE94261FD64257002FE721 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = TrustSupplementalsAsset/README.txt; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				BED4A7E71A72D3F900C14393 /* AppleESCertificates.plist */,
 				BE4DBC621A9401410025962E /* TrustStore.html */,
 				0C406A8A1C0FA9A20053517B /* TrustedCTLogs.plist */,
+				D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */,
 			);
 			path = BuiltAssets;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -469,6 +472,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 4CA1FEC1052A432800F22E42;
@@ -535,6 +539,7 @@
 				BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */,
 				BE4DBC631A9401410025962E /* TrustStore.html in Resources */,
 				0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */,
+				D46127422552199100CFA05B /* TrustedCTLogs_nonTLS.plist in Resources */,
 				D443E1691E28264800CD9CB0 /* CertificatePinning.plist in Resources */,
 				BED9C8051ED64DB60052A224 /* ValidUpdate.plist in Resources */,
 				BE8143DF1F01BD1700E10A15 /* valid.sqlite3 in Resources */,
@@ -561,10 +566,11 @@
 				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/CertificatePinning.plist",
 				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/AnalyticsSamplingRates.plist",
 				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/AppleCertificateAuthorities.plist",
+				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/TrustedCTLogs_nonTLS.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ASSET_DIR=${DSTROOT}/BuiltSupplementalAssets\nASSET_DATA=${ASSET_DIR}/AssetData\nASSET_TOOLS_DIR=${SRCROOT}/CertificateTool/BuildiOSAsset\nCT_DIR=${SRCROOT}/certificate_transparency\nPINNING_DIR=${SRCROOT}/Pinning\nSRC_ASSET_DIR=${SRCROOT}/TrustSupplementalsAsset\n\nmkdir -p ${ASSET_DIR}\nditto ${SRC_ASSET_DIR}/Info.plist ${ASSET_DIR}\nmkdir -p ${ASSET_DATA}\n\necho \"Starting TrustedCTLogs.plist file build\"\npython ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Converting TrustedCTLogs.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist\n\necho \"Moving CertificatePinning.plist\"\nplutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o ${ASSET_DATA}/CertificatePinning.plist\n\necho \"Moving AnalyticsSamplingRates.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AnalyticsSamplingRates.plist -o ${ASSET_DATA}/AnalyticsSamplingRates.plist\n\necho \"Moving AppleCertificateAuthorities.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AppleCertificateAuthorities.plist -o ${ASSET_DATA}/AppleCertificateAuthorities.plist\n";
+			shellScript = "ASSET_DIR=${DSTROOT}/BuiltSupplementalAssets\nASSET_DATA=${ASSET_DIR}/AssetData\nASSET_TOOLS_DIR=${SRCROOT}/CertificateTool/BuildiOSAsset\nCT_DIR=${SRCROOT}/certificate_transparency\nPINNING_DIR=${SRCROOT}/Pinning\nSRC_ASSET_DIR=${SRCROOT}/TrustSupplementalsAsset\n\nmkdir -p ${ASSET_DIR}\nditto ${SRC_ASSET_DIR}/Info.plist ${ASSET_DIR}\nmkdir -p ${ASSET_DATA}\n\necho \"Starting TrustedCTLogs.plist file build\"\npython ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Starting TrustedCTLogs_nonTLS.plist file build\"\npython ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Converting TrustedCTLogs.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist\n\necho \"Converting TrustedCTLogs_nonTLS.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist\n\necho \"Moving CertificatePinning.plist\"\nplutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o ${ASSET_DATA}/CertificatePinning.plist\n\necho \"Moving AnalyticsSamplingRates.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AnalyticsSamplingRates.plist -o ${ASSET_DATA}/AnalyticsSamplingRates.plist\n\necho \"Moving AppleCertificateAuthorities.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AppleCertificateAuthorities.plist -o ${ASSET_DATA}/AppleCertificateAuthorities.plist\n";
 			showEnvVarsInLog = 0;
 		};
 		D4F55FB31E81D707001D7F03 /* ShellScript */ = {

@@ -27,16 +27,16 @@
  * SUCH DAMAGE.
  */
 
+#import "aks.h"
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <Security/SecRandom.h>
 #import <CommonCrypto/CommonCryptor.h>
 #import <CommonCrypto/CommonCryptorSPI.h>
 #import <TargetConditionals.h>
-#import <syslog.h>
+#import "gssoslog.h"
 
-#define PLATFORM_SUPPORT_CLASS_F (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-
+#define PLATFORM_SUPPORT_CLASS_F !TARGET_OS_SIMULATOR
 
 #import <AssertMacros.h>
 #if PLATFORM_SUPPORT_CLASS_F
@@ -45,24 +45,6 @@
 #import "HeimCredCoder.h"
 #import "common.h"
 #import "roken.h"
-
-
-#if PLATFORM_SUPPORT_CLASS_F
-
-static keybag_handle_t
-get_keybag(void)
-{
-    static keybag_handle_t handle;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        kern_return_t kr = aks_get_system(device_keybag_handle, &handle);
-	if (kr != KERN_SUCCESS)
-	    abort();
-    });
-    return handle;
-}
-#endif
-
 
 /*
  * stored as [32:wrapped_key_len][wrapped_key_len:wrapped_key][iv:ivSize][variable:ctdata][16:tag]
@@ -99,9 +81,11 @@ ksEncryptData(NSData *plainText)
 
     bulkKeyWrappedSize = sizeof(bulkKeyWrapped);
 
-    error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, get_keybag(), bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
-    if (error)
+    error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, bad_keybag_handle, bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
+    if (error) {
+	os_log_error(GSSOSLog(), "Error with wrap key: %d", error);
 	abort();
+    }
     if ((unsigned long)bulkKeyWrappedSize > sizeof(bulkKeyWrapped))
 	abort();
 
@@ -183,9 +167,11 @@ ksDecryptData(NSData * blob)
     int keySize = sizeof(bulkKey);
 #if PLATFORM_SUPPORT_CLASS_F
 
-    error = aks_unwrap_key(cursor, wrapped_key_size, key_class_f, get_keybag(), bulkKey, &keySize);
-    if (error != KERN_SUCCESS)
+    error = aks_unwrap_key(cursor, wrapped_key_size, key_class_f, bad_keybag_handle, bulkKey, &keySize);
+    if (error != KERN_SUCCESS) {
+	os_log_error(GSSOSLog(), "Error with unwrap key: %d", error);
 	goto out;
+    }
 #else
     if (bulkKeySize != wrapped_key_size) {
 	error = EINVAL;
@@ -240,7 +226,7 @@ ksDecryptData(NSData * blob)
     /* check that tag stored after the plaintext is correct */
     cursor += ctLen;
     if (ct_memcmp(tag, cursor, tagLen) != 0) {
-	syslog(LOG_ERR, "incorrect tag on credential data");
+	os_log_error(GSSOSLog(), "incorrect tag on credential data");
 	goto out;
     }
 

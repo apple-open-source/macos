@@ -191,7 +191,7 @@ convertDict(const void *key, const void *value, void *context)
 + (void)archiveRootObject:(id)object toFile:(NSString *)archiveFile
 {
     @autoreleasepool {
-	os_log_info(GSSOSLog(), "Save Credentials to disk");
+	os_log_info(GSSOSLog(), "Save credentials to disk");
 	NSData *data = [NSKeyedArchiver archivedDataWithRootObject:object];
 	if (data == nil)
 	    return;
@@ -201,8 +201,12 @@ convertDict(const void *key, const void *value, void *context)
 	    [[NSFileManager defaultManager] removeItemAtPath:archiveFile error:NULL];
 	    return;
 	}
-	
-	[encText writeToFile:archiveFile atomically:NO];
+
+	NSDictionary *attributes = @{NSFilePosixPermissions:@(S_IRUSR|S_IWUSR)};
+	BOOL worked = [[NSFileManager defaultManager] createFileAtPath:archiveFile contents:encText attributes:attributes];
+	if (!worked) {
+	    os_log_error(GSSOSLog(), "Error writing credentials to disk");
+	}
     }
 }
 

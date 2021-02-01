@@ -928,10 +928,8 @@ static void printHelp()
     printf("\t-k <string>\t\t\t: Key to be used with -bp or -np options for setting properties\n");
     printf("\t-bp <0/1>\t\t\t: Boolean to use with -k option\n");
     printf("\t-np <number>\t\t\t: Numeric value, use with -k option\n");
-#if TARGET_OS_OSX
     printf("\t-nxtype <NX event type number> monitor all NX events with type\n");
     printf("\t-nxusage <NX event usage number> monitor all NX events with usage\n");
-#endif
     printf("\t-p\t\t\t\t: persist event dispatch\n");
     printf("\n");
     printf("\t-a\t\t\t\t: Admin (Unfiltered event stream)\n");
@@ -951,7 +949,6 @@ static void printHelp()
     for (int type = kIOHIDEventTypeNULL; type<kIOHIDEventTypeCount; type++) {
         printf("\t\t%2d: %s\n", type, CFStringGetCStringPtr(IOHIDEventTypeGetName(type), kCFStringEncodingMacRoman));
     }
-#if TARGET_OS_OSX
     printf("\t\t%2d: %s\n", 63, "Legacy NXEvents");
     printf("\n\tAvailable NXEvent Types:\n");
     printf("\t\t%2d: %s\n", NX_NULLEVENT, "NX_NULLEVENT");
@@ -978,7 +975,6 @@ static void printHelp()
     printf("\n\tAvailable NXEvent Usages:\n");
     printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent, "kHIDUsage_AppleVendor_NXEvent");
     printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent_Translated, "kHIDUsage_AppleVendor_NXEvent_Translated");
-#endif
 }
 
 typedef enum {
@@ -1112,7 +1108,6 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( !strcmp("-bp", arg) ) {
                 registrationType = kEventRegistrationTypeBooleanProperty;
             }
-#if TARGET_OS_OSX
             else if ( !strcmp("-nxtype", arg) ) {
               if (__nxTypeMask == -1) {
                 __nxTypeMask = 0;
@@ -1131,7 +1126,6 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( registrationType == kEventRegistrationTypeAddNxEventUsage ) {
               __nxUsageMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
             }
-#endif
             else if ( registrationType == kEventRegistrationTypeReplaceMask ) {
                 __eventMask = strtoull(arg, NULL, 16);
             }

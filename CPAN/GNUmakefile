@@ -157,7 +157,7 @@ $(OBJROOT)/wrappers:
 	for vers in $(ORDEREDVERS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEBIN) && \
 	    for f in *; do \
-		if file $$f | head -1 | fgrep -q script; then \
+		if file $$f | head -1 | fgrep -q "Perl script"; then \
 		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
 		    sed "s/@VERSION@/$$vers/g" $(MYFIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \

@@ -152,20 +152,6 @@ typedef CF_OPTIONS(uint8_t, TA_SCTSource) {
     TA_SCT_TLS      = 1 << 2,
 };
 
-typedef CF_ENUM(uint8_t, TA_CTFailureReason) {
-    TA_CTNoFailure = 0,
-    TA_CTNoSCTs = 1,
-    TA_CTMissingLogs = 2,
-    TA_CTNoCurrentSCTsUnknownLog = 3,
-    TA_CTNoCurrentSCTsDisqualifiedLog = 4,
-    TA_CTPresentedNotEnoughUnknown = 5,
-    TA_CTPresentedNotEnoughDisqualified = 6,
-    TA_CTPresentedNotEnough = 7,
-    TA_CTEmbeddedNotEnoughUnknown = 8,
-    TA_CTEmbeddedNotEnoughDisqualified = 9,
-    TA_CTEmbeddedNotEnough = 10,
-};
-
 typedef CF_OPTIONS(uint8_t, TAValidStatus) {
     TAValidDefinitelyOK = 1 << 0,
     TAValidProbablyOK = 1 << 1,
@@ -185,7 +171,6 @@ typedef struct {
     TA_SCTSource sct_sources;
     uint32_t number_scts;
     uint32_t number_trusted_scts;
-    TA_CTFailureReason ct_failure_reason;
     bool ct_one_current;
     // CAIssuer
     bool ca_issuer_cache_hit;

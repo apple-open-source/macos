@@ -84,14 +84,6 @@ static void addStandardEventsToCred(HeimCredRef cred, struct HeimSession *sessio
 static bool commandCanReadforMech(struct HeimMech *mech, const char *cmd);
 static bool isTGT(HeimCredRef cred);
 
-os_log_t GSSOSLog(void) {
-    static dispatch_once_t once;
-    static os_log_t log;
-    dispatch_once(&once, ^{ log = os_log_create("com.apple.Heimdal", "GSSCred"); });
-    return log;
-};
-
-
 NSString *archivePath = NULL;
 
 static void

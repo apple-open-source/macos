@@ -7612,6 +7612,10 @@ handle_ipv6_linklocal_duplicated(IFStateRef ifstate,
     inet_ntop(AF_INET6, linklocal, ntopbuf, sizeof(ntopbuf));
     my_log(LOG_NOTICE, "%s: IPv6LL address %s is duplicated",
 	   if_name(ifstate->if_p), ntopbuf);
+    if (ifstate->disable_cga) {
+	/* nothing to be done about this */
+	goto done;
+    }
     if (ifstate->v6_ll_collision_count == IPV6_LL_MAX_COLLISION_COUNT) {
 	my_log(LOG_NOTICE, "%s: IPv6LL too many collisions (%d allowed)",
 	       if_name(ifstate->if_p), IPV6_LL_MAX_COLLISION_COUNT);

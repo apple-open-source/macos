@@ -36,6 +36,7 @@
 #import "common.h"
 #import "heimbase.h"
 #import "heimcred.h"
+#import "aks.h"
 #import "mock_aks.h"
 
 @interface GSSCredTests : XCTestCase
@@ -57,8 +58,8 @@
     HeimCredGlobalCTX.hasEntitlement = haveBooleanEntitlementMock;
     HeimCredGlobalCTX.getUid = getUidMock;
     HeimCredGlobalCTX.getAsid = getAsidMock;
-    HeimCredGlobalCTX.encryptData = encryptDataMock;
-    HeimCredGlobalCTX.decryptData = decryptDataMock;
+    HeimCredGlobalCTX.encryptData = ksEncryptData;
+    HeimCredGlobalCTX.decryptData = ksDecryptData;
     HeimCredGlobalCTX.managedAppManager = self.mockManagedAppManager;
     HeimCredGlobalCTX.useUidMatching = NO;
     HeimCredGlobalCTX.verifyAppleSigned = verifyAppleSignedMock;
@@ -852,7 +853,10 @@
     // use plutil -convert binary1 {the file} to convert it back to binary and add it to the test bundle.
     
     //the order of load here is TGT (not eligible), Cache (elected as default)
-    
+
+    HeimCredGlobalCTX.encryptData = encryptDataMock;
+    HeimCredGlobalCTX.decryptData = decryptDataMock;
+
     NSString *path = [[NSBundle bundleForClass:[self class]] pathForResource:@"heim-ordered-test-1" ofType:@"plist"];
     archivePath = path;
     
@@ -876,7 +880,11 @@
     // use plutil -convert binary1 {the file} to convert it back to binary and add it to the test bundle.
     
     //the order of load here is TGT, Cache (elected as default), Cache(tagged as default), TGT
-    
+
+    //use mock encryption
+    HeimCredGlobalCTX.encryptData = encryptDataMock;
+    HeimCredGlobalCTX.decryptData = decryptDataMock;
+
     NSString *path = [[NSBundle bundleForClass:[self class]] pathForResource:@"heim-ordered-test-2" ofType:@"plist"];
     archivePath = path;
     
@@ -900,7 +908,11 @@
     // use plutil -convert binary1 {the file} to convert it back to binary and add it to the test bundle.
     
     //the order of load here is TGT, Cache(tagged as default), Cache (could be default) , TGT
-    
+
+    //use mock encryption
+    HeimCredGlobalCTX.encryptData = encryptDataMock;
+    HeimCredGlobalCTX.decryptData = decryptDataMock;
+
     NSString *path = [[NSBundle bundleForClass:[self class]] pathForResource:@"heim-ordered-test-3" ofType:@"plist"];
     archivePath = path;
     
@@ -1130,6 +1142,22 @@
 #endif
 }
 
+- (void)testArchiveFilePermissions
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+    CFRELEASE_NULL(uuid);
+
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:archivePath error:nil];
+
+    NSNumber *perm = attributes[NSFilePosixPermissions];
+    XCTAssertEqualObjects(perm, @(S_IRUSR|S_IWUSR), "Archive file permissions should be readable and writable by owner only");
+
+}
 
 // mocks
 

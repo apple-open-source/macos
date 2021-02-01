@@ -14754,7 +14754,7 @@ xmlSchemaGetParticleTotalRangeMin(xmlSchemaParticlePtr particle)
 		min = cur;
 	    part = (xmlSchemaParticlePtr) part->next;
 	}
-	return (particle->minOccurs * min);
+        return (particle->minOccurs != 0 && min > INT_MAX / particle->minOccurs) ? INT_MAX : (particle->minOccurs * min);
     } else {
 	/* <all> and <sequence> */
 	int sum = 0;
@@ -14764,14 +14764,20 @@ xmlSchemaGetParticleTotalRangeMin(xmlSchemaParticlePtr particle)
 	if (part == NULL)
 	    return (0);
 	do {
+	    int minOccurs;
 	    if ((part->children->type == XML_SCHEMA_TYPE_ELEMENT) ||
 		(part->children->type == XML_SCHEMA_TYPE_ANY))
-		sum += part->minOccurs;
+		minOccurs = part->minOccurs;
 	    else
-		sum += xmlSchemaGetParticleTotalRangeMin(part);
+		minOccurs = xmlSchemaGetParticleTotalRangeMin(part);
+            if (sum > INT_MAX - minOccurs) {
+                sum = INT_MAX;
+            } else {
+                sum += minOccurs;
+            }
 	    part = (xmlSchemaParticlePtr) part->next;
 	} while (part != NULL);
-	return (particle->minOccurs * sum);
+	return (particle->minOccurs != 0 && sum > INT_MAX / particle->minOccurs) ? INT_MAX : (particle->minOccurs * sum);
     }
 }
 

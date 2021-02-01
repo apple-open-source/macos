@@ -1,0 +1,82 @@
+diff --git macosx/tkMacOSXInit.c macosx/tkMacOSXInit.c
+index b1ab2ea..a5c572a 100644
+--- macosx/tkMacOSXInit.c
++++ macosx/tkMacOSXInit.c
+@@ -24,6 +24,7 @@
+ #include <objc/objc-auto.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <unistd.h>
+ 
+ static char tkLibPath[PATH_MAX + 1] = "";
+@@ -228,12 +229,32 @@ TkpInit(
+ #endif
+ 
+ 	if (!uname(&name)) {
+-	    tkMacOSXMacOSXVersion = (strtod(name.release, NULL) + 96) * 10;
++	    char *darwinVersionString = strdup(name.release);
++	    char *ptr = darwinVersionString;
++	    char *darwinMajorVersionString = strsep(&ptr, ".");
++	    char *darwinMinorVersionString = NULL;
++	    if (ptr) {
++		darwinMinorVersionString = strsep(&ptr, ".");
++	    }
++
++	    long darwinMajorVersion = 0;
++	    long darwinMinorVersion = 0;
++
++	    if (darwinMajorVersionString) {
++		darwinMajorVersion = strtol(darwinMajorVersionString, NULL, 10);
++	    }
++	    if (darwinMinorVersionString) {
++		darwinMinorVersion = strtol(darwinMinorVersionString, NULL, 10);
++	    }
++	    tkMacOSXMacOSXVersion = darwinMajorVersion < 20 ? darwinMajorVersion + 996 : 100 * (darwinMajorVersion - 9) + darwinMinorVersion;
++
++	    free(darwinVersionString);
+ 	}
++	long minVersionRequired = TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED);
+ 	if (tkMacOSXMacOSXVersion &&
+-		tkMacOSXMacOSXVersion/10 < MAC_OS_X_VERSION_MIN_REQUIRED/10) {
+-	    Tcl_Panic("Mac OS X 10.%d or later required !",
+-		    (MAC_OS_X_VERSION_MIN_REQUIRED/10)-100);
++		tkMacOSXMacOSXVersion < minVersionRequired) {
++	    Tcl_Panic("macOS %ld (%ld) or later required, have instead %ld (%ld) !",
++		      minVersionRequired / 100, minVersionRequired, tkMacOSXMacOSXVersion / 100, tkMacOSXMacOSXVersion);
+ 	}
+ 
+ #ifdef TK_FRAMEWORK
+diff --git macosx/tkMacOSXPrivate.h macosx/tkMacOSXPrivate.h
+index 347f448..bd656a5 100644
+--- macosx/tkMacOSXPrivate.h
++++ macosx/tkMacOSXPrivate.h
+@@ -179,6 +179,15 @@ typedef struct TkMacOSXDrawingContext {
+ MODULE_SCOPE CGFloat tkMacOSXZeroScreenHeight;
+ MODULE_SCOPE CGFloat tkMacOSXZeroScreenTop;
+ MODULE_SCOPE int tkMacOSXGCEnabled;
++/*
++ * the TkMacOSXMajorVersion() macro is used to convert MAC_OS_X_VERSION_MIN_REQUIRED
++ * and the like from 4 or 6 digit form, to 4 digit with major version only
++ */
++#define TkMacOSXMajorVersion(x) ((x) > 100000 ? ((x) / 100) : (1000 + (((x) / 10) - 100)))
++/*
++ * tkMacOSXMacOSXVersion now only contains the major version
++ *     = 1000 + major_vers
++ */
+ MODULE_SCOPE long tkMacOSXMacOSXVersion;
+ #if TK_MAC_BUTTON_USE_COMPATIBILITY_METRICS
+ MODULE_SCOPE int tkMacOSXUseCompatibilityMetrics;
+diff --git macosx/tkMacOSXWm.c macosx/tkMacOSXWm.c
+index 28e3ef1..0e0da7b 100644
+--- macosx/tkMacOSXWm.c
++++ macosx/tkMacOSXWm.c
+@@ -6053,7 +6053,7 @@ ApplyWindowAttributeFlagChanges(
+ #if MAC_OS_X_VERSION_MIN_REQUIRED < 1060
+ 	    if (((changedAttributes & kWindowDoesNotCycleAttribute) || initial)
+ #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
+-		    && tkMacOSXMacOSXVersion < 1060
++		    && tkMacOSXMacOSXVersion < 1006
+ #endif
+ 	    ) {
+ 		[macWindow setCanCycle:

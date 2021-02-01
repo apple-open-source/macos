@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 9,
+    "assetVersion": 12,
     "operators": [
         {
             "email": [

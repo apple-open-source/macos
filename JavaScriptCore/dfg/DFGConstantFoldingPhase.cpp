@@ -704,6 +704,13 @@ private:
                             break;
                         }
 
+                        if (variant.kind() == PutByIdVariant::Replace) {
+                            auto* watchpoints = structure->propertyReplacementWatchpointSet(condition.offset());
+                            if (!watchpoints || watchpoints->isStillValid())
+                                allGood = false;
+                                break;
+                        }
+
                         m_insertionSet.insertNode(
                             indexInBlock, SpecNone, CheckStructure, node->origin,
                             OpInfo(m_graph.addStructureSet(structure)),

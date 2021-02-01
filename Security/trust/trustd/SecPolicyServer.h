@@ -45,6 +45,9 @@ void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies);
 void SecPVCDelete(SecPVCRef pvc);
 void SecPVCSetPath(SecPVCRef pvc, SecCertificatePathVCRef path);
 SecPolicyRef SecPVCGetPolicy(SecPVCRef pv);
+SecCertificateRef SecPVCGetCertificateAtIndex(SecPVCRef pvc, CFIndex ix);
+CFIndex SecPVCGetCertificateCount(SecPVCRef pvc);
+CFAbsoluteTime SecPVCGetVerifyTime(SecPVCRef pvc);
 
 /* Set the string result as the reason for the sub policy check key
    failing.  The policy check function should continue processing if

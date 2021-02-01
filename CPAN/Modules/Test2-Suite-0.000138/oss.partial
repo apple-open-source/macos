@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Test2-Suite</string>
+        <key>OpenSourceVersion</key>
+        <string>0.000138</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/E/EX/EXODIST/Test2-Suite-0.000138.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-10-30</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

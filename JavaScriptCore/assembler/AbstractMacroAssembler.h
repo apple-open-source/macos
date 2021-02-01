@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +46,11 @@ namespace JSC {
 #if ENABLE(ASSEMBLER)
 
 class AllowMacroScratchRegisterUsage;
-class DisallowMacroScratchRegisterUsage;
 class LinkBuffer;
 class Watchpoint;
+
+template<typename T> class DisallowMacroScratchRegisterUsage;
+
 namespace DFG {
 struct OSRExit;
 }
@@ -996,13 +998,14 @@ public:
     }
 
     ALWAYS_INLINE void tagReturnAddress() { }
-    ALWAYS_INLINE void untagReturnAddress() { }
+    ALWAYS_INLINE void untagReturnAddress(RegisterID = RegisterID::InvalidGPRReg) { }
 
     ALWAYS_INLINE void tagPtr(PtrTag, RegisterID) { }
     ALWAYS_INLINE void tagPtr(RegisterID, RegisterID) { }
     ALWAYS_INLINE void untagPtr(PtrTag, RegisterID) { }
     ALWAYS_INLINE void untagPtr(RegisterID, RegisterID) { }
     ALWAYS_INLINE void removePtrTag(RegisterID) { }
+    ALWAYS_INLINE void validateUntaggedPtr(RegisterID, RegisterID = RegisterID::InvalidGPRReg) { }
 
 protected:
     AbstractMacroAssembler()
@@ -1108,7 +1111,7 @@ protected:
 
     friend class AllowMacroScratchRegisterUsage;
     friend class AllowMacroScratchRegisterUsageIf;
-    friend class DisallowMacroScratchRegisterUsage;
+    template<typename T> friend class DisallowMacroScratchRegisterUsage;
     unsigned m_tempRegistersValidBits;
     bool m_allowScratchRegister { true };
 

@@ -55,8 +55,11 @@ TARGETS += setrlimit_sigsegv
 TARGETS += wq_limits
 TARGETS += add_timer_termination
 TARGETS += perf_contended_mutex_rwlock
+
+ifeq ($(PLATFORM),MacOSX)
 TARGETS += pthread_jit_write_protection
 pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
+endif
 
 # this should be CUSTOM_TARGETS, see "Compatibility defines" in Makefile.targets
 OTHER_TARGETS := stackoverflow_crash

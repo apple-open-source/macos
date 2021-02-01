@@ -43,12 +43,9 @@ protected:
 
     virtual IOCommand* allocateCommand();
 
-    virtual IOReturn gatedGetCommand(LIBKERN_RETURNS_NOT_RETAINED IOCommand** command, bool blockForCommand) override;
-
     uint32_t    _debugLoggingMask;
     IOWorkLoop* _workLoop;
     IOMapper*   _memoryMapper;
-    uint8_t     _currentCommandTag;
     uint32_t    _maxOutstandingCommands;
     uint32_t    _byteAlignment;
     uint8_t     _numberOfAddressBits;

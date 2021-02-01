@@ -334,7 +334,6 @@ exit:
         return kIOReturnSuccess;
     }
     
-#if TARGET_OS_OSX
     uint64_t regID;
     
     IORegistryEntryGetRegistryEntryID(_service, &regID);
@@ -359,7 +358,6 @@ exit:
         HIDLogError("0x%llx: TCC deny IOHIDDeviceOpen", regID);
     }
     require_action(_tccGranted, exit, ret = kIOReturnNotPermitted);
-#endif
     
     ret = IOServiceOpen(_service,
                         mach_task_self(),

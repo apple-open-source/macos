@@ -33,9 +33,7 @@
 #include <IOKit/IOTypes.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 
-#if TARGET_OS_OSX
 #include <IOKit/hidsystem/IOLLEvent.h>
-#endif /*TARGET_OS_OSX*/
 
 #define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
 

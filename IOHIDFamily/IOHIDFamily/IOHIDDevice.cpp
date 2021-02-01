@@ -54,10 +54,8 @@
 #include <os/overflow.h>
 #include <stdatomic.h>
 
-#if TARGET_OS_OSX
 #include "IOHIKeyboard.h"
 #include "IOHIPointing.h"
-#endif
 
 #include <IOKit/hidsystem/IOHIDShared.h>
 
@@ -654,13 +652,11 @@ bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
     }
     // *** END HACK ***
     
-#if TARGET_OS_OSX
     // For vendor defined usage page as part of primary usage or device usages
     // matching should contain vendor id and transport
     if (match && table) {
         match = validateMatchingTable(table);
     }
-#endif //TARGET_OS_OSX
     return match;
 }
 
@@ -745,7 +741,6 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         SET_PROP_FROM_VALUE(    kIOHIDMaxInputReportSizeKey,    copyProperty(kIOHIDMaxInputReportSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDMaxOutputReportSizeKey,   copyProperty(kIOHIDMaxOutputReportSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDMaxFeatureReportSizeKey,  copyProperty(kIOHIDMaxFeatureReportSizeKey));
-        SET_PROP_FROM_VALUE(    kIOHIDRelaySupportKey,          copyProperty(kIOHIDRelaySupportKey, gIOServicePlane));
         SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
         SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       newIsAccessProtected());
 
@@ -905,14 +900,12 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 
             _seizedClient = client;
 
-#if TARGET_OS_OSX
             IOHIKeyboard * keyboard = OSDynamicCast(IOHIKeyboard, getProvider());
             IOHIPointing * pointing = OSDynamicCast(IOHIPointing, getProvider());
             if ( keyboard )
                 keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
             else if ( pointing )
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
-#endif
         }
         accept = true;
     }
@@ -941,14 +934,12 @@ void IOHIDDevice::handleClose(IOService * client, IOOptionBits options __unused)
         {
             _seizedClient = 0;
 
-#if TARGET_OS_OSX
             IOHIKeyboard * keyboard = OSDynamicCast(IOHIKeyboard, getProvider());
             IOHIPointing * pointing = OSDynamicCast(IOHIPointing, getProvider());
             if ( keyboard )
                 keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
             else if ( pointing )
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
-#endif
         }
 
         _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
@@ -1045,19 +1036,12 @@ IOReturn IOHIDDevice::newUserClientInternal( task_t          owningTask,
 
 IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argument )
 {
-    bool providerIsInterface = _interfaceNubs ? (_interfaceNubs->getNextIndexOfObject(provider, 0) != -1) : false;
 
     HIDDeviceLogDebug("message: 0x%x from: 0x%llx %d", (unsigned int)type, (provider ? provider->getRegistryEntryID() : 0), _performWakeTickle);
 
     if ((kIOMessageDeviceSignaledWakeup == type) && _performWakeTickle)
     {
         IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this); // not a real event. tickle is not maskable.
-        return kIOReturnSuccess;
-    }
-    if (kIOHIDMessageRelayServiceInterfaceActive == type && providerIsInterface) {
-        bool msgArg = (argument == kOSBooleanTrue);
-        setProperty(kIOHIDRelayServiceInterfaceActiveKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
-        messageClients(type, (void *)(uintptr_t)msgArg);
         return kIOReturnSuccess;
     }
     return super::message(type, provider, argument);
@@ -1372,7 +1356,6 @@ OSBoolean * IOHIDDevice::newIsAccessProtected()
         const UInt32 usagePage;
         const UInt32 usage;
     };
-
     static const UsagePair ProtectedAccessUsagePairs[] = {
         {kHIDPage_AppleVendor, 0x004B},
         {kHIDPage_AppleVendor, 0x004D}

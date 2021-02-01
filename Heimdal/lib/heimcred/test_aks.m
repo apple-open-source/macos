@@ -32,8 +32,7 @@
 #import <Foundation/Foundation.h>
 #import <err.h>
 
-#import "heimcred.h"
-#import "common.h"
+#import "aks.h"
 
 
 int

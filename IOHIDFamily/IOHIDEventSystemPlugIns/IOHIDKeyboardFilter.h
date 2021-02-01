@@ -153,7 +153,6 @@ private:
 
     uint32_t        _numLockOn;
 
-#if TARGET_OS_OSX
     IOHIDEventRef   _delayedEjectKeyEvent;
     UInt32          _ejectKeyDelayMS;
 
@@ -165,7 +164,6 @@ private:
     dispatch_source_t _mouseKeyActivationResetTimer;
     
     IOPMConnection  _powerConnect;
-#endif
 
     boolean_t       _capsLockState;
     boolean_t       _capsLockLEDState;
@@ -217,7 +215,6 @@ private:
     KeyMap createMapFromStringMap(CFStringRef mappings);
     IOHIDEventRef processKeyMappings(IOHIDEventRef event);
 
-#if TARGET_OS_OSX
     IOHIDEventRef   processEjectKeyDelay(IOHIDEventRef event);
     void dispatchEjectKey(void);
     void resetEjectKeyDelay(void);
@@ -232,7 +229,6 @@ private:
     static void powerNotificationCallback (void * refcon, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
     void powerNotificationCallback (IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
 
-#endif
     
     void setEjectKeyProperty(uint32_t keyboardID);
     bool isDelayedEvent(IOHIDEventRef event);

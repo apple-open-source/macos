@@ -36,6 +36,7 @@
 #import "common.h"
 #import "heimbase.h"
 #import "heimcred.h"
+#import "aks.h"
 #import "mock_aks.h"
 
 @interface GSSCredHoldTests : XCTestCase
@@ -57,8 +58,8 @@
     HeimCredGlobalCTX.hasEntitlement = haveBooleanEntitlementMock;
     HeimCredGlobalCTX.getUid = getUidMock;
     HeimCredGlobalCTX.getAsid = getAsidMock;
-    HeimCredGlobalCTX.encryptData = encryptDataMock;
-    HeimCredGlobalCTX.decryptData = decryptDataMock;
+    HeimCredGlobalCTX.encryptData = ksEncryptData;
+    HeimCredGlobalCTX.decryptData = ksDecryptData;
     HeimCredGlobalCTX.managedAppManager = self.mockManagedAppManager;
     HeimCredGlobalCTX.useUidMatching = NO;
     HeimCredGlobalCTX.verifyAppleSigned = verifyAppleSignedMock;

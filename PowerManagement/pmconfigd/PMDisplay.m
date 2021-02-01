@@ -226,6 +226,7 @@ __private_extern__ void resetDisplayState()
 {
     if (gDisplayOn) {
         INFO_LOG("Resetting display state to off on sleep");
+        blankDisplay();
         displayStateDidChange(kDisplaysUnpowered);
     }
 }

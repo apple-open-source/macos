@@ -331,6 +331,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_ValidityPeriodMaximums      SecStringWithDefaultValue("Certificate exceeds maximum temporal validity period", "Trust", 0, "Certificate exceeds maximum temporal validity period", "Error for certificates that exceed the system's maximum temporal validity")
 #define SEC_TRUST_ERROR_ServerAuthEKU               SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_UnparseableExtension        SecStringWithDefaultValue("Unable to parse known extension", "Trust", 0, "Unable to parse known extension", "Error for unparseable known extensions")
+#define SEC_TRUST_ERROR_NonTlsCTRequired            SecStringWithDefaultValue("Certificate Transparency validation required but missing", "Trust", 0, "Certificate Transparency validation required but missing", "Error for missing Certificate Transparency validation")
 
 __END_DECLS
 

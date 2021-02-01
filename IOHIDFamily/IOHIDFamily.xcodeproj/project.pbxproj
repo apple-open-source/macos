@@ -926,10 +926,8 @@
 		7E534CFE245787730061B91F /* TestPhaseKeyboardEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */; };
 		7E70831F242C4C4400DAA1F9 /* IOHIDEventDummyService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */; };
 		7E708320242C4C5300DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
-		7E708321242C4C8C00DAA1F9 /* IOHIDEventDummyService.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7E708312242C49B900DAA1F9 /* IOHIDEventDummyService.kext */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7E708324242C4FBB00DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
 		7E708325242C4FC400DAA1F9 /* IOHIDEventDummyService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */; };
-		7E708326242C4FCE00DAA1F9 /* IOHIDEventDummyService.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7E708312242C49B900DAA1F9 /* IOHIDEventDummyService.kext */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7E709B8A23FE185200CB3626 /* TestLargeReport.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E709B8923FE185200CB3626 /* TestLargeReport.m */; };
 		7E78FA8125132F0600E45638 /* TestHIDNullElement.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E78FA8025132F0600E45638 /* TestHIDNullElement.m */; };
 		7E8E321F243FD99F00978262 /* SkyLight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E8E321E243FD99E00978262 /* SkyLight.framework */; };
@@ -2651,7 +2649,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7E708321242C4C8C00DAA1F9 /* IOHIDEventDummyService.kext in CopyFiles */,
 				848E575C0CC55C7800D5BE22 /* IOHIDSystem.kext in CopyFiles */,
 				848E575D0CC55C7800D5BE22 /* IOHIDUserClient.kext in CopyFiles */,
 				848E575A0CC55C7800D5BE22 /* IOHIDEventDriver.kext in CopyFiles */,
@@ -2825,7 +2822,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7E708326242C4FCE00DAA1F9 /* IOHIDEventDummyService.kext in CopyFiles */,
 				D87A38961FF6088D00884E21 /* IOHIDEventDriver.kext in CopyFiles */,
 				D87A38971FF6088D00884E21 /* IOHIDEventDriverSafeBoot.kext in CopyFiles */,
 			);

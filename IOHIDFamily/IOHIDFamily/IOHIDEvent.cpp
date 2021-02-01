@@ -36,9 +36,7 @@
 #include <math.h>
 #include <os/overflow.h>
 
-#if TARGET_OS_OSX
 #include "ev_keymap.h"
-#endif /* TARGET_OS_OSX */
 
 #define EXTERNAL ((unsigned int) -1)
 

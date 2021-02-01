@@ -1,3 +1,297 @@
+2020-12-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r269930. rdar://problem/72298580
+
+    Build fails on internal simulator builds due to missing enum kCVPixelFormatType_AGX_420YpCbCr8BiPlanarVideoRange
+    https://bugs.webkit.org/show_bug.cgi?id=219030
+    
+    Unreviewed build fix for macCatalyst.
+    
+    * wtf/PlatformHave.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269930 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-17  Ryan Haddad  <ryanhaddad@apple.com>
+
+            Build fails on internal simulator builds due to missing enum kCVPixelFormatType_AGX_420YpCbCr8BiPlanarVideoRange
+            https://bugs.webkit.org/show_bug.cgi?id=219030
+
+            Unreviewed build fix for macCatalyst.
+
+            * wtf/PlatformHave.h:
+
+2020-12-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r269900. rdar://problem/72298580
+
+    Build fails on internal simulator builds due to missing enum kCVPixelFormatType_AGX_420YpCbCr8BiPlanarVideoRange
+    https://bugs.webkit.org/show_bug.cgi?id=219030
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2020-11-17
+    Reviewed by Antti Koivisto.
+    
+    Fix compile for simulator builds.
+    Rename HAVE_CV_AGX_420_PIXEL_FORMAT_TYPES to
+    HAVE_COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES to better reflect what the ifdef does.
+    
+    Source/WebCore:
+    
+    * platform/graphics/cv/GraphicsContextGLCVANGLE.cpp:
+    (WebCore::pixelRangeFromPixelFormat):
+    (WebCore::GraphicsContextGLCVANGLE::copyPixelBufferToTexture):
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/cf/CoreVideoSPI.h:
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269900 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-17  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            Build fails on internal simulator builds due to missing enum kCVPixelFormatType_AGX_420YpCbCr8BiPlanarVideoRange
+            https://bugs.webkit.org/show_bug.cgi?id=219030
+
+            Reviewed by Antti Koivisto.
+
+            Fix compile for simulator builds.
+            Rename HAVE_CV_AGX_420_PIXEL_FORMAT_TYPES to
+            HAVE_COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES to better reflect what the ifdef does.
+
+            * wtf/PlatformHave.h:
+
+2020-12-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r270321. rdar://problem/72298523
+
+    Update list of block ports according fetch spec
+    https://bugs.webkit.org/show_bug.cgi?id=219154
+    
+    Reviewed by Sam Weinig.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/fetch/api/request/request-bad-port.any-expected.txt:
+    * web-platform-tests/fetch/api/request/request-bad-port.any.js:
+    * web-platform-tests/fetch/api/request/request-bad-port.any.worker-expected.txt:
+    * web-platform-tests/websockets/Create-blocked-port.any-expected.txt:
+    * web-platform-tests/websockets/Create-blocked-port.any.js:
+    * web-platform-tests/websockets/Create-blocked-port.any.worker-expected.txt:
+    
+    Source/WTF:
+    
+    * wtf/URL.cpp:
+    (WTF::portAllowed):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270321 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-01  Youenn Fablet  <youenn@apple.com>
+
+            Update list of block ports according fetch spec
+            https://bugs.webkit.org/show_bug.cgi?id=219154
+
+            Reviewed by Sam Weinig.
+
+            * wtf/URL.cpp:
+            (WTF::portAllowed):
+
+2020-12-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r269436. rdar://problem/72298523
+
+    Consider blocking ports 5060 and 5061
+    https://bugs.webkit.org/show_bug.cgi?id=218557
+    <rdar://problem/71031479>
+    
+    Reviewed by Alex Christensen.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/fetch/api/request/request-bad-port.any-expected.txt: Added.
+    * web-platform-tests/fetch/api/request/request-bad-port.any.html: Added.
+    * web-platform-tests/fetch/api/request/request-bad-port.any.js: Added.
+    (BLOCKED_PORTS_LIST.map):
+    * web-platform-tests/fetch/api/request/request-bad-port.any.worker-expected.txt: Added.
+    * web-platform-tests/fetch/api/request/request-bad-port.any.worker.html: Added.
+    * web-platform-tests/fetch/api/request/request-bad-port.html: Removed.
+    * web-platform-tests/tools/wptserve/wptserve/utils.py:
+    (is_bad_port):
+    * web-platform-tests/websockets/Create-blocked-port.any-expected.txt:
+    * web-platform-tests/websockets/Create-blocked-port.any.js:
+    * web-platform-tests/websockets/Create-blocked-port.any.worker-expected.txt:
+    
+    Source/WTF:
+    
+    * wtf/URL.cpp:
+    (WTF::portAllowed):
+    
+    LayoutTests:
+    
+    * TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269436 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-05  Youenn Fablet  <youenn@apple.com>
+
+            Consider blocking ports 5060 and 5061
+            https://bugs.webkit.org/show_bug.cgi?id=218557
+            <rdar://problem/71031479>
+
+            Reviewed by Alex Christensen.
+
+            * wtf/URL.cpp:
+            (WTF::portAllowed):
+
+2020-12-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r270449. rdar://problem/72298505
+
+    Add safety checks to xsltParamArrayFromParameterMap()
+    <https://webkit.org/b/219407>
+    <rdar://problem/71853069>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    * xml/XSLTProcessorLibxslt.cpp:
+    (WebCore::xsltParamArrayFromParameterMap):
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    (HAVE_LIBXSLT_FIX_FOR_RADAR_71864140): Add.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270449 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-12-04  David Kilzer  <ddkilzer@apple.com>
+
+            Add safety checks to xsltParamArrayFromParameterMap()
+            <https://webkit.org/b/219407>
+            <rdar://problem/71853069>
+
+            Reviewed by Darin Adler.
+
+            * wtf/PlatformHave.h:
+            (HAVE_LIBXSLT_FIX_FOR_RADAR_71864140): Add.
+
+2020-12-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r270052. rdar://problem/72099688
+
+    Use os_thread_self_restrict_rwx_is_supported instead of pthread_jit_write_protect_supported_np on Apple Internal SDK builds
+    https://bugs.webkit.org/show_bug.cgi?id=219099
+    <rdar://problem/71547048>
+    
+    Reviewed by Mark Lam.
+    
+    Source/JavaScriptCore:
+    
+    * assembler/FastJITPermissions.h:
+    (useFastJITPermissions):
+    (threadSelfRestrictRWXToRW):
+    (threadSelfRestrictRWXToRX):
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    * wtf/PlatformUse.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@270052 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-11-19  Saam Barati  <sbarati@apple.com>
+
+            Use os_thread_self_restrict_rwx_is_supported instead of pthread_jit_write_protect_supported_np on Apple Internal SDK builds
+            https://bugs.webkit.org/show_bug.cgi?id=219099
+            <rdar://problem/71547048>
+
+            Reviewed by Mark Lam.
+
+            * wtf/PlatformHave.h:
+            * wtf/PlatformUse.h:
+
+2020-11-16  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r268979. rdar://problem/71446613
+
+    Use a WeakHashSet for Document::m_captionPreferencesChangedElements
+    https://bugs.webkit.org/show_bug.cgi?id=218170
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Refactoring to move from raw pointer to weak pointer.
+    For that purpose, we use WeakHashSet and WeakHashSet::forEach for extra safety.
+    No observable change of behavior.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::registerForCaptionPreferencesChangedCallbacks):
+    (WebCore::Document::unregisterForCaptionPreferencesChangedCallbacks):
+    (WebCore::Document::captionPreferencesChanged):
+    * dom/Document.h:
+    
+    Source/WTF:
+    
+    * wtf/WeakHashSet.h:
+    Add a static cast for classes inheriting CanMakeWeakPtr like done for the set iterator.
+    Update code to compile in WinCairo.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268979 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-26  Youenn Fablet  <youenn@apple.com>
+
+            Use a WeakHashSet for Document::m_captionPreferencesChangedElements
+            https://bugs.webkit.org/show_bug.cgi?id=218170
+
+            Reviewed by Eric Carlson.
+
+            * wtf/WeakHashSet.h:
+            Add a static cast for classes inheriting CanMakeWeakPtr like done for the set iterator.
+            Update code to compile in WinCairo.
+
+2020-11-13  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r269208. rdar://problem/71378171
+
+    AX: Incorrect list of voices being displayed on iOS
+    https://bugs.webkit.org/show_bug.cgi?id=218293
+    
+    Reviewed by Per Arne Vollan.
+    
+    Source/WebCore:
+    
+    Limit the voices that we display in WebSpeech to only built-in system voices. This was the intention of the "compact"
+    decision, but some mobile assets have compact voices, which are not available WebContent.
+    
+    * platform/ios/PlatformSpeechSynthesizerIOS.mm:
+    (WebCore::PlatformSpeechSynthesizer::initializeVoiceList):
+    
+    Source/WebCore/PAL:
+    
+    * PAL.xcodeproj/project.pbxproj:
+    * pal/PlatformMac.cmake:
+    * pal/spi/cocoa/AXSpeechManagerSPI.h: Added.
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@269208 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-10-30  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: Incorrect list of voices being displayed on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=218293
+
+            Reviewed by Per Arne Vollan.
+
+            * wtf/PlatformHave.h:
+
 2020-10-27  Russell Epstein  <repstein@apple.com>
 
         Apply patch. rdar://problem/70733375

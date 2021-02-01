@@ -6994,7 +6994,7 @@ if test "${tcl_cv_path_libffi+set}" = set; then
 else
 
     l="$with_libffi_lib $exec_prefix/lib $prefix/lib /usr/local/lib /usr/lib"
-    for d in $l; do if test -r "$d/libffi.dylib" -o -r "$d/libffi.a"; then
+    for d in $l; do if test -r "$d/libffi.tbd" -o -r "$d/libffi.dylib" -o -r "$d/libffi.a"; then
 	tcl_cv_path_libffi="$d"; break; fi; done
 fi
 { echo "$as_me:$LINENO: result: $tcl_cv_path_libffi" >&5

@@ -46,11 +46,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include "IOHIDWorkLoop.h"
-#if TARGET_OS_IPHONE
-class IOGraphicsDevice;
-#else
 #include <IOKit/graphics/IOGraphicsDevice.h>
-#endif
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>

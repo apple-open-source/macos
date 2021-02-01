@@ -95,6 +95,7 @@ POLICYCHECKMACRO(IssuerNameConstraints,          F, B,  ,  ,  , 0x8001211F, errS
 POLICYCHECKMACRO(ValidityPeriodMaximums,         R, C,  , A,  , 0x8001210D, errSecCertificateValidityPeriodTooLong) //CSSMERR_TP_CERT_SUSPENDED
 POLICYCHECKMACRO(ServerAuthEKU,                  R, U,  , A,  , 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
 POLICYCHECKMACRO(UnparseableExtension,           R, C,  ,  , O, 0x80012410, errSecUnknownCertExtension) //CSSMERR_APPLETP_UNKNOWN_CERT_EXTEN
+POLICYCHECKMACRO(NonTlsCTRequired,               R, T,  , A,  , 0x80012114, errSecVerifyActionFailed) //CSSMERR_TP_VERIFY_ACTION_FAILED
 
 /********************************************************
 ******************* Feature Toggles *********************

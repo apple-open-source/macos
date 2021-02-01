@@ -28,11 +28,8 @@
 #include <CoreFoundation/CFLogUtilities.h>
 #include "IOHIDDebug.h"
 #include <AssertMacros.h>
-#if TARGET_OS_OSX
 #import <HIDPreferences/HIDPreferencesHelperListener.h>
-#endif
 
-#if TARGET_OS_OSX
 
 static HIDPreferencesHelperListener *__xpcListener  = nil;
 #pragma mark - setup xpc helper
@@ -49,7 +46,6 @@ static bool setupXPCHelper(void) {
     return true;
     
 }
-#endif
 
 #pragma mark - load parameters
 static void IOHIDEventSystemLoadDefaultParameters (IOHIDEventSystemRef eventSystem) {
@@ -118,7 +114,6 @@ exit:
 int main (int argc , const char * argv[]) {
     
     
-#if TARGET_OS_OSX
     bool supportEventSystem = false;
     
     if (argc > 1 && strcmp(argv[1], "eventSystem") == 0) {
@@ -148,12 +143,6 @@ int main (int argc , const char * argv[]) {
     }
     
     
-#else
-    
-    if (!initHIDSystem()) {
-        exit(EXIT_FAILURE);
-    }
-#endif
     
     CFRunLoopRun();
     

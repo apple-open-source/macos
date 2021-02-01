@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Data-Perl</string>
+        <key>OpenSourceVersion</key>
+        <string>0.002011</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/T/TO/TOBYINK/Data-Perl-0.002011.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-10-29</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

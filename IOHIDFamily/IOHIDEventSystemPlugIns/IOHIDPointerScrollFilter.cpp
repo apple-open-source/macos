@@ -484,11 +484,6 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
           CFArrayRemoveAllValues(children);
         }
         for (int  index = 0; index < (int)(sizeof(axis) / sizeof(axis[0])); index++) {
-#if TARGET_OS_IPHONE
-          // 10x gain factor on scrolling, inherited from older implementations.
-          // TODO: This gain is handled in SkyLight:__IOHIDPointerEventTranslatorProcessScrollCount on macOS. Unify logic here.
-          value[index] *= 10;
-#endif
           IOHIDEventSetFloatValue (accelEvent, axis[index], value[index]);
         }
         IOHIDEventSetEventFlags (accelEvent, IOHIDEventGetEventFlags(accelEvent) | kIOHIDAccelerated);

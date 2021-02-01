@@ -2086,7 +2086,6 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                         {
                                             status = kDAReturnNotPrivileged;
                                         }
-
                                         free( path );
                                     }
 

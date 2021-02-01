@@ -228,13 +228,32 @@ TkpInit(
 #endif
 
 	if (!uname(&name)) {
-	    long darwinVersion = strtol(name.release, NULL, 10);
-	    tkMacOSXMacOSXVersion = darwinVersion < 20 ? darwinVersion + 996 : 100 * (darwinVersion - 9);
+	    char *darwinVersionString = strdup(name.release);
+	    char *ptr = darwinVersionString;
+	    char *darwinMajorVersionString = strsep(&ptr, ".");
+	    char *darwinMinorVersionString = NULL;
+	    if (ptr) {
+		darwinMinorVersionString = strsep(&ptr, ".");
+	    }
+
+	    long darwinMajorVersion = 0;
+	    long darwinMinorVersion = 0;
+
+	    if (darwinMajorVersionString) {
+		darwinMajorVersion = strtol(darwinMajorVersionString, NULL, 10);
+	    }
+	    if (darwinMinorVersionString) {
+		darwinMinorVersion = strtol(darwinMinorVersionString, NULL, 10);
+	    }
+	    tkMacOSXMacOSXVersion = darwinMajorVersion < 20 ? darwinMajorVersion + 996 : 100 * (darwinMajorVersion - 9) + darwinMinorVersion;
+
+	    free(darwinVersionString);
 	}
+	long minVersionRequired = TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED);
 	if (tkMacOSXMacOSXVersion &&
-		tkMacOSXMacOSXVersion < TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)) {
-	    Tcl_Panic("macOS %d or later required !",
-		    TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)/100);
+		tkMacOSXMacOSXVersion < minVersionRequired) {
+	    Tcl_Panic("macOS %ld (%ld) or later required, have instead %ld (%ld) !",
+		      minVersionRequired / 100, minVersionRequired, tkMacOSXMacOSXVersion / 100, tkMacOSXMacOSXVersion);
 	}
 
 #ifdef TK_FRAMEWORK

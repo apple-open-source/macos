@@ -2525,6 +2525,7 @@
 		D47AB2D12356B2FE005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
 		D47AB2D22356B325005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
 		D47AB2D62357955F005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47C457A255244AD00460750 /* CertificateTransparency.m in Sources */ = {isa = PBXBuildFile; fileRef = D47C4579255244AD00460750 /* CertificateTransparency.m */; };
 		D47CA65D1EB036450038E2BB /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */; };
 		D47DCCB523427C7D00B80E37 /* md.m in Sources */ = {isa = PBXBuildFile; fileRef = D47DCCB423427C7D00B80E37 /* md.m */; };
 		D47E69401E92F75D002C8CF6 /* si-61-pkcs12.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DD91D8085FC00865A7C /* si-61-pkcs12.c */; };
@@ -12827,6 +12828,8 @@
 		D47A085B2486EC1A000F2C49 /* AppleExternalRootCertificates.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleExternalRootCertificates.h; sourceTree = "<group>"; };
 		D47A55892466100A0039285D /* MSUDataAccessor.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MSUDataAccessor.framework; path = System/Library/PrivateFrameworks/MSUDataAccessor.framework; sourceTree = SDKROOT; };
 		D47AB2CA2356AD72005A3801 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		D47C4579255244AD00460750 /* CertificateTransparency.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CertificateTransparency.m; sourceTree = "<group>"; };
+		D47C4730255246FC00460750 /* CertificateTransparency.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CertificateTransparency.h; sourceTree = "<group>"; };
 		D47C56AB1DCA831C00E18518 /* lib_ios_x64.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64.xcconfig; path = xcconfig/lib_ios_x64.xcconfig; sourceTree = "<group>"; };
 		D47C56AF1DCA841D00E18518 /* lib_ios_x64_shim.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64_shim.xcconfig; path = xcconfig/lib_ios_x64_shim.xcconfig; sourceTree = "<group>"; };
 		D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
@@ -24380,6 +24383,8 @@
 				D4B68C65211A8186009FED69 /* trustd_spi.c */,
 				D47DCCB423427C7D00B80E37 /* md.m */,
 				D47DCCB723427C8D00B80E37 /* md.h */,
+				D47C4579255244AD00460750 /* CertificateTransparency.m */,
+				D47C4730255246FC00460750 /* CertificateTransparency.h */,
 				D43DBED71E99D17100C04AEA /* nameconstraints.c */,
 				D43DBED81E99D17100C04AEA /* nameconstraints.h */,
 				D43DBED91E99D17100C04AEA /* OTATrustUtilities.m */,
@@ -34420,6 +34425,7 @@
 				5F84950222DFB505008B3EFB /* SecTrustExceptionResetCount.m in Sources */,
 				D43DBF041E99D1CA00C04AEA /* SecOCSPCache.c in Sources */,
 				D43DBF051E99D1CA00C04AEA /* SecOCSPRequest.c in Sources */,
+				D47C457A255244AD00460750 /* CertificateTransparency.m in Sources */,
 				D4B68C68211A827C009FED69 /* trustd_spi.c in Sources */,
 				D43761671EB2996C00954447 /* SecRevocationNetworking.m in Sources */,
 				D4EF3221215F0F7F000A31A5 /* SecTrustStoreServer.m in Sources */,

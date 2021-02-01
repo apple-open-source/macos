@@ -110,15 +110,6 @@ HeimCredMessageSetAttributes(xpc_object_t object, const char *key, CFTypeRef att
 void
 HeimCredSetUUID(xpc_object_t object, const char *key, CFUUIDRef uuid);
 
-#ifdef __OBJC__
-NSData *
-ksDecryptData(NSData * blob);
-
-NSData *
-ksEncryptData(NSData *plainText);
-#endif
-
-
 #define HEIMCRED_CONST(_t,_c) extern const char * _c##xpc
 #include "heimcred-const.h"
 #undef HEIMCRED_CONST

@@ -425,14 +425,13 @@
 		72D184CA24B4FB9C008F9ADA /* libImg4Decode_os.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Decode_os.a; path = usr/local/lib/libImg4Decode_os.a; sourceTree = SDKROOT; };
 		72D184CD24B5036B008F9ADA /* libDER.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDER.a; path = usr/local/lib/libDER.a; sourceTree = SDKROOT; };
 		953E41BE24EF91C000FB44FB /* bless2cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bless2cli; sourceTree = BUILT_PRODUCTS_DIR; };
-		953E41C024EF91C000FB44FB /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		953E41C924EF946000FB44FB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Frameworks/Foundation.framework; sourceTree = "<group>"; };
 		953E41CB24EF946800FB44FB /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Frameworks/CFNetwork.framework; sourceTree = "<group>"; };
 		953E41CD24EF947100FB44FB /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = PrivateFrameworks/DiskImages.framework; sourceTree = "<group>"; };
 		953E41D024EF948800FB44FB /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Frameworks/SystemConfiguration.framework; sourceTree = "<group>"; };
 		953E41D224EF949400FB44FB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Frameworks/Security.framework; sourceTree = "<group>"; };
 		953E41D724EF94B800FB44FB /* libbless2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libbless2.a; path = usr/local/lib/libbless2.a; sourceTree = SDKROOT; };
-		953E41D924EF95D600FB44FB /* bless2_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = bless2_private.h; path = libbless2/bless2_private.h; sourceTree = "<group>"; };
+		953E41D924EF95D600FB44FB /* bless2_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bless2_private.h; sourceTree = "<group>"; };
 		954023F5249A45C70013D230 /* apfs_boot_mount.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = apfs_boot_mount.framework; path = PrivateFrameworks/apfs_boot_mount.framework; sourceTree = "<group>"; };
 		9542712224F9AFED007BC896 /* libauthinstall.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libauthinstall.tbd; path = usr/lib/libauthinstall.tbd; sourceTree = SDKROOT; };
 		95B78C8124B8AA7A000ADA84 /* libpartition.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpartition.a; path = usr/local/lib/libpartition.a; sourceTree = SDKROOT; };
@@ -440,7 +439,6 @@
 		95D11E2324F9ADC90011B195 /* libcrypto.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcrypto.tbd; path = usr/local/lib/libcrypto.tbd; sourceTree = SDKROOT; };
 		95D21DAE24F0457D00D348A6 /* bless2cli.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bless2cli.entitlements; sourceTree = "<group>"; };
 		95E8D85924F9B4130015B1B9 /* libamsupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libamsupport.tbd; path = usr/lib/libamsupport.tbd; sourceTree = SDKROOT; };
-		95F2085624EF8EE8009901D7 /* bless_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = bless_private.h; path = libbless2/bless_private.h; sourceTree = "<group>"; };
 		A03E04F8251C181800E63711 /* bless2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = bless2.plist; sourceTree = "<group>"; };
 		A03E04F9251C183600E63711 /* test_bless2 */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_bless2; sourceTree = "<group>"; };
 		A087F015229769E20021CE0D /* bless.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bless.plist; sourceTree = "<group>"; };
@@ -686,14 +684,9 @@
 		08FB7794FE84155DC02AAC07 /* bless */ = {
 			isa = PBXGroup;
 			children = (
-				95D21DAE24F0457D00D348A6 /* bless2cli.entitlements */,
-				953E41D924EF95D600FB44FB /* bless2_private.h */,
-				95BB315224EF8EB300920A16 /* bless2cli.c */,
-				95F2085624EF8EE8009901D7 /* bless_private.h */,
-				B438DF4222C5925D00CA839C /* libbless2 */,
+				FC86AA342592B6B20000767E /* bless2 */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				F61E922B01A4CF5801F50364 /* Other Files */,
-				953E41BF24EF91C000FB44FB /* bootutil */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				F61E91F701A4B30C01F50364 /* Frameworks */,
 			);
@@ -746,19 +739,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		953E41BF24EF91C000FB44FB /* bootutil */ = {
-			isa = PBXGroup;
-			children = (
-				953E41C024EF91C000FB44FB /* main.swift */,
-			);
-			path = bootutil;
-			sourceTree = "<group>";
-		};
 		B438DF4222C5925D00CA839C /* libbless2 */ = {
 			isa = PBXGroup;
 			children = (
 				B438DF4322C5929400CA839C /* bless2.h */,
 				B438DF4422C5929400CA839C /* bless2.c */,
+				953E41D924EF95D600FB44FB /* bless2_private.h */,
 			);
 			path = libbless2;
 			sourceTree = "<group>";
@@ -979,6 +965,24 @@
 				F61E923501A4DB1701F50364 /* hdbootdata */,
 			);
 			name = files;
+			sourceTree = "<group>";
+		};
+		FC86AA342592B6B20000767E /* bless2 */ = {
+			isa = PBXGroup;
+			children = (
+				FC86AA352592B6C10000767E /* cli */,
+				B438DF4222C5925D00CA839C /* libbless2 */,
+			);
+			path = bless2;
+			sourceTree = "<group>";
+		};
+		FC86AA352592B6C10000767E /* cli */ = {
+			isa = PBXGroup;
+			children = (
+				95BB315224EF8EB300920A16 /* bless2cli.c */,
+				95D21DAE24F0457D00D348A6 /* bless2cli.entitlements */,
+			);
+			path = cli;
 			sourceTree = "<group>";
 		};
 		FCA377631D9210A1009EF117 /* APFS */ = {
@@ -1612,7 +1616,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_ENTITLEMENTS = bless2/cli/bless2cli.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -1689,7 +1693,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_ENTITLEMENTS = bless2/cli/bless2cli.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -1765,7 +1769,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_ENTITLEMENTS = bless2/cli/bless2cli.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
