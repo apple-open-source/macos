@@ -41,7 +41,7 @@ public:
     static TestNamedDeleterWithIdentifier* toWrapped(JSC::VM&, JSC::JSValue);
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSC::JSObject*, JSC::JSGlobalObject*, unsigned propertyName, JSC::PropertySlot&);
-    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::EnumerationMode = JSC::EnumerationMode());
+    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::DontEnumPropertiesMode);
     static bool deleteProperty(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::DeletePropertySlot&);
     static bool deletePropertyByIndex(JSC::JSCell*, JSC::JSGlobalObject*, unsigned);
     static void destroy(JSC::JSCell*);
@@ -63,17 +63,17 @@ public:
     static JSC::IsoSubspace* subspaceForImpl(JSC::VM& vm);
     static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 public:
-    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesAnyFormOfGetPropertyNames | JSC::OverridesGetOwnPropertySlot;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertyNames | JSC::OverridesGetOwnPropertySlot;
 protected:
     JSTestNamedDeleterWithIdentifier(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNamedDeleterWithIdentifier>&&);
 
     void finishCreation(JSC::VM&);
 };
 
-class JSTestNamedDeleterWithIdentifierOwner : public JSC::WeakHandleOwner {
+class JSTestNamedDeleterWithIdentifierOwner final : public JSC::WeakHandleOwner {
 public:
-    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**);
-    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**) final;
+    void finalize(JSC::Handle<JSC::Unknown>, void* context) final;
 };
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestNamedDeleterWithIdentifier*)

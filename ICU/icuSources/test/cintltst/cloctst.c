@@ -6819,6 +6819,7 @@ static const UldnItem en_StdMidLong[] = {
 	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
 	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
 	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+	{ "IO",                     TEST_ULDN_REGION, u"Chagos Archipelago" },
 	{ "ps_Arab",                TEST_ULDN_LOCALE, u"Pashto (Arabic)" },
 	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan)" },
 	{ "ks_Arab",                TEST_ULDN_LOCALE, u"Kashmiri (Naskh)" }, // Apple <rdar://problem/50687287>
@@ -7018,6 +7019,7 @@ static const UldnItem fr_StdMidLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
 	{ "US",                     TEST_ULDN_REGION, u"États-Unis" },
 	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" },
 };
 
 static const UldnItem fr_StdMidShrt[] = {

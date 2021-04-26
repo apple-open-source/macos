@@ -52,10 +52,12 @@ private:
     void videoSampleAvailable(MediaSample&) final;
     void fetchData(FetchDataCallback&&) final;
     void audioSamplesAvailable(const WTF::MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) final;
-    void startRecording(StartRecordingCallback&& callback) final { callback(String(m_writer->mimeType())); }
+    void startRecording(StartRecordingCallback&&) final;
     const String& mimeType() const final;
 
-    void stopRecording();
+    void stopRecording() final;
+    void pauseRecording(CompletionHandler<void()>&&) final;
+    void resumeRecording(CompletionHandler<void()>&&) final;
 
     Ref<MediaRecorderPrivateWriter> m_writer;
     RetainPtr<CVPixelBufferRef> m_blackFrame;

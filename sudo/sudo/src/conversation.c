@@ -27,15 +27,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -54,7 +48,7 @@ sudo_conversation(int num_msgs, const struct sudo_conv_message msgs[],
     struct sudo_conv_reply replies[], struct sudo_conv_callback *callback)
 {
     char *pass;
-    int fd, n;
+    int n;
     const int conv_debug_instance = sudo_debug_get_active_instance();
 
     sudo_debug_set_active_instance(sudo_debug_instance);
@@ -70,7 +64,7 @@ sudo_conversation(int num_msgs, const struct sudo_conv_message msgs[],
 		goto read_pass;
 	    case SUDO_CONV_PROMPT_MASK:
 		SET(flags, TGP_MASK);
-		/* FALLTHROUGH */
+		FALLTHROUGH;
 	    case SUDO_CONV_PROMPT_ECHO_OFF:
 		if (ISSET(msg->msg_type, SUDO_CONV_PROMPT_ECHO_OK))
 		    SET(flags, TGP_NOECHO_TRY);
@@ -86,25 +80,44 @@ sudo_conversation(int num_msgs, const struct sudo_conv_message msgs[],
 		    sudo_fatalx_nodebug(U_("%s: %s"), "sudo_conversation",
 			U_("unable to allocate memory"));
 		}
-		memset_s(pass, SUDO_CONV_REPL_MAX, 0, strlen(pass));
+		explicit_bzero(pass, strlen(pass));
 		break;
 	    case SUDO_CONV_ERROR_MSG:
 		fp = stderr;
-		/* FALLTHROUGH */
+		FALLTHROUGH;
 	    case SUDO_CONV_INFO_MSG:
 		if (msg->msg != NULL) {
-		    if (ISSET(msg->msg_type, SUDO_CONV_PREFER_TTY)) {
-			/* Try writing to /dev/tty first. */
-			if ((fd = open(_PATH_TTY, O_WRONLY)) != -1) {
-			    ssize_t nwritten =
-				write(fd, msg->msg, strlen(msg->msg));
-			    close(fd);
-			    if (nwritten != -1)
-				break;
+		    size_t len = strlen(msg->msg);
+		    const char *crnl = NULL;
+		    bool written = false;
+		    int ttyfd = -1;
+
+		    if (ISSET(msg->msg_type, SUDO_CONV_PREFER_TTY) &&
+			    !ISSET(tgetpass_flags, TGP_STDIN))
+			ttyfd = open(_PATH_TTY, O_WRONLY);
+		    if (len != 0 && (ttyfd != -1 || isatty(fileno(fp)))) {
+			/* Convert nl -> cr nl in case tty is in raw mode. */
+			if (msg->msg[len - 1] == '\n') {
+			    if (len == 1 || msg->msg[len - 2] != '\r') {
+				len--;
+				crnl = "\r\n";
+			    }
 			}
 		    }
-		    if (fputs(msg->msg, fp) == EOF)
-			goto err;
+		    if (ttyfd != -1) {
+			/* Try writing to tty but fall back to fp on error. */
+			if ((len == 0 || write(ttyfd, msg->msg, len) != -1) &&
+				(crnl == NULL || write(ttyfd, crnl, 2) != -1)) {
+			    written = true;
+			}
+			close(ttyfd);
+		    }
+		    if (!written) {
+			if (len != 0 && fwrite(msg->msg, 1, len, fp) == 0)
+			    goto err;
+			if (crnl != NULL && fwrite(crnl, 1, 2, fp) == 0)
+			    goto err;
+		    }
 		}
 		break;
 	    default:
@@ -122,8 +135,7 @@ err:
 	    struct sudo_conv_reply *repl = &replies[n];
 	    if (repl->reply == NULL)
 		continue;
-	    memset_s(repl->reply, SUDO_CONV_REPL_MAX, 0, strlen(repl->reply));
-	    free(repl->reply);
+	    freezero(repl->reply, strlen(repl->reply));
 	    repl->reply = NULL;
 	} while (n--);
     }
@@ -150,7 +162,8 @@ sudo_conversation_printf(int msg_type, const char *fmt, ...)
 
     sudo_debug_set_active_instance(sudo_debug_instance);
 
-    if (ISSET(msg_type, SUDO_CONV_PREFER_TTY)) {
+    if (ISSET(msg_type, SUDO_CONV_PREFER_TTY) &&
+	    !ISSET(tgetpass_flags, TGP_STDIN)) {
 	/* Try writing to /dev/tty first. */
 	ttyfp = fopen(_PATH_TTY, "w");
     }
@@ -158,7 +171,7 @@ sudo_conversation_printf(int msg_type, const char *fmt, ...)
     switch (msg_type & 0xff) {
     case SUDO_CONV_ERROR_MSG:
 	fp = stderr;
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     case SUDO_CONV_INFO_MSG:
 	va_start(ap, fmt);
 	len = vfprintf(ttyfp ? ttyfp : fp, fmt, ap);

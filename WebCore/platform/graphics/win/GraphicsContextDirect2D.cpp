@@ -207,15 +207,10 @@ void GraphicsContext::restorePlatformState()
     Direct2D::restore(*platformContext());
 }
 
-void GraphicsContext::drawNativeImage(const COMPtr<ID2D1Bitmap>& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void GraphicsContext::drawPlatformImage(const COMPtr<ID2D1Bitmap>& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     if (paintingDisabled())
         return;
-
-    if (m_impl) {
-        m_impl->drawNativeImage(image, imageSize, destRect, srcRect, options);
-        return;
-    }
 
     ASSERT(hasPlatformContext());
     auto& state = this->state();
@@ -421,28 +416,14 @@ void GraphicsContext::flush()
     Direct2D::flush(*platformContext());
 }
 
-void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void GraphicsContext::drawPlatformPattern(const PlatformImagePtr& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     if (paintingDisabled() || !patternTransform.isInvertible())
         return;
 
-    if (m_impl) {
-        m_impl->drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
-        return;
-    }
-
     ASSERT(hasPlatformContext());
-    if (auto tileImage = image.nativeImageForCurrentFrame(this))
-        Direct2D::drawPattern(*platformContext(), WTFMove(tileImage), IntSize(image.size()), destRect, tileRect, patternTransform, phase, options.compositeOperator(), options.blendMode());
-}
-
-void GraphicsContext::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& destRect)
-{
-    if (paintingDisabled())
-        return;
-
-    FloatSize bufferDestinationSize = buffer.sizeForDestinationSize(destRect.size());
-    notImplemented();
+    auto tileImage = image;
+    Direct2D::drawPattern(*platformContext(), WTFMove(tileImage), IntSize(image.size()), destRect, tileRect, patternTransform, phase, options.compositeOperator(), options.blendMode());
 }
 
 // Draws a filled rectangle with a stroked border.

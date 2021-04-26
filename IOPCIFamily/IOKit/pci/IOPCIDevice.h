@@ -174,20 +174,6 @@ struct IOPCIPhysicalAddress {
 #endif
 };
 
-// IOPCIDevice matching property names
-#define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
-#define kIOPCITunnelledKey              "IOPCITunnelled"
-#define kIOPCITunnelL1EnableKey         "IOPCITunnelL1Enable"
-
-#define kIOPCIPauseCompatibleKey        "IOPCIPauseCompatible"
-
-// property to control PCI default config space save on sleep
-#define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
-// property to disable express link on sleep
-#define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
-// property to reset secondary bus on sleep
-#define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
-
 #ifndef kIOPlatformDeviceASPMEnableKey
 #define kIOPlatformDeviceASPMEnableKey  "IOPlatformDeviceASPMEnable"
 #endif
@@ -440,6 +426,7 @@ private:
     void     updateWakeReason(uint16_t pmeState);
     IOReturn enableLTR(IOPCIDevice * device, bool enable);
     IOReturn enableACS(IOPCIDevice * device, bool enable);
+    IOReturn clientCrashedThreadCall(thread_call_t threadCall);
 
 public:
 

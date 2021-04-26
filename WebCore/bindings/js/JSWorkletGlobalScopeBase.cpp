@@ -27,14 +27,12 @@
 #include "config.h"
 #include "JSWorkletGlobalScopeBase.h"
 
-#if ENABLE(CSS_PAINTING_API)
-
 #include "DOMWrapperWorld.h"
 #include "JSDOMGlobalObjectTask.h"
 #include "JSDOMGuardedObject.h"
 #include "JSWorkletGlobalScope.h"
+#include "WorkerOrWorkletScriptController.h"
 #include "WorkletGlobalScope.h"
-#include "WorkletScriptController.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCJSValueInlines.h>
 #include <wtf/Language.h>
@@ -58,6 +56,8 @@ const GlobalObjectMethodTable JSWorkletGlobalScopeBase::s_globalObjectMethodTabl
     nullptr, // moduleLoaderEvaluate
     &promiseRejectionTracker,
     &reportUncaughtExceptionAtEventLoop,
+    &currentScriptExecutionOwner,
+    &scriptExecutionStatus,
     &defaultLanguage,
     nullptr, // compileStreaming
     nullptr, // instantiateStreaming
@@ -77,13 +77,6 @@ void JSWorkletGlobalScopeBase::finishCreation(VM& vm, JSProxy* proxy)
     ASSERT(inherits(vm, info()));
 }
 
-void JSWorkletGlobalScopeBase::clearDOMGuardedObjects()
-{
-    auto guardedObjects = m_guardedObjects;
-    for (auto& guarded : guardedObjects)
-        guarded->clear();
-}
-
 void JSWorkletGlobalScopeBase::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     auto* thisObject = jsCast<JSWorkletGlobalScopeBase*>(cell);
@@ -100,6 +93,12 @@ void JSWorkletGlobalScopeBase::destroy(JSCell* cell)
 ScriptExecutionContext* JSWorkletGlobalScopeBase::scriptExecutionContext() const
 {
     return m_wrapped.get();
+}
+
+JSC::ScriptExecutionStatus JSWorkletGlobalScopeBase::scriptExecutionStatus(JSC::JSGlobalObject* globalObject, JSC::JSObject* owner)
+{
+    ASSERT_UNUSED(owner, globalObject == owner);
+    return jsCast<JSWorkletGlobalScopeBase*>(globalObject)->scriptExecutionContext()->jscScriptExecutionStatus();
 }
 
 bool JSWorkletGlobalScopeBase::supportsRichSourceInfo(const JSGlobalObject* object)
@@ -132,10 +131,10 @@ JSValue toJS(JSGlobalObject*, WorkletGlobalScope& workletGlobalScope)
 {
     if (!workletGlobalScope.script())
         return jsUndefined();
-    auto* contextWrapper = workletGlobalScope.script()->workletGlobalScopeWrapper();
+    auto* contextWrapper = workletGlobalScope.script()->globalScopeWrapper();
     if (!contextWrapper)
         return jsUndefined();
-    return contextWrapper->proxy();
+    return &contextWrapper->proxy();
 }
 
 JSWorkletGlobalScope* toJSWorkletGlobalScope(VM& vm, JSValue value)
@@ -151,4 +150,3 @@ JSWorkletGlobalScope* toJSWorkletGlobalScope(VM& vm, JSValue value)
 }
 
 } // namespace WebCore
-#endif

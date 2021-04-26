@@ -38,6 +38,8 @@
 #import "WebPage.h"
 #import "WebPageCreationParameters.h"
 #import "WebPageProxyMessages.h"
+#import "WebPreferencesKeys.h"
+#import "WebPreferencesStore.h"
 #import "WebProcess.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <QuartzCore/QuartzCore.h>
@@ -73,7 +75,6 @@ using namespace WebCore;
 
 TiledCoreAnimationDrawingArea::TiledCoreAnimationDrawingArea(WebPage& webPage, const WebPageCreationParameters& parameters)
     : DrawingArea(DrawingAreaTypeTiledCoreAnimation, parameters.drawingAreaIdentifier, webPage)
-    , m_sendDidUpdateActivityStateTimer(RunLoop::main(), this, &TiledCoreAnimationDrawingArea::didUpdateActivityStateTimerFired)
     , m_isPaintingSuspended(!(parameters.activityState & ActivityState::IsVisible))
 {
     m_webPage.corePage()->settings().setForceCompositingMode(true);
@@ -172,16 +173,19 @@ void TiledCoreAnimationDrawingArea::forceRepaint()
     [CATransaction synchronize];
 }
 
-bool TiledCoreAnimationDrawingArea::forceRepaintAsync(CallbackID callbackID)
+void TiledCoreAnimationDrawingArea::forceRepaintAsync(WebPage& page, CompletionHandler<void()>&& completionHandler)
 {
-    if (m_layerTreeStateIsFrozen)
-        return false;
+    if (m_layerTreeStateIsFrozen) {
+        page.forceRepaintWithoutCallback();
+        return completionHandler();
+    }
 
-    dispatchAfterEnsuringUpdatedScrollPosition([this, callbackID] {
+    dispatchAfterEnsuringUpdatedScrollPosition([this, weakThis = makeWeakPtr(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+        if (!weakThis)
+            return completionHandler();
         m_webPage.drawingArea()->forceRepaint();
-        m_webPage.send(Messages::WebPageProxy::VoidCallback(callbackID));
+        completionHandler();
     });
-    return true;
 }
 
 void TiledCoreAnimationDrawingArea::setLayerTreeStateIsFrozen(bool layerTreeStateIsFrozen)
@@ -206,32 +210,17 @@ bool TiledCoreAnimationDrawingArea::layerTreeStateIsFrozen() const
     return m_layerTreeStateIsFrozen;
 }
 
-void TiledCoreAnimationDrawingArea::scheduleRenderingUpdate()
+void TiledCoreAnimationDrawingArea::triggerRenderingUpdate()
 {
     if (m_layerTreeStateIsFrozen)
         return;
+
     scheduleRenderingUpdateRunLoopObserver();
 }
 
-void TiledCoreAnimationDrawingArea::scheduleImmediateRenderingUpdate()
-{
-    scheduleRenderingUpdateRunLoopObserver();
-}
-
-void TiledCoreAnimationDrawingArea::updatePreferences(const WebPreferencesStore&)
+void TiledCoreAnimationDrawingArea::updatePreferences(const WebPreferencesStore& store)
 {
     Settings& settings = m_webPage.corePage()->settings();
-
-#if ENABLE(ASYNC_SCROLLING)
-    if (AsyncScrollingCoordinator* scrollingCoordinator = downcast<AsyncScrollingCoordinator>(m_webPage.corePage()->scrollingCoordinator())) {
-        bool scrollingPerformanceLoggingEnabled = m_webPage.scrollingPerformanceLoggingEnabled();
-        
-        RefPtr<ScrollingTree> scrollingTree = scrollingCoordinator->scrollingTree();
-        ScrollingThread::dispatch([scrollingTree, scrollingPerformanceLoggingEnabled] {
-            scrollingTree->setScrollingPerformanceLoggingEnabled(scrollingPerformanceLoggingEnabled);
-        });
-    }
-#endif
 
     // Fixed position elements need to be composited and create stacking contexts
     // in order to be scrolled by the ScrollingCoordinator.
@@ -263,7 +252,7 @@ void TiledCoreAnimationDrawingArea::attachViewOverlayGraphicsLayer(GraphicsLayer
 {
     m_viewOverlayRootLayer = viewOverlayRootLayer;
     updateRootLayers();
-    scheduleRenderingUpdate();
+    triggerRenderingUpdate();
 }
 
 void TiledCoreAnimationDrawingArea::mainFrameContentSizeChanged(const IntSize& size)
@@ -276,7 +265,7 @@ void TiledCoreAnimationDrawingArea::setShouldScaleViewToFitDocument(bool shouldS
         return;
 
     m_shouldScaleViewToFitDocument = shouldScaleView;
-    scheduleRenderingUpdate();
+    triggerRenderingUpdate();
 }
 
 void TiledCoreAnimationDrawingArea::scaleViewToFitDocumentIfNeeded()
@@ -420,7 +409,7 @@ void TiledCoreAnimationDrawingArea::sendPendingNewlyReachedPaintingMilestones()
 void TiledCoreAnimationDrawingArea::addTransactionCallbackID(CallbackID callbackID)
 {
     m_pendingCallbackIDs.append(callbackID);
-    scheduleRenderingUpdate();
+    triggerRenderingUpdate();
 }
 
 void TiledCoreAnimationDrawingArea::addCommitHandlers()
@@ -492,8 +481,51 @@ void TiledCoreAnimationDrawingArea::updateRendering(UpdateRenderingType flushTyp
         }
 
         sendDidFirstLayerFlushIfNeeded();
+        handleActivityStateChangeCallbacksIfNeeded();
         invalidateRenderingUpdateRunLoopObserver();
     }
+}
+
+void TiledCoreAnimationDrawingArea::handleActivityStateChangeCallbacks()
+{
+    if (!m_shouldHandleActivityStateChangeCallbacks)
+        return;
+    m_shouldHandleActivityStateChangeCallbacks = false;
+
+    if (m_activityStateChangeID != ActivityStateChangeAsynchronous)
+        m_webPage.send(Messages::WebPageProxy::DidUpdateActivityState());
+
+    for (auto& callbackID : m_nextActivityStateChangeCallbackIDs)
+        m_webPage.send(Messages::WebPageProxy::VoidCallback(callbackID));
+    m_nextActivityStateChangeCallbackIDs.clear();
+
+    m_activityStateChangeID = ActivityStateChangeAsynchronous;
+}
+
+void TiledCoreAnimationDrawingArea::handleActivityStateChangeCallbacksIfNeeded()
+{
+    if (!m_shouldHandleActivityStateChangeCallbacks)
+        return;
+
+    // If there is no active transaction, likely there is no layer change or change is committed,
+    // perform the callbacks immediately, which may unblock UI process.
+    if (![CATransaction currentState]) {
+        handleActivityStateChangeCallbacks();
+        return;
+    }
+
+    [CATransaction addCommitHandler:[weakThis = makeWeakPtr(*this)] {
+        if (!weakThis)
+            return;
+
+        auto protectedPage = makeRef(weakThis->m_webPage);
+        auto* drawingArea = static_cast<TiledCoreAnimationDrawingArea*>(protectedPage->drawingArea());
+        ASSERT(weakThis.get() == drawingArea);
+        if (drawingArea != weakThis.get())
+            return;
+
+        drawingArea->handleActivityStateChangeCallbacks();
+    } forPhase:kCATransactionPhasePostCommit];
 }
 
 void TiledCoreAnimationDrawingArea::activityStateDidChange(OptionSet<ActivityState::Flag> changed, ActivityStateChangeID activityStateChangeID, const Vector<CallbackID>& nextActivityStateChangeCallbackIDs)
@@ -508,22 +540,10 @@ void TiledCoreAnimationDrawingArea::activityStateDidChange(OptionSet<ActivitySta
             suspendPainting();
     }
 
-    if (m_activityStateChangeID != ActivityStateChangeAsynchronous || !m_nextActivityStateChangeCallbackIDs.isEmpty())
-        m_sendDidUpdateActivityStateTimer.startOneShot(0_s);
-}
-
-void TiledCoreAnimationDrawingArea::didUpdateActivityStateTimerFired()
-{
-    [CATransaction flush];
-
-    if (m_activityStateChangeID != ActivityStateChangeAsynchronous)
-        m_webPage.send(Messages::WebPageProxy::DidUpdateActivityState());
-
-    for (const auto& callbackID : m_nextActivityStateChangeCallbackIDs)
-        m_webPage.send(Messages::WebPageProxy::VoidCallback(callbackID));
-
-    m_nextActivityStateChangeCallbackIDs.clear();
-    m_activityStateChangeID = ActivityStateChangeAsynchronous;
+    if (m_activityStateChangeID != ActivityStateChangeAsynchronous || !m_nextActivityStateChangeCallbackIDs.isEmpty()) {
+        m_shouldHandleActivityStateChangeCallbacks = true;
+        triggerRenderingUpdate();
+    }
 }
 
 void TiledCoreAnimationDrawingArea::suspendPainting()

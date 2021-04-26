@@ -542,7 +542,7 @@ T_DECL(basic_perf_parallel_by_size_class_offset,
 	   "Malloc/Free by size class with offset parallel",
 	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone"))
+	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_by_size_class_offset(false);
 }

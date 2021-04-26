@@ -121,19 +121,16 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     detached()
     {
+        if (this._nameTextField?.editing)
+            this._nameTextField.element.blur();
+        else if (this._valueTextField?.editing)
+            this._valueTextField.element.blur();
+
         if (this._nameTextField)
             this._nameTextField.detached();
 
         if (this._valueTextField)
             this._valueTextField.detached();
-    }
-
-    hidden()
-    {
-        if (this._nameTextField && this._nameTextField.editing)
-            this._nameTextField.element.blur();
-        else if (this._valueTextField && this._valueTextField.editing)
-            this._valueTextField.element.blur();
     }
 
     remove(replacement = null)
@@ -463,7 +460,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         const maxValueLength = 150;
         let tokens = WI.tokenizeCSSValue(value);
 
-        if (this._property.enabled)
+        if (this._property.enabled && !this._property.overridden && this._property.valid && !this._property.hasOtherVendorNameOrKeyword())
             tokens = this._replaceSpecialTokens(tokens);
 
         tokens = tokens.map((token) => {
@@ -515,7 +512,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         let readOnly = !this._isEditable();
         let swatch = new WI.InlineSwatch(type, valueObject, readOnly);
 
-        swatch.addEventListener(WI.InlineSwatch.Event.ValueChanged, (event) => {
+        swatch.addEventListener(WI.InlineSwatch.Event.ValueChanged, function(event) {
             let value = event.data.value && event.data.value.toString();
             if (!value)
                 return;
@@ -534,15 +531,15 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         }
 
         if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchActivated === "function") {
-            swatch.addEventListener(WI.InlineSwatch.Event.Activated, () => {
+            swatch.addEventListener(WI.InlineSwatch.Event.Activated, function(event) {
                 this._delegate.stylePropertyInlineSwatchActivated();
-            });
+            }, this);
         }
 
         if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchDeactivated === "function") {
-            swatch.addEventListener(WI.InlineSwatch.Event.Deactivated, () => {
+            swatch.addEventListener(WI.InlineSwatch.Event.Deactivated, function(event) {
                 this._delegate.stylePropertyInlineSwatchDeactivated();
-            });
+            }, this);
         }
 
         tokenElement.append(swatch.element, innerElement);
@@ -795,7 +792,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                 if (variableNameIndex !== -1) {
                     let contents = rawTokens.slice(0, variableNameIndex + 1);
 
-                    if (WI.settings.experimentalEnableStyelsJumpToVariableDeclaration.value && this._property.ownerStyle.type !== WI.CSSStyleDeclaration.Type.Computed && this._delegate && this._delegate.spreadsheetStylePropertySelectByProperty) {
+                    if (WI.settings.experimentalEnableStylesJumpToVariableDeclaration.value && this._property.ownerStyle.type !== WI.CSSStyleDeclaration.Type.Computed && this._delegate && this._delegate.spreadsheetStylePropertySelectByProperty) {
                         const dontCreateIfMissing = true;
                         let effectiveVariableProperty = this._property.ownerStyle.nodeStyles.effectivePropertyForName(rawTokens[variableNameIndex].value, dontCreateIfMissing);
                         if (effectiveVariableProperty) {
@@ -814,7 +811,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                     if (fallbackStartIndex !== -1) {
                         contents.pushAll(rawTokens.slice(variableNameIndex + 1, fallbackStartIndex));
 
-                        let fallbackTokens = rawTokens.slice(fallbackStartIndex, i);
+                        let fallbackTokens = rawTokens.slice(fallbackStartIndex);
                         fallbackTokens = this._addBoxShadowTokens(fallbackTokens);
                         fallbackTokens = this._addGradientTokens(fallbackTokens);
                         fallbackTokens = this._addColorTokens(fallbackTokens);
@@ -823,8 +820,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                         fallbackTokens = this._addVariableTokens(fallbackTokens);
                         contents.pushAll(fallbackTokens);
                     } else
-                        contents.pushAll(rawTokens.slice(variableNameIndex + 1, i));
-                    contents.push(token);
+                        contents.pushAll(rawTokens.slice(variableNameIndex + 1));
 
                     let text = rawTokens.reduce((accumulator, token) => accumulator + token.value, "");
                     if (this._property.ownerStyle.nodeStyles.computedStyle.resolveVariableValue(text))

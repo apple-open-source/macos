@@ -242,7 +242,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 100 * NSEC_PER_SEC)
 
         // Now we arrive, and attempt to SOS join
-        let sosUpgradeStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade] as! CKKSCondition
+        let sosUpgradeStateCondition : CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade]!
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -912,7 +912,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.sosEnabled = false
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
-        let everEnteredSOSUpgrade: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade] as! CKKSCondition
+        let everEnteredSOSUpgrade: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade]!
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -1051,6 +1051,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .disabled, "CDP status should be 'disabled'")
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
     }
 
     func testDoNotAttemptUpgradeOnRestart() throws {

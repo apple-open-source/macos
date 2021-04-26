@@ -46,7 +46,7 @@ std::unique_ptr<WebCore::AudioMediaStreamTrackRenderer> AudioMediaStreamTrackRen
 AudioMediaStreamTrackRenderer::AudioMediaStreamTrackRenderer(Ref<IPC::Connection>&& connection)
     : m_connection(WTFMove(connection))
     , m_identifier(AudioMediaStreamTrackRendererIdentifier::generate())
-    , m_ringBuffer(makeUnique<WebCore::CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(this)))
+    , m_ringBuffer(makeUnique<WebCore::CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(std::bind(&AudioMediaStreamTrackRenderer::storageChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3))))
 {
     m_connection->send(Messages::RemoteAudioMediaStreamTrackRendererManager::CreateRenderer { m_identifier }, 0);
 }
@@ -90,18 +90,15 @@ void AudioMediaStreamTrackRenderer::pushSamples(const MediaTime& time, const Web
 
         // Allocate a ring buffer large enough to contain 2 seconds of audio.
         m_numberOfFrames = m_description.sampleRate() * 2;
-        m_ringBuffer->allocate(m_description.streamDescription(), m_numberOfFrames);
+        m_ringBuffer->allocate(m_description, m_numberOfFrames);
     }
 
     ASSERT(is<WebCore::WebAudioBufferList>(audioData));
     m_ringBuffer->store(downcast<WebCore::WebAudioBufferList>(audioData).list(), numberOfFrames, time.timeValue());
-    uint64_t startFrame;
-    uint64_t endFrame;
-    m_ringBuffer->getCurrentFrameBounds(startFrame, endFrame);
-    m_connection->send(Messages::RemoteAudioMediaStreamTrackRenderer::AudioSamplesAvailable { time, numberOfFrames, startFrame, endFrame }, m_identifier);
+    m_connection->send(Messages::RemoteAudioMediaStreamTrackRenderer::AudioSamplesAvailable { time, numberOfFrames }, m_identifier);
 }
 
-void AudioMediaStreamTrackRenderer::storageChanged(SharedMemory* storage)
+void AudioMediaStreamTrackRenderer::storageChanged(SharedMemory* storage, const WebCore::CAAudioStreamDescription& format, size_t frameCount)
 {
     SharedMemory::Handle handle;
     if (storage)
@@ -113,7 +110,7 @@ void AudioMediaStreamTrackRenderer::storageChanged(SharedMemory* storage)
 #else
     uint64_t dataSize = 0;
 #endif
-    m_connection->send(Messages::RemoteAudioMediaStreamTrackRenderer::AudioSamplesStorageChanged { SharedMemory::IPCHandle { WTFMove(handle), dataSize }, m_description, static_cast<uint64_t>(m_numberOfFrames) }, m_identifier);
+    m_connection->send(Messages::RemoteAudioMediaStreamTrackRenderer::AudioSamplesStorageChanged { SharedMemory::IPCHandle { WTFMove(handle), dataSize }, format, frameCount }, m_identifier);
 }
 
 }

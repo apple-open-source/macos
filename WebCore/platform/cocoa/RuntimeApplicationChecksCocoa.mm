@@ -96,6 +96,12 @@ bool isInWebProcess()
     return mainBundleIsWebProcess;
 }
 
+bool isInGPUProcess()
+{
+    static bool mainBundleIsGPUProcess = [[[NSBundle mainBundle] bundleIdentifier] hasPrefix:@"com.apple.WebKit.GPU"];
+    return mainBundleIsGPUProcess;
+}
+
 bool isInNetworkProcess()
 {
     static bool mainBundleIsNetworkProcess = [[[NSBundle mainBundle] bundleIdentifier] hasPrefix:@"com.apple.WebKit.Networking"];
@@ -438,6 +444,12 @@ bool IOSApplication::isCrunchyroll()
 {
     static bool isCrunchyroll = applicationBundleIsEqualTo("com.crunchyroll.iphone"_s);
     return isCrunchyroll;
+}
+
+bool IOSApplication::isWechat()
+{
+    static bool isWechat = applicationBundleIsEqualTo("com.tencent.xin"_s);
+    return isWechat;
 }
 
 #endif

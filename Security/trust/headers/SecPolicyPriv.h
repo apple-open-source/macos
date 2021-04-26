@@ -199,6 +199,8 @@ extern const CFStringRef kSecPolicyAppleAggregateMetricTransparency
     API_AVAILABLE(macos(10.15.6), ios(13.6), watchos(6.2), tvos(13.4));
 extern const CFStringRef kSecPolicyAppleAggregateMetricEncryption
     API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
+extern const CFStringRef kSecPolicyApplePayModelSigning
+    API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
 
 
 /*!
@@ -915,7 +917,8 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void);
     * The chain is anchored to any of the Apple Root CAs.
     * There are exactly 3 certs in the chain.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3.
-    * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.16.
+    * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.16, or on non-GM
+     builds only, OID 1.2.840.113635.100.4.17.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
 */
@@ -925,7 +928,7 @@ SecPolicyRef SecPolicyCreateConfigurationProfileSigner(void);
 /*!
  @function SecPolicyCreateQAConfigurationProfileSigner
  @abstract Returns a policy object for evaluating certificate chains for signing
- QA Configuration Profiles. On customer builds, this function returns the same
+ QA Configuration Profiles. On GM builds, this function returns the same
  policy as SecPolicyCreateConfigurationProfileSigner.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
@@ -1876,6 +1879,54 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
     API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
 
+/*!
+ @function SecPolicyCreateSSLWithKeyUsage
+ @abstract Returns a policy object for evaluating SSL certificate chains (with key usage enforcement)
+ @param server Passing true for this parameter creates a policy for SSL
+ server certificates.
+ @param hostname (Optional) If present, the policy will require the specified
+ hostname to match the hostname in the leaf certificate.
+ @param keyUsage SecKeyUsage flags (see SecCertificatePriv.h) that the server certificate must have specified.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateSSLWithKeyUsage(Boolean server, CFStringRef __nullable hostname, uint32_t keyUsage)
+    API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
+
+/*!
+ @function SecPolicySetSHA256Pins
+ @abstract Sets the SubjectPublicKeyInfo (SPKI) pins.
+ @param policy The policy to modify.
+ @param leafSPKISHA256 An array of SHA256 hashes of permitted leaf SPKIs. Passing NULL will remove any previous pins.
+ @param caSPKISHA256 An array of SHA256 hashes of CA SPKIs. Passing NULL will remove any previous pins.
+ @discussion Pins replace any existing pins set on the policy.
+ Setting leaf pins will require that the SPKI in the leaf certificate validated must match at least one of the array of leafSPKISHA256 pins.
+ Setting CA pins will require that at an SPKI in at least one CA certificate in the built chain from the leaf certificate to a trusted anchor certificate
+ matches at least one of the array of caSPKISHA256 pins.
+ */
+void SecPolicySetSHA256Pins(SecPolicyRef policy, CFArrayRef _Nullable leafSPKISHA256, CFArrayRef _Nullable caSPKISHA256)
+    API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
+
+/*!
+ @function SecPolicyCreateApplayPayModelSigning
+ @abstract Returns a policy object for verifying Aggregate Metric Encryption certificates
+ @param checkExpiration A boolean to indicate whether the policy should check for expiration.
+ @discussion The resulting policy uses the Basic X.509 policy with optional validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.17.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.12.20
+     * Revocation is checked via any available method.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration)
+    API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
+
 /*
  *  Legacy functions (OS X only)
  */
@@ -1961,6 +2012,7 @@ extern const CFStringRef kSecPolicyCheckIssuerPolicyConstraints;
 extern const CFStringRef kSecPolicyCheckIssuerNameConstraints;
 extern const CFStringRef kSecPolicyCheckKeySize;
 extern const CFStringRef kSecPolicyCheckKeyUsage;
+extern const CFStringRef kSecPolicyCheckKeyUsageReportOnly;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOidWithoutValueCheck;
 extern const CFStringRef kSecPolicyCheckLeafMarkersProdAndQA;

@@ -28,7 +28,6 @@
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
 
-#import "DataReference.h"
 #import "NetworkSessionCocoa.h"
 #import "NetworkSocketChannel.h"
 #import <Foundation/NSURLSession.h>
@@ -37,9 +36,9 @@
 #import <WebCore/WebSocketChannel.h>
 #import <wtf/BlockPtr.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+
+using namespace WebCore;
 
 WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, RetainPtr<NSURLSessionWebSocketTask>&& task)
     : m_channel(channel)
@@ -95,9 +94,13 @@ void WebSocketTask::resume()
 
 void WebSocketTask::didConnect(const String& protocol)
 {
-    // FIXME: support extensions.
+    String extensionsValue;
+    auto response = [m_task response];
+    if ([response isKindOfClass:[NSHTTPURLResponse class]])
+        extensionsValue = [(NSHTTPURLResponse *)response valueForHTTPHeaderField:@"Sec-WebSocket-Extensions"];
+
     m_receivedDidConnect = true;
-    m_channel.didConnect(protocol, { });
+    m_channel.didConnect(protocol, extensionsValue);
     m_channel.didReceiveHandshakeResponse(ResourceResponse { [m_task response] });
 }
 

@@ -37,14 +37,14 @@ namespace WebKit {
 
 using namespace WebCore;
 
-std::unique_ptr<RemoteLegacyCDM> RemoteLegacyCDM::create(WeakPtr<RemoteLegacyCDMFactory>&& factory, RemoteLegacyCDMIdentifier id)
+std::unique_ptr<RemoteLegacyCDM> RemoteLegacyCDM::create(WeakPtr<RemoteLegacyCDMFactory>&& factory, RemoteLegacyCDMIdentifier identifier)
 {
-    return std::unique_ptr<RemoteLegacyCDM>(new RemoteLegacyCDM(WTFMove(factory), WTFMove(id)));
+    return std::unique_ptr<RemoteLegacyCDM>(new RemoteLegacyCDM(WTFMove(factory), WTFMove(identifier)));
 }
 
-RemoteLegacyCDM::RemoteLegacyCDM(WeakPtr<RemoteLegacyCDMFactory>&& factory, RemoteLegacyCDMIdentifier&& id)
+RemoteLegacyCDM::RemoteLegacyCDM(WeakPtr<RemoteLegacyCDMFactory>&& factory, RemoteLegacyCDMIdentifier&& identifier)
     : m_factory(WTFMove(factory))
-    , m_identifier(WTFMove(id))
+    , m_identifier(WTFMove(identifier))
 {
 }
 
@@ -67,21 +67,21 @@ std::unique_ptr<WebCore::LegacyCDMSession> RemoteLegacyCDM::createSession(WebCor
 
     String storageDirectory = client ? client->mediaKeysStorageDirectory() : emptyString();
 
-    RemoteLegacyCDMSessionIdentifier id;
-    m_factory->gpuProcessConnection().connection().sendSync(Messages::RemoteLegacyCDMProxy::CreateSession(storageDirectory), Messages::RemoteLegacyCDMProxy::CreateSession::Reply(id), m_identifier);
-    if (!id)
+    RemoteLegacyCDMSessionIdentifier identifier;
+    m_factory->gpuProcessConnection().connection().sendSync(Messages::RemoteLegacyCDMProxy::CreateSession(storageDirectory), Messages::RemoteLegacyCDMProxy::CreateSession::Reply(identifier), m_identifier);
+    if (!identifier)
         return nullptr;
-    return RemoteLegacyCDMSession::create(m_factory, WTFMove(id));
+    return RemoteLegacyCDMSession::create(m_factory, WTFMove(identifier));
 }
 
-void RemoteLegacyCDM::setPlayerId(MediaPlayerPrivateRemoteIdentifier id)
+void RemoteLegacyCDM::setPlayerId(MediaPlayerIdentifier identifier)
 {
     if (!m_factory)
         return;
 
-    Optional<MediaPlayerPrivateRemoteIdentifier> optionalId;
-    if (id)
-        optionalId = id;
+    Optional<MediaPlayerIdentifier> optionalId;
+    if (identifier)
+        optionalId = identifier;
     m_factory->gpuProcessConnection().connection().send(Messages::RemoteLegacyCDMProxy::SetPlayerId(optionalId), m_identifier);
 }
 

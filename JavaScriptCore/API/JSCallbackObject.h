@@ -125,7 +125,7 @@ template <class Parent>
 class JSCallbackObject final : public Parent {
 public:
     using Base = Parent;
-    static constexpr unsigned StructureFlags = Base::StructureFlags | ProhibitsPropertyCaching | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | ImplementsHasInstance | OverridesAnyFormOfGetPropertyNames | OverridesGetCallData;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetOwnSpecialPropertyNames | OverridesGetCallData | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | ImplementsHasInstance | ProhibitsPropertyCaching | GetOwnPropertySlotMayBeWrongAboutDontEnum;
     static_assert(!(StructureFlags & ImplementsDefaultHasInstance), "using customHasInstance");
 
     ~JSCallbackObject();
@@ -182,6 +182,11 @@ public:
 
     using Parent::methodTable;
 
+    static EncodedJSValue callImpl(JSGlobalObject*, CallFrame*);
+    static EncodedJSValue constructImpl(JSGlobalObject*, CallFrame*);
+    static EncodedJSValue staticFunctionGetterImpl(JSGlobalObject*, EncodedJSValue, PropertyName);
+    static EncodedJSValue callbackGetterImpl(JSGlobalObject*, EncodedJSValue, PropertyName);
+   
 private:
     JSCallbackObject(JSGlobalObject*, Structure*, JSClassRef, void* data);
     JSCallbackObject(VM&, JSClassRef, Structure*);
@@ -206,7 +211,7 @@ private:
 
     static bool customHasInstance(JSObject*, JSGlobalObject*, JSValue);
 
-    static void getOwnNonIndexPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
+    static void getOwnSpecialPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, DontEnumPropertiesMode);
 
     static CallData getConstructData(JSCell*);
     static CallData getCallData(JSCell*);
@@ -223,13 +228,18 @@ private:
  
     static JSCallbackObject* asCallbackObject(JSValue);
     static JSCallbackObject* asCallbackObject(EncodedJSValue);
+
+    using RawNativeFunction = EncodedJSValue(JSC_HOST_CALL_ATTRIBUTES*)(JSGlobalObject*, CallFrame*);
+
+    static RawNativeFunction getCallFunction();
+    static RawNativeFunction getConstructFunction();
+
+    using GetValueFunc = EncodedJSValue(JIT_OPERATION_ATTRIBUTES*)(JSGlobalObject*, EncodedJSValue, PropertyName);
+
+    static GetValueFunc getStaticFunctionGetter();
+    static GetValueFunc getCallbackGetter();
  
-    static EncodedJSValue JSC_HOST_CALL call(JSGlobalObject*, CallFrame*);
-    static EncodedJSValue JSC_HOST_CALL construct(JSGlobalObject*, CallFrame*);
-   
     JSValue getStaticValue(JSGlobalObject*, PropertyName);
-    static EncodedJSValue staticFunctionGetter(JSGlobalObject*, EncodedJSValue, PropertyName);
-    static EncodedJSValue callbackGetter(JSGlobalObject*, EncodedJSValue, PropertyName);
 
     std::unique_ptr<JSCallbackObjectData> m_callbackObjectData;
     const ClassInfo* m_classInfo { nullptr };

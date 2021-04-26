@@ -45,6 +45,7 @@
 #include "GraphicsContextPlatformPrivateCairo.h"
 #include "Image.h"
 #include "ImageBuffer.h"
+#include "NativeImage.h"
 #include "Path.h"
 #include "PlatformContextCairo.h"
 #include "ShadowBlur.h"
@@ -174,16 +175,16 @@ enum PathDrawingStyle {
 
 static void drawShadowLayerBuffer(PlatformContextCairo& platformContext, ImageBuffer& layerImage, const FloatPoint& layerOrigin, const FloatSize& layerSize, const ShadowState& shadowState)
 {
-    if (auto surface = layerImage.copyNativeImage(DontCopyBackingStore)) {
-        drawNativeImage(platformContext, surface.get(), FloatRect(roundedIntPoint(layerOrigin), layerSize), FloatRect(FloatPoint(), layerSize), { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
+    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore)) {
+        drawPlatformImage(platformContext, nativeImage->platformImage().get(), FloatRect(roundedIntPoint(layerOrigin), layerSize), FloatRect(FloatPoint(), layerSize), { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
     }
 }
 
 // FIXME: This is mostly same as drawShadowLayerBuffer, so we should merge two.
 static void drawShadowImage(PlatformContextCairo& platformContext, ImageBuffer& layerImage, const FloatRect& destRect, const FloatRect& srcRect, const ShadowState& shadowState)
 {
-    if (auto surface = layerImage.copyNativeImage(DontCopyBackingStore)) {
-        drawNativeImage(platformContext, surface.get(), destRect, srcRect, { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
+    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore)) {
+        drawPlatformImage(platformContext, nativeImage->platformImage().get(), destRect, srcRect, { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
     }
 }
 
@@ -191,8 +192,8 @@ static void fillShadowBuffer(PlatformContextCairo& platformContext, ImageBuffer&
 {
     save(platformContext);
 
-    if (auto surface = layerImage.copyNativeImage(DontCopyBackingStore))
-        clipToImageBuffer(platformContext, surface.get(), FloatRect(layerOrigin, expandedIntSize(layerSize)));
+    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore))
+        clipToImageBuffer(platformContext, nativeImage->platformImage().get(), FloatRect(layerOrigin, expandedIntSize(layerSize)));
 
     FillSource fillSource;
     fillSource.globalAlpha = shadowState.globalAlpha;
@@ -860,7 +861,7 @@ void drawGlyphs(PlatformContextCairo& platformContext, const FillSource& fillSou
     cairo_restore(cr);
 }
 
-void drawNativeImage(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options, float globalAlpha, const ShadowState& shadowState)
+void drawPlatformImage(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options, float globalAlpha, const ShadowState& shadowState)
 {
     platformContext.save();
 
@@ -883,7 +884,8 @@ void drawNativeImage(PlatformContextCairo& platformContext, cairo_surface_t* sur
         }
     }
 
-    drawSurface(platformContext, surface, dst, srcRect, options.interpolationQuality(), globalAlpha, shadowState);
+    auto orientationSizing = options.orientation().usesWidthAsHeight() ? OrientationSizing::WidthAsHeight : OrientationSizing::Normal;
+    drawSurface(platformContext, surface, dst, srcRect, options.interpolationQuality(), globalAlpha, shadowState, orientationSizing);
     platformContext.restore();
 }
 
@@ -893,7 +895,7 @@ void drawPattern(PlatformContextCairo& platformContext, cairo_surface_t* surface
     drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, toCairoOperator(options.compositeOperator(), options.blendMode()), options.interpolationQuality(), destRect);
 }
 
-void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& originalSrcRect, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState)
+void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& originalSrcRect, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState, OrientationSizing orientationSizing)
 {
     // Avoid invalid cairo matrix with small values.
     if (std::fabs(destRect.width()) < 0.5f || std::fabs(destRect.height()) < 0.5f)
@@ -914,7 +916,10 @@ void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface
     RefPtr<cairo_surface_t> patternSurface = surface;
     float leftPadding = 0;
     float topPadding = 0;
-    if (srcRect.x() || srcRect.y() || srcRect.size() != cairoSurfaceSize(surface)) {
+    auto surfaceSize = cairoSurfaceSize(surface);
+    bool didUseWidthAsHeight = orientationSizing == OrientationSizing::WidthAsHeight;
+    bool differentSize = srcRect.size() != (didUseWidthAsHeight ? surfaceSize.transposedSize() : surfaceSize);
+    if (srcRect.x() || srcRect.y() || differentSize) {
         // Cairo subsurfaces don't support floating point boundaries well, so we expand the rectangle.
         IntRect expandedSrcRect(enclosingIntRect(srcRect));
         expandedSrcRect.intersect({ { }, cairoSurfaceSize(surface) });
@@ -949,8 +954,15 @@ void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface
     // different size than the destination rectangle. We also account for any offset we introduced
     // by expanding floating point source rectangle sizes. It's important to take the absolute value
     // of the scale since the original width and height might be negative.
-    float scaleX = std::fabs(srcRect.width() / destRect.width());
-    float scaleY = std::fabs(srcRect.height() / destRect.height());
+    float scaleX = 1;
+    float scaleY = 1;
+    if (didUseWidthAsHeight) {
+        scaleX = std::fabs(srcRect.width() / destRect.height());
+        scaleY = std::fabs(srcRect.height() / destRect.width());
+    } else {
+        scaleX = std::fabs(srcRect.width() / destRect.width());
+        scaleY = std::fabs(srcRect.height() / destRect.height());
+    }
     cairo_matrix_t matrix = { scaleX, 0, 0, scaleY, leftPadding, topPadding };
     cairo_pattern_set_matrix(pattern.get(), &matrix);
 

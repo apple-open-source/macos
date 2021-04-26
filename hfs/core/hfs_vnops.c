@@ -5538,10 +5538,6 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 	if (VTOVCB(dvp)->vcbSigWord != kHFSPlusSigWord)
 		return (ENOTSUP);
 
-	/* Check for empty target name */
-	if (ap->a_target[0] == 0)
-		return (EINVAL);
-
 	hfsmp = VTOHFS(dvp);
 	
 	len = strlen(ap->a_target);
@@ -5568,6 +5564,9 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 	if (cp->c_flag & (C_NOEXISTS | C_DELETED)) {
 	    goto out;
 	}
+
+	if (!len)
+		goto out;
 
 #if QUOTA
 	(void)hfs_getinoquota(cp);
@@ -6063,8 +6062,19 @@ hfs_vnop_readlink(struct vnop_readlink_args *ap)
 	fp = VTOF(vp);
    
 	/* Zero length sym links are not allowed */
-	if (fp->ff_size == 0 || fp->ff_size > MAXPATHLEN) {
+	if (fp->ff_size > MAXPATHLEN) {
 		error = EINVAL;
+		goto exit;
+	}
+
+	/*
+	 * If this is an empty symlink, we are done. The call to uiomove() is
+	 * just for debug and diagnostics.
+	 */
+	if (fp->ff_size == 0) {
+		static uint8_t empty_str[] = {'\0'};
+
+		error = uiomove((caddr_t)empty_str, 0, ap->a_uio);
 		goto exit;
 	}
     

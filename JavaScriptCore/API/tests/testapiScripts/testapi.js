@@ -84,6 +84,16 @@ this.globalStaticFunction2 = function() { return 20; }
 shouldBe("globalStaticFunction2();", 20);
 shouldBe("this.globalStaticFunction2();", 20);
 
+var globalStaticValue2Descriptor = Object.getOwnPropertyDescriptor(this, "globalStaticValue2");
+shouldBe('typeof globalStaticValue2Descriptor', "object");
+shouldBe('globalStaticValue2Descriptor.writable', false);
+shouldBe('globalStaticValue2Descriptor.enumerable', false);
+
+var globalStaticFunction3Descriptor = Object.getOwnPropertyDescriptor(this, "globalStaticFunction3");
+shouldBe('typeof globalStaticFunction3Descriptor', "object");
+shouldBe('globalStaticFunction3Descriptor.writable', false);
+shouldBe('globalStaticFunction3Descriptor.enumerable', false);
+
 function iAmNotAStaticFunction() { return 10; }
 shouldBe("iAmNotAStaticFunction();", 10);
 this.iAmNotAStaticFunction = function() { return 20; }
@@ -267,7 +277,7 @@ shouldThrow("EvilExceptionObject*5");
 EvilExceptionObject.toStringExplicit = function f() { return f(); }
 shouldThrow("String(EvilExceptionObject)");
 
-shouldBe("console", "[object Console]");
+shouldBe("console", "[object console]");
 shouldBe("typeof console.log", "function");
 
 shouldBe("EmptyObject", "[object CallbackObject]");

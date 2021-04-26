@@ -73,6 +73,7 @@ public:
     static Ref<UploadButtonElement> createForMultiple(Document&);
 
 private:
+    static Ref<UploadButtonElement> createInternal(Document&, const String& value);
     bool isUploadButton() const override { return true; }
     
     UploadButtonElement(Document&);
@@ -80,29 +81,32 @@ private:
 
 Ref<UploadButtonElement> UploadButtonElement::create(Document& document)
 {
-    auto button = adoptRef(*new UploadButtonElement(document));
-    button->setValue(fileButtonChooseFileLabel());
-    return button;
+    return createInternal(document, fileButtonChooseFileLabel());
 }
 
 Ref<UploadButtonElement> UploadButtonElement::createForMultiple(Document& document)
 {
+    return createInternal(document, fileButtonChooseMultipleFilesLabel());
+}
+
+Ref<UploadButtonElement> UploadButtonElement::createInternal(Document& document, const String& value)
+{
     auto button = adoptRef(*new UploadButtonElement(document));
-    button->setValue(fileButtonChooseMultipleFilesLabel());
+    static MainThreadNeverDestroyed<const AtomString> buttonName("button", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> fileSelectorButtonName("file-selector-button", AtomString::ConstructFromLiteral);
+    button->setType(buttonName);
+    button->setPseudo(fileSelectorButtonName);
+    button->setValue(value);
     return button;
 }
 
 UploadButtonElement::UploadButtonElement(Document& document)
     : HTMLInputElement(inputTag, document, 0, false)
 {
-    static MainThreadNeverDestroyed<const AtomString> buttonName("button", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> webkitFileUploadButtonName("-webkit-file-upload-button", AtomString::ConstructFromLiteral);
-    setType(buttonName);
-    setPseudo(webkitFileUploadButtonName);
 }
 
 FileInputType::FileInputType(HTMLInputElement& element)
-    : BaseClickableWithKeyInputType(element)
+    : BaseClickableWithKeyInputType(Type::File, element)
     , m_fileList(FileList::create())
 {
 }
@@ -269,16 +273,11 @@ void FileInputType::setValue(const String&, bool, TextFieldEventBehavior)
     element()->invalidateStyleForSubtree();
 }
 
-bool FileInputType::isFileUpload() const
-{
-    return true;
-}
-
-void FileInputType::createShadowSubtree()
+void FileInputType::createShadowSubtreeAndUpdateInnerTextElementEditability(ContainerNode::ChildChange::Source source, bool)
 {
     ASSERT(element());
     ASSERT(element()->shadowRoot());
-    element()->userAgentShadowRoot()->appendChild(element()->multiple() ? UploadButtonElement::createForMultiple(element()->document()): UploadButtonElement::create(element()->document()));
+    element()->userAgentShadowRoot()->appendChild(source, element()->multiple() ? UploadButtonElement::createForMultiple(element()->document()): UploadButtonElement::create(element()->document()));
 }
 
 void FileInputType::disabledStateChanged()

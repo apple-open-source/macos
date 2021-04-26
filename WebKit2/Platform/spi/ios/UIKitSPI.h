@@ -39,7 +39,6 @@
 #import <UIKit/UIContextMenuConfiguration.h>
 #import <UIKit/UIDatePicker_Private.h>
 #import <UIKit/UIDevice_Private.h>
-#import <UIKit/UIDocumentMenuViewController_Private.h>
 #import <UIKit/UIDocumentPasswordView.h>
 #import <UIKit/UIDocumentPickerViewController_Private.h>
 #import <UIKit/UIFont_Private.h>
@@ -63,6 +62,8 @@
 #import <UIKit/UIPresentationController_Private.h>
 #import <UIKit/UIResponder_Private.h>
 #import <UIKit/UIScene_Private.h>
+#import <UIKit/UIScrollEvent_Private.h>
+#import <UIKit/UIScrollView_ForWebKitOnly.h>
 #import <UIKit/UIScrollView_Private.h>
 #import <UIKit/UIStringDrawing_Private.h>
 #import <UIKit/UITableViewCell_Private.h>
@@ -126,11 +127,9 @@
 #import <UIKit/UITargetedPreview_Private.h>
 #endif
 
-#if HAVE(UI_CURSOR_INTERACTION)
-#import <UIKit/_UICursorInteraction.h>
-#import <UIKit/_UICursorInteraction_ForWebKitOnly.h>
-#import <UIKit/_UICursorStyle.h>
-#import <UIKit/_UICursorStyle_Private.h>
+#if HAVE(UI_POINTER_INTERACTION)
+#import <UIKit/UIPointerInteraction_ForWebKitOnly.h>
+#import <UIKit/UIPointerStyle_Private.h>
 #endif
 
 #else // USE(APPLE_INTERNAL_SDK)
@@ -265,6 +264,8 @@ typedef enum {
 
 @interface UIImagePickerController ()
 @property (nonatomic, setter=_setAllowsMultipleSelection:) BOOL _allowsMultipleSelection;
+@property (nonatomic, setter=_setRequiresPickingConfirmation:) BOOL _requiresPickingConfirmation;
+@property (nonatomic, setter=_setShowsFileSizePicker:) BOOL _showsFileSizePicker;
 @end
 
 @interface UIImage ()
@@ -307,6 +308,7 @@ typedef enum {
 
 @interface UIKeyboardImpl : UIView <UIKeyboardCandidateListDelegate>
 - (BOOL)smartInsertDeleteIsEnabled;
++ (BOOL)smartInsertDeleteIsEnabled;
 - (void)updateForChangedSelection;
 - (void)setCorrectionLearningAllowed:(BOOL)allowed;
 @end
@@ -416,7 +418,26 @@ typedef enum {
 @property (nonatomic, getter=_indicatorInsetAdjustmentBehavior, setter=_setIndicatorInsetAdjustmentBehavior:) UIScrollViewIndicatorInsetAdjustmentBehavior indicatorInsetAdjustmentBehavior;
 @property (nonatomic, readonly) UIEdgeInsets _systemContentInset;
 @property (nonatomic, readonly) UIEdgeInsets _effectiveContentInset;
+@property (nonatomic, getter=_allowsAsyncScrollEvent, setter=_setAllowsAsyncScrollEvent:) BOOL _allowsAsyncScrollEvent;
 @end
+
+typedef NS_ENUM(NSUInteger, UIScrollPhase) {
+    UIScrollPhaseNone,
+    UIScrollPhaseMayBegin,
+    UIScrollPhaseBegan,
+    UIScrollPhaseChanged,
+    UIScrollPhaseEnded,
+    UIScrollPhaseCancelled
+};
+
+@interface UIScrollEvent : UIEvent
+
+@property (assign, readonly) UIScrollPhase phase;
+- (CGPoint)locationInView:(UIView *)view;
+- (CGVector)_adjustedAcceleratedDeltaInView:(UIView *)view;
+
+@end
+
 
 @interface NSString (UIKitDetails)
 - (CGSize)_legacy_sizeWithFont:(UIFont *)font forWidth:(CGFloat)width lineBreakMode:(NSLineBreakMode)lineBreakMode;
@@ -960,10 +981,6 @@ typedef enum {
 @property (nonatomic) BOOL inputViewObeysDOMFocus;
 @end
 
-@interface UIDocumentMenuViewController ()
-- (instancetype)_initIgnoringApplicationEntitlementForImportOfTypes:(NSArray *)types;
-@end
-
 @protocol UIDocumentPasswordViewDelegate;
 
 @interface UIDocumentPasswordView : UIView <UITextFieldDelegate>
@@ -1201,27 +1218,17 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @property (readonly) BOOL isLowConfidence;
 @end
 
-@protocol _UICursorInteractionDelegate
+@interface UIPointerStyle ()
++ (instancetype)_systemPointerStyle;
 @end
 
-@interface _UICursorInteraction : NSObject <UIInteraction>
-- (instancetype)initWithDelegate:(id <_UICursorInteractionDelegate>)delegate;
-- (void)invalidate;
-@property (nonatomic, assign, getter=_pausesCursorUpdatesWhilePanning, setter=_setPausesCursorUpdatesWhilePanning:) BOOL pausesCursorUpdatesWhilePanning;
+@interface UIPointerInteraction ()
+@property (nonatomic, assign, getter=_pausesPointerUpdatesWhilePanning, setter=_setPausesPointerUpdatesWhilePanning:) BOOL pausesPointerUpdatesWhilePanning;
 @end
 
-@interface _UICursorRegion : NSObject <NSCopying>
-+ (instancetype)regionWithIdentifier:(id <NSObject>)identifier rect:(CGRect)rect;
-- (id <NSObject>)identifier;
-@end
-
-@interface _UICursor : NSObject
-+ (instancetype)beamWithPreferredLength:(CGFloat)length axis:(UIAxis)axis;
-+ (instancetype)linkCursor;
-@end
-
-@interface _UICursorStyle : NSObject
-+ (instancetype)styleWithCursor:(_UICursor *)cursor constrainedAxes:(UIAxis)axes;
+@protocol UIPointerInteractionDelegate_ForWebKitOnly <UIPointerInteractionDelegate>
+@optional
+- (void)_pointerInteraction:(UIPointerInteraction *)interaction regionForRequest:(UIPointerRegionRequest *)request defaultRegion:(UIPointerRegion *)defaultRegion completion:(void(^)(UIPointerRegion *region))completion;
 @end
 
 #if PLATFORM(WATCHOS)
@@ -1361,6 +1368,17 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @property (nonatomic, setter=_setSuppressSoftwareKeyboard:) BOOL _suppressSoftwareKeyboard;
 @end
 
+@interface _UIEventAttribution : NSObject <NSCopying>
+@property (nonatomic, assign, readonly) uint8_t sourceIdentifier;
+@property (nonatomic, copy, readonly) NSURL *attributeOn;
+@property (nonatomic, /*nullable,*/ copy, readonly) NSURL *reportEndpoint;
+@property (nonatomic, copy, readonly) NSString *sourceDescription;
+@property (nonatomic, copy, readonly) NSString *purchaser;
+- (instancetype)initWithSourceIdentifier:(uint8_t)sourceIdentifier attributeOn:(NSURL *)attributeOn sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+@end
+
 @interface _UINavigationInteractiveTransitionBase ()
 - (void)_stopInteractiveTransition;
 @end
@@ -1373,6 +1391,11 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @property (nonatomic, assign) NSString *password;
 @end
 #endif
+
+@protocol UITextInputInternal <UITextInputPrivate>
+@optional
+@property (nonatomic, readonly) CGRect _selectionClipRect;
+@end
 
 @interface UIDevice ()
 @property (nonatomic, setter=_setBacklightLevel:) float _backlightLevel;

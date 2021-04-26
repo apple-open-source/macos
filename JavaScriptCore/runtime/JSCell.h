@@ -109,6 +109,8 @@ public:
     bool isProxy() const;
     bool isCallable(VM&);
     bool isConstructor(VM&);
+    template<Concurrency> TriState isCallableWithConcurrency(VM&);
+    template<Concurrency> TriState isConstructorWithConcurrency(VM&);
     bool inherits(VM&, const ClassInfo*) const;
     template<typename Target> bool inherits(VM&) const;
     bool isAPIValueWrapper() const;
@@ -154,7 +156,6 @@ public:
 
     // Basic conversions.
     JS_EXPORT_PRIVATE JSValue toPrimitive(JSGlobalObject*, PreferredPrimitiveType) const;
-    bool getPrimitiveNumber(JSGlobalObject*, double& number, JSValue&) const;
     bool toBoolean(JSGlobalObject*) const;
     TriState pureToBoolean() const;
     JS_EXPORT_PRIVATE double toNumber(JSGlobalObject*) const;
@@ -243,13 +244,10 @@ protected:
 
     // Dummy implementations of override-able static functions for classes to put in their MethodTable
     static JSValue defaultValue(const JSObject*, JSGlobalObject*, PreferredPrimitiveType);
-    static NO_RETURN_DUE_TO_CRASH void getOwnPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
-    static NO_RETURN_DUE_TO_CRASH void getOwnNonIndexPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
-    static NO_RETURN_DUE_TO_CRASH void getPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
+    static NO_RETURN_DUE_TO_CRASH void getOwnPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, DontEnumPropertiesMode);
+    static NO_RETURN_DUE_TO_CRASH void getOwnSpecialPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, DontEnumPropertiesMode);
 
     static uint32_t getEnumerableLength(JSGlobalObject*, JSObject*);
-    static NO_RETURN_DUE_TO_CRASH void getStructurePropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
-    static NO_RETURN_DUE_TO_CRASH void getGenericPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
     static NO_RETURN_DUE_TO_CRASH bool preventExtensions(JSObject*, JSGlobalObject*);
     static NO_RETURN_DUE_TO_CRASH bool isExtensible(JSObject*, JSGlobalObject*);
     static NO_RETURN_DUE_TO_CRASH bool setPrototype(JSObject*, JSGlobalObject*, JSValue, bool);

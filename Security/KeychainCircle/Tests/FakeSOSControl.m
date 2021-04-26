@@ -360,5 +360,8 @@
     complete(nil);
 }
 
+- (void)removeV0Peers:(void (^)(bool, NSError *))reply {
+    reply(true, nil);
+}
 
 @end

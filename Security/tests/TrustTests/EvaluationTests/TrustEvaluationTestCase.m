@@ -46,51 +46,14 @@
 
 @implementation TrustEvaluationTestCase
 
-static int current_dir = -1;
-static char *home_var = NULL;
-
 /* Build in trustd functionality to the tests */
 + (void) setUp {
-    /* Set up TMP directory for trustd's files */
-    int ok = 0;
-    NSError* error = nil;
-    NSString* pid = [NSString stringWithFormat: @"tst-%d", [[NSProcessInfo processInfo] processIdentifier]];
-    NSURL* tmpDirURL = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:pid];
-    ok = (bool)tmpDirURL;
-
-    if (current_dir == -1 && home_var == NULL) {
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:tmpDirURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-
-        NSURL* libraryURL = [tmpDirURL URLByAppendingPathComponent:@"Library"];
-        NSURL* preferencesURL = [tmpDirURL URLByAppendingPathComponent:@"Preferences"];
-
-        ok =  (ok && (current_dir = open(".", O_RDONLY) >= 0)
-               && (chdir([tmpDirURL fileSystemRepresentation]) >= 0)
-               && (setenv("HOME", [tmpDirURL fileSystemRepresentation], 1) >= 0)
-               && (bool)(home_var = getenv("HOME")));
-
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:libraryURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:preferencesURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-    }
-
     /* Use the production Valid DB by default (so we'll have data to test against) */
     CFPreferencesSetAppValue(CFSTR("ValidUpdateServer"), kValidUpdateProdServer, kSecurityPreferencesDomain);
     CFPreferencesAppSynchronize(kSecurityPreferencesDomain);
 
-    if (ok > 0) {
-        /* Be trustd */
-        trustd_init((__bridge CFURLRef) tmpDirURL);
-    }
+    NSURL *tmpDirURL = setUpTmpDir();
+    trustd_init((__bridge CFURLRef) tmpDirURL);
 }
 
 - (id)addTrustSettingsForCert:(SecCertificateRef)cert trustSettings:(id)trustSettings
@@ -271,8 +234,10 @@ const CFStringRef kTestSystemRootKey = CFSTR("TestSystemRoot");
         ok_status(err, "SecTrustCreateWithCertificates");
         goto exit;
     }
-    if ([anchors count])
+    if ([anchors count]) {
         SecTrustSetAnchorCertificates(trustRef, (CFArrayRef)anchors);
+        SecTrustSetAnchorCertificatesOnly(trustRef, false);
+    }
 
     SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date);
 
@@ -425,5 +390,25 @@ SecPolicyRef SecFrameworkPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email
     } else {
         NSLog(@"WARNING: not using Security framework policy");
         return SecPolicyCreateSMIME(smimeUsage, email);
+    }
+}
+
+typedef  SecPolicyRef (*passbook_policy_create_f)(CFStringRef cardIssuer, CFStringRef teamIdentifier);
+SecPolicyRef SecFrameworkPolicyCreatePassbookCardSigner(CFStringRef cardIssuer, CFStringRef teamIdentifier) {
+    static passbook_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
+        if (framework) {
+            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreatePassbookCardSigner");
+        }
+    });
+
+    if (FrameworkPolicyCreateFunctionPtr) {
+        return FrameworkPolicyCreateFunctionPtr(cardIssuer, teamIdentifier);
+    } else {
+        NSLog(@"WARNING: not using Security framework policy");
+        return SecPolicyCreatePassbookCardSigner(cardIssuer, teamIdentifier);
     }
 }

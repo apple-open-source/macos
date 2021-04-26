@@ -177,6 +177,31 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
         init() {
         }
+
+        func model(updating newPeer: Peer?) throws -> TPModel {
+            let model = TPModel(decrypter: Decrypter())
+
+            for existingPeer in self.peersByID.values {
+                if let pi = existingPeer.permanentInfoAndSig.toPermanentInfo(peerID: existingPeer.peerID),
+                   let si = existingPeer.stableInfoAndSig.toStableInfo(),
+                   let di = existingPeer.dynamicInfoAndSig.toDynamicInfo() {
+                    model.registerPeer(with: pi)
+                    try model.update(si, forPeerWithID: existingPeer.peerID)
+                    try model.update(di, forPeerWithID: existingPeer.peerID)
+                }
+            }
+
+            if let peerUpdate = newPeer {
+                // This peer needs to have been in the model before; on pain of throwing here
+                if let si = peerUpdate.stableInfoAndSig.toStableInfo(),
+                   let di = peerUpdate.dynamicInfoAndSig.toDynamicInfo() {
+                    try model.update(si, forPeerWithID: peerUpdate.peerID)
+                    try model.update(di, forPeerWithID: peerUpdate.peerID)
+                }
+            }
+
+            return model
+        }
     }
 
     var state = State()
@@ -587,17 +612,13 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
             return
         }
-        guard var peer = self.state.peersByID[request.peerID] else {
+        guard let existingPeer = self.state.peersByID[request.peerID] else {
             completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound))
             return
         }
-        if request.hasStableInfoAndSig {
-            peer.stableInfoAndSig = request.stableInfoAndSig
-        }
-        if request.hasDynamicInfoAndSig {
-            peer.dynamicInfoAndSig = request.dynamicInfoAndSig
-        }
-        self.state.peersByID[request.peerID] = peer
+
+        // copy Peer so that we can update it safely
+        var peer = try! Peer(serializedData: try! existingPeer.serializedData())
 
         // Before performing write, check if we should error
         if let updateListener = self.updateListener {
@@ -607,6 +628,32 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 return
             }
         }
+
+        if request.hasStableInfoAndSig {
+            peer.stableInfoAndSig = request.stableInfoAndSig
+        }
+        if request.hasDynamicInfoAndSig {
+            peer.dynamicInfoAndSig = request.dynamicInfoAndSig
+        }
+
+        // Will Cuttlefish reject this due to peer graph issues?
+        do {
+            let model = try self.state.model(updating: peer)
+
+            // Is there any non-excluded peer that trusts itself?
+            let nonExcludedPeerIDs = model.allPeerIDs().filter { !model.statusOfPeer(withID: $0).contains(.excluded) }
+            let selfTrustedPeerIDs = nonExcludedPeerIDs.filter { model.statusOfPeer(withID: $0).contains(.selfTrust) }
+
+            guard selfTrustedPeerIDs.count > 0 else {
+                completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers))
+                return
+            }
+        } catch {
+            print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
+        }
+
+        // Cuttlefish has accepted the write.
+        self.state.peersByID[request.peerID] = peer
 
         // Also check if we should bail due to conflicting viewKeys
         if self.newKeysConflict(viewKeys: request.viewKeys) {
@@ -847,7 +894,6 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     func fetchSosiCloudIdentity(_: FetchSOSiCloudIdentityRequest, completion: @escaping (FetchSOSiCloudIdentityResponse?, Error?) -> Void) {
         completion(FetchSOSiCloudIdentityResponse(), nil)
     }
-    
     func addCustodianRecoveryKey(_: AddCustodianRecoveryKeyRequest, completion: @escaping (AddCustodianRecoveryKeyResponse?, Error?) -> Void) {
         completion(AddCustodianRecoveryKeyResponse(), nil)
     }

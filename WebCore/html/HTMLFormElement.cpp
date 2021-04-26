@@ -44,6 +44,7 @@
 #include "HTMLObjectElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
+#include "MixedContentChecker.h"
 #include "NodeRareData.h"
 #include "Page.h"
 #include "RadioNodeList.h"
@@ -146,15 +147,6 @@ void HTMLFormElement::removedFromAncestor(RemovalType removalType, ContainerNode
     for (auto& associatedElement : associatedElements)
         associatedElement->formOwnerRemovedFromTree(root);
     HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-}
-
-void HTMLFormElement::handleLocalEvents(Event& event, EventInvokePhase phase)
-{
-    if (event.eventPhase() != Event::CAPTURING_PHASE && is<Node>(event.target()) && event.target() != this && (event.type() == eventNames().submitEvent || event.type() == eventNames().resetEvent)) {
-        event.stopPropagation();
-        return;
-    }
-    HTMLElement::handleLocalEvents(event, phase);
 }
 
 unsigned HTMLFormElement::length() const
@@ -447,7 +439,7 @@ void HTMLFormElement::parseAttribute(const QualifiedName& name, const AtomString
         if (!m_attributes.action().isEmpty()) {
             if (RefPtr<Frame> f = document().frame()) {
                 Frame& topFrame = f->tree().top();
-                topFrame.loader().mixedContentChecker().checkFormForMixedContent(topFrame.document()->securityOrigin(), document().completeURL(m_attributes.action()));
+                MixedContentChecker::checkFormForMixedContent(topFrame, topFrame.document()->securityOrigin(), document().completeURL(m_attributes.action()));
             }
         }
     } else if (name == targetAttr)

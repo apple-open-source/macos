@@ -39,12 +39,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(WaveShaperNode);
 
 ExceptionOr<Ref<WaveShaperNode>> WaveShaperNode::create(BaseAudioContext& context, const WaveShaperOptions& options)
 {
-    if (context.isStopped())
-        return Exception { InvalidStateError };
-
-    context.lazyInitialize();
-    UNUSED_PARAM(options);
-
     RefPtr<Float32Array> curve;
     if (options.curve) {
         curve = Float32Array::tryCreate(options.curve->data(), options.curve->size());
@@ -70,9 +64,8 @@ ExceptionOr<Ref<WaveShaperNode>> WaveShaperNode::create(BaseAudioContext& contex
 }
 
 WaveShaperNode::WaveShaperNode(BaseAudioContext& context)
-    : AudioBasicProcessorNode(context)
+    : AudioBasicProcessorNode(context, NodeTypeWaveShaper)
 {
-    setNodeType(NodeTypeWaveShaper);
     m_processor = makeUnique<WaveShaperProcessor>(context.sampleRate(), 1);
 
     initialize();

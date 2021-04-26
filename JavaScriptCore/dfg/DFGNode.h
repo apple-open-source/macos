@@ -52,6 +52,7 @@
 #include "GetByIdVariant.h"
 #include "JSCJSValue.h"
 #include "Operands.h"
+#include "PrivateFieldPutKind.h"
 #include "PutByIdVariant.h"
 #include "SpeculatedType.h"
 #include "TypeLocation.h"
@@ -275,7 +276,7 @@ struct StackAccessData {
 };
 
 struct CallDOMGetterData {
-    FunctionPtr<OperationPtrTag> customAccessorGetter;
+    FunctionPtr<CustomAccessorPtrTag> customAccessorGetter;
     const DOMJIT::GetterSetter* domJIT { nullptr };
     DOMJIT::CallDOMGetterSnippet* snippet { nullptr };
     unsigned identifierNumber { 0 };
@@ -503,9 +504,14 @@ public:
     void convertToIdentity();
     void convertToIdentityOn(Node*);
 
-    bool mustGenerate()
+    bool mustGenerate() const
     {
         return m_flags & NodeMustGenerate;
+    }
+
+    bool hasVarArgs() const
+    {
+        return m_flags & NodeHasVarArgs;
     }
     
     bool isConstant()
@@ -596,7 +602,7 @@ public:
     
     void convertToGetByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
-        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush || m_op == MultiGetByOffset);
+        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush || m_op == GetPrivateNameById || m_op == MultiGetByOffset);
         m_opInfo = &data;
         children.setChild1(storage);
         children.setChild2(base);
@@ -606,7 +612,7 @@ public:
     
     void convertToMultiGetByOffset(MultiGetByOffsetData* data)
     {
-        RELEASE_ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush);
+        RELEASE_ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush || m_op == GetPrivateNameById);
         m_opInfo = data;
         child1().setUseKind(CellUse);
         m_op = MultiGetByOffset;
@@ -615,7 +621,7 @@ public:
     
     void convertToPutByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
-        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == MultiPutByOffset);
+        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == MultiPutByOffset || m_op == PutPrivateNameById);
         m_opInfo = &data;
         children.setChild3(children.child2());
         children.setChild2(base);
@@ -625,7 +631,7 @@ public:
     
     void convertToMultiPutByOffset(MultiPutByOffsetData* data)
     {
-        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush);
+        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == PutPrivateNameById);
         m_opInfo = data;
         m_op = MultiPutByOffset;
     }
@@ -978,7 +984,6 @@ public:
     {
         switch (op()) {
         case MovHint:
-        case ZombieHint:
             return true;
         default:
             return false;
@@ -1021,7 +1026,6 @@ public:
         switch (op()) {
         case ExtractOSREntryLocal:
         case MovHint:
-        case ZombieHint:
         case KillStack:
             return true;
         default:
@@ -1083,12 +1087,14 @@ public:
         case GetByIdWithThis:
         case GetByIdDirect:
         case GetByIdDirectFlush:
+        case GetPrivateNameById:
         case DeleteById:
         case InById:
         case PutById:
         case PutByIdFlush:
         case PutByIdDirect:
         case PutByIdWithThis:
+        case PutPrivateNameById:
             return true;
         default:
             return false;
@@ -1766,6 +1772,8 @@ public:
         case TryGetById:
         case GetByVal:
         case GetByValWithThis:
+        case GetPrivateName:
+        case GetPrivateNameById:
         case Call:
         case DirectCall:
         case TailCallInlinedCaller:
@@ -2206,6 +2214,7 @@ public:
         case ArrayPop:
         case ArrayIndexOf:
         case HasIndexedProperty:
+        case HasEnumerableIndexedProperty:
         case AtomicsAdd:
         case AtomicsAnd:
         case AtomicsCompareExchange:
@@ -2285,6 +2294,19 @@ public:
         }
     }
     
+    bool hasPrivateFieldPutKind()
+    {
+        if (op() == PutPrivateName || op() == PutPrivateNameById)
+            return true;
+        return false;
+    }
+
+    PrivateFieldPutKind privateFieldPutKind()
+    {
+        ASSERT(hasPrivateFieldPutKind());
+        return PrivateFieldPutKind::fromByte(m_opInfo2.as<uint8_t>());
+    }
+
     bool hasArithMode()
     {
         switch (op()) {
@@ -2980,23 +3002,6 @@ public:
             RELEASE_ASSERT_NOT_REACHED();
         }
         return nullptr;
-    }
-
-    bool hasInternalMethodType() const
-    {
-        return op() == HasIndexedProperty;
-    }
-
-    PropertySlot::InternalMethodType internalMethodType() const
-    {
-        ASSERT(hasInternalMethodType());
-        return static_cast<PropertySlot::InternalMethodType>(m_opInfo2.as<uint32_t>());
-    }
-
-    void setInternalMethodType(PropertySlot::InternalMethodType type)
-    {
-        ASSERT(hasInternalMethodType());
-        m_opInfo2 = static_cast<uint32_t>(type);
     }
 
     Node* replacement() const

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2013-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2013-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,15 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
+#include <sys/types.h>			/* for id_t */
 
-#include <stdio.h>
-#include <stdlib.h>
-#if defined(HAVE_STDINT_H)
-# include <stdint.h>
-#elif defined(HAVE_INTTYPES_H)
-# include <inttypes.h>
-#endif
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
@@ -41,11 +34,9 @@
 #include <errno.h>
 #include <limits.h>
 
-#define DEFAULT_TEXT_DOMAIN	"sudo"
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
-
 #include "sudo_compat.h"
 #include "sudo_debug.h"
+#include "sudo_gettext.h"
 #include "sudo_util.h"
 
 /* strtoid.c (not exported) */
@@ -84,7 +75,7 @@ sudo_strtoidx_v1(const char *p, const char *sep, char **endp, const char **errst
     const char *errstr;
     char *ep;
     id_t ret;
-    debug_decl(sudo_strtoid, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_strtoid, SUDO_DEBUG_UTIL);
 
     ret = sudo_strtonumx(p, INT_MIN, UINT_MAX, &ep, &errstr);
     if (errstr == NULL) {
@@ -105,7 +96,7 @@ sudo_strtoidx_v1(const char *p, const char *sep, char **endp, const char **errst
     debug_return_id_t(ret);
 }
 
-/* Backwards compatibility */
+/* Backward compatibility */
 id_t
 sudo_strtoid_v1(const char *p, const char *sep, char **endp, const char **errstrp)
 {

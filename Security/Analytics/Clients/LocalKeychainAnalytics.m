@@ -214,3 +214,10 @@ void LKABackupReportEnd(bool hasBackup, CFErrorRef error) {
         [[LocalKeychainAnalytics logger] reportKeychainBackupEnd:hasBackup error:(__bridge NSError*)error];
     }
 }
+
+void LKAForceClose(void)
+{
+    @autoreleasepool {
+        [[LocalKeychainAnalytics logger] removeState];
+    }
+}

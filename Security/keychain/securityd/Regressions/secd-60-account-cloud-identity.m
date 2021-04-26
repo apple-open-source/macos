@@ -292,6 +292,7 @@ int secd_60_account_cloud_identity(int argc, char *const *argv)
     plan_tests(159);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

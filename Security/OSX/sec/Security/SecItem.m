@@ -205,3 +205,36 @@ OSStatus SecItemDeleteKeychainItemsForAppClip(CFStringRef applicationIdentifier)
     }
     return status;
 }
+
+OSStatus SecItemPersistKeychainWritesAtHighPerformanceCost(CFErrorRef* error)
+{
+    os_activity_t activity = os_activity_create("SecItemPersistKeychainWritesAtHighPerformanceCost", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block OSStatus status = errSecInternal;
+    __block CFErrorRef activityError = NULL;
+    @autoreleasepool {
+        secnotice("xpc", "This process is requesting a expensive full keychain database checkpoint");
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
+            secerror("xpc: failure to obtain XPC proxy object for Item Persistence, %@", error);
+            activityError = (CFErrorRef)CFBridgingRetain(error);
+        });
+        [rpc secItemPersistKeychainWritesAtHighPerformanceCost:^(OSStatus xpcStatus,
+                                                            NSError* xpcError) {
+            if(xpcStatus != errSecSuccess) {
+                secerror("xpc: Failed to persist keychain writes: %d %@", (int)xpcStatus, xpcError);
+                activityError = (CFErrorRef)CFBridgingRetain(xpcError);
+            } else {
+                secnotice("xpc", "Successfully persisted keychain data to disk");
+            }
+            status = xpcStatus;
+        }];
+    }
+    if(activityError) {
+        if(error) {
+            *error = CFRetainSafe(activityError);
+        }
+        CFReleaseNull(activityError);
+    }
+    return status;
+}

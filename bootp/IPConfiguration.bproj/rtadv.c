@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1049,6 +1049,9 @@ rtadv_address_changed_common(ServiceRef service_p,
 		else {
 		    rtadv_remove_clat46_address(service_p);
 		}
+	    }
+	    else if (if_ift_type(if_p) != IFT_CELLULAR) {
+		info.perform_plat_discovery = TRUE;
 	    }
 	    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
 	    router_count = 1;

@@ -68,6 +68,11 @@ SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef 
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
     SecPathBuilderCompleted completed, const void *userData);
+void SecPathBuilderDestroy(SecPathBuilderRef builder);
+
+/* engine states exposed for testing */
+bool SecPathBuilderDidValidatePath(SecPathBuilderRef builder);
+bool SecPathBuilderReportResult(SecPathBuilderRef builder);
 
 /* Returns true if it's ok to perform network operations for this builder. */
 bool SecPathBuilderCanAccessNetwork(SecPathBuilderRef builder);
@@ -84,6 +89,7 @@ CFDictionaryRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder);
 CFSetRef SecPathBuilderGetAllPaths(SecPathBuilderRef builder);
 SecCertificatePathVCRef SecPathBuilderGetPath(SecPathBuilderRef builder);
 SecCertificatePathVCRef SecPathBuilderGetBestPath(SecPathBuilderRef builder);
+void SecPathBuilderSetPath(SecPathBuilderRef builder, SecCertificatePathVCRef path);
 CFAbsoluteTime SecPathBuilderGetVerifyTime(SecPathBuilderRef builder);
 CFIndex SecPathBuilderGetCertificateCount(SecPathBuilderRef builder);
 SecCertificateRef SecPathBuilderGetCertificateAtIndex(SecPathBuilderRef builder, CFIndex ix);
@@ -167,6 +173,7 @@ typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
     bool ca_fail_eku_check;
+    bool tls_invalid_ku;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;

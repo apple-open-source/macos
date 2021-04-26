@@ -1327,8 +1327,6 @@ sec_protocol_helper_get_ciphersuite_name(tls_ciphersuite_t ciphersuite);
 
 #define SEC_PROTOCOL_HAS_MULTI_PSK_SUPPORT 1
 
-#define SEC_PROTOCOL_HAS_PEER_AUTHENTICATION_OPTIONAL 1
-
 struct sec_protocol_options_content {
     SSLProtocol min_version;
     SSLProtocol max_version;
@@ -1403,6 +1401,7 @@ struct sec_protocol_options_content {
     unsigned enable_renegotiation_override : 1;
     unsigned enable_early_data : 1;
     unsigned enable_early_data_override : 1;
+    unsigned enable_ech : 1;
     unsigned peer_authentication_required : 1;
     unsigned peer_authentication_optional : 1;
     unsigned peer_authentication_override : 1;

@@ -33,14 +33,16 @@
 #include "LibWebRTCCodecs.h"
 #include "LibWebRTCCodecsMessages.h"
 #include "MediaPlayerPrivateRemoteMessages.h"
+#include "RemoteAudioSourceProviderManager.h"
 #include "RemoteCDMFactory.h"
 #include "RemoteCDMProxy.h"
 #include "RemoteLegacyCDMFactory.h"
+#include "RemoteMediaEngineConfigurationFactory.h"
 #include "RemoteMediaPlayerManager.h"
-#include "RemoteMediaPlayerManagerMessages.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
+#include "WebPageCreationParameters.h"
 #include "WebPageMessages.h"
 #include "WebProcess.h"
 #include <WebCore/PlatformMediaSessionManager.h>
@@ -48,6 +50,16 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 #include "RemoteCDMInstanceSessionMessages.h"
+#endif
+
+#if USE(AUDIO_SESSION)
+#include "RemoteAudioSession.h"
+#include "RemoteAudioSessionMessages.h"
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+#include "RemoteMediaSessionHelper.h"
+#include "RemoteMediaSessionHelperMessages.h"
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -71,6 +83,12 @@ GPUProcessConnection::~GPUProcessConnection()
 
 void GPUProcessConnection::didClose(IPC::Connection&)
 {
+    auto protector = makeRef(*this);
+    WebProcess::singleton().gpuProcessConnectionClosed(*this);
+
+    auto clients = m_clients;
+    for (auto& client : clients)
+        client.gpuProcessConnectionDidClose(*this);
 }
 
 void GPUProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName)
@@ -91,6 +109,15 @@ RemoteMediaPlayerManager& GPUProcessConnection::mediaPlayerManager()
     return *WebProcess::singleton().supplement<RemoteMediaPlayerManager>();
 }
 
+#if PLATFORM(COCOA) && ENABLE(WEB_AUDIO)
+RemoteAudioSourceProviderManager& GPUProcessConnection::audioSourceProviderManager()
+{
+    if (!m_audioSourceProviderManager)
+        m_audioSourceProviderManager = RemoteAudioSourceProviderManager::create();
+    return *m_audioSourceProviderManager;
+}
+#endif
+
 #if ENABLE(ENCRYPTED_MEDIA)
 RemoteCDMFactory& GPUProcessConnection::cdmFactory()
 {
@@ -104,6 +131,11 @@ RemoteLegacyCDMFactory& GPUProcessConnection::legacyCDMFactory()
     return *WebProcess::singleton().supplement<RemoteLegacyCDMFactory>();
 }
 #endif
+
+RemoteMediaEngineConfigurationFactory& GPUProcessConnection::mediaEngineConfigurationFactory()
+{
+    return *WebProcess::singleton().supplement<RemoteMediaEngineConfigurationFactory>();
+}
 
 bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
@@ -123,11 +155,10 @@ bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Dec
         sampleBufferDisplayLayerManager().didReceiveLayerMessage(connection, decoder);
         return true;
     }
-
 #endif // PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-#if USE(LIBWEBRTC) && PLATFORM(COCOA)
-    if (decoder.messageReceiverName() == Messages::LibWebRTCCodecs::messageReceiverName()) {
-        WebProcess::singleton().libWebRTCCodecs().didReceiveMessage(connection, decoder);
+#if USE(AUDIO_SESSION)
+    if (decoder.messageReceiverName() == Messages::RemoteAudioSession::messageReceiverName()) {
+        // FIXME
         return true;
     }
 #endif
@@ -149,6 +180,19 @@ void GPUProcessConnection::didReceiveRemoteCommand(PlatformMediaSession::RemoteC
 {
     const PlatformMediaSession::RemoteCommandArgument value { argument ? *argument : 0 };
     PlatformMediaSessionManager::sharedManager().processDidReceiveRemoteControlCommand(type, argument ? &value : nullptr);
+}
+
+void GPUProcessConnection::updateParameters(const WebPageCreationParameters& parameters)
+{
+#if ENABLE(VP9)
+    if (m_enableVP8Decoder == parameters.shouldEnableVP8Decoder && m_enableVP9Decoder == parameters.shouldEnableVP9Decoder && m_enableVP9SWDecoder == parameters.shouldEnableVP9SWDecoder)
+        return;
+
+    m_enableVP9Decoder = parameters.shouldEnableVP8Decoder;
+    m_enableVP9Decoder = parameters.shouldEnableVP9Decoder;
+    m_enableVP9SWDecoder = parameters.shouldEnableVP9SWDecoder;
+    connection().send(Messages::GPUConnectionToWebProcess::EnableVP9Decoders(parameters.shouldEnableVP8Decoder, parameters.shouldEnableVP9Decoder, parameters.shouldEnableVP9SWDecoder), { });
+#endif
 }
 
 } // namespace WebKit

@@ -12,7 +12,7 @@
      'VERSION_FROM'	=> 'Random.pm', # finds $VERSION
      'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
 -    'LIBS'	        => ['-lssl -lcrypto'],   # e.g., '-lm' 
-+    'LIBS'	        => ['-lssl -lcrypto -L'.$OPENSSL_PREFIX.'/lib'],   # e.g., '-lm' 
++    'LIBS'	        => ['-L'.$OPENSSL_PREFIX.'/lib -lssl -lcrypto'],   # e.g., '-lm' 
      'DEFINE'		=> '', # e.g., '-DHAVE_SOMETHING'
 -    'INC'		=> '', # e.g., '-I/usr/include/other'
 +    'INC'		=> '-I'.$OPENSSL_PREFIX.'/include', # e.g., '-I/usr/include/other'

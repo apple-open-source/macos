@@ -123,19 +123,14 @@ void GraphicsContext::drawRect(const FloatRect& rect, float borderThickness)
     Cairo::drawRect(*platformContext(), rect, borderThickness, state.fillColor, state.strokeStyle, state.strokeColor);
 }
 
-void GraphicsContext::drawNativeImage(const NativeImagePtr& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void GraphicsContext::drawPlatformImage(const PlatformImagePtr& image, const FloatSize&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     if (paintingDisabled())
         return;
 
-    if (m_impl) {
-        m_impl->drawNativeImage(image, imageSize, destRect, srcRect, options);
-        return;
-    }
-
     ASSERT(hasPlatformContext());
     auto& state = this->state();
-    Cairo::drawNativeImage(*platformContext(), image.get(), destRect, srcRect, { options, state.imageInterpolationQuality }, state.alpha, Cairo::ShadowState(state));
+    Cairo::drawPlatformImage(*platformContext(), image.get(), destRect, srcRect, { options, state.imageInterpolationQuality }, state.alpha, Cairo::ShadowState(state));
 }
 
 // This is only used to draw borders, so we should not draw shadows.
@@ -258,21 +253,6 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
 
     ASSERT(hasPlatformContext());
     Cairo::clipPath(*platformContext(), path, clipRule);
-}
-
-void GraphicsContext::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& destRect)
-{
-    if (paintingDisabled())
-        return;
-
-    if (m_impl) {
-        m_impl->clipToImageBuffer(buffer, destRect);
-        return;
-    }
-
-    ASSERT(hasPlatformContext());
-    if (auto surface = buffer.copyNativeImage(DontCopyBackingStore))
-        Cairo::clipToImageBuffer(*platformContext(), surface.get(), destRect);
 }
 
 IntRect GraphicsContext::clipBounds() const
@@ -675,19 +655,14 @@ void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const Float
     Cairo::fillRectWithRoundedHole(*platformContext(), rect, roundedHoleRect, Cairo::FillSource(state), Cairo::ShadowState(state));
 }
 
-void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void GraphicsContext::drawPlatformPattern(const PlatformImagePtr& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
-    if (paintingDisabled())
+    if (paintingDisabled() || !patternTransform.isInvertible())
         return;
-
-    if (m_impl) {
-        m_impl->drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
-        return;
-    }
 
     ASSERT(hasPlatformContext());
-    if (auto surface = image.nativeImageForCurrentFrame())
-        Cairo::drawPattern(*platformContext(), surface.get(), IntSize(image.size()), destRect, tileRect, patternTransform, phase, options);
+    UNUSED_PARAM(spacing);
+    Cairo::drawPattern(*platformContext(), image.get(), IntSize(imageSize), destRect, tileRect, patternTransform, phase, options);
 }
 
 void GraphicsContext::setPlatformShouldAntialias(bool enable)

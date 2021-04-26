@@ -66,6 +66,11 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
 + (instancetype _Nullable)logger;
 
 + (NSInteger)fuzzyDaysSinceDate:(NSDate*)date;
+
+// Rounds to the nearest 5 (unless 1 or 2, that rounds to 5 as well)
++ (NSInteger)fuzzyInteger:(NSInteger)num;
++ (NSNumber*)fuzzyNumber:(NSNumber*)num;
+
 + (void)addOSVersionToEvent:(NSMutableDictionary*)event;
 // Help for the subclass to pick a prefered location
 + (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename;

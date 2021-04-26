@@ -60,6 +60,8 @@
 #include <Security/SecureTransport.h> /* For error codes. */
 
 #include <corecrypto/ccrng_system.h>
+#include <corecrypto/ccsha1.h>
+#include <corecrypto/ccsha2.h>
 
 #include <asl.h>
 #include <stdlib.h>
@@ -689,7 +691,7 @@ out:
     return status;
 }
 
-static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecPadding padding) {
+static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecPadding padding, size_t digestSize) {
     switch (SecKeyGetAlgorithmId(key)) {
         case kSecRSAAlgorithmID: {
             switch (padding) {
@@ -715,6 +717,22 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecP
             switch (padding) {
                 case kSecPaddingSigRaw:
                     return kSecKeyAlgorithmECDSASignatureRFC4754;
+                case kSecPaddingPKCS1: {
+                    // If digest has known size of some hash function, explicitly encode that hash type in the algorithm.
+                    if (digestSize == ccsha1_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA1;
+                    } else if (digestSize == ccsha224_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA224;
+                    } else if (digestSize == ccsha256_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
+                    } else if (digestSize == ccsha384_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA384;
+                    } else if (digestSize == ccsha512_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA512;
+                    }
+
+                    // Fall through to common case, no break here.
+                }
                 default:
                     // Although it is not very logical, previous SecECKey implementation really considered
                     // anything else than SigRaw (incl. None!) as PKCS1 (i.e. x962), so we keep the behaviour
@@ -727,7 +745,7 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecP
 }
 
 #if TARGET_OS_OSX
-static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding_macOS(SecKeyRef key, SecPadding padding) {
+static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding_macOS(SecKeyRef key, SecPadding padding, size_t digestSize) {
     switch (SecKeyGetAlgorithmId(key)) {
         case kSecRSAAlgorithmID: {
             // On CSSM-based implementation, these functions actually did hash its input,
@@ -755,6 +773,22 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding_macOS(SecKeyRef key
             switch (padding) {
                 case kSecPaddingSigRaw:
                     return kSecKeyAlgorithmECDSASignatureRFC4754;
+                case kSecPaddingPKCS1: {
+                    // If digest has known size of some hash function, explicitly encode that hash type in the algorithm.
+                    if (digestSize == ccsha1_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA1;
+                    } else if (digestSize == ccsha224_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA224;
+                    } else if (digestSize == ccsha256_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
+                    } else if (digestSize == ccsha384_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA384;
+                    } else if (digestSize == ccsha512_di()->output_size) {
+                        return kSecKeyAlgorithmECDSASignatureDigestX962SHA512;
+                    }
+
+                    // Fall through to common case, no break here.
+                }
                 default:
                     // Although it is not very logical, previous SecECKey implementation really considered
                     // anything else than SigRaw (incl. None!) as PKCS1 (i.e. x962), so we keep the behaviour
@@ -775,7 +809,7 @@ OSStatus SecKeyRawSign(
                        size_t              dataToSignLen,	/* length of dataToSign */
                        uint8_t             *sig,			/* signature, RETURNED */
                        size_t              *sigLen) {		/* IN/OUT */
-    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding);
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding, dataToSignLen);
     if (algorithm == NULL) {
         return errSecParam;
     }
@@ -793,7 +827,7 @@ OSStatus SecKeyRawSign_macOS(
                        size_t              dataToSignLen,    /* length of dataToSign */
                        uint8_t             *sig,            /* signature, RETURNED */
                        size_t              *sigLen) {        /* IN/OUT */
-    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding_macOS(key, padding);
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding_macOS(key, padding, dataToSignLen);
     if (algorithm == NULL) {
         return errSecParam;
     }
@@ -812,7 +846,7 @@ OSStatus SecKeyRawVerify(
                          size_t              signedDataLen,	/* length of dataToSign */
                          const uint8_t       *sig,			/* signature */
                          size_t              sigLen) {		/* length of signature */
-    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding);
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding, signedDataLen);
     if (algorithm == NULL) {
         return errSecParam;
     }
@@ -832,7 +866,7 @@ OSStatus SecKeyRawVerify_macOS(
                          size_t              signedDataLen,    /* length of dataToSign */
                          const uint8_t       *sig,            /* signature */
                          size_t              sigLen) {        /* length of signature */
-    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding_macOS(key, padding);
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding_macOS(key, padding, signedDataLen);
     if (algorithm == NULL) {
         return errSecParam;
     }

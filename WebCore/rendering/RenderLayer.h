@@ -493,6 +493,7 @@ public:
     Scrollbar* verticalScrollbar() const final { return m_vBar.get(); }
     ScrollableArea* enclosingScrollableArea() const final;
 
+    bool handleWheelEventForScrolling(const PlatformWheelEvent&, Optional<WheelScrollGestureState>) final;
     bool isScrollableOrRubberbandable() final;
     bool hasScrollableOrRubberbandableAncestor() final;
     bool useDarkAppearance() const final;
@@ -795,7 +796,7 @@ public:
     // currentTransform computes a transform which takes accelerated animations into account. The
     // resulting transform has transform-origin baked in. If the layer does not have a transform,
     // returns the identity matrix.
-    TransformationMatrix currentTransform(RenderStyle::ApplyTransformOrigin = RenderStyle::IncludeTransformOrigin) const;
+    TransformationMatrix currentTransform(OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const;
     TransformationMatrix renderableTransform(OptionSet<PaintBehavior>) const;
     
     // Get the perspective transform, which is applied to transformed sublayers.
@@ -1048,13 +1049,13 @@ private:
 
     Path computeClipPath(const LayoutSize& offsetFromRoot, LayoutRect& rootRelativeBounds, WindRule&) const;
 
-    bool setupClipPath(GraphicsContext&, const LayerPaintingInfo&, const LayoutSize& offsetFromRoot, Optional<LayoutRect>& rootRelativeBounds);
+    bool setupClipPath(GraphicsContext&, const LayerPaintingInfo&, const LayoutSize& offsetFromRoot);
 
     void ensureLayerFilters();
     void clearLayerFilters();
 
     RenderLayerFilters* filtersForPainting(GraphicsContext&, OptionSet<PaintLayerFlag>) const;
-    GraphicsContext* setupFilters(GraphicsContext& destinationContext, LayerPaintingInfo&, OptionSet<PaintLayerFlag>, const LayoutSize& offsetFromRoot, Optional<LayoutRect>& rootRelativeBounds);
+    GraphicsContext* setupFilters(GraphicsContext& destinationContext, LayerPaintingInfo&, OptionSet<PaintLayerFlag>, const LayoutSize& offsetFromRoot);
     void applyFilters(GraphicsContext& originalContext, const LayerPaintingInfo&, OptionSet<PaintBehavior>, const LayerFragments&);
 
     void paintLayer(GraphicsContext&, const LayerPaintingInfo&, OptionSet<PaintLayerFlag>);

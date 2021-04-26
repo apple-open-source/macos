@@ -6,6 +6,8 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <IOKit/kext/OSKextPrivate.h>
+
 #import "../kextcache_main.h"
 #import "ShimHelpers.h"
 
@@ -49,12 +51,19 @@ void shimKextcacheArgsToKMUtilAndRun(KextcacheArgs *toolArgs)
     // Gather a kmutil shim invocation, then print out the command, but don't
     // execute it
     else if (toolArgs->prelinkedKernelPath) {
+        NSString *prelinkedKernelPathString = [NSString stringWithUTF8String:toolArgs->prelinkedKernelPath];
+        if (!prelinkedKernelPathString) {
+            OSKextLogStringError(NULL);
+            exitCode = EX_OSERR;
+            goto cancel;
+        }
+
         addArguments(@[
             @"create",
             @"-n",
             @"boot",
             @"--boot-path",
-            [NSString stringWithUTF8String:toolArgs->prelinkedKernelPath]
+            prelinkedKernelPathString,
         ]);
 
         OSKextRequiredFlags checkFlags[] = {
@@ -81,11 +90,17 @@ void shimKextcacheArgsToKMUtilAndRun(KextcacheArgs *toolArgs)
         }
 
         if (toolArgs->kernelPath) {
-            NSString *nsKernelPath = [NSString stringWithUTF8String:toolArgs->kernelPath];
-            addArguments(@[@"--kernel", nsKernelPath]);
+            NSString *kernelPathString = [NSString stringWithUTF8String:toolArgs->kernelPath];
+            if (!kernelPathString) {
+                OSKextLogStringError(NULL);
+                exitCode = EX_OSERR;
+                goto cancel;
+            }
 
-            if (nsKernelPath.pathExtension.length > 0) {
-                addArguments(@[@"--variant-suffix", nsKernelPath.pathExtension]);
+            addArguments(@[@"--kernel", kernelPathString]);
+
+            if (kernelPathString.pathExtension.length > 0) {
+                addArguments(@[@"--variant-suffix", kernelPathString.pathExtension]);
             }
         }
 

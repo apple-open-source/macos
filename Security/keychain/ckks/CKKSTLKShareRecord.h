@@ -87,6 +87,11 @@ NS_ASSUME_NONNULL_BEGIN
 // Returns a prefix that all every CKKSTLKShare CKRecord will have
 + (NSString*)ckrecordPrefix;
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
+
++ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
+
 // For tests
 - (CKKSKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError**)error;
 - (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey error:(NSError**)error;

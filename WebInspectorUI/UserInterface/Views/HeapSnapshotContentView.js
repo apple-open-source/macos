@@ -37,7 +37,9 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
         this._exportButtonNavigationItem.tooltip = WI.UIString("Export (%s)").format(WI.saveKeyboardShortcut.displayName);
         this._exportButtonNavigationItem.buttonStyle = WI.ButtonNavigationItem.Style.ImageAndText;
         this._exportButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
-        this._exportButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { this._exportSnapshot(); });
+        this._exportButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, function(event) {
+            this._exportSnapshot();
+        }, this);
 
         this._dataGrid = new WI.DataGrid(columns);
         this._dataGrid.sortColumnIdentifier = "retainedSize";
@@ -88,18 +90,18 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
         return [];
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         this._heapSnapshotDataGridTree.shown();
     }
 
-    hidden()
+    detached()
     {
-        super.hidden();
-
         this._heapSnapshotDataGridTree.hidden();
+
+        super.detached();
     }
 
     get scrollableElements()

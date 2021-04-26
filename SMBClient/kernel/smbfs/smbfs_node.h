@@ -459,7 +459,7 @@ void smbfs_CloseChildren(struct smb_share *share,
                          vfs_context_t context);
 int16_t smbfs_get_epoch_delta(uint16_t server_epoch, uint16_t file_epoch);
 int smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context);
-
+int smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp);
 #define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
 
 #endif /* _FS_SMBFS_NODE_H_ */

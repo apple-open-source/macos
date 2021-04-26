@@ -954,14 +954,14 @@ bool SQLiteIDBBackingStore::addExistingIndex(IDBObjectStoreInfo& objectStoreInfo
 
 bool SQLiteIDBBackingStore::handleDuplicateIndexIDs(const HashMap<uint64_t, Vector<IDBIndexInfo>>& indexInfoMap, IDBDatabaseInfo& databaseInfo)
 {
-    for (auto& [indexID, infos] : indexInfoMap) {
-        if (infos.size() == 1)
+    for (auto& iter : indexInfoMap) {
+        if (iter.value.size() == 1)
             continue;
 
-        if (!removeExistingIndex(indexID))
+        if (!removeExistingIndex(iter.key))
             return false;
 
-        for (auto info : infos) {
+        for (auto info : iter.value) {
             auto objectStoreInfo = databaseInfo.infoForExistingObjectStore(info.objectStoreIdentifier());
             ASSERT(objectStoreInfo);
             objectStoreInfo->deleteIndex(info.identifier());
@@ -1128,17 +1128,6 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
     return databaseInfo;
 }
 
-String SQLiteIDBBackingStore::databaseNameFromEncodedFilename(const String& encodedName)
-{
-    if (encodedName == "%00"_s)
-        return { };
-
-    String partiallyDecoded = encodedName;
-    partiallyDecoded.replace("%2E"_s, "."_s);
-
-    return FileSystem::decodeFromFilename(partiallyDecoded);
-}
-
 String SQLiteIDBBackingStore::filenameForDatabaseName() const
 {
     ASSERT(!m_identifier.databaseName().isNull());
@@ -1191,10 +1180,9 @@ Optional<IDBDatabaseNameAndVersion> SQLiteIDBBackingStore::databaseNameAndVersio
 
 String SQLiteIDBBackingStore::fullDatabaseDirectoryWithUpgrade()
 {
-    auto databaseRootDirectory = this->databaseRootDirectoryIsolatedCopy();
-    String oldOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(databaseRootDirectory, "v0");
+    String oldOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory, "v0");
     String oldDatabaseDirectory = FileSystem::pathByAppendingComponent(oldOriginDirectory, filenameForDatabaseName());
-    String newOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(databaseRootDirectory, "v1");
+    String newOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory, "v1");
     String fileNameHash = SQLiteFileSystem::computeHashForFileName(m_identifier.databaseName());
     Vector<String> directoriesWithSameHash = FileSystem::listDirectory(newOriginDirectory, fileNameHash + "*");
     String newDatabaseDirectory = FileSystem::pathByAppendingComponent(newOriginDirectory, fileNameHash);
@@ -2098,12 +2086,12 @@ IDBError SQLiteIDBBackingStore::updateOneIndexForAddRecord(IDBObjectStoreInfo& o
 {
     JSLockHolder locker(m_serializationContext->vm());
 
-    auto jsValue = deserializeIDBValueToJSValue(m_serializationContext->execState(), value);
+    auto jsValue = deserializeIDBValueToJSValue(m_serializationContext->globalObject(), value);
     if (jsValue.isUndefinedOrNull())
         return IDBError { };
 
     IndexKey indexKey;
-    generateIndexKeyForValue(m_serializationContext->execState(), info, jsValue, indexKey, objectStoreInfo.keyPath(), key);
+    generateIndexKeyForValue(m_serializationContext->globalObject(), info, jsValue, indexKey, objectStoreInfo.keyPath(), key);
 
     if (indexKey.isNull())
         return IDBError { };
@@ -3044,7 +3032,7 @@ void SQLiteIDBBackingStore::deleteBackingStore()
 
     SQLiteFileSystem::deleteDatabaseFile(dbFilename);
     SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_databaseDirectory);
-    SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_identifier.databaseDirectoryRelativeToRoot(databaseRootDirectoryIsolatedCopy()));
+    SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory));
 }
 
 void SQLiteIDBBackingStore::unregisterCursor(SQLiteIDBCursor& cursor)

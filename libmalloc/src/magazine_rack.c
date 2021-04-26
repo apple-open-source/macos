@@ -159,3 +159,66 @@ rack_region_insert(rack_t *rack, region_t region)
 	rack->num_regions++;
 	_malloc_lock_unlock(&rack->region_lock);
 }
+
+bool
+rack_region_remove(rack_t *rack, region_t region, region_trailer_t *trailer)
+{
+	bool rv = true;
+
+	rack_region_lock(rack);
+	rgnhdl_t pSlot = hash_lookup_region_no_lock(
+			rack->region_generation->hashed_regions,
+			rack->region_generation->num_regions_allocated,
+			rack->region_generation->num_regions_allocated_shift,
+			region);
+
+	if ((trailer->dispose_flags & RACK_DISPOSE_DELAY) != 0) {
+		// Still remove this region from the hash table but don't allow the
+		// current caller to deallocate the region until the pressure thread is
+		// done with it.
+		trailer->dispose_flags |= RACK_DISPOSE_NEEDED;
+		rv = false;
+	}
+
+	if (NULL == pSlot) {
+		malloc_zone_error(rack->debug_flags, true,
+				"tiny_free_try_depot_unmap_no_lock hash lookup failed: %p\n",
+				region);
+		rv = false;
+	} else {
+		// Invalidate the hash table entry for this region with
+		// HASHRING_REGION_DEALLOCATED.  Using HASHRING_REGION_DEALLOCATED
+		// preserves the collision chain, using HASHRING_OPEN_ENTRY (0) would not.
+		*pSlot = HASHRING_REGION_DEALLOCATED;
+
+		// Atomically increment num_regions_dealloc
+#ifdef __LP64__
+		OSAtomicIncrement64((int64_t *)&rack->num_regions_dealloc);
+#else
+		OSAtomicIncrement32((int32_t *)&rack->num_regions_dealloc);
+#endif
+	}
+
+	rack_region_unlock(rack);
+	return rv;
+}
+
+bool
+rack_region_maybe_dispose(rack_t *rack, region_t region, size_t region_size,
+		region_trailer_t *trailer)
+{
+	bool rv = false;
+	rack_region_lock(rack);
+
+	if ((trailer->dispose_flags & RACK_DISPOSE_NEEDED) != 0) {
+		// We tried to dispose of this region while the pressure thread was
+		// using it, so now that it's finished we can deallocate it now.
+		mvm_deallocate_pages((void *)region, region_size,
+				MALLOC_FIX_GUARD_PAGE_FLAGS(rack->debug_flags));
+		rv = true;
+	} else {
+		trailer->dispose_flags &= ~RACK_DISPOSE_DELAY;
+	}
+	rack_region_unlock(rack);
+	return rv;
+}

@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_OPTIONS(NSUInteger, OctagonPendingConditions) {
     OctagonPendingConditionsDeviceUnlocked = 1,
+    OctagonPendingConditionsNetworkReachable = 2,
 };
 
 NSString* OctagonPendingConditionsToString(OctagonPendingConditions cond);
@@ -30,6 +31,10 @@ NSString* OctagonPendingConditionsToString(OctagonPendingConditions cond);
 - (instancetype)initWithFlag:(OctagonFlag*)flag delayInSeconds:(NSTimeInterval)delay;
 - (instancetype)initWithFlag:(OctagonFlag*)flag conditions:(OctagonPendingConditions)conditions;
 - (instancetype)initWithFlag:(OctagonFlag*)flag after:(NSOperation*)op;
+
+- (instancetype)initWithFlag:(OctagonFlag*)flag
+                  conditions:(OctagonPendingConditions)conditions
+              delayInSeconds:(NSTimeInterval)delay;
 @end
 
 NS_ASSUME_NONNULL_END

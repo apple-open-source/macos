@@ -26,6 +26,8 @@ CKKSFlag* const CKKSFlagFetchComplete = (CKKSFlag*)@"fetch_complete";
 
 CKKSFlag* const CKKSFlagKeyStateProcessRequested = (CKKSFlag*) @"key_process_requested";
 
+CKKSFlag* const CKKSFlagKeySetRequested = (CKKSFlag*) @"key_set";
+
 CKKSFlag* const CKKSFlagProcessIncomingQueue = (CKKSFlag*)@"process_incoming_queue";
 CKKSFlag* const CKKSFlagProcessOutgoingQueue = (CKKSFlag*)@"process_outgoing_queue";
 CKKSFlag* const CKKSFlagScanLocalItems = (CKKSFlag*)@"dropped_items";
@@ -57,6 +59,7 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagKeyStateTLKsUploaded,
             CKKSFlagFetchComplete,
             CKKSFlag24hrNotification,
+            CKKSFlagKeySetRequested,
         ]];
     });
     return s;

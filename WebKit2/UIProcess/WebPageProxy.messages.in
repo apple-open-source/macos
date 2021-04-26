@@ -43,7 +43,7 @@ messages -> WebPageProxy {
     SetCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
     SetStatusText(String statusText)
     SetFocus(bool focused)
-    TakeFocus(uint32_t direction)
+    TakeFocus(uint8_t direction)
     FocusedFrameChanged(Optional<WebCore::FrameIdentifier> frameID)
     SetRenderTreeSize(uint64_t treeSize)
     SetToolbarsAreVisible(bool toolbarsAreVisible)
@@ -69,6 +69,7 @@ messages -> WebPageProxy {
     PageDidScroll()
     RunOpenPanel(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, struct WebCore::FileChooserSettings parameters)
     ShowShareSheet(struct WebCore::ShareDataWithParsedURL shareData) -> (bool granted) Async
+    ShowContactPicker(struct WebCore::ContactsRequestData requestData) -> (Optional<Vector<WebCore::ContactInfo>> info) Async
     PrintFrame(WebCore::FrameIdentifier frameID) -> () Synchronous
     RunModal()
     NotifyScrollerThumbIsVisibleInRect(WebCore::IntRect scrollerThumb)
@@ -96,6 +97,11 @@ messages -> WebPageProxy {
     ShowDataListSuggestions(struct WebCore::DataListSuggestionInformation suggestionInformation);
     HandleKeydownInDataList(String key);
     EndDataListSuggestions();
+#endif
+
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    ShowDateTimePicker(struct WebCore::DateTimeChooserParameters params);
+    EndDateTimePicker();
 #endif
 
     # Policy messages
@@ -162,23 +168,12 @@ messages -> WebPageProxy {
     StringCallback(String resultString, WebKit::CallbackID callbackID)
     BoolCallback(bool result, WebKit::CallbackID callbackID)
     InvalidateStringCallback(WebKit::CallbackID callbackID)
-    ScriptValueCallback(IPC::DataReference resultData, Optional<WebCore::ExceptionDetails> details, WebKit::CallbackID callbackID)
     ComputedPagesCallback(Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin, WebKit::CallbackID callbackID)
-    ValidateCommandCallback(String command, bool isEnabled, int32_t state, WebKit::CallbackID callbackID)
     UnsignedCallback(uint64_t result, WebKit::CallbackID callbackID)
-    RectForCharacterRangeCallback(WebCore::IntRect rect, struct WebKit::EditingRange actualRange, WebKit::CallbackID callbackID)
 #if ENABLE(APPLICATION_MANIFEST)
     ApplicationManifestCallback(Optional<WebCore::ApplicationManifest> manifest, WebKit::CallbackID callbackID)
 #endif
-#if PLATFORM(MAC)
-    AttributedStringForCharacterRangeCallback(struct WebCore::AttributedString string, struct WebKit::EditingRange actualRange, WebKit::CallbackID callbackID)
-    FontAtSelectionCallback(struct WebKit::FontInfo fontInfo, double fontSize, bool selectionHasMultipleFonts, WebKit::CallbackID callbackID)
-#endif
-    FontAttributesCallback(struct WebCore::FontAttributes attributes, WebKit::CallbackID callbackID)
 #if PLATFORM(IOS_FAMILY)
-    GestureCallback(WebCore::IntPoint point, enum:uint8_t WebKit::GestureType gestureType, enum:uint8_t WebKit::GestureRecognizerState gestureState, OptionSet<WebKit::SelectionFlags> flags, WebKit::CallbackID callbackID)
-    TouchesCallback(WebCore::IntPoint point, enum:uint8_t WebKit::SelectionTouch touches, OptionSet<WebKit::SelectionFlags> flags, WebKit::CallbackID callbackID)
-    SelectionContextCallback(String selectedText, String beforeText, String afterText, WebKit::CallbackID callbackID)
     InterpretKeyEvent(struct WebKit::EditorState state, bool isCharEvent) -> (bool handled) Synchronous
     DidReceivePositionInformation(struct WebKit::InteractionInformationAtPosition information)
     SaveImageToLibrary(WebKit::SharedMemory::IPCHandle handle)
@@ -188,7 +183,6 @@ messages -> WebPageProxy {
     DidCompleteSyntheticClick()
     DisableDoubleTapGesturesDuringTapIfNecessary(uint64_t requestID)
     HandleSmartMagnificationInformationForPotentialTap(uint64_t requestID, WebCore::FloatRect renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel)
-    SelectionRectsCallback(Vector<WebCore::SelectionRect> selectionRects, WebKit::CallbackID callbackID);
 #endif
 #if ENABLE(DATA_DETECTION)
     SetDataDetectionResult(struct WebKit::DataDetectionResult dataDetectionResult)
@@ -402,9 +396,8 @@ messages -> WebPageProxy {
     FocusedElementDidChangeInputMode(enum:uint8_t WebCore::InputMode mode)
     ScrollingNodeScrollWillStartScroll()
     ScrollingNodeScrollDidEndScroll()
-    ShowInspectorHighlight(struct WebCore::Highlight highlight)
+    ShowInspectorHighlight(struct WebCore::InspectorOverlay::Highlight highlight)
     HideInspectorHighlight()
-    FocusedElementInformationCallback(struct WebKit::FocusedElementInformation information, WebKit::CallbackID callbackID)
 
     ShowInspectorIndication()
     HideInspectorIndication()
@@ -428,19 +421,18 @@ messages -> WebPageProxy {
     SaveRecentSearches(String name, Vector<WebCore::RecentSearch> searchItems)
     LoadRecentSearches(String name) -> (Vector<WebCore::RecentSearch> result) Synchronous
 
+#if ENABLE(PDFKIT_PLUGIN) && !ENABLE(UI_PROCESS_PDF_HUD)
     SavePDFToFileInDownloadsFolder(String suggestedFilename, URL originatingURL, IPC::DataReference data)
-
-#if PLATFORM(COCOA)
     SavePDFToTemporaryFolderAndOpenWithNativeApplication(String suggestedFilename, struct WebKit::FrameInfoData sourceFrameInfo, IPC::DataReference data, String pdfUUID)
     OpenPDFFromTemporaryFolderWithNativeApplication(struct WebKit::FrameInfoData sourceFrameInfo, String pdfUUID)
 #endif
 
 #if ENABLE(PDFKIT_PLUGIN)
-    ShowPDFContextMenu(struct WebKit::PDFContextMenu contextMenu) -> (Optional<int32_t> selectedItem) Synchronous
+    ShowPDFContextMenu(struct WebKit::PDFContextMenu contextMenu, WebKit::PDFPluginIdentifier identifier) -> (Optional<int32_t> selectedItem) Synchronous
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    FindPlugin(String mimeType, WebKit::PluginProcessType processType, String urlString, String frameURLString, String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, String newMIMEType, uint32_t pluginLoadPolicy, String unavailabilityDescription, bool isUnsupported) Synchronous
+    FindPlugin(String mimeType, String urlString, String frameURLString, String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, String newMIMEType, uint32_t pluginLoadPolicy, String unavailabilityDescription, bool isUnsupported) Synchronous
 #endif
 
     DidUpdateActivityState()
@@ -469,12 +461,6 @@ messages -> WebPageProxy {
 
     IsPlayingMediaDidChange(unsigned state, uint64_t sourceElementID)
     HandleAutoplayEvent(enum:uint8_t WebCore::AutoplayEvent event, OptionSet<WebCore::AutoplayEventFlags> flags)
-
-#if ENABLE(MEDIA_SESSION)
-    HasMediaSessionWithActiveMediaElementsDidChange(bool state)
-    MediaSessionMetadataDidChange(WebCore::MediaSessionMetadata metadata);
-    FocusedContentMediaElementDidChange(uint64_t elementID)
-#endif
 
 #if PLATFORM(MAC)
     DidPerformImmediateActionHitTest(struct WebKit::WebHitTestResultData result, bool contentPreventsDefault, WebKit::UserData userData)
@@ -561,6 +547,12 @@ messages -> WebPageProxy {
     SpeechSynthesisResume() -> () Async
 #endif
 
+#if ENABLE(UI_PROCESS_PDF_HUD)
+    CreatePDFHUD(WebKit::PDFPluginIdentifier identifier, WebCore::IntRect boundingBox)
+    UpdatePDFHUDLocation(WebKit::PDFPluginIdentifier identifier, WebCore::IntRect boundingBox)
+    RemovePDFHUD(WebKit::PDFPluginIdentifier identifier)
+#endif
+
     ConfigureLoggingChannel(String channelName, enum:uint8_t WTFLogChannelState state, enum:uint8_t WTFLogLevel level)
 
 #if PLATFORM(GTK)
@@ -589,4 +581,8 @@ messages -> WebPageProxy {
 #endif
 
     SetHasExecutedAppBoundBehaviorBeforeNavigation()
+    
+#if PLATFORM(MAC)
+    ChangeUniversalAccessZoomFocus(WebCore::IntRect viewRect, WebCore::IntRect caretRect)
+#endif
 }

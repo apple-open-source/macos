@@ -49,7 +49,7 @@ T_DECL(allocate, "allocate")
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; zone.rr_slot_index = 1; // choose_available_slot
 	zone.max_metadata = 4; zone.num_metadata = 2; // choose_metadata
-	expected_upper_bound = 2; rand_value = FALSE; //choose_offset_on_page
+	expected_upper_bound = 2; rand_ret_value = false; // choose_offset_on_page
 	expected_traces[0] = &metadata[2].alloc_trace; // capture_trace
 	zone.begin = 640000; // page_addr
 	expected_read_write_page = 643072; // mark_read_write
@@ -105,7 +105,7 @@ T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled")
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; // allocate
-	expected_upper_bound = 2; rand_value = TRUE; // allocate -> choose_available_slot
+	expected_upper_bound = 2; rand_ret_value = true; // allocate -> choose_offset_on_page
 	zone.max_metadata = 1; // allocate -> choose_metadata
 	expected_traces[0] = &metadata[0].alloc_trace; // allocate -> capture_trace
 	expected_read_write_page = 643072; // allocate -> mark_read_write
@@ -122,7 +122,7 @@ T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
 	expected_size_ptr = 1337; size_ret_value = 5; // wrapped_size
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; // allocate
-	expected_upper_bound = 2; rand_value = TRUE; // allocate -> choose_available_slot
+	expected_upper_bound = 2; rand_ret_value = true; // allocate -> choose_offset_on_page
 	zone.max_metadata = 1; // allocate -> choose_metadata
 	expected_traces[0] = &metadata[0].alloc_trace; // allocate -> capture_trace
 	zone.begin = 640000; // allocate -> page_addr

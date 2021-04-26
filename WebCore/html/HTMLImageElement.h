@@ -35,7 +35,6 @@ namespace WebCore {
 
 class CachedImage;
 class DeferredPromise;
-class EditableImageReference;
 class HTMLAttachmentElement;
 class HTMLFormElement;
 class HTMLImageLoader;
@@ -51,7 +50,7 @@ class HTMLImageElement : public HTMLElement, public FormNamedItem {
 public:
     static Ref<HTMLImageElement> create(Document&);
     static Ref<HTMLImageElement> create(const QualifiedName&, Document&, HTMLFormElement* = nullptr);
-    static Ref<HTMLImageElement> createForJSConstructor(Document&, Optional<unsigned> width, Optional<unsigned> height);
+    static Ref<HTMLImageElement> createForLegacyFactoryFunction(Document&, Optional<unsigned> width, Optional<unsigned> height);
 
     virtual ~HTMLImageElement();
 
@@ -61,9 +60,6 @@ public:
     WEBCORE_EXPORT int naturalWidth() const;
     WEBCORE_EXPORT int naturalHeight() const;
     const AtomString& currentSrc() const { return m_currentSrc; }
-
-    bool supportsFocus() const override;
-    bool isFocusable() const override;
 
     bool isServerMap() const;
 
@@ -125,11 +121,6 @@ public:
     WEBCORE_EXPORT bool isSystemPreviewImage() const;
 #endif
 
-    WEBCORE_EXPORT GraphicsLayer::EmbeddedViewID editableImageViewID() const;
-    WEBCORE_EXPORT bool hasEditableImageAttribute() const;
-
-    void defaultEventHandler(Event&) final;
-
     void loadDeferredImage();
 
     const AtomString& loadingForBindings() const;
@@ -148,6 +139,8 @@ public:
     void setReferrerPolicyForBindings(const AtomString&);
     String referrerPolicyForBindings() const;
     ReferrerPolicy referrerPolicy() const;
+
+    bool allowsOrientationOverride() const;
 
 protected:
     HTMLImageElement(const QualifiedName&, Document&, HTMLFormElement* = nullptr);
@@ -175,7 +168,6 @@ private:
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
 
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
-    void didFinishInsertingNode() override;
     void removedFromAncestor(RemovalType, ContainerNode&) override;
 
     bool isFormAssociatedElement() const final { return false; }
@@ -188,8 +180,6 @@ private:
     void selectImageSource(RelevantMutation);
 
     ImageCandidate bestFitSourceFromPictureElement();
-
-    void updateEditableImage();
 
     void copyNonAttributePropertiesFromElement(const Element&) final;
 
@@ -216,7 +206,6 @@ private:
     bool m_hadNameBeforeAttributeChanged { false }; // FIXME: We only need this because parseAttribute() can't see the old value.
     bool m_isDroppedImagePlaceholder { false };
 
-    RefPtr<EditableImageReference> m_editableImage;
     WeakPtr<HTMLPictureElement> m_pictureElement;
     MediaQueryDynamicResults m_mediaQueryDynamicResults;
 

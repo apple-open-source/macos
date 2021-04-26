@@ -162,6 +162,7 @@ static void testsyncempty(void) {
                 SOSTestDeviceListSync("syncempty", test_directive, test_reason, testDevices, NULL, NULL);
                 SOSTestDeviceListInSync("syncempty", test_directive, test_reason, testDevices);
                 SOSTestDeviceDestroyEngine(testDevices);
+                SOSTestDeviceForceCloseDatabases(testDevices);
                 CFReleaseSafe(testDevices);
             }
         }
@@ -209,7 +210,8 @@ static void testsyncmany(const char *name, const char *test_directive, const cha
                 return false;
             });
             SOSTestDeviceListInSync(name, test_directive, test_reason, testDevices);
-            SOSTestDeviceDestroyEngine(testDevices);    
+            SOSTestDeviceDestroyEngine(testDevices);
+            SOSTestDeviceForceCloseDatabases(testDevices);
             CFReleaseSafe(testDevices);
         }
     }
@@ -476,6 +478,7 @@ int secd_70_engine(int argc, char *const *argv)
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     synctests();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

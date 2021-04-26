@@ -40,15 +40,19 @@
 using namespace WebCore;
 
 static void webkitMediaStreamSrcPushVideoSample(WebKitMediaStreamSrc*, GstSample*);
-static void webkitMediaStreamSrcPushAudioSample(WebKitMediaStreamSrc*, GstSample*);
+static void webkitMediaStreamSrcPushAudioSample(WebKitMediaStreamSrc*, const GRefPtr<GstSample>&);
 static void webkitMediaStreamSrcTrackEnded(WebKitMediaStreamSrc*, MediaStreamTrackPrivate&);
 static void webkitMediaStreamSrcRemoveTrackByType(WebKitMediaStreamSrc*, RealtimeMediaSource::Type);
+static void webkitMediaStreamSrcRemoveTrackObserver(WebKitMediaStreamSrc*, MediaStreamTrackPrivate&);
 
 static GstStaticPadTemplate videoSrcTemplate = GST_STATIC_PAD_TEMPLATE("video_src", GST_PAD_SRC, GST_PAD_SOMETIMES,
     GST_STATIC_CAPS("video/x-raw;video/x-h264;video/x-vp8"));
 
 static GstStaticPadTemplate audioSrcTemplate = GST_STATIC_PAD_TEMPLATE("audio_src", GST_PAD_SRC, GST_PAD_SOMETIMES,
     GST_STATIC_CAPS("audio/x-raw(ANY);"));
+
+GST_DEBUG_CATEGORY_STATIC(webkitMediaStreamSrcDebug);
+#define GST_CAT_DEFAULT webkitMediaStreamSrcDebug
 
 GRefPtr<GstTagList> mediaStreamTrackPrivateGetTags(MediaStreamTrackPrivate* track)
 {
@@ -164,8 +168,11 @@ public:
 
     void didRemoveTrack(MediaStreamTrackPrivate& track) final
     {
-        if (m_src)
-            webkitMediaStreamSrcRemoveTrackByType(WEBKIT_MEDIA_STREAM_SRC(m_src), track.type());
+        if (!m_src)
+            return;
+
+        webkitMediaStreamSrcRemoveTrackObserver(WEBKIT_MEDIA_STREAM_SRC(m_src), track);
+        webkitMediaStreamSrcRemoveTrackByType(WEBKIT_MEDIA_STREAM_SRC(m_src), track.type());
     }
 
 private:
@@ -300,9 +307,6 @@ static void webkitMediaStreamSrcUriHandlerInit(gpointer gIface, gpointer)
     iface->set_uri = webkitMediaStreamSrcUriSetUri;
 }
 
-GST_DEBUG_CATEGORY_STATIC(webkitMediaStreamSrcDebug);
-#define GST_CAT_DEFAULT webkitMediaStreamSrcDebug
-
 #define doInit \
     G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, webkitMediaStreamSrcUriHandlerInit); \
     GST_DEBUG_CATEGORY_INIT(webkitMediaStreamSrcDebug, "webkitmediastreamsrc", 0, "mediastreamsrc element"); \
@@ -349,21 +353,31 @@ static void webkitMediaStreamSrcConstructed(GObject* object)
     ASSERT(g_object_is_floating(self));
 }
 
+static void webkitMediaStreamSrcRemoveTrackObserver(WebKitMediaStreamSrc* self, MediaStreamTrackPrivate& track)
+{
+    auto* priv = self->priv;
+    switch (track.type()) {
+    case RealtimeMediaSource::Type::Video:
+        track.source().removeVideoSampleObserver(*priv->mediaStreamTrackObserver);
+        break;
+    case RealtimeMediaSource::Type::Audio:
+        track.source().removeAudioSampleObserver(*priv->mediaStreamTrackObserver);
+        break;
+    case RealtimeMediaSource::Type::None:
+        ASSERT_NOT_REACHED();
+    }
+    track.removeObserver(*priv->mediaStreamTrackObserver);
+}
+
 static void stopObservingTracks(WebKitMediaStreamSrc* self)
 {
     GST_OBJECT_LOCK(self);
     auto* priv = self->priv;
     if (priv->stream) {
-        for (auto& track : priv->stream->tracks()) {
-            track->source().removeAudioSampleObserver(*priv->mediaStreamTrackObserver);
-            track->source().removeVideoSampleObserver(*priv->mediaStreamTrackObserver);
-            track->removeObserver(*priv->mediaStreamTrackObserver);
-        }
-    } else if (priv->track) {
-        priv->track->source().removeAudioSampleObserver(*priv->mediaStreamTrackObserver);
-        priv->track->source().removeVideoSampleObserver(*priv->mediaStreamTrackObserver);
-        priv->track->removeObserver(*priv->mediaStreamTrackObserver);
-    }
+        for (auto& track : priv->stream->tracks())
+            webkitMediaStreamSrcRemoveTrackObserver(self, *track);
+    } else if (priv->track)
+        webkitMediaStreamSrcRemoveTrackObserver(self, *priv->track);
     GST_OBJECT_UNLOCK(self);
 }
 
@@ -512,14 +526,13 @@ static void webkitMediaStreamSrcSetupSrc(WebKitMediaStreamSrc* self, MediaStream
     }
 
     auto* priv = self->priv;
-    track->addObserver(*priv->mediaStreamTrackObserver.get());
-    auto& source = track->source();
-    switch (source.type()) {
+    track->addObserver(*priv->mediaStreamTrackObserver);
+    switch (track->type()) {
     case RealtimeMediaSource::Type::Audio:
-        source.addAudioSampleObserver(*priv->mediaStreamTrackObserver);
+        track->source().addAudioSampleObserver(*priv->mediaStreamTrackObserver);
         break;
     case RealtimeMediaSource::Type::Video:
-        source.addVideoSampleObserver(*priv->mediaStreamTrackObserver);
+        track->source().addVideoSampleObserver(*priv->mediaStreamTrackObserver);
         break;
     case RealtimeMediaSource::Type::None:
         ASSERT_NOT_REACHED();
@@ -591,10 +604,10 @@ static void webkitMediaStreamSrcPushVideoSample(WebKitMediaStreamSrc* self, GstS
         self->priv->videoSrc->pushSample(sample);
 }
 
-static void webkitMediaStreamSrcPushAudioSample(WebKitMediaStreamSrc* self, GstSample* sample)
+static void webkitMediaStreamSrcPushAudioSample(WebKitMediaStreamSrc* self, const GRefPtr<GstSample>& sample)
 {
     if (self->priv->audioSrc)
-        self->priv->audioSrc->pushSample(sample);
+        self->priv->audioSrc->pushSample(sample.get());
 }
 
 static void webkitMediaStreamSrcTrackEnded(WebKitMediaStreamSrc* self, MediaStreamTrackPrivate& track)

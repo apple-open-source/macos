@@ -185,6 +185,8 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
     CFReleaseNull(old_ag);
     CFReleaseSafe(test_ag);
 
+    secd_test_teardown_delete_temp_keychain("secd_02_upgrade_while_locked");
+
     return 0;
 }
 

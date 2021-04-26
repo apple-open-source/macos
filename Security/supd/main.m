@@ -52,16 +52,26 @@ int main(int argc, char** argv)
 @implementation ServiceDelegate
 
 - (BOOL)listener:(NSXPCListener *)listener shouldAcceptNewConnection:(NSXPCConnection *)newConnection {
-    NSNumber *num = [newConnection valueForEntitlement:@"com.apple.private.securityuploadd"];
-    if (![num isKindOfClass:[NSNumber class]] || ![num boolValue]) {
+    /* Client must either have the supd entitlement or the trustd file helping entitlement.
+     * Each method of the protocol will additionally check for the entitlement it needs. */
+    NSNumber *supdEntitlement = [newConnection valueForEntitlement:@"com.apple.private.securityuploadd"];
+    BOOL hasSupdEntitlement = [supdEntitlement isKindOfClass:[NSNumber class]] && [supdEntitlement boolValue];
+    NSNumber *trustdHelperEntitlement = [newConnection valueForEntitlement:@"com.apple.private.trustd.FileHelp"];
+    BOOL hasTrustdHelperEntitlement = [trustdHelperEntitlement isKindOfClass:[NSNumber class]] && [trustdHelperEntitlement boolValue];
+
+    /* expose the protocol based the client's entitlement (a client can't do both) */
+    if (hasSupdEntitlement) {
+        secinfo("xpc", "Client (pid: %d) properly entitled for supd interface, let's go", [newConnection processIdentifier]);
+        newConnection.exportedInterface = [NSXPCInterface interfaceWithProtocol:@protocol(supdProtocol)];
+    } else if (hasTrustdHelperEntitlement) {
+        secinfo("xpc", "Client (pid: %d) properly entitled for trustd file helper interface, let's go", [newConnection processIdentifier]);
+        newConnection.exportedInterface = [NSXPCInterface interfaceWithProtocol:@protocol(TrustdFileHelper_protocol)];
+    } else {
         secerror("xpc: Client (pid: %d) doesn't have entitlement", [newConnection processIdentifier]);
         return NO;
-    } else {
-        secinfo("xpc", "Client (pid: %d) properly entitled, let's go", [newConnection processIdentifier]);
     }
 
-    newConnection.exportedInterface = [NSXPCInterface interfaceWithProtocol:@protocol(supdProtocol)];
-    supd *exportedObject = [supd instance];
+    supd *exportedObject = [[supd alloc] initWithConnection:newConnection];
     newConnection.exportedObject = exportedObject;
     [newConnection resume];
     return YES;
@@ -106,8 +116,9 @@ int main(int argc, const char *argv[])
 
     ServiceDelegate *delegate = [ServiceDelegate new];
 
-    // kick the singleton so it can register its xpc activity handler
-    [supd instantiate];
+    // Always create a supd instance to register for the background activity that doesn't check entitlements
+    static supd *activity_supd = nil;
+    activity_supd = [[supd alloc] initWithConnection:nil];
     
     NSXPCListener *listener = [[NSXPCListener alloc] initWithMachServiceName:@"com.apple.securityuploadd"];
     listener.delegate = delegate;

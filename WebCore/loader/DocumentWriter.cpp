@@ -55,6 +55,8 @@ namespace WebCore {
 
 static inline bool canReferToParentFrameEncoding(const Frame* frame, const Frame* parentFrame) 
 {
+    if (is<XMLDocument>(frame->document()))
+        return false;
     return parentFrame && parentFrame->document()->securityOrigin().canAccess(frame->document()->securityOrigin());
 }
     
@@ -115,7 +117,7 @@ Ref<Document> DocumentWriter::createDocument(const URL& url)
 #endif
     if (!m_frame->loader().client().hasHTMLView())
         return Document::createNonRenderedPlaceholder(*m_frame, url);
-    return DOMImplementation::createDocument(m_mimeType, m_frame, url);
+    return DOMImplementation::createDocument(m_mimeType, m_frame.get(), m_frame->settings(), url);
 }
 
 bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* ownerDocument)
@@ -220,10 +222,10 @@ TextResourceDecoder& DocumentWriter::decoder()
         // an attack vector.
         // FIXME: This might be too cautious for non-7bit-encodings and
         // we may consider relaxing this later after testing.
-        if (canReferToParentFrameEncoding(m_frame, parentFrame))
+        if (canReferToParentFrameEncoding(m_frame.get(), parentFrame))
             m_decoder->setHintEncoding(parentFrame->document()->decoder());
         if (m_encoding.isEmpty()) {
-            if (canReferToParentFrameEncoding(m_frame, parentFrame))
+            if (canReferToParentFrameEncoding(m_frame.get(), parentFrame))
                 m_decoder->setEncoding(parentFrame->document()->textEncoding(), TextResourceDecoder::EncodingFromParentFrame);
         } else {
             m_decoder->setEncoding(m_encoding,
@@ -293,6 +295,11 @@ void DocumentWriter::setEncoding(const String& name, bool userChosen)
 {
     m_encoding = name;
     m_encodingWasChosenByUser = userChosen;
+}
+
+void DocumentWriter::setFrame(Frame& frame)
+{
+    m_frame = makeWeakPtr(frame);
 }
 
 void DocumentWriter::setDocumentWasLoadedAsPartOfNavigation()

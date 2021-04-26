@@ -41,7 +41,6 @@
 #import <WebCore/ScrollingStateTree.h>
 
 #if ENABLE(CSS_SCROLL_SNAP)
-#import <WebCore/AxisScrollSnapOffsets.h>
 #import <WebCore/ScrollSnapOffsetsInfo.h>
 #import <WebCore/ScrollTypes.h>
 #import <WebCore/ScrollingTreeFrameScrollingNode.h>
@@ -69,17 +68,17 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
     using PlatformLayerID = GraphicsLayer::PlatformLayerID;
 
     for (auto& currNode : stateTree.nodeMap().values()) {
-        if (currNode->hasChangedProperty(ScrollingStateNode::Layer))
+        if (currNode->hasChangedProperty(ScrollingStateNode::Property::Layer))
             currNode->setLayer(layerTreeHost.layerForID(PlatformLayerID { currNode->layer() }));
         
         switch (currNode->nodeType()) {
         case ScrollingNodeType::Overflow: {
             ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(*currNode);
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
                 scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.scrollContainerLayer() }));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
                 scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.scrolledContentsLayer() }));
             break;
         };
@@ -87,20 +86,20 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
         case ScrollingNodeType::Subframe: {
             ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(*currNode);
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
                 scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.scrollContainerLayer() }));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
                 scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.scrolledContentsLayer() }));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::CounterScrollingLayer))
                 scrollingStateNode.setCounterScrollingLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.counterScrollingLayer() }));
 
             // FIXME: we should never have header and footer layers coming from the WebProcess.
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HeaderLayer))
                 scrollingStateNode.setHeaderLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.headerLayer() }));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::FooterLayer))
                 scrollingStateNode.setFooterLayer(layerTreeHost.layerForID(PlatformLayerID { scrollingStateNode.footerLayer() }));
             break;
         }
@@ -126,6 +125,7 @@ void RemoteScrollingCoordinatorProxy::scrollingTreeNodeWillStartPanGesture(Scrol
     m_webPageProxy.scrollingNodeScrollViewWillStartPanGesture();
 }
 
+// This is not called for the main scroll view.
 void RemoteScrollingCoordinatorProxy::scrollingTreeNodeWillStartScroll(ScrollingNodeID nodeID)
 {
     m_webPageProxy.scrollingNodeScrollWillStartScroll();
@@ -134,6 +134,7 @@ void RemoteScrollingCoordinatorProxy::scrollingTreeNodeWillStartScroll(Scrolling
     sendUIStateChangedIfNecessary();
 }
 
+// This is not called for the main scroll view.
 void RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidEndScroll(ScrollingNodeID nodeID)
 {
     m_webPageProxy.scrollingNodeScrollDidEndScroll();

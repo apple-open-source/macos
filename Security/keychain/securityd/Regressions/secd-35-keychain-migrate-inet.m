@@ -126,6 +126,8 @@ int secd_35_keychain_migrate_inet(int argc, char *const *argv)
 
     CFReleaseSafe(results);
     CFReleaseSafe(query);
+
+    secd_test_teardown_delete_temp_keychain("secd_35_keychain_migrate_inet");
     return 0;
 }
 

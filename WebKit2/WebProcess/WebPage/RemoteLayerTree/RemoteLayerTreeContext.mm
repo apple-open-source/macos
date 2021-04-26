@@ -92,7 +92,6 @@ void RemoteLayerTreeContext::layerDidEnterContext(PlatformCALayerRemote& layer, 
     RemoteLayerTreeTransaction::LayerCreationProperties creationProperties;
     creationProperties.layerID = layerID;
     creationProperties.type = type;
-    creationProperties.embeddedViewID = layer.embeddedViewID();
 
     if (layer.isPlatformCALayerRemoteCustom()) {
         creationProperties.hostingContextID = layer.hostingContextID();
@@ -187,6 +186,11 @@ void RemoteLayerTreeContext::animationDidEnd(WebCore::GraphicsLayer::PlatformLay
     auto it = m_layersWithAnimations.find(layerID);
     if (it != m_layersWithAnimations.end())
         it->value->animationEnded(key);
+}
+
+RemoteRenderingBackendProxy& RemoteLayerTreeContext::ensureRemoteRenderingBackendProxy()
+{
+    return m_webPage.ensureRemoteRenderingBackendProxy();
 }
 
 } // namespace WebKit

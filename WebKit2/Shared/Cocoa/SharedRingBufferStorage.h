@@ -27,41 +27,67 @@
 
 #if USE(MEDIATOOLBOX)
 
+#include <wtf/Atomics.h>
 #include "SharedMemory.h"
 #include <WebCore/CARingBuffer.h>
+#include <wtf/Function.h>
+
+namespace WebCore {
+class CARingBuffer;
+}
 
 namespace WebKit {
 
-class SharedRingBufferStorage : public WebCore::CARingBufferStorage {
+class ReadOnlySharedRingBufferStorage : public WebCore::CARingBufferStorage {
 public:
-    class Client {
-    public:
-        virtual ~Client() = default;
-        virtual void storageChanged(SharedMemory*) = 0;
-    };
+    ReadOnlySharedRingBufferStorage() = default;
+    explicit ReadOnlySharedRingBufferStorage(const SharedMemory::Handle&);
 
-    SharedRingBufferStorage(Client* client)
-        : m_client(client)
+    SharedMemory* storage() const { return m_storage.get(); }
+
+protected:
+    // WebCore::CARingBufferStorage
+    void allocate(size_t, const WebCore::CAAudioStreamDescription& format, size_t frameCount) override { }
+    void deallocate() override { }
+    void* data() final;
+    void getCurrentFrameBounds(uint64_t& startTime, uint64_t& endTime) final;
+    void setCurrentFrameBounds(uint64_t startFrame, uint64_t endFrame) override { }
+    uint64_t currentStartFrame() const final { return m_startFrame; }
+    uint64_t currentEndFrame() const final { return m_endFrame; }
+    void updateFrameBounds() final;
+    void flush() final;
+
+    static constexpr unsigned boundsBufferSize { 32 };
+    struct FrameBounds {
+        std::pair<uint64_t, uint64_t> boundsBuffer[boundsBufferSize];
+        Atomic<unsigned> boundsBufferIndex { 0 };
+    };
+    const FrameBounds* sharedFrameBounds() const;
+    FrameBounds* sharedFrameBounds();
+
+    RefPtr<SharedMemory> m_storage;
+    uint64_t m_startFrame { 0 };
+    uint64_t m_endFrame { 0 };
+};
+
+class SharedRingBufferStorage final : public ReadOnlySharedRingBufferStorage {
+public:
+    SharedRingBufferStorage(Function<void(SharedMemory*, const WebCore::CAAudioStreamDescription& format, size_t frameCount)>&& storageChangedHandler)
+        : m_storageChangedHandler(WTFMove(storageChangedHandler))
     {
     }
 
-    void invalidate() { m_client = nullptr; }
-
-    RefPtr<SharedMemory> storage() const { return m_storage; }
-    void setStorage(RefPtr<SharedMemory>&&);
-
-    bool readOnly() const { return m_readOnly; }
-    void setReadOnly(bool);
-
-    // WebCore::CARingBufferStorage
-    void allocate(size_t) final;
-    void deallocate() final;
-    void* data() final;
+    void invalidate() { m_storageChangedHandler = nullptr; }
 
 private:
-    Client* m_client;
-    RefPtr<SharedMemory> m_storage;
-    bool m_readOnly { false };
+    // WebCore::CARingBufferStorage
+    void allocate(size_t, const WebCore::CAAudioStreamDescription& format, size_t frameCount) final;
+    void deallocate() final;
+    void setCurrentFrameBounds(uint64_t startFrame, uint64_t endFrame) final;
+
+    void setStorage(RefPtr<SharedMemory>&&, const WebCore::CAAudioStreamDescription& format, size_t frameCount);
+
+    Function<void(SharedMemory*, const WebCore::CAAudioStreamDescription& format, size_t frameCount)> m_storageChangedHandler;
 };
 
 }

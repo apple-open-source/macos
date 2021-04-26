@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DownloadProxyMap.h"
 
+#include "APIDownloadClient.h"
 #include "AuxiliaryProcessProxy.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
@@ -44,7 +45,7 @@
 namespace WebKit {
 
 DownloadProxyMap::DownloadProxyMap(NetworkProcessProxy& process)
-    : m_process(makeWeakPtr(process))
+    : m_process(process)
 #if PLATFORM(COCOA)
     , m_shouldTakeAssertion(WTF::processHasEntitlement("com.apple.multitasking.systemappassertions"))
 #endif
@@ -70,35 +71,34 @@ void DownloadProxyMap::platformDestroy()
 
 void DownloadProxyMap::applicationDidEnterBackground()
 {
-    if (m_process)
-        m_process->send(Messages::NetworkProcess::ApplicationDidEnterBackground(), 0);
+    m_process.send(Messages::NetworkProcess::ApplicationDidEnterBackground(), 0);
 }
 
 void DownloadProxyMap::applicationWillEnterForeground()
 {
-    if (m_process)
-        m_process->send(Messages::NetworkProcess::ApplicationWillEnterForeground(), 0);
+    m_process.send(Messages::NetworkProcess::ApplicationWillEnterForeground(), 0);
 }
 
 DownloadProxy& DownloadProxyMap::createDownloadProxy(WebsiteDataStore& dataStore, WebProcessPool& processPool, const WebCore::ResourceRequest& resourceRequest, const FrameInfoData& frameInfo, WebPageProxy* originatingPage)
 {
-    auto downloadProxy = DownloadProxy::create(*this, dataStore, processPool, resourceRequest, frameInfo, originatingPage);
+    auto* legacyDownloadClient = processPool.legacyDownloadClient();
+    Ref<API::DownloadClient> client = legacyDownloadClient ? Ref<API::DownloadClient>(*legacyDownloadClient) : adoptRef(*new API::DownloadClient);
+    auto downloadProxy = DownloadProxy::create(*this, dataStore, WTFMove(client), resourceRequest, frameInfo, originatingPage);
     m_downloads.set(downloadProxy->downloadID(), downloadProxy.copyRef());
 
-    RELEASE_LOG(Loading, "Adding download %" PRIu64 " to UIProcess DownloadProxyMap", downloadProxy->downloadID().downloadID());
+    RELEASE_LOG(Loading, "Adding download %" PRIu64 " to UIProcess DownloadProxyMap", downloadProxy->downloadID().toUInt64());
 
     if (m_downloads.size() == 1 && m_shouldTakeAssertion) {
         ASSERT(!m_downloadUIAssertion);
         m_downloadUIAssertion = makeUnique<ProcessAssertion>(getCurrentProcessID(), "WebKit downloads"_s, ProcessAssertionType::UnboundedNetworking);
 
         ASSERT(!m_downloadNetworkingAssertion);
-        RELEASE_ASSERT(m_process);
-        m_downloadNetworkingAssertion = makeUnique<ProcessAssertion>(m_process->processIdentifier(), "WebKit downloads"_s, ProcessAssertionType::UnboundedNetworking);
+        m_downloadNetworkingAssertion = makeUnique<ProcessAssertion>(m_process.processIdentifier(), "WebKit downloads"_s, ProcessAssertionType::UnboundedNetworking);
 
         RELEASE_LOG(ProcessSuspension, "UIProcess took 'WebKit downloads' assertions for UIProcess and NetworkProcess");
     }
 
-    m_process->addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID().downloadID(), downloadProxy.get());
+    m_process.addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID().toUInt64(), downloadProxy.get());
 
     return downloadProxy;
 }
@@ -107,14 +107,11 @@ void DownloadProxyMap::downloadFinished(DownloadProxy& downloadProxy)
 {
     auto downloadID = downloadProxy.downloadID();
 
-    RELEASE_LOG(Loading, "Removing download %" PRIu64 " from UIProcess DownloadProxyMap", downloadID.downloadID());
-
-    // The DownloadProxy may be holding the last reference to the process pool.
-    auto protectedProcessPool = makeRefPtr(m_process->processPool());
+    RELEASE_LOG(Loading, "Removing download %" PRIu64 " from UIProcess DownloadProxyMap", downloadID.toUInt64());
 
     ASSERT(m_downloads.contains(downloadID));
 
-    m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadID.downloadID());
+    m_process.removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadID.toUInt64());
     downloadProxy.invalidate();
     m_downloads.remove(downloadID);
 
@@ -133,15 +130,13 @@ void DownloadProxyMap::invalidate()
     for (const auto& download : m_downloads.values()) {
         download->processDidClose();
         download->invalidate();
-        m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), download->downloadID().downloadID());
+        m_process.removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), download->downloadID().toUInt64());
     }
 
     m_downloads.clear();
     m_downloadUIAssertion = nullptr;
     m_downloadNetworkingAssertion = nullptr;
     RELEASE_LOG(ProcessSuspension, "UIProcess DownloadProxyMap invalidated - Released 'WebKit downloads' assertions for UIProcess and NetworkProcess");
-
-    m_process = nullptr;
 }
 
 } // namespace WebKit

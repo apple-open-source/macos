@@ -54,7 +54,7 @@ PCSCMonitor::PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel l
 }
 
 PCSCMonitor::Watcher::Watcher(Server &server, TokenCache &tokenCache, ReaderMap& readers)
-  : mServer(server), mTokenCache(tokenCache), mReaders(readers)
+  : Thread("PCSCMonitor::Watcher"), mServer(server), mTokenCache(tokenCache), mReaders(readers)
 {}
 
 //

@@ -75,6 +75,18 @@ public:
 
     WebCore::NowPlayingManager& nowPlayingManager();
 
+#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
+    WorkQueue& audioMediaStreamTrackRendererQueue();
+    WorkQueue& videoMediaStreamTrackRendererQueue();
+#endif
+#if USE(LIBWEBRTC) && PLATFORM(COCOA)
+    WorkQueue& libWebRTCCodecsQueue();
+#endif
+
+#if ENABLE(VP9)
+    void enableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder);
+#endif
+
 private:
     void lowMemoryHandler(Critical);
 
@@ -86,7 +98,6 @@ private:
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-    void didClose(IPC::Connection&) override;
 
     // Message Handlers
     void initializeGPUProcess(GPUProcessCreationParameters&&);
@@ -112,6 +123,13 @@ private:
         bool allowDisplayCapture { false };
     };
     HashMap<WebCore::ProcessIdentifier, MediaCaptureAccess> m_mediaCaptureAccessMap;
+#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
+    RefPtr<WorkQueue> m_audioMediaStreamTrackRendererQueue;
+    RefPtr<WorkQueue> m_videoMediaStreamTrackRendererQueue;
+#endif
+#endif
+#if USE(LIBWEBRTC) && PLATFORM(COCOA)
+    RefPtr<WorkQueue> m_libWebRTCCodecsQueue;
 #endif
 
     struct GPUSession {
@@ -128,6 +146,11 @@ private:
     std::unique_ptr<WebCore::NowPlayingManager> m_nowPlayingManager;
 #if ENABLE(GPU_PROCESS) && USE(AUDIO_SESSION)
     mutable std::unique_ptr<RemoteAudioSessionProxyManager> m_audioSessionManager;
+#endif
+#if ENABLE(VP9)
+    bool m_enableVP8Decoder { false };
+    bool m_enableVP9Decoder { false };
+    bool m_enableVP9SWDecoder { false };
 #endif
 };
 

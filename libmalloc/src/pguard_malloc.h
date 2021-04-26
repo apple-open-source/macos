@@ -26,13 +26,14 @@
 
 #include "base.h"
 #include "malloc/malloc.h"
+#include <stdbool.h>
 
 MALLOC_NOEXPORT
-boolean_t
-pguard_enabled(void);
+bool
+pguard_enabled(bool internal_build);
 
 MALLOC_NOEXPORT
 malloc_zone_t *
-pguard_create_zone(malloc_zone_t *wrapped_zone, unsigned debug_flags);
+pguard_create_zone(malloc_zone_t *wrapped_zone);
 
 #endif // _PGUARD_MALLOC_H_

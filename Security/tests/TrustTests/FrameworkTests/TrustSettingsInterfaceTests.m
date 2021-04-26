@@ -116,6 +116,81 @@
        "failed to set empty array exceptions for this app: %@", error);
     is(copiedExceptions = SecTrustStoreCopyCTExceptions(NULL, NULL), NULL, "no exceptions set");
 }
+
+- (NSData *)random
+{
+    uint8_t random[32];
+    (void)SecRandomCopyBytes(kSecRandomDefault, sizeof(random), random);
+    return [[NSData alloc] initWithBytes:random length:sizeof(random)];
+}
+
+- (void)testSetTransparentConnections {
+    CFErrorRef error = NULL;
+    const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
+    CFArrayRef copiedPins = NULL;
+
+    /* Verify no pins set */
+    copiedPins = SecTrustStoreCopyTransparentConnectionPins(NULL, NULL);
+    XCTAssertEqual(copiedPins, NULL);
+    if (copiedPins) {
+        /* If we're startign out with pins set, a lot of the following will also fail, so just skip them */
+        CFReleaseNull(copiedPins);
+        return;
+    }
+
+    /* Set pin with specified AppID */
+    NSArray *pin1 = @[@{
+        (__bridge NSString*)kSecTrustStoreHashAlgorithmKey : @"sha256",
+        (__bridge NSString*)kSecTrustStoreSPKIHashKey : [self random]
+    }];
+    /* Set pin with specified AppID */
+    XCTAssert(SecTrustStoreSetTransparentConnectionPins(TrustTestsAppID, (__bridge CFArrayRef)pin1, &error),
+              "failed to set pins: %@", error);
+
+    /* Copy all pins (with only one set) */
+    XCTAssertNotEqual(NULL, copiedPins = SecTrustStoreCopyTransparentConnectionPins(NULL, &error),
+                      "failed to copy all pins: %@", error);
+    XCTAssertEqualObjects(pin1, (__bridge NSArray*)copiedPins);
+    CFReleaseNull(copiedPins);
+
+    /* Copy this app's pins */
+    XCTAssertNotEqual(NULL, copiedPins = SecTrustStoreCopyTransparentConnectionPins(TrustTestsAppID, &error),
+                      "failed to copy this app's pins: %@", error);
+    XCTAssertEqualObjects(pin1, (__bridge NSArray*)copiedPins);
+    CFReleaseNull(copiedPins);
+
+    /* Set a different pin with implied AppID and ensure pins are replaced */
+    NSArray *pin2 = @[@{
+        (__bridge NSString*)kSecTrustStoreHashAlgorithmKey : @"sha256",
+        (__bridge NSString*)kSecTrustStoreSPKIHashKey : [self random]
+    }];
+    XCTAssert(SecTrustStoreSetTransparentConnectionPins(NULL, (__bridge CFArrayRef)pin2, &error),
+              "failed to set pins: %@", error);
+    XCTAssertNotEqual(NULL, copiedPins = SecTrustStoreCopyTransparentConnectionPins(TrustTestsAppID, &error),
+                      "failed to copy this app's pins: %@", error);
+    XCTAssertEqualObjects(pin2, (__bridge NSArray*)copiedPins);
+    CFReleaseNull(copiedPins);
+
+    /* Set exceptions with bad inputs */
+    NSArray *badPins = @[@{
+         (__bridge NSString*)kSecTrustStoreHashAlgorithmKey : @"sha256",
+         @"not a key" : @"not a value"
+    }];
+    XCTAssertFalse(SecTrustStoreSetTransparentConnectionPins(NULL, (__bridge CFArrayRef)badPins, &error));
+    if (error) {
+        is(CFErrorGetCode(error), errSecParam, "bad input produced unxpected error code: %ld", (long)CFErrorGetCode(error));
+    } else {
+        fail("expected failure to set NULL pins");
+    }
+    CFReleaseNull(error);
+
+    /* Reset remaining pins */
+    XCTAssert(SecTrustStoreSetTransparentConnectionPins(TrustTestsAppID, NULL, &error),
+              "failed to reset pins: %@", error);
+    XCTAssertEqual(NULL, copiedPins = SecTrustStoreCopyTransparentConnectionPins(NULL, &error),
+                   "failed to copy all pins: %@", error);
+    CFReleaseNull(copiedPins);
+}
 #else // TARGET_OS_BRIDGE
 - (void)testSkipTests
 {

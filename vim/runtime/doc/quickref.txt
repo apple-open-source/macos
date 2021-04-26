@@ -1,4 +1,4 @@
-*quickref.txt*  For Vim version 8.2.  Last change: 2020 Jan 17
+*quickref.txt*  For Vim version 8.2.  Last change: 2020 Aug 15
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -696,7 +696,7 @@ Short explanation of each option:		*option-list*
 'eventignore'	  'ei'	    autocommand events that are ignored
 'expandtab'	  'et'	    use spaces when <Tab> is inserted
 'exrc'		  'ex'	    read .vimrc and .exrc in the current directory
-'fileencoding'	  'fenc'    file encoding for multi-byte text
+'fileencoding'	  'fenc'    file encoding for multibyte text
 'fileencodings'   'fencs'   automatically detected character encodings
 'fileformat'	  'ff'	    file format used for file I/O
 'fileformats'	  'ffs'     automatically detected values for 'fileformat'
@@ -728,7 +728,7 @@ Short explanation of each option:		*option-list*
 'grepprg'	  'gp'	    program to use for ":grep"
 'guicursor'	  'gcr'     GUI: settings for cursor shape and blinking
 'guifont'	  'gfn'     GUI: Name(s) of font(s) to be used
-'guifontset'	  'gfs'     GUI: Names of multi-byte fonts to be used
+'guifontset'	  'gfs'     GUI: Names of multibyte fonts to be used
 'guifontwide'	  'gfw'     list of font names for double-wide characters
 'guiheadroom'	  'ghr'     GUI: pixels room for window decorations
 'guioptions'	  'go'	    GUI: Which components and options are used
@@ -851,6 +851,7 @@ Short explanation of each option:		*option-list*
 'pythonthreedll'	    name of the Python 3 dynamic library
 'pythonthreehome'	    name of the Python 3 home directory
 'pyxversion'	  'pyx'	    Python version used for pyx* commands
+'quickfixtextfunc' 'qftf'   function for the text in the quickfix window
 'quoteescape'	  'qe'	    escape characters used in a string
 'readonly'	  'ro'	    disallow writing the buffer
 'redrawtime'	  'rdt'     timeout for 'hlsearch' and |:match| highlighting
@@ -909,6 +910,7 @@ Short explanation of each option:		*option-list*
 'spellcapcheck'   'spc'     pattern to locate end of a sentence
 'spellfile'	  'spf'     files where |zg| and |zw| store words
 'spelllang'	  'spl'     language(s) to do spell checking for
+'spelloptions'	  'spo'     options for spell checking
 'spellsuggest'	  'sps'     method(s) used to suggest spelling corrections
 'splitbelow'	  'sb'	    new window from split is below the current one
 'splitright'	  'spr'     new window is put right of the current one

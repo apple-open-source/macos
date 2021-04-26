@@ -80,9 +80,7 @@ struct FontDescriptionKey {
         , m_flags(makeFlagsKey(description))
         , m_locale(description.specifiedLocale())
         , m_featureSettings(description.featureSettings())
-#if ENABLE(VARIATION_FONTS)
         , m_variationSettings(description.variationSettings())
-#endif
     { }
 
     explicit FontDescriptionKey(WTF::HashTableDeletedValueType)
@@ -96,9 +94,7 @@ struct FontDescriptionKey {
             && m_fontSelectionRequest == other.m_fontSelectionRequest
             && m_flags == other.m_flags
             && m_locale == other.m_locale
-#if ENABLE(VARIATION_FONTS)
             && m_variationSettings == other.m_variationSettings
-#endif
             && m_featureSettings == other.m_featureSettings;
     }
 
@@ -120,16 +116,15 @@ struct FontDescriptionKey {
         for (unsigned flagItem : m_flags)
             hasher.add(flagItem);
         hasher.add(m_featureSettings.hash());
-#if ENABLE(VARIATION_FONTS)
         hasher.add(m_variationSettings.hash());
-#endif
         return hasher.hash();
     }
 
 private:
     static std::array<unsigned, 2> makeFlagsKey(const FontDescription& description)
     {
-        unsigned first = static_cast<unsigned>(description.script()) << 14
+        unsigned first = static_cast<unsigned>(description.script()) << 15
+            | static_cast<unsigned>(description.shouldDisableLigaturesForSpacing()) << 14
             | static_cast<unsigned>(description.shouldAllowUserInstalledFonts()) << 13
             | static_cast<unsigned>(description.fontStyleAxis() == FontStyleAxis::slnt) << 12
             | static_cast<unsigned>(description.opticalSizing()) << 11
@@ -163,9 +158,7 @@ private:
     std::array<unsigned, 2> m_flags {{ 0, 0 }};
     AtomString m_locale;
     FontFeatureSettings m_featureSettings;
-#if ENABLE(VARIATION_FONTS)
     FontVariationSettings m_variationSettings;
-#endif
 };
 
 struct FontDescriptionKeyHash {
@@ -264,9 +257,6 @@ private:
     FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomString& family, const FontFeatureSettings* fontFaceFeatures = nullptr, FontSelectionSpecifiedCapabilities fontFaceCapabilities = { }, bool checkingAlternateName = false);
 
     // These methods are implemented by each platform.
-#if PLATFORM(COCOA)
-    FontPlatformData* getCustomFallbackFont(const UInt32, const FontDescription&);
-#endif
     WEBCORE_EXPORT std::unique_ptr<FontPlatformData> createFontPlatformData(const FontDescription&, const AtomString& family, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities);
     
     static const AtomString& alternateFamilyName(const AtomString&);

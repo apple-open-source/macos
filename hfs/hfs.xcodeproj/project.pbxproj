@@ -328,6 +328,7 @@
 		A6873B9C234286780045680B /* lf_cs_checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = A64B3BFA22E8D538009A2B10 /* lf_cs_checksum.c */; };
 		A6873B9D2342868D0045680B /* lf_cs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = A64B3C0422E8D71B009A2B10 /* lf_cs_vfsops.c */; };
 		A6873B9F234287200045680B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A6873B9E234287200045680B /* IOKit.framework */; };
+		A6BE9C8C24C63369005E033C /* test-symlinks.c in Sources */ = {isa = PBXBuildFile; fileRef = A6BE9C8B24C63369005E033C /* test-symlinks.c */; };
 		A6E6D74020909C72002125B0 /* test-get-volume-create-time.c in Sources */ = {isa = PBXBuildFile; fileRef = A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */; };
 		C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
 		C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */; };
@@ -360,7 +361,6 @@
 		D7978426205FC09A00E93B37 /* lf_hfs_endian.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978424205FC09A00E93B37 /* lf_hfs_endian.h */; };
 		D79784412060037400E93B37 /* lf_hfs_raw_read_write.h in Headers */ = {isa = PBXBuildFile; fileRef = D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */; };
 		D79784422060037400E93B37 /* lf_hfs_raw_read_write.c in Sources */ = {isa = PBXBuildFile; fileRef = D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */; };
-		D7B2DC81233A3F5B00F12230 /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
 		D7BD8F9C20AC388E00E93640 /* lf_hfs_catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF82206409B800B21E94 /* lf_hfs_catalog.c */; };
 		EE73740520644328004C2F0E /* lf_hfs_sbunicode.h in Headers */ = {isa = PBXBuildFile; fileRef = EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */; };
 		EE73740620644328004C2F0E /* lf_hfs_sbunicode.c in Sources */ = {isa = PBXBuildFile; fileRef = EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */; };
@@ -1096,6 +1096,7 @@
 		A64B3C1622EA2C4E009A2B10 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		A64B3C1822EA2C5E009A2B10 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		A6873B9E234287200045680B /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		A6BE9C8B24C63369005E033C /* test-symlinks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-symlinks.c"; sourceTree = "<group>"; };
 		A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-get-volume-create-time.c"; sourceTree = "<group>"; };
 		C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_jnl.c; sourceTree = "<group>"; };
 		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; };
@@ -1862,6 +1863,7 @@
 				09D6B7D61E317ED2003C20DC /* test_disklevel.c */,
 				A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */,
 				A64B3C1322E91AF6009A2B10 /* test-lf-cs-plugin.c */,
+				A6BE9C8B24C63369005E033C /* test-symlinks.c */,
 			);
 			path = cases;
 			sourceTree = "<group>";
@@ -3101,6 +3103,7 @@
 				FB76B3EE1B7BE24B00FA9F2B /* disk-image.m in Sources */,
 				FB76B3F21B7BE79800FA9F2B /* systemx.c in Sources */,
 				F90E174921ADFFD100345EE3 /* test-cas-bsdflags.c in Sources */,
+				A6BE9C8C24C63369005E033C /* test-symlinks.c in Sources */,
 				FB285C2A1B7E81180099B2ED /* test-sparse-dev.c in Sources */,
 				FB55AE541B7C271000701D03 /* test-doc-tombstone.c in Sources */,
 				FBD69AFA1B9132E40022ECAD /* test-dateadded.c in Sources */,

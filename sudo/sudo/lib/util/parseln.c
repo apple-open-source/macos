@@ -23,17 +23,10 @@
 
 #include <config.h>
 
-#include <sys/types.h>
+#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #include <ctype.h>
-#include <unistd.h>
-#include <fcntl.h>
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
@@ -58,7 +51,7 @@ sudo_parseln_v2(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp, i
     ssize_t len;
     char *cp, *line = NULL;
     bool continued, comment;
-    debug_decl(sudo_parseln, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_parseln, SUDO_DEBUG_UTIL);
 
     do {
 	comment = false;

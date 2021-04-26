@@ -303,6 +303,17 @@ static void SecPolicyCheckKeyUsage(SecPVCRef pvc,
     }
 }
 
+static void SecPolicyCheckKeyUsageReportOnly(SecPVCRef pvc, CFStringRef key)
+{
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef xku = CFDictionaryGetValue(policy->_options, key);
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
+    if (analytics && !SecPolicyCheckCertKeyUsage(leaf, xku)) {
+        analytics->tls_invalid_ku = true;
+    }
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.

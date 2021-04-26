@@ -71,10 +71,8 @@ void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, Do
         SVGFontFaceElement* fontFaceElement = nullptr;
         bool foundSVGFont = false;
 
-#if ENABLE(SVG_FONTS)
         foundSVGFont = item.isSVGFontFaceSrc() || item.svgFontFaceElement();
         fontFaceElement = item.svgFontFaceElement();
-#endif
         if (!item.isLocal()) {
             const Settings* settings = document ? &document->settings() : nullptr;
             bool allowDownloading = foundSVGFont || (settings && settings->downloadableBinaryFontsEnabled());
@@ -461,9 +459,9 @@ AllowUserInstalledFonts CSSFontFace::allowUserInstalledFonts() const
     return AllowUserInstalledFonts::Yes;
 }
 
-static Settings::FontLoadTimingOverride fontLoadTimingOverride(CSSFontSelector* fontSelector)
+static FontLoadTimingOverride fontLoadTimingOverride(CSSFontSelector* fontSelector)
 {
-    auto overrideValue = Settings::FontLoadTimingOverride::None;
+    auto overrideValue = FontLoadTimingOverride::None;
     if (fontSelector && fontSelector->document())
         overrideValue = fontSelector->document()->settings().fontLoadTimingOverride();
     return overrideValue;
@@ -472,7 +470,7 @@ static Settings::FontLoadTimingOverride fontLoadTimingOverride(CSSFontSelector* 
 auto CSSFontFace::fontLoadTiming() const -> FontLoadTiming
 {
     switch (fontLoadTimingOverride(m_fontSelector.get())) {
-    case Settings::FontLoadTimingOverride::None:
+    case FontLoadTimingOverride::None:
         switch (m_loadingBehavior) {
         case FontLoadingBehavior::Auto:
         case FontLoadingBehavior::Block:
@@ -485,11 +483,11 @@ auto CSSFontFace::fontLoadTiming() const -> FontLoadTiming
             return { 0.1_s, 0_s };
         }
         RELEASE_ASSERT_NOT_REACHED();
-    case Settings::FontLoadTimingOverride::Block:
+    case FontLoadTimingOverride::Block:
         return { Seconds::infinity(), 0_s };
-    case Settings::FontLoadTimingOverride::Swap:
+    case FontLoadTimingOverride::Swap:
         return { 0_s, Seconds::infinity() };
-    case Settings::FontLoadTimingOverride::Failure:
+    case FontLoadTimingOverride::Failure:
         return { 0_s, 0_s };
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -680,11 +678,8 @@ RefPtr<Font> CSSFontFace::font(const FontDescription& fontDescription, bool synt
             return Font::create(FontCache::singleton().lastResortFallbackFont(fontDescription)->platformData(), Font::Origin::Local, Font::Interstitial::Yes, visibility);
         }
         case CSSFontFaceSource::Status::Success:
-            if (auto result = source->font(fontDescription, syntheticBold, syntheticItalic, m_featureSettings, m_fontSelectionCapabilities)) {
-                auto* cachedFont = source->cachedFont();
-                result->setFontFaceData(cachedFont ? cachedFont->resourceBuffer() : nullptr);
+            if (auto result = source->font(fontDescription, syntheticBold, syntheticItalic, m_featureSettings, m_fontSelectionCapabilities))
                 return result;
-            }
             break;
         case CSSFontFaceSource::Status::Failure:
             break;
@@ -705,7 +700,6 @@ void CSSFontFace::updateStyleIfNeeded()
         m_fontSelector->document()->updateStyleIfNeeded();
 }
 
-#if ENABLE(SVG_FONTS)
 bool CSSFontFace::hasSVGFontFaceSource() const
 {
     size_t size = m_sources.size();
@@ -715,7 +709,6 @@ bool CSSFontFace::hasSVGFontFaceSource() const
     }
     return false;
 }
-#endif
 
 void CSSFontFace::setErrorState()
 {

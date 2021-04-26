@@ -1402,6 +1402,17 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
     if (result == true)
     {
         reserved->sessionOptions = options;
+
+        if((options & kIOPCISessionOptionDriverkit) != 0)
+        {
+            // check if the task is entitled to disable the offload engine
+            OSObject* offloadEngineDisableEntitlement = IOUserClient::copyClientEntitlement(current_task(), kIOPCITransportDextEntitlementOffloadEngineDisable);
+            if(offloadEngineDisableEntitlement != NULL)
+            {
+                reserved->offloadEngineMMIODisable = 1;
+            }
+            OSSafeReleaseNULL(offloadEngineDisableEntitlement);
+        }
     }
 
     return result;
@@ -1412,6 +1423,7 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
     if (   (isOpen(forClient) == true)
         && ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0))
     {
+        reserved->offloadEngineMMIODisable = 0;
         // Driverkit either called close or crashed. Turn off bus mastering to prevent any further DMAs
         uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
         if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
@@ -1530,7 +1542,8 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
     IOReturn result = kIOReturnUnsupported;
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (ml_get_interrupts_enabled() == true)
+    if(   (reserved->offloadEngineMMIODisable == 0)
+       && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
@@ -1584,7 +1597,8 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
     IOReturn result = kIOReturnUnsupported;
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (ml_get_interrupts_enabled() == true)
+    if(   (reserved->offloadEngineMMIODisable == 0)
+       && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
@@ -1637,7 +1651,8 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
     IOReturn result = kIOReturnUnsupported;
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (ml_get_interrupts_enabled() == true)
+    if(   (reserved->offloadEngineMMIODisable == 0)
+       && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
@@ -1690,7 +1705,8 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
     IOReturn result = kIOReturnUnsupported;
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (ml_get_interrupts_enabled() == true)
+    if(   (reserved->offloadEngineMMIODisable == 0)
+       && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
@@ -1823,6 +1839,47 @@ IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t  memoryIndex,
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #if TARGET_OS_OSX
 
+#pragma mark Public DriverKit Methods
+
+kern_return_t IOPCIDevice::SetProperties_Impl(OSDictionary* properties)
+{
+    kern_return_t result = kIOReturnBadArgument;
+
+    if(properties == NULL)
+    {
+        return result;
+    }
+
+    OSObject* dictionaryValue = properties->getObject(kIOPMPCIConfigSpaceVolatileKey);
+    if(   (dictionaryValue == kOSBooleanTrue)
+       || (dictionaryValue == kOSBooleanFalse))
+    {
+        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCIConfigSpaceVolatileKey, PCI_ADDRESS_TUPLE(this));
+        result = kIOReturnSuccess;
+        setProperty(kIOPMPCIConfigSpaceVolatileKey, dictionaryValue);
+    }
+
+    dictionaryValue = properties->getObject(kIOPMPCISleepLinkDisableKey);
+    if(   (dictionaryValue == kOSBooleanTrue)
+       || (dictionaryValue == kOSBooleanFalse))
+    {
+        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCISleepLinkDisableKey, PCI_ADDRESS_TUPLE(this));
+        result = kIOReturnSuccess;
+        setProperty(kIOPMPCISleepLinkDisableKey, dictionaryValue);
+    }
+
+    dictionaryValue = properties->getObject(kIOPMPCISleepResetKey);
+    if(   (dictionaryValue == kOSBooleanTrue)
+       || (dictionaryValue == kOSBooleanFalse))
+    {
+        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCISleepResetKey, PCI_ADDRESS_TUPLE(this));
+        result = kIOReturnSuccess;
+        setProperty(kIOPMPCISleepResetKey, dictionaryValue);
+    }
+
+    return result;
+}
+
 #pragma mark Private DriverKit Methods
 kern_return_t
 IMPL(IOPCIDevice, _ManageSession)
@@ -1846,6 +1903,89 @@ IMPL(IOPCIDevice, _ManageSession)
 
 
     return result;
+}
+
+kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t options)
+{
+    // disable bus mastering early, ref: rdar://74099674
+    uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
+    if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
+    {
+        DLOG("IOPCIDevice::ClientCrashed_Impl disabling memory and bus mastering for client %s\n", (client) ? client->getName() : "unknown");
+        extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+    }
+
+    // only reset the device if the driver potentially changed the state of the device
+    if(isOpen(client) == true)
+    {
+        IOLog("%s: PCIDriverKit client, %s, crashed for device %s[%u:%u:%u], attempting to recover\n",
+              __PRETTY_FUNCTION__,
+              (client != NULL) ? client->getName() : "unknown",
+              getName(),
+              PCI_ADDRESS_TUPLE(this));
+
+        thread_call_t threadCall = thread_call_allocate(OSMemberFunctionCast(thread_call_func_t,
+                                                                             this,
+                                                                             &IOPCIDevice::clientCrashedThreadCall),
+                                                        this);
+
+        // threadcall because terminating in this context can deadlock
+        if(threadCall != NULL)
+        {
+            retain();
+            parent->retain();
+            if(thread_call_enter1(threadCall, threadCall /* so the call cleans itself up */) == TRUE)
+            {
+                thread_call_free(threadCall);
+                release();
+                parent->release();
+            }
+        }
+    }
+
+    return kIOReturnSuccess;
+}
+
+IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
+{
+    // TODO:
+    // perform hot-reset either by doing a secondary reset on the downstream bridge
+    // or disabling the link and re-enabling it
+
+    // terminate the IOPCIDevice and all its functions
+    OSIterator* peerIterator =  parent->getChildIterator(gIOServicePlane);
+    OSObject*   peer         =  NULL;
+    while (   (peerIterator != NULL)
+           && ((peer = peerIterator->getNextObject()) != NULL))
+    {
+        IOPCIDevice* pciPeer = OSDynamicCast(IOPCIDevice, peer);
+        if (   (pciPeer != NULL)
+            && (pciPeer->isInactive() == false))
+        {
+            DLOG("%s Terminating device %u:%u:%u\n", __PRETTY_FUNCTION__, PCI_ADDRESS_TUPLE(pciPeer));
+            // terminate the IOPCIDevices
+            pciPeer->terminate();
+        }
+    }
+
+    IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
+    if (bridgeDevice != NULL)
+    {
+        DLOG("%s waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
+        // wait for the drivers and termination to settle
+        parent->waitQuiet();
+
+        DLOG("%s reprobing bus\n", __PRETTY_FUNCTION__);
+        // re-scan the bridge for this device and its functions
+        parent->kernelRequestProbe(bridgeDevice, kIOPCIProbeOptionNeedsScan | kIOPCIProbeOptionDone);
+    }
+
+    // clean up threadcall
+    release();
+    parent->release();
+    thread_call_free(threadCall);
+
+    return kIOReturnSuccess;
 }
 
 kern_return_t
@@ -2018,46 +2158,46 @@ IMPL(IOPCIDevice, _MemoryAccess)
                 extendedConfigWrite8(offset, static_cast<uint8_t>(data));
                 break;
             }
-			case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit:
-			{
-				deviceMemoryRead64(memoryIndex, offset, readData);
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit:
-			{
-				deviceMemoryRead32(memoryIndex, offset, reinterpret_cast<uint32_t*>(readData));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit:
-			{
-				deviceMemoryRead16(memoryIndex, offset, reinterpret_cast<uint16_t*>(readData));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit:
-			{
-				deviceMemoryRead8(memoryIndex, offset, reinterpret_cast<uint8_t*>(readData));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation64Bit:
-			{
-				deviceMemoryWrite64(memoryIndex, offset, static_cast<uint64_t>(data));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation32Bit:
-			{
-				deviceMemoryWrite32(memoryIndex, offset, static_cast<uint32_t>(data));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation16Bit:
-			{
-				deviceMemoryWrite16(memoryIndex, offset, static_cast<uint16_t>(data));
-				break;
-			}
-			case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation8Bit:
-			{
-				deviceMemoryWrite8(memoryIndex, offset, static_cast<uint8_t>(data));
-				break;
-			}
+            case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit:
+            {
+                result = deviceMemoryRead64(memoryIndex, offset, readData);
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit:
+            {
+                result = deviceMemoryRead32(memoryIndex, offset, reinterpret_cast<uint32_t*>(readData));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit:
+            {
+                result = deviceMemoryRead16(memoryIndex, offset, reinterpret_cast<uint16_t*>(readData));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit:
+            {
+                result = deviceMemoryRead8(memoryIndex, offset, reinterpret_cast<uint8_t*>(readData));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation64Bit:
+            {
+                result = deviceMemoryWrite64(memoryIndex, offset, static_cast<uint64_t>(data));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation32Bit:
+            {
+                result = deviceMemoryWrite32(memoryIndex, offset, static_cast<uint32_t>(data));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation16Bit:
+            {
+                result = deviceMemoryWrite16(memoryIndex, offset, static_cast<uint16_t>(data));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation8Bit:
+            {
+                result = deviceMemoryWrite8(memoryIndex, offset, static_cast<uint8_t>(data));
+                break;
+            }
             default:
             {
                 result = kIOReturnUnsupported;

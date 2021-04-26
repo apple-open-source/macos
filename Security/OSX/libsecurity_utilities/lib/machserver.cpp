@@ -177,6 +177,8 @@ void MachServer::runServerThread(bool doTimeout)
 		for (;;) {
 			// progress hook
 			eventDone();
+            
+            cleanupWorkers(); // cleanup worker threads that have exited
 			
 			// process all pending timers
 			while (processTimer()) {}
@@ -448,7 +450,7 @@ void MachServer::ensureReadyThread()
 			this->threadLimitReached(workerCount);	// call remedial handler
 		}
 		if (workerCount < maxWorkerCount) { // threadLimit() may have raised maxWorkerCount
-			(new LoadThread(*this))->run();
+			(new LoadThread(*this))->threadRun();
 		}
 	}
 }
@@ -469,7 +471,7 @@ void MachServer::threadLimitReached(UInt32 limit)
 //
 // What our (non-primary) load threads do
 //
-void MachServer::LoadThread::action()
+void MachServer::LoadThread::threadAction()
 {
 	//@@@ race condition?! can server exit before helpers thread gets here?
 	
@@ -504,8 +506,28 @@ void MachServer::removeThread(Thread *thread)
 	workerCount--;
 	idleCount--;
 	workers.erase(thread);
+    deadWorkers.insert(thread);
 }
 
+// Cleanup workers is a hack that make sure whe delete the object LoadThread
+// that inheirit from Thread, this because there is no notification that the
+// thread have completed.
+//
+// As I said, it a hack, but better then compeletely restructure how threads
+// are brought up or replaced by XPC. Doing the XPC conversion should
+// be done, because the current IPC mechanism doesn't handle that the server
+// process dies and never comes back.
+
+void MachServer::cleanupWorkers()
+{
+    StLock<Mutex> _(managerLock);
+    while (!deadWorkers.empty()) {
+        auto item = deadWorkers.begin();
+        auto worker = *item;
+        deadWorkers.erase(item);
+        delete worker;
+    }
+}
 
 //
 // Timer management

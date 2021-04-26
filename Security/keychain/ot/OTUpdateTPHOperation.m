@@ -78,13 +78,7 @@
 
             if(!fatal) {
                 if(!pendingFlag) {
-                    NSTimeInterval baseDelay = SecCKKSTestsEnabled() ? 2 : 30;
-                    NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self.error);
-                    NSTimeInterval cuttlefishDelay = [self.error cuttlefishRetryAfter];
-                    NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
-                    if (delay == 0) {
-                        delay = baseDelay;
-                    }
+                    NSTimeInterval delay = [self.error overallCuttlefishRetry];
 
                     pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:self.retryFlag
                                                             delayInSeconds:delay];

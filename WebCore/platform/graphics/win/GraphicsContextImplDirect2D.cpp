@@ -268,32 +268,16 @@ void GraphicsContextImplDirect2D::drawGlyphs(const Font& font, const GlyphBuffer
         state.textDrawingMode, state.strokeThickness, state.shadowOffset, state.shadowColor);
 }
 
-ImageDrawResult GraphicsContextImplDirect2D::drawImage(Image& image, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& imagePaintingOptions)
-{
-    return GraphicsContextImpl::drawImageImpl(graphicsContext(), image, destination, source, imagePaintingOptions);
-}
-
-ImageDrawResult GraphicsContextImplDirect2D::drawTiledImage(Image& image, const FloatRect& destination, const FloatPoint& source, const FloatSize& tileSize, const FloatSize& spacing, const ImagePaintingOptions& imagePaintingOptions)
-{
-    return GraphicsContextImpl::drawTiledImageImpl(graphicsContext(), image, destination, source, tileSize, spacing, imagePaintingOptions);
-}
-
-ImageDrawResult GraphicsContextImplDirect2D::drawTiledImage(Image& image, const FloatRect& destination, const FloatRect& source, const FloatSize& tileScaleFactor, Image::TileRule hRule, Image::TileRule vRule, const ImagePaintingOptions& imagePaintingOptions)
-{
-    return GraphicsContextImpl::drawTiledImageImpl(graphicsContext(), image, destination, source, tileScaleFactor, hRule, vRule, imagePaintingOptions);
-}
-
-void GraphicsContextImplDirect2D::drawNativeImage(const NativeImagePtr& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void GraphicsContextImplDirect2D::drawNativeImage(NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     auto& state = graphicsContext().state();
-    Direct2D::drawNativeImage(m_platformContext, image.get(), imageSize, destRect, srcRect, options, state.alpha, Direct2D::ShadowState(state));
+    Direct2D::drawNativeImage(m_platformContext, image.platformImage().get(), imageSize, destRect, srcRect, options, state.alpha, Direct2D::ShadowState(state));
 }
 
-void GraphicsContextImplDirect2D::drawPattern(Image& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize&, const ImagePaintingOptions& options)
+void GraphicsContextImplDirect2D::drawPattern((NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize&, const ImagePaintingOptions& options)
 {
-    auto* context = &graphicsContext();
-    if (auto surface = image.nativeImageForCurrentFrame(context))
-        Direct2D::drawPattern(m_platformContext, WTFMove(surface), IntSize(image.size()), destRect, tileRect, patternTransform, phase, options.compositeOperator(), options.blendMode());
+    if (auto surface = image.platformImage())
+        Direct2D::drawPattern(m_platformContext, WTFMove(surface), IntSize(imageSize), destRect, tileRect, patternTransform, phase, options.compositeOperator(), options.blendMode());
 }
 
 void GraphicsContextImplDirect2D::drawRect(const FloatRect& rect, float borderThickness)
@@ -434,6 +418,16 @@ void GraphicsContextImplDirect2D::applyDeviceScaleFactor(float)
 FloatRect GraphicsContextImplDirect2D::roundToDevicePixels(const FloatRect& rect, GraphicsContext::RoundingMode)
 {
     return Direct2D::State::roundToDevicePixels(m_platformContext, rect);
+}
+
+void GraphicsContextImplDirect2D::clipToDrawingCommands(const FloatRect&, ColorSpace, Function<void(GraphicsContext&)>&&)
+{
+    // FIXME: Not implemented.
+}
+
+void GraphicsContextImplDirect2D::paintFrameForMedia(MediaPlayer&, const FloatRect&)
+{
+    // FIXME: Not implemented.
 }
 
 } // namespace WebCore

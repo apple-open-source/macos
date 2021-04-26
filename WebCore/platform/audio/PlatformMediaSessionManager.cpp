@@ -35,6 +35,20 @@ namespace WebCore {
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 
+#if ENABLE(WEBM_FORMAT_READER)
+bool PlatformMediaSessionManager::m_webMFormatReaderEnabled;
+#endif
+
+#if ENABLE(VORBIS) && PLATFORM(MAC)
+bool PlatformMediaSessionManager::m_vorbisDecoderEnabled;
+#endif
+
+#if ENABLE(VP9)
+bool PlatformMediaSessionManager::m_vp9DecoderEnabled;
+bool PlatformMediaSessionManager::m_vp8DecoderEnabled;
+bool PlatformMediaSessionManager::m_vp9SWDecoderEnabled;
+#endif
+
 static std::unique_ptr<PlatformMediaSessionManager>& sharedPlatformMediaSessionManager()
 {
     static NeverDestroyed<std::unique_ptr<PlatformMediaSessionManager>> platformMediaSessionManager;
@@ -139,7 +153,7 @@ void PlatformMediaSessionManager::beginInterruption(PlatformMediaSession::Interr
     forEachSession([type] (auto& session) {
         session.beginInterruption(type);
     });
-    updateSessionState();
+    scheduleUpdateSessionState();
 }
 
 void PlatformMediaSessionManager::endInterruption(PlatformMediaSession::EndInterruptionFlags flags)
@@ -163,7 +177,7 @@ void PlatformMediaSessionManager::addSession(PlatformMediaSession& session)
     m_logger->addLogger(session.logger());
 #endif
 
-    updateSessionState();
+    scheduleUpdateSessionState();
 }
 
 bool PlatformMediaSessionManager::hasNoSession() const
@@ -190,7 +204,7 @@ void PlatformMediaSessionManager::removeSession(PlatformMediaSession& session)
     m_logger->removeLogger(session.logger());
 #endif
 
-    updateSessionState();
+    scheduleUpdateSessionState();
 }
 
 void PlatformMediaSessionManager::addRestriction(PlatformMediaSession::MediaType type, SessionRestrictions restriction)
@@ -281,7 +295,7 @@ void PlatformMediaSessionManager::sessionWillEndPlayback(PlatformMediaSession& s
 
 void PlatformMediaSessionManager::sessionStateChanged(PlatformMediaSession&)
 {
-    updateSessionState();
+    scheduleUpdateSessionState();
 }
 
 void PlatformMediaSessionManager::setCurrentSession(PlatformMediaSession& session)
@@ -459,11 +473,22 @@ void PlatformMediaSessionManager::processSystemDidWake()
     });
 }
 
-void PlatformMediaSessionManager::stopAllMediaPlaybackForDocument(DocumentIdentifier documentIdentifier)
+void PlatformMediaSessionManager::pauseAllMediaPlaybackForDocument(DocumentIdentifier documentIdentifier)
 {
     forEachDocumentSession(documentIdentifier, [](auto& session) {
         session.pauseSession();
     });
+}
+
+
+bool PlatformMediaSessionManager::mediaPlaybackIsPaused(DocumentIdentifier documentIdentifier)
+{
+    bool mediaPlaybackIsPaused = false;
+    forEachDocumentSession(documentIdentifier, [&mediaPlaybackIsPaused](auto& session) {
+        if (session.state() == PlatformMediaSession::Paused)
+            mediaPlaybackIsPaused = true;
+    });
+    return mediaPlaybackIsPaused;
 }
 
 void PlatformMediaSessionManager::stopAllMediaPlaybackForProcess()
@@ -550,7 +575,7 @@ void PlatformMediaSessionManager::addAudioCaptureSource(PlatformMediaSession::Au
 {
     ASSERT(!m_audioCaptureSources.contains(source));
     m_audioCaptureSources.add(source);
-    updateSessionState();
+    scheduleUpdateSessionState();
 }
 
 
@@ -558,7 +583,17 @@ void PlatformMediaSessionManager::removeAudioCaptureSource(PlatformMediaSession:
 {
     ASSERT(m_audioCaptureSources.contains(source));
     m_audioCaptureSources.remove(source);
-    updateSessionState();
+    scheduleUpdateSessionState();
+}
+
+void PlatformMediaSessionManager::scheduleUpdateSessionState()
+{
+    if (updateSessionStateQueue.hasPendingTasks())
+        return;
+
+    updateSessionStateQueue.enqueueTask([this] {
+        updateSessionState();
+    });
 }
 
 #if USE(AUDIO_SESSION)
@@ -588,6 +623,74 @@ void PlatformMediaSessionManager::setShouldDeactivateAudioSession(bool deactivat
 {
     deactivateAudioSession() = deactivate;
 }
+
+bool PlatformMediaSessionManager::webMFormatReaderEnabled()
+{
+#if ENABLE(WEBM_FORMAT_READER)
+    return m_webMFormatReaderEnabled;
+#else
+    return false;
+#endif
+}
+
+void PlatformMediaSessionManager::setWebMFormatReaderEnabled(bool enabled)
+{
+#if ENABLE(WEBM_FORMAT_READER)
+    m_webMFormatReaderEnabled = enabled;
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+bool PlatformMediaSessionManager::vorbisDecoderEnabled()
+{
+#if ENABLE(VORBIS) && PLATFORM(MAC)
+    return m_vorbisDecoderEnabled;
+#else
+    return false;
+#endif
+}
+
+void PlatformMediaSessionManager::setVorbisDecoderEnabled(bool enabled)
+{
+#if ENABLE(VORBIS) && PLATFORM(MAC)
+    m_vorbisDecoderEnabled = enabled;
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+#if ENABLE(VP9)
+void PlatformMediaSessionManager::setShouldEnableVP9Decoder(bool vp9DecoderEnabled)
+{
+    m_vp9DecoderEnabled = vp9DecoderEnabled;
+}
+
+bool PlatformMediaSessionManager::shouldEnableVP9Decoder()
+{
+    return m_vp9DecoderEnabled;
+}
+
+void PlatformMediaSessionManager::setShouldEnableVP8Decoder(bool vp8DecoderEnabled)
+{
+    m_vp8DecoderEnabled = vp8DecoderEnabled;
+}
+
+bool PlatformMediaSessionManager::shouldEnableVP8Decoder()
+{
+    return m_vp8DecoderEnabled;
+}
+
+void PlatformMediaSessionManager::setShouldEnableVP9SWDecoder(bool vp9SWDecoderEnabled)
+{
+    m_vp9SWDecoderEnabled = vp9SWDecoderEnabled;
+}
+
+bool PlatformMediaSessionManager::shouldEnableVP9SWDecoder()
+{
+    return m_vp9SWDecoderEnabled;
+}
+#endif // ENABLE(VP9)
 
 #else // ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 

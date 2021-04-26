@@ -129,6 +129,9 @@ extern OctagonState* const OctagonStateHealthCheckLeaveClique;
 extern OctagonState* const OctagonStateNoAccountDoReset;
 //
 
+// Used if the local device no longer can talk to the account
+extern OctagonState* const OctagonStateLostAccountAuth;
+
 // escrow
 extern OctagonState* const OctagonStateEscrowTriggerUpdate;
 
@@ -173,6 +176,7 @@ NSDictionary<NSNumber*, OctagonState*>* OctagonStateInverseMap(void);
 NSSet<OctagonState*>* OctagonInAccountStates(void);
 NSSet<OctagonState *>* OctagonHealthSourceStates(void);
 NSSet<OctagonFlag *>* AllOctagonFlags(void);
+NSSet<OctagonState*>* OctagonNotInCliqueStates(void);
 
 ////// State machine flags
 extern OctagonFlag* const OctagonFlagIDMSLevelChanged;

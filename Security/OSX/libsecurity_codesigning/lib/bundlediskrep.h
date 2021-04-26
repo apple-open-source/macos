@@ -80,7 +80,7 @@ public:
 	CFArrayRef modifiedFiles();
 	UnixPlusPlus::FileDesc &fd();
 	void flush();
-    CFDictionaryRef diskRepInformation();
+    CFDictionaryRef copyDiskRepInformation();
 
 	std::string recommendedIdentifier(const SigningContext &ctx);
 	CFDictionaryRef defaultResourceRules(const SigningContext &ctx);

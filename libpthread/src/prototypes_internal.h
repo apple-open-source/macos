@@ -77,7 +77,7 @@ extern uint64_t _pthread_debugstart;
 
 /* pthread.c */
 void _pthread_deallocate(pthread_t t, bool from_mach_thread);
-void _pthread_main_thread_init(pthread_t p);
+void _pthread_main_thread_init(pthread_t p, mach_port_name_t main_th);
 void _pthread_main_thread_postfork_init(pthread_t p);
 void _pthread_bsdthread_init(struct _pthread_registration_data *data);
 void *_pthread_atomic_xchg_ptr(void **p, void *v);

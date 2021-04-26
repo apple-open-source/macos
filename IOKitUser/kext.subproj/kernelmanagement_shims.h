@@ -30,8 +30,9 @@
 #define _KERNELMANAGEMENT_SHIMS_H_
 
 bool shimmingEnabled();
-CFStringRef kernelmanagement_path_for_bundle_id(CFStringRef identifier);
-OSReturn kernelmanagement_load_kext_url(CFURLRef url);
-OSReturn kernelmanagement_load_kext_identifier(CFStringRef identifier);
+CFStringRef kernelmanagement_path_for_bundle_id(CFStringRef);
+OSReturn kernelmanagement_load_kext_url(CFURLRef, CFArrayRef);
+OSReturn kernelmanagement_load_kext_identifier(CFStringRef, CFArrayRef);
+OSReturn kernelmanagement_unload_kext_identifier(CFStringRef);
 
 #endif /* _KERNELMANAGEMENT_SHIMS_H_ */

@@ -12,25 +12,33 @@
 #pragma mark Mocks
 
 #define PGUARD_MOCK_RANDOM
-static uint32_t rand_value;
 static uint32_t expected_upper_bound;
+static uint32_t rand_ret_value;
+static uint32_t rand_ret_values[10];
+static uint32_t rand_call_count;
+static bool rand_use_ret_values;
 static uint32_t
 rand_uniform(uint32_t upper_bound)
 {
 	T_QUIET; T_EXPECT_EQ(upper_bound, expected_upper_bound, "rand_uniform(upper_bound)");
-	return rand_value;
+	if (rand_use_ret_values) {
+		T_QUIET; T_ASSERT_LT(rand_call_count, 10, NULL);
+		rand_ret_value = rand_ret_values[rand_call_count];
+	}
+	rand_call_count++;
+	return rand_ret_value;
 }
 
 #define PGUARD_MOCK_CAPTURE_TRACE
 static stack_trace_t *expected_traces[10];
-static uint32_t expected_trace_index;
+static uint32_t capture_trace_call_count;
 MALLOC_ALWAYS_INLINE
 static inline void
 capture_trace(stack_trace_t *trace)
 {
-	assert(expected_trace_index < 10);
-	T_QUIET; T_EXPECT_EQ(trace, expected_traces[expected_trace_index], "capture_trace(trace)");
-	expected_trace_index++;
+	T_QUIET; T_ASSERT_LT(capture_trace_call_count, 10, NULL);
+	T_QUIET; T_EXPECT_EQ(trace, expected_traces[capture_trace_call_count], "capture_trace(trace)");
+	capture_trace_call_count++;
 }
 
 #define PGUARD_MOCK_PAGE_ACCESS

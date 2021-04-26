@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "DataReference.h"
 #include "DownloadID.h"
 #include "DownloadManager.h"
 #include "DownloadMonitor.h"
@@ -43,10 +44,6 @@
 OBJC_CLASS NSProgress;
 OBJC_CLASS NSURLSessionDownloadTask;
 #endif
-
-namespace IPC {
-class DataReference;
-}
 
 namespace WebCore {
 class AuthenticationChallenge;
@@ -76,7 +73,8 @@ public:
     ~Download();
 
     void resume(const IPC::DataReference& resumeData, const String& path, SandboxExtension::Handle&&);
-    void cancel();
+    enum class IgnoreDidFailCallback : bool { No, Yes };
+    void cancel(CompletionHandler<void(const IPC::DataReference&)>&&, IgnoreDidFailCallback);
 #if PLATFORM(COCOA)
     void publishProgress(const URL&, SandboxExtension::Handle&&);
 #endif
@@ -91,10 +89,8 @@ public:
     void didReceiveData(uint64_t bytesWritten, uint64_t totalBytesWritten, uint64_t totalBytesExpectedToWrite);
     void didFinish();
     void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
-    void didCancel(const IPC::DataReference& resumeData);
 
     bool isAlwaysOnLoggingAllowed() const;
-    bool wasCanceled() const { return m_wasCanceled; }
 
     void applicationDidEnterBackground() { m_monitor.applicationDidEnterBackground(); }
     void applicationWillEnterForeground() { m_monitor.applicationWillEnterForeground(); }
@@ -107,7 +103,7 @@ private:
     IPC::Connection* messageSenderConnection() const override;
     uint64_t messageSenderDestinationID() const override;
 
-    void platformCancelNetworkLoad();
+    void platformCancelNetworkLoad(CompletionHandler<void(const IPC::DataReference&)>&&);
     void platformDestroyDownload();
 
     DownloadManager& m_downloadManager;
@@ -124,10 +120,11 @@ private:
 #endif
     PAL::SessionID m_sessionID;
     String m_suggestedName;
-    bool m_wasCanceled { false };
     bool m_hasReceivedData { false };
+    IgnoreDidFailCallback m_ignoreDidFailCallback { IgnoreDidFailCallback::No };
     DownloadMonitor m_monitor { *this };
     unsigned m_testSpeedMultiplier { 1 };
+    CompletionHandler<void(const IPC::DataReference&)> m_cancelCompletionHandler;
 };
 
 } // namespace WebKit

@@ -99,7 +99,7 @@
     return current.peerID;
 }
 
-- (NSDate *)lastHealthCheckupDate:(NSError * _Nullable *)error {
+- (NSDate * _Nullable)lastHealthCheckupDate:(NSError * _Nullable *)error {
     NSError* localError = nil;
 
     OTAccountMetadataClassC* current = [self loadOrCreateAccountMetadata:&localError];

@@ -14,7 +14,7 @@
 	<dict>
 		<key>com.apple.iokit.matching</key>
 		<dict>
-			<key>Device was attached</key>
+			<key>HIDDevice attached</key>
 			<dict>
 				<key>IOProviderClass</key>
 				<string>IOHIDDevice</string>
@@ -43,6 +43,17 @@
 				</array>
 				<key>IOMatchLaunchStream</key>
 				<false/>
+			</dict>
+			<key>SMCAccessory attached</key>
+			<dict>
+				<key>IOProviderClass</key>
+				<string>IOPMPowerSource</string>
+				<key>IOPropertyExistsMatch</key>
+				<string>AccessoryDetails</string>
+				<key>IOMatchLaunchStream</key>
+				<true/>
+				<key>IOMatchAll</key>
+				<true/>
 			</dict>
 		</dict>
 	</dict>

@@ -102,15 +102,9 @@ FontRanges FontFamilySpecificationCoreText::fontRanges(const FontDescription& fo
 
         auto font = adoptCF(CTFontCreateWithFontDescriptor(m_fontDescriptor.get(), size, nullptr));
 
-        auto fontForSynthesisComputation = font;
-#if USE(PLATFORM_SYSTEM_FALLBACK_LIST)
-        if (auto physicalFont = adoptCF(CTFontCopyPhysicalFont(font.get())))
-            fontForSynthesisComputation = physicalFont;
-#endif
-
         font = preparePlatformFont(font.get(), fontDescription, nullptr, { });
 
-        auto [syntheticBold, syntheticOblique] = computeNecessarySynthesis(fontForSynthesisComputation.get(), fontDescription).boldObliquePair();
+        auto [syntheticBold, syntheticOblique] = computeNecessarySynthesis(font.get(), fontDescription, ShouldComputePhysicalTraits::Yes).boldObliquePair();
 
         return makeUnique<FontPlatformData>(font.get(), size, false, syntheticOblique, fontDescription.orientation(), fontDescription.widthVariant(), fontDescription.textRenderingMode());
     }).iterator->value;

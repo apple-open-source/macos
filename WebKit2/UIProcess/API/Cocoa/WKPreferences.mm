@@ -78,6 +78,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     [coder encodeBool:self.tabFocusesLinks forKey:@"tabFocusesLinks"];
 #endif
+    [coder encodeBool:self.textInteractionEnabled forKey:@"textInteractionEnabled"];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -99,6 +100,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     self.tabFocusesLinks = [coder decodeBoolForKey:@"tabFocusesLinks"];
 #endif
+    if ([coder containsValueForKey:@"textInteractionEnabled"])
+        self.textInteractionEnabled = [coder decodeBoolForKey:@"textInteractionEnabled"];
 
     return self;
 }
@@ -138,6 +141,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _preferences->setJavaScriptCanOpenWindowsAutomatically(javaScriptCanOpenWindowsAutomatically);
 }
 
+- (BOOL)textInteractionEnabled
+{
+    return _preferences->textInteractionEnabled();
+}
+
+- (void)setTextInteractionEnabled:(BOOL)textInteractionEnabled
+{
+    _preferences->setTextInteractionEnabled(textInteractionEnabled);
+}
+
 #pragma mark OS X-specific methods
 
 #if PLATFORM(MAC)
@@ -175,29 +188,29 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _preferences->setTelephoneNumberParsingEnabled(telephoneNumberDetectionIsEnabled);
 }
 
-static WebCore::SecurityOrigin::StorageBlockingPolicy toStorageBlockingPolicy(_WKStorageBlockingPolicy policy)
+static WebCore::StorageBlockingPolicy toStorageBlockingPolicy(_WKStorageBlockingPolicy policy)
 {
     switch (policy) {
     case _WKStorageBlockingPolicyAllowAll:
-        return WebCore::SecurityOrigin::AllowAllStorage;
+        return WebCore::StorageBlockingPolicy::AllowAll;
     case _WKStorageBlockingPolicyBlockThirdParty:
-        return WebCore::SecurityOrigin::BlockThirdPartyStorage;
+        return WebCore::StorageBlockingPolicy::BlockThirdParty;
     case _WKStorageBlockingPolicyBlockAll:
-        return WebCore::SecurityOrigin::BlockAllStorage;
+        return WebCore::StorageBlockingPolicy::BlockAll;
     }
 
     ASSERT_NOT_REACHED();
-    return WebCore::SecurityOrigin::AllowAllStorage;
+    return WebCore::StorageBlockingPolicy::AllowAll;
 }
 
-static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPolicy policy)
+static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 {
     switch (policy) {
-    case WebCore::SecurityOrigin::AllowAllStorage:
+    case WebCore::StorageBlockingPolicy::AllowAll:
         return _WKStorageBlockingPolicyAllowAll;
-    case WebCore::SecurityOrigin::BlockThirdPartyStorage:
+    case WebCore::StorageBlockingPolicy::BlockThirdParty:
         return _WKStorageBlockingPolicyBlockThirdParty;
-    case WebCore::SecurityOrigin::BlockAllStorage:
+    case WebCore::StorageBlockingPolicy::BlockAll:
         return _WKStorageBlockingPolicyBlockAll;
     }
 
@@ -207,12 +220,12 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 
 - (_WKStorageBlockingPolicy)_storageBlockingPolicy
 {
-    return toAPI(static_cast<WebCore::SecurityOrigin::StorageBlockingPolicy>(_preferences->storageBlockingPolicy()));
+    return toAPI(static_cast<WebCore::StorageBlockingPolicy>(_preferences->storageBlockingPolicy()));
 }
 
 - (void)_setStorageBlockingPolicy:(_WKStorageBlockingPolicy)policy
 {
-    _preferences->setStorageBlockingPolicy(toStorageBlockingPolicy(policy));
+    _preferences->setStorageBlockingPolicy(static_cast<uint32_t>(toStorageBlockingPolicy(policy)));
 }
 
 - (BOOL)_offlineApplicationCacheIsEnabled
@@ -305,14 +318,14 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setSimpleLineLayoutEnabled(simpleLineLayoutEnabled);
 }
 
-- (BOOL)_simpleLineLayoutDebugBordersEnabled
+- (BOOL)_legacyLineLayoutVisualCoverageEnabled
 {
-    return _preferences->simpleLineLayoutDebugBordersEnabled();
+    return _preferences->legacyLineLayoutVisualCoverageEnabled();
 }
 
-- (void)_setSimpleLineLayoutDebugBordersEnabled:(BOOL)simpleLineLayoutDebugBordersEnabled
+- (void)_setLegacyLineLayoutVisualCoverageEnabled:(BOOL)legacyLineLayoutVisualCoverageEnabled
 {
-    _preferences->setSimpleLineLayoutDebugBordersEnabled(simpleLineLayoutDebugBordersEnabled);
+    _preferences->setLegacyLineLayoutVisualCoverageEnabled(legacyLineLayoutVisualCoverageEnabled);
 }
 
 - (BOOL)_contentChangeObserverEnabled
@@ -353,16 +366,6 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setLargeImageAsyncDecodingEnabled:(BOOL)_largeImageAsyncDecodingEnabled
 {
     _preferences->setLargeImageAsyncDecodingEnabled(_largeImageAsyncDecodingEnabled);
-}
-
-- (BOOL)_inAppBrowserPrivacyEnabled
-{
-    return _preferences->isInAppBrowserPrivacyEnabled();
-}
-
-- (void)_setInAppBrowserPrivacyEnabled:(BOOL)enabled
-{
-    _preferences->setIsInAppBrowserPrivacyEnabled(enabled);
 }
 
 - (BOOL)_needsInAppBrowserPrivacyQuirks
@@ -743,15 +746,15 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 static _WKEditableLinkBehavior toAPI(WebCore::EditableLinkBehavior behavior)
 {
     switch (behavior) {
-    case WebCore::EditableLinkDefaultBehavior:
+    case WebCore::EditableLinkBehavior::Default:
         return _WKEditableLinkBehaviorDefault;
-    case WebCore::EditableLinkAlwaysLive:
+    case WebCore::EditableLinkBehavior::AlwaysLive:
         return _WKEditableLinkBehaviorAlwaysLive;
-    case WebCore::EditableLinkOnlyLiveWithShiftKey:
+    case WebCore::EditableLinkBehavior::OnlyLiveWithShiftKey:
         return _WKEditableLinkBehaviorOnlyLiveWithShiftKey;
-    case WebCore::EditableLinkLiveWhenNotFocused:
+    case WebCore::EditableLinkBehavior::LiveWhenNotFocused:
         return _WKEditableLinkBehaviorLiveWhenNotFocused;
-    case WebCore::EditableLinkNeverLive:
+    case WebCore::EditableLinkBehavior::NeverLive:
         return _WKEditableLinkBehaviorNeverLive;
     }
     
@@ -763,19 +766,19 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 {
     switch (wkBehavior) {
     case _WKEditableLinkBehaviorDefault:
-        return WebCore::EditableLinkDefaultBehavior;
+        return WebCore::EditableLinkBehavior::Default;
     case _WKEditableLinkBehaviorAlwaysLive:
-        return WebCore::EditableLinkAlwaysLive;
+        return WebCore::EditableLinkBehavior::AlwaysLive;
     case _WKEditableLinkBehaviorOnlyLiveWithShiftKey:
-        return WebCore::EditableLinkOnlyLiveWithShiftKey;
+        return WebCore::EditableLinkBehavior::OnlyLiveWithShiftKey;
     case _WKEditableLinkBehaviorLiveWhenNotFocused:
-        return WebCore::EditableLinkLiveWhenNotFocused;
+        return WebCore::EditableLinkBehavior::LiveWhenNotFocused;
     case _WKEditableLinkBehaviorNeverLive:
-        return WebCore::EditableLinkNeverLive;
+        return WebCore::EditableLinkBehavior::NeverLive;
     }
     
     ASSERT_NOT_REACHED();
-    return WebCore::EditableLinkNeverLive;
+    return WebCore::EditableLinkBehavior::NeverLive;
 }
 
 - (_WKEditableLinkBehavior)_editableLinkBehavior
@@ -785,7 +788,7 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 - (void)_setEditableLinkBehavior:(_WKEditableLinkBehavior)editableLinkBehavior
 {
-    _preferences->setEditableLinkBehavior(toEditableLinkBehavior(editableLinkBehavior));
+    _preferences->setEditableLinkBehavior(static_cast<uint32_t>(toEditableLinkBehavior(editableLinkBehavior)));
 }
 
 - (void)_setAVFoundationEnabled:(BOOL)enabled
@@ -916,11 +919,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (void)_setRemotePlaybackEnabled:(BOOL)enabled
 {
     _preferences->setRemotePlaybackEnabled(enabled);
-}
-
-- (BOOL)_isITPDatabaseEnabled
-{
-    return _preferences->isITPDatabaseEnabled();
 }
 
 - (BOOL)_serviceWorkerEntitlementDisabledForTesting
@@ -1119,22 +1117,11 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 - (void)_setPlugInSnapshottingEnabled:(BOOL)enabled
 {
-    _preferences->setPlugInSnapshottingEnabled(enabled);
 }
 
 - (BOOL)_plugInSnapshottingEnabled
 {
-    return _preferences->plugInSnapshottingEnabled();
-}
-
-- (void)_setSubpixelCSSOMElementMetricsEnabled:(BOOL)enabled
-{
-    _preferences->setSubpixelCSSOMElementMetricsEnabled(enabled);
-}
-
-- (BOOL)_subpixelCSSOMElementMetricsEnabled
-{
-    return _preferences->subpixelCSSOMElementMetricsEnabled();
+    return NO;
 }
 
 - (void)_setViewGestureDebuggingEnabled:(BOOL)enabled
@@ -1430,16 +1417,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->videoQualityIncludesDisplayCompositingEnabled();
 }
 
-- (void)_setWebAnimationsCSSIntegrationEnabled:(BOOL)enabled
-{
-    _preferences->setWebAnimationsCSSIntegrationEnabled(enabled);
-}
-
-- (BOOL)_webAnimationsCSSIntegrationEnabled
-{
-    return _preferences->webAnimationsCSSIntegrationEnabled();
-}
-
 - (void)_setDeviceOrientationEventEnabled:(BOOL)enabled
 {
 #if ENABLE(DEVICE_ORIENTATION)
@@ -1470,6 +1447,36 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 #else
     return false;
 #endif
+}
+
+- (BOOL)_speechRecognitionEnabled
+{
+    return _preferences->speechRecognitionEnabled();
+}
+
+- (void)_setSpeechRecognitionEnabled:(BOOL)speechRecognitionEnabled
+{
+    _preferences->setSpeechRecognitionEnabled(speechRecognitionEnabled);
+}
+
+- (BOOL)_privateClickMeasurementEnabled
+{
+    return _preferences->privateClickMeasurementEnabled();
+}
+
+- (void)_setPrivateClickMeasurementEnabled:(BOOL)privateClickMeasurementEnabled
+{
+    _preferences->setPrivateClickMeasurementEnabled(privateClickMeasurementEnabled);
+}
+
+- (_WKPitchCorrectionAlgorithm)_pitchCorrectionAlgorithm
+{
+    return static_cast<_WKPitchCorrectionAlgorithm>(_preferences->pitchCorrectionAlgorithm());
+}
+
+- (void)_setPitchCorrectionAlgorithm:(_WKPitchCorrectionAlgorithm)pitchCorrectionAlgorithm
+{
+    _preferences->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
 }
 
 @end
@@ -1513,3 +1520,19 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 @end
 
+@implementation WKPreferences (WKPrivateDeprecated)
+
+#if !TARGET_OS_IPHONE
+
+- (void)_setSubpixelCSSOMElementMetricsEnabled:(BOOL)enabled
+{
+}
+
+- (BOOL)_subpixelCSSOMElementMetricsEnabled
+{
+    return NO;
+}
+
+#endif
+
+@end

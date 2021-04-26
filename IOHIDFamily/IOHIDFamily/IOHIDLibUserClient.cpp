@@ -546,10 +546,10 @@ IOReturn IOHIDLibUserClient::externalMethod(
         args.target        = target;
         args.reference    = reference;
         
-        if (!isInactive())
-            status = fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, target, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
+        if (!isInactive()) {
+            status = fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
+        }
     }
-
     return status;
 }
 
@@ -1750,10 +1750,18 @@ IOReturn IOHIDLibUserClient::setReport(const void *reportBuffer, uint32_t report
     IOReturn                ret = kIOReturnNoMemory;
     IOMemoryDescriptor *    mem;
     
-    mem = IOMemoryDescriptor::withAddress((void *)reportBuffer, reportBufferSize, kIODirectionOut);
+    mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
+                                                kIOMemoryPageable |
+                                                kIOMemoryKernelUserShared,
+                                                reportBufferSize);
+
     if(mem) {
-        ret = setReport(mem, reportType, reportID, timeout, completion);
-        mem->release();
+        if (mem->prepare() == kIOReturnSuccess) {
+            mem->writeBytes(0, reportBuffer, reportBufferSize);
+            mem->complete();
+            ret = setReport(mem, reportType, reportID, timeout, completion);
+            mem->release();
+        }
     }
 
     if (ret != kIOReturnSuccess) {

@@ -36,6 +36,8 @@
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
+#import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #include "keychain/securityd/SecDbItem.h"
 #import <CoreCDP/CDPAccount.h>
@@ -52,6 +54,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) CKKSLockStateTracker* lockStateTracker;
 @property CKKSAccountStateTracker* accountStateTracker;
+@property CKKSReachabilityTracker* reachabilityTracker;
 
 @property (readonly) CKContainer* cloudKitContainer;
 @property (nullable) CKKSViewManager* viewManager;
@@ -66,6 +69,7 @@ NS_ASSUME_NONNULL_BEGIN
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
                        loggerClass:(Class<SFAnalyticsProtocol>)loggerClass
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
            cuttlefishXPCConnection:(id<NSXPCProxyCreating> _Nullable)cuttlefishXPCConnection
                               cdpd:(id<OctagonFollowUpControllerProtocol>)cdpd;

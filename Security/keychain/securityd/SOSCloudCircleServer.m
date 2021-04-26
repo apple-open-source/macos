@@ -704,8 +704,17 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
                 [account ghostBustPeriodic:gbOptions complete:^(bool ghostBusted, NSError *error) {
                     secnotice("ghostbust", "GhostBusting: %@", ghostBusted ? CFSTR("true"): CFSTR("false"));
                 }];
+                
+                [account removeV0Peers:^(bool removedV0Peers, NSError *error) {
+                    if (!removedV0Peers || error) {
+                        secnotice("removeV0Peers", "Did not remove any v0 peers, error: %@", error);
+                    } else {
+                        secnotice("removeV0Peers", "Removed v0 Peers");
+                    }
+                }];
             }
 #endif
+            
             attempted_action = true;
             action_result = action(txn, error);
         });

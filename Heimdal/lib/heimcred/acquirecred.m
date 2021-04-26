@@ -44,24 +44,51 @@ static void init_event_queue() {
     });
 }
 
+void
+suspend_event_work_queue(void)
+{
+    init_event_queue();
+    dispatch_suspend(event_work_queue);
+}
+
+void
+resume_event_work_queue(void)
+{
+    dispatch_resume(event_work_queue);
+}
+
+
+
 //timer function used to renew renewable credentials
 void
 renew_func(heim_event_t event, void *ptr)
 {
+    heim_assert(CFGetTypeID(ptr) == HeimCredEventContextGetTypeID(), "context wrong type");
+
     init_event_queue();
-    
+
+    HeimCredRef cred = NULL;
+    HeimCredEventContextRef context = (HeimCredEventContextRef)ptr;
+    HEIMDAL_MUTEX_lock(&context->cred_mutex);
+    if (context->cred) {
+	cred = (HeimCredRef)CFRetain(context->cred);
+    }
+    HEIMDAL_MUTEX_unlock(&context->cred_mutex);
+    if (cred==NULL) {
+	return;
+    }
+
     dispatch_sync(event_work_queue, ^{
 	krb5_error_code ret;
 	NSString *clientName;
 	time_t expire;
-	
-	HeimCredRef cred = (HeimCredRef)ptr;
-	if (cred==NULL) {
-	    return;
-	}
+
+
+	HEIMDAL_MUTEX_lock(&cred->event_mutex);
 	heim_ipc_event_cancel(cred->renew_event);
 	cred->next_acquire_time = 0;
-	
+	HEIMDAL_MUTEX_unlock(&cred->event_mutex);
+
 	clientName = (__bridge NSString*)CFDictionaryGetValue(cred->attributes, kHEIMAttrClientName);
 	os_log_debug(GSSOSLog(), "renew_func: %@", clientName);
 	
@@ -107,35 +134,46 @@ renew_func(heim_event_t event, void *ptr)
 		break;
 	}
     });
+    CFRELEASE_NULL(cred);
 }
 
 //event function used to acquire credentials or notify caches when a cred expires
 void
 expire_func(heim_event_t event, void *ptr)
 {
+    heim_assert(CFGetTypeID(ptr) == HeimCredEventContextGetTypeID(), "context wrong type");
+
     init_event_queue();
-    
+
+    HeimCredRef cred = NULL;
+    HeimCredEventContextRef context = (HeimCredEventContextRef)ptr;
+    HEIMDAL_MUTEX_lock(&context->cred_mutex);
+    if (context->cred) {
+	cred = (HeimCredRef)CFRetain(context->cred);
+    }
+    HEIMDAL_MUTEX_unlock(&context->cred_mutex);
+    if (cred==NULL) {
+	return;
+    }
+
     dispatch_sync(event_work_queue, ^{
 	krb5_error_code ret;
 	NSString *clientName;
 	time_t expire;
 	
-	HeimCredRef cred = (HeimCredRef)ptr;
-	if (cred==NULL) {
-	    return;
-	}
 	HEIMDAL_MUTEX_lock(&cred->event_mutex);
 	heim_ipc_event_cancel(cred->renew_event);
 	cred->next_acquire_time = 0;
-	HEIMDAL_MUTEX_unlock(&cred->event_mutex);
-	
-	if (!isAcquireCred(cred)) {
+
+	if (!cred->is_acquire_cred) {
+	    HEIMDAL_MUTEX_unlock(&cred->event_mutex);
 	    if (cred->mech->notifyCaches!=NULL) {
 		cred->mech->notifyCaches();
 	    }
 	    return;
 	}
-	
+	HEIMDAL_MUTEX_unlock(&cred->event_mutex);
+
 	clientName = (__bridge NSString*)CFDictionaryGetValue(cred->attributes, kHEIMAttrClientName);
 	os_log_debug(GSSOSLog(), "expire_func: %@", clientName);
 	
@@ -184,6 +222,8 @@ expire_func(heim_event_t event, void *ptr)
 	});
 
     });
+
+    CFRELEASE_NULL(cred);
 }
 
 void
@@ -284,4 +324,15 @@ cred_update_renew_time(HeimCredRef cred, bool is_retry)
     heim_ipc_event_set_time(cred->renew_event, renewtime);
     cred->renew_time = renewtime;
     HEIMDAL_MUTEX_unlock(&cred->event_mutex);
+}
+
+void
+_test_wait_for_event_work_queue(void)
+{
+    // This methiod is intended for testing.
+    // It will add empty work to the dispatch queue and wait for it to finish.
+    dispatch_async_and_wait(event_work_queue, ^{
+	os_log_debug(GSSOSLog(), "Queue finished.");
+    });
+
 }

@@ -53,6 +53,15 @@ String Internals::userVisibleString(const DOMURL& url)
     return WTF::userVisibleString(url.href());
 }
 
+bool Internals::userPrefersContrast() const
+{
+#if PLATFORM(IOS_FAMILY)
+    return PAL::softLink_UIKit_UIAccessibilityDarkerSystemColorsEnabled();
+#else
+    return [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldIncreaseContrast];
+#endif
+}
+
 bool Internals::userPrefersReducedMotion() const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -93,6 +102,17 @@ double Internals::privatePlayerVolume(const HTMLMediaElement& element)
     if (!player)
         return 0;
     return [player volume];
+}
+
+bool Internals::privatePlayerMuted(const HTMLMediaElement& element)
+{
+    auto corePlayer = element.player();
+    if (!corePlayer)
+        return false;
+    auto player = corePlayer->objCAVFoundationAVPlayer();
+    if (!player)
+        return false;
+    return [player isMuted];
 }
 #endif
 

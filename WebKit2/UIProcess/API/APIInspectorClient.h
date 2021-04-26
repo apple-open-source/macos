@@ -25,9 +25,10 @@
 
 #pragma once
 
+#include <wtf/Forward.h>
+
 namespace WebKit {
 class WebInspectorProxy;
-class WebPageProxy;
 }
 
 namespace API {
@@ -37,9 +38,9 @@ class InspectorClient {
 public:
     virtual ~InspectorClient() = default;
 
-    virtual void didAttachLocalInspector(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&) { }
-    virtual void browserDomainEnabled(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&) { }
-    virtual void browserDomainDisabled(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&) { }
+    virtual void browserDomainEnabled(WebKit::WebInspectorProxy&) { }
+    virtual void browserDomainDisabled(WebKit::WebInspectorProxy&) { }
+    virtual void openURLExternally(WebKit::WebInspectorProxy&, const WTF::String& url) { }
 };
 
 } // namespace API

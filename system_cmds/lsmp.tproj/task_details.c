@@ -139,7 +139,7 @@ void deallocate_taskinfo_memory(my_per_task_info_t *data){
     }
 }
 
-kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_task)
+kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_read_t target_task)
 {
     int i;
     kern_return_t ret = KERN_SUCCESS;
@@ -149,10 +149,10 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
     taskinfo->task = target_task;
     pid_for_task(target_task, &taskinfo->pid);
 
-    ret = task_get_exception_ports(taskinfo->task, EXC_MASK_ALL, taskinfo->exceptionInfo.masks, &taskinfo->exceptionInfo.count, taskinfo->exceptionInfo.ports, taskinfo->exceptionInfo.behaviors, taskinfo->exceptionInfo.flavors);
+    ret = task_get_exception_ports_info(taskinfo->task, EXC_MASK_ALL, taskinfo->exceptionInfo.masks, &taskinfo->exceptionInfo.count, taskinfo->exceptionInfo.ports_info, taskinfo->exceptionInfo.behaviors, taskinfo->exceptionInfo.flavors);
 
     if (ret != KERN_SUCCESS) {
-        fprintf(stderr, "task_get_exception_ports() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
+        fprintf(stderr, "task_get_exception_ports_info() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
         taskinfo->pid = 0;
     }
 
@@ -180,9 +180,9 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
             mach_msg_type_number_t th_info_count = THREAD_IDENTIFIER_INFO_COUNT;
             struct exc_port_info *excinfo = &(taskinfo->threadExceptionInfos[i]);
 
-            ret = thread_get_exception_ports(threadPorts[i], EXC_MASK_ALL, excinfo->masks, &excinfo->count, excinfo->ports, excinfo->behaviors, excinfo->flavors);
+            ret = thread_get_exception_ports_info(threadPorts[i], EXC_MASK_ALL, excinfo->masks, &excinfo->count, excinfo->ports_info, excinfo->behaviors, excinfo->flavors);
             if (ret != KERN_SUCCESS){
-                fprintf(stderr, "thread_get_exception_ports() failed: pid: %d thread: %d error %s\n", taskinfo->pid, threadPorts[i], mach_error_string(ret));
+                fprintf(stderr, "thread_get_exception_ports_info() failed: pid: %d thread: %d error %s\n", taskinfo->pid, threadPorts[i], mach_error_string(ret));
             }
 
             if (excinfo->count != 0) {
@@ -236,8 +236,9 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
     proc_pid_to_name(taskinfo->pid, taskinfo->processName);
 
     ret = mach_port_kernel_object(mach_task_self(), taskinfo->task, &kotype, (unsigned *)&kobject);
-
-    if (ret == KERN_SUCCESS && kotype == IKOT_TASK_CONTROL) {
+    
+    /* Now that we are using read ports, kotype should be checked against IKOT_TASK_READ */
+    if (ret == KERN_SUCCESS && kotype == IKOT_TASK_READ) {
         taskinfo->task_kobject = kobject;
         taskinfo->valid = TRUE;
     }
@@ -307,23 +308,32 @@ kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo, JSON_t jso
 
     boolean_t header_required = TRUE;
     for (int i = 0; i < taskinfo->exceptionInfo.count; i++) {
-        if (taskinfo->exceptionInfo.ports[i] != MACH_PORT_NULL) {
+        if (taskinfo->exceptionInfo.ports_info[i].iip_port_object != 0) {
+            my_per_task_info_t * _found_task;
+            
             if (header_required) {
 
-                printf("    exc_port    flavor <behaviors>           mask   \n");
+                printf("    exc_port_object    receiver_task    flavor  <behaviors>           mask   \n");
                 header_required = FALSE;
             }
             get_exc_behavior_string(taskinfo->exceptionInfo.behaviors[i], behavior_string, sizeof(behavior_string));
             get_exc_mask_string(taskinfo->exceptionInfo.masks[i], mask_string, sizeof(mask_string));
 
             JSON_OBJECT_BEGIN(json);
-            JSON_OBJECT_SET(json, port, "0x%08x", taskinfo->exceptionInfo.ports[i]);
+            JSON_OBJECT_SET(json, port_object, "0x%08x", taskinfo->exceptionInfo.ports_info[i].iip_port_object);
+            JSON_OBJECT_SET(json, receiver_object, "0x%08x", taskinfo->exceptionInfo.ports_info[i].iip_receiver_object);
             JSON_OBJECT_SET(json, flavor, "0x%03x", taskinfo->exceptionInfo.flavors[i]);
             JSON_OBJECT_SET(json, behavior, "%s", behavior_string);
             JSON_OBJECT_SET(json, mask, "%s", mask_string);
             JSON_OBJECT_END(json); // exception port
-
-            printf("    0x%08x  0x%03x  <%s>           %s  \n" , taskinfo->exceptionInfo.ports[i], taskinfo->exceptionInfo.flavors[i], behavior_string, mask_string);
+            
+            _found_task = get_taskinfo_by_kobject((natural_t)taskinfo->exceptionInfo.ports_info[i].iip_receiver_object);
+            
+            printf("    0x%08x         (%d) %s       0x%03x  <%s>         %s  \n",
+                   taskinfo->exceptionInfo.ports_info[i].iip_port_object,
+                   _found_task->pid,
+                   _found_task->processName,
+                   taskinfo->exceptionInfo.flavors[i], behavior_string, mask_string);
         }
 
     }
@@ -389,39 +399,35 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo, JSO
                 for (int i = 0; i < excinfo->count; i++) {
                     JSON_OBJECT_BEGIN(json);
 
-                    if (excinfo->ports[i] != MACH_PORT_NULL) {
+                    if (excinfo->ports_info[i].iip_port_object != 0) {
                         if (header_required) {
-                            printf("\n    exc_port    flavor <behaviors>           mask   -> name    owner\n");
+                            printf("\n    exc_port_object    exc_port_receiver    flavor <behaviors>           mask   -> name    owner\n");
                             header_required = FALSE;
                         }
                         get_exc_behavior_string(excinfo->behaviors[i], behavior_string, sizeof(behavior_string));
                         get_exc_mask_string(excinfo->masks[i], mask_string, sizeof(mask_string));
 
-                        JSON_OBJECT_SET(json, port, "0x%08x", excinfo->ports[i]);
+                        JSON_OBJECT_SET(json, port_object, "0x%08x", excinfo->ports_info[i].iip_port_object);
+                        JSON_OBJECT_SET(json, receiver_object, "0x%08x", excinfo->ports_info[i].iip_receiver_object);
                         JSON_OBJECT_SET(json, flavor, "0x%03x", excinfo->flavors[i]);
                         JSON_OBJECT_SET(json, behavior, "%s", behavior_string);
                         JSON_OBJECT_SET(json, mask, "%s", mask_string);
 
-                        printf("    0x%08x  0x%03x  <%s>           %s  " , excinfo->ports[i], excinfo->flavors[i], behavior_string, mask_string);
+                        printf("    0x%08x  0x%08x  0x%03x  <%s>           %s  " , excinfo->ports_info[i].iip_port_object, excinfo->ports_info[i].iip_receiver_object, excinfo->flavors[i], behavior_string, mask_string);
 
-                        ipc_info_name_t actual_sendinfo;
-                        if (KERN_SUCCESS == get_ipc_info_from_lsmp_spaceinfo(excinfo->ports[i], &actual_sendinfo)) {
-                            my_per_task_info_t *recv_holder_taskinfo;
-                            mach_port_name_t recv_name = MACH_PORT_NULL;
-                            if (KERN_SUCCESS == get_taskinfo_of_receiver_by_send_right(&actual_sendinfo, &recv_holder_taskinfo, &recv_name)) {
+                        my_per_task_info_t *recv_holder_taskinfo;
+                        mach_port_name_t recv_name = MACH_PORT_NULL;
+                        if (KERN_SUCCESS == get_taskinfo_of_receiver_by_send_right_info(excinfo->ports_info[i], &recv_holder_taskinfo, &recv_name)) {
+                            JSON_OBJECT_SET(json, name, "0x%08x", recv_name);
+                            JSON_OBJECT_SET(json, ipc-object, "0x%08x", excinfo->ports_info[i].iip_port_object);
+                            JSON_OBJECT_SET(json, pid, %d, recv_holder_taskinfo->pid);
+                            JSON_OBJECT_SET(json, process, "%s", recv_holder_taskinfo->processName);
 
-                                JSON_OBJECT_SET(json, name, "0x%08x", recv_name);
-                                JSON_OBJECT_SET(json, ipc-object, "0x%08x", actual_sendinfo.iin_object);
-                                JSON_OBJECT_SET(json, pid, %d, recv_holder_taskinfo->pid);
-                                JSON_OBJECT_SET(json, process, "%s", recv_holder_taskinfo->processName);
-
-                                printf("   -> 0x%08x  0x%08x  (%d) %s\n",
-                                       recv_name,
-                                       actual_sendinfo.iin_object,
-                                       recv_holder_taskinfo->pid,
-                                       recv_holder_taskinfo->processName);
-                            }
-
+                            printf("   -> 0x%08x  0x%08x  (%d) %s\n",
+                                    recv_name,
+                                    excinfo->ports_info[i].iip_port_object,
+                                    recv_holder_taskinfo->pid,
+                                    recv_holder_taskinfo->processName);
                         } else {
                             fprintf(stderr, "failed to find");
                         }
@@ -463,14 +469,14 @@ my_per_task_info_t * get_taskinfo_by_kobject(natural_t kobj) {
     return retval;
 }
 
-kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info)
+static kern_return_t _get_taskinfo_of_receiver_by_send_right(natural_t kobject, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info)
 {
     *out_taskinfo = &NOT_FOUND_TASK_INFO;
     struct k2n_table_node *k2nnode;
 
-    for (int j = 0; j < global_taskcount; j++) {
-        if ((k2nnode = k2n_table_lookup(global_taskinfo[j].k2ntable, sendright->iin_object))) {
-            assert(k2nnode->info_name->iin_object == sendright->iin_object);
+    for (unsigned int j = 0; j < global_taskcount; j++) {
+        if ((k2nnode = k2n_table_lookup(global_taskinfo[j].k2ntable, kobject))) {
+            assert(k2nnode->info_name->iin_object == kobject);
 
             if (k2nnode->info_name->iin_type & MACH_PORT_TYPE_RECEIVE) {
                 *out_taskinfo = &global_taskinfo[j];
@@ -483,25 +489,12 @@ kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright,
     return KERN_FAILURE;
 }
 
-kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright){
-    kern_return_t retval = KERN_FAILURE;
-    bzero(out_sendright, sizeof(ipc_info_name_t));
-    my_per_task_info_t *mytaskinfo = NULL;
-    for (int i = global_taskcount - 1; i >= 0; i--){
-        if (global_taskinfo[i].task == mach_task_self()){
-            mytaskinfo = &global_taskinfo[i];
-            break;
-        }
-    }
-    if (mytaskinfo) {
-        for (int k = 0; k < mytaskinfo->tableCount; k++) {
-            if (port_name == mytaskinfo->table[k].iin_name){
-                bcopy(&mytaskinfo->table[k], out_sendright, sizeof(ipc_info_name_t));
-                retval = KERN_SUCCESS;
-                break;
-            }
-        }
-    }
-    return retval;
+kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t sendright, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info)
+{
+    return _get_taskinfo_of_receiver_by_send_right(sendright.iin_object, out_taskinfo, out_recv_info);
+}
 
+kern_return_t get_taskinfo_of_receiver_by_send_right_info(ipc_info_port_t sendright_info, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info)
+{
+    return _get_taskinfo_of_receiver_by_send_right(sendright_info.iip_port_object, out_taskinfo, out_recv_info);
 }

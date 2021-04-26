@@ -47,18 +47,12 @@ TextEncoding::TextEncoding(const char* name)
     : m_name(atomCanonicalTextEncodingName(name))
     , m_backslashAsCurrencySymbol(backslashAsCurrencySymbol())
 {
-    // Aliases are valid, but not "replacement" itself.
-    if (equalLettersIgnoringASCIICase(name, "replacement"))
-        m_name = nullptr;
 }
 
 TextEncoding::TextEncoding(const String& name)
     : m_name(atomCanonicalTextEncodingName(name))
     , m_backslashAsCurrencySymbol(backslashAsCurrencySymbol())
 {
-    // Aliases are valid, but not "replacement" itself.
-    if (equalLettersIgnoringASCIICase(name, "replacement"))
-        m_name = nullptr;
 }
 
 String TextEncoding::decode(const char* data, size_t length, bool stopOnError, bool& sawError) const
@@ -69,7 +63,7 @@ String TextEncoding::decode(const char* data, size_t length, bool stopOnError, b
     return newTextCodec(*this)->decode(data, length, true, stopOnError, sawError);
 }
 
-Vector<uint8_t> TextEncoding::encode(StringView string, UnencodableHandling handling) const
+Vector<uint8_t> TextEncoding::encode(StringView string, UnencodableHandling handling, NFCNormalize normalize) const
 {
     if (!m_name || string.isEmpty())
         return { };
@@ -77,8 +71,9 @@ Vector<uint8_t> TextEncoding::encode(StringView string, UnencodableHandling hand
     // FIXME: What's the right place to do normalization?
     // It's a little strange to do it inside the encode function.
     // Perhaps normalization should be an explicit step done before calling encode.
-    auto normalizedString = normalizedNFC(string);
-    return newTextCodec(*this)->encode(normalizedString.view, handling);
+    if (normalize == NFCNormalize::Yes)
+        return newTextCodec(*this)->encode(normalizedNFC(string).view, handling);
+    return newTextCodec(*this)->encode(string, handling);
 }
 
 const char* TextEncoding::domName() const

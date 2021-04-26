@@ -518,9 +518,8 @@ enum class ObjectFit : uint8_t {
 
 enum class AspectRatioType : uint8_t {
     Auto,
-    FromIntrinsic,
-    FromDimensions,
-    Specified
+    Ratio,
+    AutoAndRatio
 };
 
 enum class WordBreak : uint8_t {
@@ -638,6 +637,7 @@ enum class ListStyleType : uint8_t {
     Katakana,
     HiraganaIroha,
     KatakanaIroha,
+    String,
     None
 };
 
@@ -1193,6 +1193,11 @@ enum class EventListenerRegionType : uint8_t {
     NonPassiveWheel = 1 << 1,
 };
 
+enum class MathStyle : uint8_t {
+    Normal,
+    Compact,
+};
+
 extern const float defaultMiterLimit;
 
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationFillMode);
@@ -1306,5 +1311,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, VerticalAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, Visibility);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpace);
 WTF::TextStream& operator<<(WTF::TextStream&, WordBreak);
+WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
 
 } // namespace WebCore

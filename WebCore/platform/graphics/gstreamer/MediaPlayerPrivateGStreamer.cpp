@@ -29,6 +29,7 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GraphicsContext.h"
+#include "GStreamerAudioMixer.h"
 #include "GStreamerCommon.h"
 #include "GStreamerRegistryScanner.h"
 #include "HTTPHeaderNames.h"
@@ -43,6 +44,7 @@
 #include "SecurityOrigin.h"
 #include "TimeRanges.h"
 #include "VideoSinkGStreamer.h"
+#include "WebKitAudioSinkGStreamer.h"
 #include "WebKitWebSourceGStreamer.h"
 #include "AudioTrackPrivateGStreamer.h"
 #include "InbandMetadataTextTrackPrivateGStreamer.h"
@@ -127,13 +129,6 @@
 #include "TextureMapperContextAttributes.h"
 #include "TextureMapperPlatformLayerBuffer.h"
 #include "TextureMapperPlatformLayerProxy.h"
-#if USE(CAIRO) && ENABLE(ACCELERATED_2D_CANVAS)
-#include <cairo-gl.h>
-#include "GLContext.h"
-#include "PlatformDisplay.h"
-// cairo-gl.h ends up including X.h, which defines None, breaking MediaPlayer:: enums.
-#undef None
-#endif
 #endif // USE(TEXTURE_MAPPER_GL)
 
 #if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
@@ -177,6 +172,7 @@ static void initializeDebugCategory()
 MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
     , m_player(player)
+    , m_referrer(player->referrer())
     , m_cachedPosition(MediaTime::invalidTime())
     , m_cachedDuration(MediaTime::invalidTime())
     , m_seekTime(MediaTime::invalidTime())
@@ -203,6 +199,8 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     m_readyTimerHandler.setPriority(G_PRIORITY_DEFAULT_IDLE);
 #endif
     m_isPlayerShuttingDown.store(false);
+
+    m_audioSink = createAudioSink();
 
 #if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
     auto& sharedDisplay = PlatformDisplay::sharedDisplay();
@@ -236,10 +234,9 @@ MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
     if (WEBKIT_IS_WEB_SRC(m_source.get()) && GST_OBJECT_PARENT(m_source.get()))
         g_signal_handlers_disconnect_by_func(GST_ELEMENT_PARENT(m_source.get()), reinterpret_cast<gpointer>(uriDecodeBinElementAddedCallback), this);
 
-    if (m_autoAudioSink) {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(m_autoAudioSink.get()),
-            reinterpret_cast<gpointer>(setAudioStreamPropertiesCallback), this);
-    }
+    auto* sink = audioSink();
+    if (sink && !WEBKIT_IS_AUDIO_SINK(sink))
+        g_signal_handlers_disconnect_by_func(G_OBJECT(sink), reinterpret_cast<gpointer>(setAudioStreamPropertiesCallback), this);
 
     m_readyTimerHandler.stop();
     for (auto& missingPluginCallback : m_missingPluginCallbacks) {
@@ -397,7 +394,7 @@ void MediaPlayerPrivateGStreamer::load(const String& urlString)
 }
 
 #if ENABLE(MEDIA_SOURCE)
-void MediaPlayerPrivateGStreamer::load(const String&, MediaSourcePrivateClient*)
+void MediaPlayerPrivateGStreamer::load(const URL&, const ContentType&, MediaSourcePrivateClient*)
 {
     // Properly fail so the global MediaPlayer tries to fallback to the next MediaPlayerPrivate.
     m_networkState = MediaPlayer::NetworkState::FormatError;
@@ -518,17 +515,16 @@ void MediaPlayerPrivateGStreamer::seek(const MediaTime& mediaTime)
 
     // Avoid useless seeking.
     if (mediaTime == currentMediaTime()) {
-        GST_DEBUG_OBJECT(pipeline(), "[Seek] seek to EOS position unhandled");
+        GST_DEBUG_OBJECT(pipeline(), "[Seek] Already at requested position. Aborting.");
         return;
     }
-
-    MediaTime time = std::min(mediaTime, durationMediaTime());
 
     if (m_isLiveStream) {
         GST_DEBUG_OBJECT(pipeline(), "[Seek] Live stream seek unhandled");
         return;
     }
 
+    MediaTime time = std::min(mediaTime, durationMediaTime());
     GST_INFO_OBJECT(pipeline(), "[Seek] seeking to %s", toString(time).utf8().data());
 
     if (m_isSeeking) {
@@ -918,7 +914,7 @@ void MediaPlayerPrivateGStreamer::sourceSetup(GstElement* sourceElement)
     m_source = sourceElement;
 
     if (WEBKIT_IS_WEB_SRC(m_source.get())) {
-        webKitWebSrcSetMediaPlayer(WEBKIT_WEB_SRC_CAST(m_source.get()), m_player);
+        webKitWebSrcSetMediaPlayer(WEBKIT_WEB_SRC_CAST(m_source.get()), m_player, m_referrer);
         g_signal_connect(GST_ELEMENT_PARENT(m_source.get()), "element-added", G_CALLBACK(uriDecodeBinElementAddedCallback), this);
 #if ENABLE(MEDIA_STREAM)
     } else if (WEBKIT_IS_MEDIA_STREAM_SRC(sourceElement)) {
@@ -1004,17 +1000,16 @@ static void setSyncOnClock(GstElement *element, bool sync)
         return;
 
     if (!GST_IS_BIN(element)) {
-        g_object_set(element, "sync", sync, NULL);
+        g_object_set(element, "sync", sync, nullptr);
         return;
     }
 
-    GstIterator* it = gst_bin_iterate_sinks(GST_BIN(element));
-    while (gst_iterator_foreach(it, (GstIteratorForeachFunction)([](const GValue* item, void* syncPtr) {
+    GUniquePtr<GstIterator> iterator(gst_bin_iterate_sinks(GST_BIN_CAST(element)));
+    while (gst_iterator_foreach(iterator.get(), static_cast<GstIteratorForeachFunction>([](const GValue* item, void* syncPtr) {
         bool* sync = static_cast<bool*>(syncPtr);
-        setSyncOnClock(GST_ELEMENT(g_value_get_object(item)), *sync);
+        setSyncOnClock(GST_ELEMENT_CAST(g_value_get_object(item)), *sync);
     }), &sync) == GST_ITERATOR_RESYNC)
-        gst_iterator_resync(it);
-    gst_iterator_free(it);
+        gst_iterator_resync(iterator.get());
 }
 
 void MediaPlayerPrivateGStreamer::syncOnClock(bool sync)
@@ -1029,6 +1024,10 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfVideo()
         return;
 
     ASSERT(m_isLegacyPlaybin || isMediaSource());
+
+    // Ignore notifications after a EOS. We don't want the tracks to disappear when the video is finished.
+    if (m_isEndReached)
+        return;
 
     unsigned numTracks = 0;
     bool useMediaSource = isMediaSource();
@@ -1063,8 +1062,11 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfVideo()
             RefPtr<VideoTrackPrivateGStreamer> existingTrack = m_videoTracks.get(streamId);
             if (existingTrack) {
                 existingTrack->setIndex(i);
-                if (existingTrack->pad() == pad)
-                    continue;
+                // If the video has been played twice, the track is still there, but we need
+                // to update the pad pointer.
+                if (existingTrack->pad() != pad)
+                    existingTrack->setPad(GRefPtr(pad));
+                continue;
             }
         }
 
@@ -1081,17 +1083,36 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfVideo()
     m_player->mediaEngineUpdated();
 }
 
-void MediaPlayerPrivateGStreamer::videoSinkCapsChangedCallback(MediaPlayerPrivateGStreamer* player)
+void MediaPlayerPrivateGStreamer::videoSinkCapsChanged(GstPad* videoSinkPad)
 {
-    player->m_notifier->notify(MainThreadNotification::VideoCapsChanged, [player] {
-        player->notifyPlayerOfVideoCaps();
-    });
-}
+    GRefPtr<GstCaps> caps = adoptGRef(gst_pad_get_current_caps(videoSinkPad));
+    if (!caps) {
+        // This can happen when downgrading the state of the pipeline, which causes the caps to be unset.
+        return;
+    }
+    // We're in videoSinkPad streaming thread.
+    ASSERT(!isMainThread());
+    GST_DEBUG_OBJECT(videoSinkPad, "Received new caps: %" GST_PTR_FORMAT, caps.get());
 
-void MediaPlayerPrivateGStreamer::notifyPlayerOfVideoCaps()
-{
-    m_videoSize = IntSize();
-    m_player->mediaEngineUpdated();
+    bool hasFirstSampleReachedSink;
+    // This actually lacks contention since both notify::caps and triggerRepaint() are both run in the same streaming thread.
+    {
+        auto sampleLocker = holdLock(m_sampleMutex);
+        hasFirstSampleReachedSink = !!m_sample;
+    }
+
+    if (!hasFirstSampleReachedSink) {
+        // We want to wait for the sink to receive the first buffer before emitting dimensions, since only by then we
+        // are guaranteed that any potential tag event with a rotation has been handled.
+        GST_DEBUG_OBJECT(videoSinkPad, "Ignoring notify::caps until the first buffer reaches the sink.");
+        return;
+    }
+
+    RunLoop::main().dispatch([weakThis = makeWeakPtr(this), this, caps = WTFMove(caps)] {
+        if (!weakThis)
+            return;
+        updateVideoSizeAndOrientationFromCaps(caps.get());
+    });
 }
 
 void MediaPlayerPrivateGStreamer::audioChangedCallback(MediaPlayerPrivateGStreamer* player)
@@ -1107,6 +1128,10 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfAudio()
         return;
 
     ASSERT(m_isLegacyPlaybin || isMediaSource());
+
+    // Ignore notifications after a EOS. We don't want the tracks to disappear when the video is finished.
+    if (m_isEndReached)
+        return;
 
     unsigned numTracks = 0;
     bool useMediaSource = isMediaSource();
@@ -1137,8 +1162,11 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfAudio()
             RefPtr<AudioTrackPrivateGStreamer> existingTrack = m_audioTracks.get(streamId);
             if (existingTrack) {
                 existingTrack->setIndex(i);
-                if (existingTrack->pad() == pad)
-                    continue;
+                // If the video has been played twice, the track is still there, but we need
+                // to update the pad pointer.
+                if (existingTrack->pad() != pad)
+                    existingTrack->setPad(GRefPtr(pad));
+                continue;
             }
         }
 
@@ -1146,8 +1174,8 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfAudio()
         if (!track->trackIndex())
             track->setActive(true);
         ASSERT(streamId == track->id());
-        m_audioTracks.add(streamId, track);
-        m_player->addAudioTrack(*track);
+        m_audioTracks.add(streamId, track.copyRef());
+        m_player->addAudioTrack(track.get());
     }
 
     purgeInvalidAudioTracks(validAudioStreams);
@@ -1353,26 +1381,29 @@ void MediaPlayerPrivateGStreamer::loadingFailed(MediaPlayer::NetworkState networ
 
 GstElement* MediaPlayerPrivateGStreamer::createAudioSink()
 {
-    m_autoAudioSink = gst_element_factory_make("autoaudiosink", nullptr);
-    if (!m_autoAudioSink) {
-        GST_WARNING("GStreamer's autoaudiosink not found. Please check your gst-plugins-good installation");
+    GstElement* audioSink = createPlatformAudioSink();
+    RELEASE_ASSERT(audioSink);
+    if (!audioSink)
         return nullptr;
-    }
 
-    g_signal_connect_swapped(m_autoAudioSink.get(), "child-added", G_CALLBACK(setAudioStreamPropertiesCallback), this);
+    if (!WEBKIT_IS_AUDIO_SINK(audioSink))
+        g_signal_connect_swapped(audioSink, "child-added", G_CALLBACK(setAudioStreamPropertiesCallback), this);
 
 #if ENABLE(WEB_AUDIO)
     GstElement* audioSinkBin = gst_bin_new("audio-sink");
     ensureAudioSourceProvider();
-    m_audioSourceProvider->configureAudioBin(audioSinkBin, nullptr);
+    m_audioSourceProvider->configureAudioBin(audioSinkBin, audioSink);
     return audioSinkBin;
 #else
-    return m_autoAudioSink.get();
+    return audioSink;
 #endif
 }
 
 GstElement* MediaPlayerPrivateGStreamer::audioSink() const
 {
+    if (!m_pipeline)
+        return nullptr;
+
     GstElement* sink;
     g_object_get(m_pipeline.get(), "audio-sink", &sink, nullptr);
     return sink;
@@ -1694,66 +1725,6 @@ FloatSize MediaPlayerPrivateGStreamer::naturalSize() const
     if (!hasVideo())
         return FloatSize();
 
-    if (!m_videoSize.isEmpty())
-        return m_videoSize;
-
-    auto sampleLocker = holdLock(m_sampleMutex);
-    if (!GST_IS_SAMPLE(m_sample.get()))
-        return FloatSize();
-
-    GstCaps* caps = gst_sample_get_caps(m_sample.get());
-    if (!caps)
-        return FloatSize();
-
-    // TODO: handle possible clean aperture data. See https://bugzilla.gnome.org/show_bug.cgi?id=596571
-    // TODO: handle possible transformation matrix. See https://bugzilla.gnome.org/show_bug.cgi?id=596326
-
-    // Get the video PAR and original size, if this fails the
-    // video-sink has likely not yet negotiated its caps.
-    int pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride;
-    IntSize originalSize;
-    GstVideoFormat format;
-    if (!getVideoSizeAndFormatFromCaps(caps, originalSize, format, pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride))
-        return FloatSize();
-
-#if USE(TEXTURE_MAPPER_GL)
-    // When using accelerated compositing, if the video is tagged as rotated 90 or 270 degrees, swap width and height.
-    if (m_canRenderingBeAccelerated) {
-        if (m_videoSourceOrientation.usesWidthAsHeight())
-            originalSize = originalSize.transposedSize();
-    }
-#endif
-
-    GST_DEBUG_OBJECT(pipeline(), "Original video size: %dx%d", originalSize.width(), originalSize.height());
-    GST_DEBUG_OBJECT(pipeline(), "Pixel aspect ratio: %d/%d", pixelAspectRatioNumerator, pixelAspectRatioDenominator);
-
-    // Calculate DAR based on PAR and video size.
-    int displayWidth = originalSize.width() * pixelAspectRatioNumerator;
-    int displayHeight = originalSize.height() * pixelAspectRatioDenominator;
-
-    // Divide display width and height by their GCD to avoid possible overflows.
-    int displayAspectRatioGCD = gst_util_greatest_common_divisor(displayWidth, displayHeight);
-    displayWidth /= displayAspectRatioGCD;
-    displayHeight /= displayAspectRatioGCD;
-
-    // Apply DAR to original video size. This is the same behavior as in xvimagesink's setcaps function.
-    uint64_t width = 0, height = 0;
-    if (!(originalSize.height() % displayHeight)) {
-        GST_DEBUG_OBJECT(pipeline(), "Keeping video original height");
-        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
-        height = originalSize.height();
-    } else if (!(originalSize.width() % displayWidth)) {
-        GST_DEBUG_OBJECT(pipeline(), "Keeping video original width");
-        height = gst_util_uint64_scale_int(originalSize.width(), displayHeight, displayWidth);
-        width = originalSize.width();
-    } else {
-        GST_DEBUG_OBJECT(pipeline(), "Approximating while keeping original video height");
-        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
-        height = originalSize.height();
-    }
-
-    GST_DEBUG_OBJECT(pipeline(), "Natural size: %" G_GUINT64_FORMAT "x%" G_GUINT64_FORMAT, width, height);
-    m_videoSize = FloatSize(static_cast<int>(width), static_cast<int>(height));
     return m_videoSize;
 }
 
@@ -2054,21 +2025,6 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
     case GST_MESSAGE_TOC:
         processTableOfContents(message);
         break;
-    case GST_MESSAGE_TAG: {
-        GstTagList* tags = nullptr;
-        GUniqueOutPtr<gchar> tag;
-        gst_message_parse_tag(message, &tags);
-        if (gst_tag_list_get_string(tags, GST_TAG_IMAGE_ORIENTATION, &tag.outPtr())) {
-            if (!g_strcmp0(tag.get(), "rotate-90"))
-                setVideoSourceOrientation(ImageOrientation::OriginRightTop);
-            else if (!g_strcmp0(tag.get(), "rotate-180"))
-                setVideoSourceOrientation(ImageOrientation::OriginBottomRight);
-            else if (!g_strcmp0(tag.get(), "rotate-270"))
-                setVideoSourceOrientation(ImageOrientation::OriginLeftBottom);
-        }
-        gst_tag_list_unref(tags);
-        break;
-    }
     case GST_MESSAGE_STREAMS_SELECTED: {
         if (m_isLegacyPlaybin)
             break;
@@ -2667,8 +2623,7 @@ void MediaPlayerPrivateGStreamer::didEnd()
 
 void MediaPlayerPrivateGStreamer::getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types)
 {
-    auto& gstRegistryScanner = GStreamerRegistryScanner::singleton();
-    types = gstRegistryScanner.mimeTypeSet();
+    GStreamerRegistryScanner::getSupportedDecodingTypes(types);
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivateGStreamer::supportsType(const MediaEngineSupportParameters& parameters)
@@ -2690,7 +2645,7 @@ MediaPlayer::SupportsType MediaPlayerPrivateGStreamer::supportsType(const MediaE
 
     GST_DEBUG("Checking mime-type \"%s\"", parameters.type.raw().utf8().data());
     auto& gstRegistryScanner = GStreamerRegistryScanner::singleton();
-    result = gstRegistryScanner.isContentTypeSupported(parameters.type, parameters.contentTypesRequiringHardwareSupport);
+    result = gstRegistryScanner.isContentTypeSupported(GStreamerRegistryScanner::Configuration::Decoding, parameters.type, parameters.contentTypesRequiringHardwareSupport);
 
     auto finalResult = extendedSupportsType(parameters, result);
     GST_DEBUG("Supported: %s", convertEnumerationToString(finalResult).utf8().data());
@@ -2732,8 +2687,43 @@ void MediaPlayerPrivateGStreamer::updateDownloadBufferingFlag()
     }
 }
 
+static void setPlaybackFlags(GstElement* pipeline)
+{
+    unsigned hasAudio = getGstPlayFlag("audio");
+    unsigned hasVideo = getGstPlayFlag("video");
+    unsigned hasText = getGstPlayFlag("text");
+    unsigned hasNativeVideo = getGstPlayFlag("native-video");
+    unsigned hasNativeAudio = getGstPlayFlag("native-audio");
+
+    unsigned flags = 0;
+    g_object_get(pipeline, "flags", &flags, nullptr);
+    GST_TRACE_OBJECT(pipeline, "default flags %x", flags);
+    flags = flags & ~hasText;
+    flags = flags & ~hasNativeAudio;
+    flags = flags & ~hasNativeVideo;
+
+#if !ENABLE(TEXT_SINK)
+    hasText = 0x0;
+#endif
+
+#if !ENABLE(NATIVE_VIDEO)
+    hasNativeVideo = 0x0;
+#endif
+
+#if !ENABLE(NATIVE_AUDIO)
+    hasNativeAudio = 0x0;
+#endif
+
+    GST_INFO_OBJECT(pipeline, "text %s, audio %s (native %s), video %s (native %s)", boolForPrinting(hasText), boolForPrinting(hasAudio),
+        boolForPrinting(hasNativeAudio), boolForPrinting(hasVideo), boolForPrinting(hasNativeVideo));
+    flags |= hasText | hasAudio | hasVideo | hasNativeVideo | hasNativeAudio;
+    g_object_set(pipeline, "flags", flags, nullptr);
+    GST_DEBUG_OBJECT(pipeline, "current pipeline flags %x", flags);
+}
+
 void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String& pipelineName)
 {
+    GST_INFO("Creating pipeline for %s player", m_player->isVideoPlayer() ? "video" : "audio");
     const char* playbinName = "playbin";
 
     // MSE doesn't support playbin3. Mediastream requires playbin3. Regular
@@ -2751,6 +2741,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String&
         GST_INFO_OBJECT(pipeline(), "Tearing down as we need to use %s now.", playbinName);
         changePipelineState(GST_STATE_NULL);
         m_pipeline = nullptr;
+        m_audioSink = nullptr;
     }
 
     ASSERT(!m_pipeline);
@@ -2763,6 +2754,8 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String&
     setStreamVolumeElement(GST_STREAM_VOLUME(m_pipeline.get()));
 
     GST_INFO_OBJECT(pipeline(), "Using legacy playbin element: %s", boolForPrinting(m_isLegacyPlaybin));
+
+    setPlaybackFlags(pipeline());
 
     // Let also other listeners subscribe to (application) messages in this bus.
     GRefPtr<GstBus> bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(m_pipeline.get())));
@@ -2818,7 +2811,12 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String&
 
     g_object_set(m_pipeline.get(), "text-sink", m_textAppSink.get(), nullptr);
 
-    g_object_set(m_pipeline.get(), "video-sink", createVideoSink(), "audio-sink", createAudioSink(), nullptr);
+    if (!m_audioSink)
+        m_audioSink = createAudioSink();
+
+    g_object_set(m_pipeline.get(), "audio-sink", m_audioSink.get(), nullptr);
+    if (m_player->isVideoPlayer())
+        g_object_set(m_pipeline.get(), "video-sink", createVideoSink(), nullptr);
 
     configurePlaySink();
 
@@ -2830,6 +2828,9 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String&
         else
             g_object_set(m_pipeline.get(), "audio-filter", scale, nullptr);
     }
+
+    if (!m_player->isVideoPlayer())
+        return;
 
     if (!m_canRenderingBeAccelerated) {
         // If not using accelerated compositing, let GStreamer handle
@@ -2844,7 +2845,9 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url, const String&
 
     GRefPtr<GstPad> videoSinkPad = adoptGRef(gst_element_get_static_pad(m_videoSink.get(), "sink"));
     if (videoSinkPad)
-        g_signal_connect_swapped(videoSinkPad.get(), "notify::caps", G_CALLBACK(videoSinkCapsChangedCallback), this);
+        g_signal_connect(videoSinkPad.get(), "notify::caps", G_CALLBACK(+[](GstPad* videoSinkPad, GParamSpec*, MediaPlayerPrivateGStreamer* player) {
+            player->videoSinkCapsChanged(videoSinkPad);
+        }), this);
 }
 
 bool MediaPlayerPrivateGStreamer::didPassCORSAccessCheck() const
@@ -3004,8 +3007,100 @@ void MediaPlayerPrivateGStreamer::repaint()
     m_drawCondition.notifyOne();
 }
 
+static ImageOrientation getVideoOrientation(GstElement* sink)
+{
+    GRefPtr<GstPad> pad = adoptGRef(gst_element_get_static_pad(sink, "sink"));
+    ASSERT(pad);
+    GRefPtr<GstEvent> tagsEvent = adoptGRef(gst_pad_get_sticky_event(pad.get(), GST_EVENT_TAG, 0));
+    if (!tagsEvent) {
+        GST_DEBUG_OBJECT(pad.get(), "No sticky tag event, applying no rotation.");
+        return ImageOrientation::OriginTopLeft;
+    }
+
+    GstTagList* tagList;
+    gst_event_parse_tag(tagsEvent.get(), &tagList);
+    ASSERT(tagList);
+    GUniqueOutPtr<gchar> tag;
+    if (!gst_tag_list_get_string(tagList, GST_TAG_IMAGE_ORIENTATION, &tag.outPtr())) {
+        GST_DEBUG_OBJECT(pad.get(), "No image_orientation tag, applying no rotation.");
+        return ImageOrientation::OriginTopLeft;
+    }
+
+    GST_DEBUG_OBJECT(pad.get(), "Found image_orientation tag: %s", tag.get());
+    if (!g_strcmp0(tag.get(), "rotate-90"))
+        return ImageOrientation::OriginRightTop;
+    if (!g_strcmp0(tag.get(), "rotate-180"))
+        return ImageOrientation::OriginBottomRight;
+    if (!g_strcmp0(tag.get(), "rotate-270"))
+        return ImageOrientation::OriginLeftBottom;
+    // Default rotation.
+    return ImageOrientation::OriginTopLeft;
+}
+
+void MediaPlayerPrivateGStreamer::updateVideoSizeAndOrientationFromCaps(const GstCaps* caps)
+{
+    ASSERT(isMainThread());
+
+    // TODO: handle possible clean aperture data. See https://bugzilla.gnome.org/show_bug.cgi?id=596571
+    // TODO: handle possible transformation matrix. See https://bugzilla.gnome.org/show_bug.cgi?id=596326
+
+    // Get the video PAR and original size, if this fails the
+    // video-sink has likely not yet negotiated its caps.
+    int pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride;
+    IntSize originalSize;
+    GstVideoFormat format;
+    if (!getVideoSizeAndFormatFromCaps(caps, originalSize, format, pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride)) {
+        GST_WARNING("Failed to get size and format from caps: %" GST_PTR_FORMAT, caps);
+        return;
+    }
+
+    setVideoSourceOrientation(getVideoOrientation(m_videoSink.get()));
+
+#if USE(TEXTURE_MAPPER_GL)
+    // When using accelerated compositing, if the video is tagged as rotated 90 or 270 degrees, swap width and height.
+    if (m_canRenderingBeAccelerated) {
+        if (m_videoSourceOrientation.usesWidthAsHeight())
+            originalSize = originalSize.transposedSize();
+    }
+#endif
+
+    GST_DEBUG_OBJECT(pipeline(), "Original video size: %dx%d", originalSize.width(), originalSize.height());
+    GST_DEBUG_OBJECT(pipeline(), "Pixel aspect ratio: %d/%d", pixelAspectRatioNumerator, pixelAspectRatioDenominator);
+
+    // Calculate DAR based on PAR and video size.
+    int displayWidth = originalSize.width() * pixelAspectRatioNumerator;
+    int displayHeight = originalSize.height() * pixelAspectRatioDenominator;
+
+    // Divide display width and height by their GCD to avoid possible overflows.
+    int displayAspectRatioGCD = gst_util_greatest_common_divisor(displayWidth, displayHeight);
+    displayWidth /= displayAspectRatioGCD;
+    displayHeight /= displayAspectRatioGCD;
+
+    // Apply DAR to original video size. This is the same behavior as in xvimagesink's setcaps function.
+    uint64_t width = 0, height = 0;
+    if (!(originalSize.height() % displayHeight)) {
+        GST_DEBUG_OBJECT(pipeline(), "Keeping video original height");
+        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
+        height = originalSize.height();
+    } else if (!(originalSize.width() % displayWidth)) {
+        GST_DEBUG_OBJECT(pipeline(), "Keeping video original width");
+        height = gst_util_uint64_scale_int(originalSize.width(), displayHeight, displayWidth);
+        width = originalSize.width();
+    } else {
+        GST_DEBUG_OBJECT(pipeline(), "Approximating while keeping original video height");
+        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
+        height = originalSize.height();
+    }
+
+    GST_DEBUG_OBJECT(pipeline(), "Saving natural size: %" G_GUINT64_FORMAT "x%" G_GUINT64_FORMAT, width, height);
+    m_videoSize = FloatSize(static_cast<int>(width), static_cast<int>(height));
+    m_player->sizeChanged();
+}
+
 void MediaPlayerPrivateGStreamer::triggerRepaint(GstSample* sample)
 {
+    ASSERT(!isMainThread());
+
     bool shouldTriggerResize;
     {
         auto sampleLocker = holdLock(m_sampleMutex);
@@ -3015,8 +3110,15 @@ void MediaPlayerPrivateGStreamer::triggerRepaint(GstSample* sample)
 
     if (shouldTriggerResize) {
         GST_DEBUG_OBJECT(pipeline(), "First sample reached the sink, triggering video dimensions update");
-        m_notifier->notify(MainThreadNotification::SizeChanged, [this] {
-            m_player->sizeChanged();
+        GRefPtr<GstCaps> caps(gst_sample_get_caps(sample));
+        if (!caps) {
+            GST_ERROR_OBJECT(pipeline(), "Received sample without caps: %" GST_PTR_FORMAT, sample);
+            return;
+        }
+        RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), this, caps = WTFMove(caps)] {
+            if (!weakThis)
+                return;
+            updateVideoSizeAndOrientationFromCaps(caps.get());
         });
     }
 
@@ -3119,7 +3221,7 @@ void MediaPlayerPrivateGStreamer::paint(GraphicsContext& context, const FloatRec
     if (context.paintingDisabled())
         return;
 
-    if (!m_player->visible())
+    if (!m_visible)
         return;
 
     auto sampleLocker = holdLock(m_sampleMutex);
@@ -3181,7 +3283,7 @@ void MediaPlayerPrivateGStreamer::paint(GraphicsContext& context, const FloatRec
 }
 
 #if USE(GSTREAMER_GL)
-bool MediaPlayerPrivateGStreamer::copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL* context, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
+bool MediaPlayerPrivateGStreamer::copyVideoTextureToPlatformTexture(GraphicsContextGL* context, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
     UNUSED_PARAM(context);
 
@@ -3214,42 +3316,9 @@ bool MediaPlayerPrivateGStreamer::copyVideoTextureToPlatformTexture(GraphicsCont
     return m_videoTextureCopier->copyVideoTextureToPlatformTexture(*layerBuffer.get(), size, outputTexture, outputTarget, level, internalFormat, format, type, flipY, m_videoSourceOrientation);
 }
 
-NativeImagePtr MediaPlayerPrivateGStreamer::nativeImageForCurrentTime()
+RefPtr<NativeImage> MediaPlayerPrivateGStreamer::nativeImageForCurrentTime()
 {
-#if USE(CAIRO) && ENABLE(ACCELERATED_2D_CANVAS)
-    if (m_isUsingFallbackVideoSink)
-        return nullptr;
-
-    auto sampleLocker = holdLock(m_sampleMutex);
-
-    if (!GST_IS_SAMPLE(m_sample.get()))
-        return nullptr;
-
-    std::unique_ptr<GstVideoFrameHolder> frameHolder = makeUnique<GstVideoFrameHolder>(m_sample.get(), m_videoDecoderPlatform, m_textureMapperFlags, true);
-
-    std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer = frameHolder->platformLayerBuffer();
-    if (!layerBuffer)
-        return nullptr;
-
-    auto size = frameHolder->size();
-    if (m_videoSourceOrientation.usesWidthAsHeight())
-        size = size.transposedSize();
-
-    GLContext* context = PlatformDisplay::sharedDisplayForCompositing().sharingGLContext();
-    context->makeContextCurrent();
-
-    if (!m_videoTextureCopier)
-        m_videoTextureCopier = makeUnique<VideoTextureCopierGStreamer>(TEXTURE_COPIER_COLOR_CONVERT_FLAG);
-
-    frameHolder->waitForCPUSync();
-
-    if (!m_videoTextureCopier->copyVideoTextureToPlatformTexture(*layerBuffer.get(), size, 0, GL_TEXTURE_2D, 0, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, false, m_videoSourceOrientation))
-        return nullptr;
-
-    return adoptRef(cairo_gl_surface_create_for_texture(context->cairoDevice(), CAIRO_CONTENT_COLOR_ALPHA, m_videoTextureCopier->resultTexture(), size.width(), size.height()));
-#else
     return nullptr;
-#endif
 }
 #endif // USE(GSTREAMER_GL)
 
@@ -3388,7 +3457,7 @@ GstElement* MediaPlayerPrivateGStreamer::createVideoSink()
     }
 
     GstElement* videoSink = nullptr;
-    if (!webkitGstCheckVersion(1, 17, 0)) {
+    if (!webkitGstCheckVersion(1, 18, 0)) {
         m_fpsSink = gst_element_factory_make("fpsdisplaysink", "sink");
         if (m_fpsSink) {
             g_object_set(m_fpsSink.get(), "silent", TRUE , nullptr);
@@ -3434,12 +3503,12 @@ void MediaPlayerPrivateGStreamer::setStreamVolumeElement(GstStreamVolume* volume
 
 Optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateGStreamer::videoPlaybackQualityMetrics()
 {
-    if (!webkitGstCheckVersion(1, 17, 0) && !m_fpsSink)
+    if (!webkitGstCheckVersion(1, 18, 0) && !m_fpsSink)
         return WTF::nullopt;
 
     uint64_t totalVideoFrames = 0;
     uint64_t droppedVideoFrames = 0;
-    if (webkitGstCheckVersion(1, 17, 0)) {
+    if (webkitGstCheckVersion(1, 18, 0)) {
         GUniqueOutPtr<GstStructure> stats;
         g_object_get(m_videoSink.get(), "stats", &stats.outPtr(), nullptr);
 
@@ -3454,6 +3523,17 @@ Optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateGStreamer::videoPlayback
         totalVideoFrames = renderedFrames;
         droppedVideoFrames = droppedFrames;
     }
+
+    // Cache or reuse cached statistics. Caching is required so that metrics queries performed
+    // after EOS still return valid values.
+    if (totalVideoFrames)
+        m_totalVideoFrames = totalVideoFrames;
+    else if (m_totalVideoFrames)
+        totalVideoFrames = m_totalVideoFrames;
+    if (droppedVideoFrames)
+        m_droppedVideoFrames = droppedVideoFrames;
+    else if (m_droppedVideoFrames)
+        droppedVideoFrames = m_droppedVideoFrames;
 
     uint32_t corruptedVideoFrames = 0;
     double totalFrameDelay = 0;

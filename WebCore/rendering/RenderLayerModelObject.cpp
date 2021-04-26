@@ -122,7 +122,7 @@ void RenderLayerModelObject::styleWillChange(StyleDifference diff, const RenderS
 #if ENABLE(CSS_SCROLL_SNAP)
 static bool scrollSnapContainerRequiresUpdateForStyleUpdate(const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
-    return oldStyle.scrollSnapPort() != newStyle.scrollSnapPort();
+    return oldStyle.scrollPadding() != newStyle.scrollPadding() || oldStyle.scrollSnapType() != newStyle.scrollSnapType();
 }
 #endif
 
@@ -141,7 +141,7 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
         }
     } else if (layer() && layer()->parent()) {
 #if ENABLE(CSS_COMPOSITING)
-        if (oldStyle->hasBlendMode())
+        if (oldStyle && oldStyle->hasBlendMode())
             layer()->willRemoveChildWithBlendMode();
 #endif
         setHasTransformRelatedProperty(false); // All transform-related properties force layers, so we know we don't have one or the object doesn't support them.
@@ -185,7 +185,12 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
             frameView.updateScrollingCoordinatorScrollSnapProperties();
         }
     }
-    if (oldStyle && oldStyle->scrollSnapArea() != newStyle.scrollSnapArea()) {
+
+    bool scrollMarginChanged =
+        oldStyle && oldStyle->scrollMargin() != newStyle.scrollMargin();
+    bool scrollAlignChanged =
+        oldStyle && oldStyle->scrollSnapAlign() != newStyle.scrollSnapAlign();
+    if (scrollMarginChanged || scrollAlignChanged) {
         auto* scrollSnapBox = enclosingScrollableContainerForSnapping();
         if (scrollSnapBox && scrollSnapBox->layer()) {
             const RenderStyle& style = scrollSnapBox->style();
@@ -250,27 +255,6 @@ void RenderLayerModelObject::computeRepaintLayoutRects(const RenderLayerModelObj
         setRepaintLayoutRects(RepaintLayoutRects(*this, repaintContainer, geometryMap));
 }
 
-bool RenderLayerModelObject::startTransition(double timeOffset, CSSPropertyID propertyId, const RenderStyle* fromStyle, const RenderStyle* toStyle)
-{
-    if (!layer() || !layer()->backing())
-        return false;
-    return layer()->backing()->startTransition(timeOffset, propertyId, fromStyle, toStyle);
-}
-
-void RenderLayerModelObject::transitionPaused(double timeOffset, CSSPropertyID propertyId)
-{
-    if (!layer() || !layer()->backing())
-        return;
-    layer()->backing()->transitionPaused(timeOffset, propertyId);
-}
-
-void RenderLayerModelObject::transitionFinished(CSSPropertyID propertyId)
-{
-    if (!layer() || !layer()->backing())
-        return;
-    layer()->backing()->transitionFinished(propertyId);
-}
-
 bool RenderLayerModelObject::startAnimation(double timeOffset, const Animation& animation, const KeyframeList& keyframes)
 {
     if (!layer() || !layer()->backing())
@@ -290,6 +274,13 @@ void RenderLayerModelObject::animationFinished(const String& name)
     if (!layer() || !layer()->backing())
         return;
     layer()->backing()->animationFinished(name);
+}
+
+void RenderLayerModelObject::transformRelatedPropertyDidChange()
+{
+    if (!layer() || !layer()->backing())
+        return;
+    layer()->backing()->transformRelatedPropertyDidChange();
 }
 
 void RenderLayerModelObject::suspendAnimations(MonotonicTime time)

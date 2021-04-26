@@ -48,6 +48,7 @@
 #import <wtf/text/StringHash.h>
 
 namespace WebKit {
+using namespace fido;
 using namespace WebCore;
 using CBOR = cbor::CBORValue;
 
@@ -59,6 +60,7 @@ const uint8_t getAssertionFlags = 0b00000101; // UP and UV are set.
 // Credential ID is currently SHA-1 of the corresponding public key.
 const uint16_t credentialIdLength = 20;
 const uint64_t counter = 0;
+const uint8_t aaguid[] = { 0xF2, 0x4A, 0x8E, 0x70, 0xD0, 0xD3, 0xF8, 0x2C, 0x29, 0x37, 0x32, 0x52, 0x3C, 0xC4, 0xDE, 0x5A }; // Randomly generated.
 
 static inline bool emptyTransportsOrContain(const Vector<AuthenticatorTransport>& transports, AuthenticatorTransport target)
 {
@@ -82,6 +84,13 @@ static inline Vector<uint8_t> toVector(NSData *data)
 {
     Vector<uint8_t> result;
     result.append(reinterpret_cast<const uint8_t*>(data.bytes), data.length);
+    return result;
+}
+
+static inline Vector<uint8_t> aaguidVector()
+{
+    Vector<uint8_t> result;
+    result.append(aaguid, aaguidLength);
     return result;
 }
 
@@ -140,14 +149,14 @@ static Optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCredenti
         }
         auto& responseMap = decodedResponse->getMap();
 
-        auto it = responseMap.find(CBOR(kEntityIdMapKey));
+        auto it = responseMap.find(CBOR(fido::kEntityIdMapKey));
         if (it == responseMap.end() || !it->second.isByteString()) {
             ASSERT_NOT_REACHED();
             return WTF::nullopt;
         }
         auto& userHandle = it->second.getByteString();
 
-        it = responseMap.find(CBOR(kEntityNameMapKey));
+        it = responseMap.find(CBOR(fido::kEntityNameMapKey));
         if (it == responseMap.end() || !it->second.isString()) {
             ASSERT_NOT_REACHED();
             return WTF::nullopt;
@@ -225,6 +234,21 @@ void LocalAuthenticator::makeCredential()
 
     // Step 6.
     // Get user consent.
+    if (webAuthenticationModernEnabled()) {
+        if (auto* observer = this->observer()) {
+            auto callback = [weakThis = makeWeakPtr(*this)] (LAContext *context) {
+                ASSERT(RunLoop::isMain());
+                if (!weakThis)
+                    return;
+
+                weakThis->continueMakeCredentialAfterReceivingLAContext(context);
+            };
+            observer->requestLAContextForUserVerification(WTFMove(callback));
+        }
+
+        return;
+    }
+
     if (auto* observer = this->observer()) {
         auto callback = [weakThis = makeWeakPtr(*this)] (LocalAuthenticatorPolicy policy) {
             ASSERT(RunLoop::isMain());
@@ -271,6 +295,33 @@ void LocalAuthenticator::continueMakeCredentialAfterDecidePolicy(LocalAuthentica
     m_connection->verifyUser(creationOptions.rp.id, getClientDataType(requestData().options), accessControlRef, WTFMove(callback));
 }
 
+void LocalAuthenticator::continueMakeCredentialAfterReceivingLAContext(LAContext *context)
+{
+    ASSERT(m_state == State::RequestReceived);
+    m_state = State::PolicyDecided;
+
+    RetainPtr<SecAccessControlRef> accessControl;
+    {
+        CFErrorRef errorRef = nullptr;
+        accessControl = adoptCF(SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlPrivateKeyUsage | kSecAccessControlUserPresence, &errorRef));
+        auto retainError = adoptCF(errorRef);
+        if (errorRef) {
+            receiveException({ UnknownError, makeString("Couldn't create access control: ", String(((NSError*)errorRef).localizedDescription)) });
+            return;
+        }
+    }
+
+    SecAccessControlRef accessControlRef = accessControl.get();
+    auto callback = [accessControl = WTFMove(accessControl), context = retainPtr(context), weakThis = makeWeakPtr(*this)] (LocalConnection::UserVerification verification) {
+        ASSERT(RunLoop::isMain());
+        if (!weakThis)
+            return;
+
+        weakThis->continueMakeCredentialAfterUserVerification(accessControl.get(), verification, context.get());
+    };
+    m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
+}
+
 void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessControlRef accessControlRef, LocalConnection::UserVerification verification, LAContext *context)
 {
     using namespace LocalAuthenticatorInternal;
@@ -291,8 +342,8 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
     const auto& secAttrLabel = creationOptions.rp.id;
 
     cbor::CBORValue::MapValue userEntityMap;
-    userEntityMap[cbor::CBORValue(kEntityIdMapKey)] = cbor::CBORValue(creationOptions.user.idVector);
-    userEntityMap[cbor::CBORValue(kEntityNameMapKey)] = cbor::CBORValue(creationOptions.user.name);
+    userEntityMap[cbor::CBORValue(fido::kEntityIdMapKey)] = cbor::CBORValue(creationOptions.user.idVector);
+    userEntityMap[cbor::CBORValue(fido::kEntityNameMapKey)] = cbor::CBORValue(creationOptions.user.name);
     auto userEntity = cbor::CBORWriter::write(cbor::CBORValue(WTFMove(userEntityMap)));
     ASSERT(userEntity);
     auto secAttrApplicationTag = toNSData(*userEntity);
@@ -356,22 +407,20 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
         [nsPublicKeyData getBytes: y.data() range:NSMakeRange(1 + ES256FieldElementLength, ES256FieldElementLength)];
         cosePublicKey = encodeES256PublicKeyAsCBOR(WTFMove(x), WTFMove(y));
     }
-    // FIXME(rdar://problem/38320512): Define Apple AAGUID.
-    auto attestedCredentialData = buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey);
 
     // Step 12.
-    auto authData = buildAuthData(creationOptions.rp.id, makeCredentialFlags, counter, attestedCredentialData);
-
     // Skip Apple Attestation for none attestation.
     if (creationOptions.attestation == AttestationConveyancePreference::None) {
         deleteDuplicateCredential();
 
+        auto authData = buildAuthData(creationOptions.rp.id, makeCredentialFlags, counter, buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey));
         auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
         receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject));
         return;
     }
 
     // Step 13. Apple Attestation
+    auto authData = buildAuthData(creationOptions.rp.id, makeCredentialFlags, counter, buildAttestedCredentialData(aaguidVector(), credentialId, cosePublicKey));
     auto nsAuthData = toNSData(authData);
     auto callback = [credentialId = WTFMove(credentialId), authData = WTFMove(authData), weakThis = makeWeakPtr(*this)] (NSArray * _Nullable certificates, NSError * _Nullable error) mutable {
         ASSERT(RunLoop::isMain());
@@ -481,6 +530,24 @@ void LocalAuthenticator::continueGetAssertionAfterResponseSelected(Ref<WebCore::
 {
     ASSERT(m_state == State::RequestReceived);
     m_state = State::ResponseSelected;
+
+    if (webAuthenticationModernEnabled()) {
+        auto accessControlRef = response->accessControl();
+        LAContext *context = response->laContext();
+        auto callback = [
+            weakThis = makeWeakPtr(*this),
+            response = WTFMove(response)
+        ] (LocalConnection::UserVerification verification) mutable {
+            ASSERT(RunLoop::isMain());
+            if (!weakThis)
+                return;
+
+            weakThis->continueGetAssertionAfterUserVerification(WTFMove(response), verification, response->laContext());
+        };
+
+        m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
+        return;
+    }
 
     auto& requestOptions = WTF::get<PublicKeyCredentialRequestOptions>(requestData().options);
 

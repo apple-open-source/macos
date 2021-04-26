@@ -37,6 +37,7 @@
 #import "heimbase.h"
 #import "heimcred.h"
 #import "mock_aks.h"
+#import "acquirecred.h"
 
 @interface GSSCredLoadTests : XCTestCase
 @property (nullable) struct peer * peer;
@@ -65,12 +66,17 @@
     HeimCredGlobalCTX.sessionExists = sessionExistsMock;
     HeimCredGlobalCTX.saveToDiskIfNeeded = saveToDiskIfNeededMock;
     HeimCredGlobalCTX.getValueFromPreferences = getValueFromPreferencesMock;
+    HeimCredGlobalCTX.expireFunction = expire_func;
+    HeimCredGlobalCTX.renewFunction = renew_func;
+    HeimCredGlobalCTX.finalFunction = final_func;
     HeimCredGlobalCTX.notifyCaches = NULL;
     HeimCredGlobalCTX.gssCredHelperClientClass = nil;
 
+    CFRELEASE_NULL(HeimCredCTX.mechanisms);
     HeimCredCTX.mechanisms = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.mechanisms != NULL, "out of memory");
 
+    CFRELEASE_NULL(HeimCredCTX.schemas);
     HeimCredCTX.schemas = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.schemas != NULL, "out of memory");
 
@@ -90,8 +96,9 @@
 #else
     archivePath = @"/var/tmp/heim-credential-store.archive.test";
 #endif
-    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     _HeimCredInitCommon();
+    CFRELEASE_NULL(HeimCredCTX.sessions);
+    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     //always start clean
     NSError *error;

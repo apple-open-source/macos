@@ -29,6 +29,7 @@
 #include "rcfile.h"
 #include "preference.h"
 #include "smb_preferences.h"
+#include <net/if.h>
 
 #define defaultCodePage  437
 
@@ -44,7 +45,11 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 {
 	char	*p;
 	int32_t	altflags;
-	
+    char* str = NULL;
+    char *token;
+    uint32_t if_index;
+    uint32_t blacklist_len = 0;
+
 	/* global only preferences */
 	if (level == 0) {
 		/* 
@@ -281,6 +286,24 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
         }
     }
 
+    /* Multichannel preferences (enabled by default) */
+    if (rc_getbool(rcfile, sname, "mc_on", &altflags) == 0) {
+        if (!altflags) {
+            prefs->altflags &= ~SMBFS_MNT_MULTI_CHANNEL_ON;
+        }
+    }
+
+    /*
+     * OFF by default and if set, then in all cases wired NICs will be used as
+     * active channels and wireless NICs will be possibly set as an inactive in
+     * case no wired NIC should be set as inactive
+     */
+    if (rc_getbool(rcfile, sname, "mc_prefer_wired", &altflags) == 0) {
+        if (altflags) {
+            prefs->altflags |= SMBFS_MNT_MC_PREFER_WIRED;
+        }
+    }
+    
     /*
      * Start of the HIDDEN options of nsmb.
      */
@@ -423,6 +446,61 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
                      __FUNCTION__, prefs->ip_QoS);
         prefs->ip_QoS = 0;
     }
+    
+    /* Multichannel preferences */
+    /* Another hidden config option, to change max channels */
+    rc_getint(rcfile, sname, "mc_max_channels", &prefs->mc_max_channels);
+    /* Make sure they set it to something reasonable (in range 1-64) */
+    if (prefs->mc_max_channels < 1) {
+        prefs->mc_max_channels = 9; // default is 9
+    } else if (prefs->mc_max_channels > 64) {
+        prefs->mc_max_channels = 64;
+    }
+
+    /* Another hidden config option, to change max RSS channels */
+    rc_getint(rcfile, sname, "mc_max_rss_channels", &prefs->mc_max_rss_channels);
+    /* Make sure they set it to something reasonable (in range 1-8) */
+    if (prefs->mc_max_rss_channels < 1) {
+        prefs->mc_max_rss_channels = 4; // default is 4
+    } else if (prefs->mc_max_rss_channels > 8) {
+        prefs->mc_max_rss_channels = 8;
+    }
+
+    /*
+     * Another hidden config option, to ignore client interfaces
+     * expected list string format - "if_name_0,...,if_name_N"
+     */
+    rc_getstringptr(rcfile, sname, "mc_client_if_black_list", &str);
+
+    if (str != NULL)
+    {
+        /* walk through tokens */
+        token = strtok(str, ",");
+
+        while ((token != NULL) && (blacklist_len < kClientIfBlacklistMaxLen)) {
+            if_index = if_nametoindex(token);
+
+            if (if_index) {
+                prefs->mc_client_if_blacklist[blacklist_len] = if_index;
+                blacklist_len++;
+            }
+
+            token = strtok(NULL, ",");
+        }
+
+        prefs->mc_client_if_blacklist_len = blacklist_len;
+    }
+    
+    /*
+     * Can disable SMB v3.1.1 if server is not doing pre auth integrity
+     * check correctly.
+     */
+    if (rc_getbool(rcfile, sname, "disable_smb311", &altflags) == 0) {
+        if (altflags)
+            prefs->altflags |= SMBFS_MNT_DISABLE_311;
+        else
+            prefs->altflags &= ~SMBFS_MNT_DISABLE_311;
+    }    
 }
 
 static CFStringRef getLocalNetBIOSNameUsingHostName()
@@ -532,8 +610,10 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* Dir caching is not implemented in deprecated readdirattr, so turn it off */	
 	prefs->altflags =   SMBFS_MNT_STREAMS_ON |
                         SMBFS_MNT_COMPOUND_ON |
-                        SMBFS_MNT_READDIRATTR_OFF;
-	prefs->minAuthAllowed = SMB_MINAUTH_NTLMV2;
+                        SMBFS_MNT_READDIRATTR_OFF |
+                        SMBFS_MNT_MULTI_CHANNEL_ON;
+
+    prefs->minAuthAllowed = SMB_MINAUTH_NTLMV2;
 	prefs->NetBIOSResolverTimeout = DefaultNetBIOSResolverTimeout;
     
     prefs->dir_cache_async_cnt = 10; /* keep in sync with smb2fs_smb_cmpd_query_async */
@@ -560,8 +640,14 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     prefs->max_read_size = 0;
     prefs->max_write_size = 0;
 
+    /* multichannel defaults */
+    prefs->mc_max_channels = 9;
+    prefs->mc_max_rss_channels = 4;
+    prefs->mc_client_if_blacklist_len = 0;
+
     /* Now get any values stored in the System Configuration */
-	getSCPreferences(prefs);
+    getSCPreferences(prefs);
+    
 }
 
 void releasePreferenceInfo(struct smb_prefs *prefs)

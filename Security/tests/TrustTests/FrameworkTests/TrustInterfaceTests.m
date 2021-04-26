@@ -158,6 +158,55 @@ errOut:
     CFReleaseNull(policy);
 }
 
+- (void)testRestoreOSBag {
+    SecTrustRef trust;
+    SecCertificateRef leaf, root;
+    SecPolicyRef policy;
+    CFDataRef urlBagData;
+    CFDictionaryRef urlBagDict;
+
+    isnt(urlBagData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, url_bag, sizeof(url_bag), kCFAllocatorNull), NULL,
+        "load url bag");
+    isnt(urlBagDict = CFPropertyListCreateWithData(kCFAllocatorDefault, urlBagData, kCFPropertyListImmutable, NULL, NULL), NULL,
+        "parse url bag");
+    CFReleaseSafe(urlBagData);
+    CFArrayRef certs_data = CFDictionaryGetValue(urlBagDict, CFSTR("certs"));
+    CFDataRef cert_data = CFArrayGetValueAtIndex(certs_data, 0);
+    isnt(leaf = SecCertificateCreateWithData(kCFAllocatorDefault, cert_data), NULL, "create leaf");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, sITunesStoreRootCertificate, sizeof(sITunesStoreRootCertificate)), NULL, "create root");
+
+    CFArrayRef certs = CFArrayCreate(kCFAllocatorDefault, (const void **)&leaf, 1, NULL);
+    CFDataRef signature = CFDictionaryGetValue(urlBagDict, CFSTR("signature"));
+    CFDataRef bag = CFDictionaryGetValue(urlBagDict, CFSTR("bag"));
+
+    isnt(policy = SecPolicyCreateBasicX509(), NULL, "create policy instance");
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust for leaf");
+
+    // Test Restore OS environment bag signing verification
+    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
+    SecTrustResultType trustResult;
+    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
+    SecKeyRef pub_key_leaf;
+    isnt(pub_key_leaf = SecTrustCopyKey(trust), NULL, "get leaf pub key");
+    if (!pub_key_leaf) { goto errOut; }
+    CFErrorRef error = NULL;
+    ok(SecKeyVerifySignature(pub_key_leaf, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, bag, signature, &error),
+              "verify signature on bag");
+    CFReleaseNull(error);
+    SecServerSetTrustdMachServiceName("com.apple.trustd");
+    // End of Restore OS environment tests
+
+errOut:
+    CFReleaseSafe(pub_key_leaf);
+    CFReleaseSafe(urlBagDict);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(root);
+}
+
 - (void)testAnchorCerts {
     SecTrustRef trust = NULL;
     CFArrayRef certs = NULL, anchors = NULL;
@@ -922,6 +971,112 @@ errOut:
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
     CFReleaseNull(certs);
+    CFReleaseNull(policy);
+}
+
+- (void)testSetNetworkFetchAllowed
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
+    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+
+    Boolean curAllow, allow;
+    ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+    allow = !curAllow; /* flip it and see if the setting sticks */
+    ok_status(SecTrustSetNetworkFetchAllowed(trust, allow));
+    ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+    is((allow == curAllow), true, "network fetch toggle");
+
+    /* <rdar://39514416> ensure trust with revocation policy returns the correct status */
+    SecPolicyRef revocation = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod);
+    ok_status(SecTrustSetPolicies(trust, revocation));
+    ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+    is(curAllow, true, "network fetch set for revocation policy");
+
+    SecPolicyRef basic = SecPolicyCreateBasicX509();
+    CFMutableArrayRef policies = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(policies, basic);
+    CFArrayAppendValue(policies, revocation);
+    ok_status(SecTrustSetPolicies(trust, policies));
+    ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+    is(curAllow, true, "network fetch set for basic+revocation policy");
+    CFReleaseNull(revocation);
+    CFReleaseNull(basic);
+    CFReleaseNull(policies);
+
+    revocation = SecPolicyCreateRevocation(kSecRevocationNetworkAccessDisabled);
+    ok_status(SecTrustSetPolicies(trust, revocation));
+    ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+    is(curAllow, false, "network fetch not set for revocation policy");
+    CFReleaseNull(revocation);
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+- (void)testSetOCSPResponses
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
+    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+
+    CFDataRef resp = (CFDataRef) CFDataCreateMutable(NULL, 0);
+    CFDataIncreaseLength((CFMutableDataRef)resp, 64); /* arbitrary length, zero-filled data */
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+    // NULL passed as 'trust' newly generates a warning, we need to suppress it in order to compile
+    is_status(SecTrustSetOCSPResponse(NULL, resp), errSecParam, "SecTrustSetOCSPResponse param 1 check OK");
+#pragma clang diagnostic pop
+    is_status(SecTrustSetOCSPResponse(trust, NULL), errSecSuccess, "SecTrustSetOCSPResponse param 2 check OK");
+    is_status(SecTrustSetOCSPResponse(trust, resp), errSecSuccess, "SecTrustSetOCSPResponse OK");
+    CFReleaseSafe(resp);
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+- (void)testTrustResultValidityPeriod
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+
+    cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
+    cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
+    policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
+
+    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1];
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)policy]];
+
+    // Never evaluated
+    XCTAssertFalse(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
+
+    // Evaluated but "divorced from reality"
+    (void)[eval evaluate:nil];
+    XCTAssert(SecTrustIsTrustResultValid(eval.trust, 0.0));
+
+    // These certs are expired, so we'd expect the validity window to be now  +/- TRUST_TIME_LEEWAY
+    XCTAssert(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
     CFReleaseNull(policy);
 }
 

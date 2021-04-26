@@ -289,6 +289,23 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
     }
 }
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+    CKKSManifestLeafRecord* manifestLeaf = [[CKKSManifestPendingLeafRecord alloc] initWithCKRecord:record];
+    bool saved = [manifestLeaf saveToDatabase:&localerror];
+    if (!saved || localerror != nil) {
+        ckkserror("ckksmanifest", record.recordID.zoneID, "Failed to save fetched manifest leaf record to database: %@: %@", manifestLeaf, localerror);
+        ckksinfo("ckksmanifest", record.recordID.zoneID, "manifest leaf CKRecord was %@", record);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
 @end
 
 @implementation CKKSEgoManifestLeafRecord

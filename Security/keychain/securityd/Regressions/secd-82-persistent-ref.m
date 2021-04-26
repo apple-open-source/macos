@@ -67,6 +67,7 @@ int secd_82_persistent_ref(int argc, char *const *argv)
     }
     CFReleaseNull( result );
 
+    secd_test_teardown_delete_temp_keychain("secd_82_persistent_ref");
 
     return 0;
 }

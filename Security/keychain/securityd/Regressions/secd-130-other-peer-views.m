@@ -175,6 +175,7 @@ int secd_130_other_peer_views(int argc, char *const *argv)
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
     tests();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

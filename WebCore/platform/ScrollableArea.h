@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "RectEdges.h"
 #include "ScrollSnapOffsetsInfo.h"
 #include "ScrollTypes.h"
 #include "Scrollbar.h"
@@ -46,6 +47,8 @@ class PlatformWheelEvent;
 class ScrollAnimator;
 class GraphicsLayer;
 class TiledBacking;
+
+enum class WheelScrollGestureState : uint8_t;
 
 inline int offsetForOrientation(ScrollOffset offset, ScrollbarOrientation orientation)
 {
@@ -81,7 +84,7 @@ public:
     // expect it to happen sometime in the future.
     virtual bool requestScrollPositionUpdate(const ScrollPosition&, ScrollType = ScrollType::User, ScrollClamping = ScrollClamping::Clamped) { return false; }
 
-    WEBCORE_EXPORT bool handleWheelEvent(const PlatformWheelEvent&);
+    WEBCORE_EXPORT virtual bool handleWheelEventForScrolling(const PlatformWheelEvent&, Optional<WheelScrollGestureState>);
 
     bool usesScrollSnap() const;
 
@@ -95,6 +98,7 @@ public:
     void setVerticalSnapOffsets(const Vector<LayoutUnit>&);
     void setHorizontalSnapOffsetRanges(const Vector<ScrollOffsetRange<LayoutUnit>>&);
     void setVerticalSnapOffsetRanges(const Vector<ScrollOffsetRange<LayoutUnit>>&);
+    void clearSnapOffsets();
     void clearHorizontalSnapOffsets();
     void clearVerticalSnapOffsets();
     unsigned currentHorizontalSnapPointIndex() const { return m_currentHorizontalSnapPointIndex; }
@@ -133,6 +137,9 @@ public:
     virtual bool horizontalScrollbarHiddenByStyle() const { return false; }
     virtual bool verticalScrollbarHiddenByStyle() const { return false; }
 
+    bool allowsHorizontalScrolling() const;
+    bool allowsVerticalScrolling() const;
+
     WEBCORE_EXPORT String horizontalScrollbarStateForTesting() const;
     WEBCORE_EXPORT String verticalScrollbarStateForTesting() const;
 
@@ -170,6 +177,7 @@ public:
     bool hasOverlayScrollbars() const;
     WEBCORE_EXPORT virtual void setScrollbarOverlayStyle(ScrollbarOverlayStyle);
     ScrollbarOverlayStyle scrollbarOverlayStyle() const { return static_cast<ScrollbarOverlayStyle>(m_scrollbarOverlayStyle); }
+    void invalidateScrollbars();
     bool useDarkAppearanceForScrollbars() const;
 
     virtual ScrollingNodeID scrollingNodeID() const { return 0; }
@@ -318,19 +326,9 @@ public:
     // This function is static so that it can be called from the main thread or the scrolling thread.
     WEBCORE_EXPORT static void computeScrollbarValueAndOverhang(float currentPosition, float totalSize, float visibleSize, float& doubleValue, float& overhangAmount);
 
-    // Let subclasses provide a way of asking for and servicing scroll
-    // animations.
-    virtual bool scheduleAnimation() { return false; }
-    void serviceScrollAnimations();
-
-    bool isHorizontalScrollerPinnedToMinimumPosition() const { return !horizontalScrollbar() || scrollOffset().x() <= 0; }
-    bool isHorizontalScrollerPinnedToMaximumPosition() const { return !horizontalScrollbar() || scrollOffset().x() >= maximumScrollOffset().x(); }
-    bool isVerticalScrollerPinnedToMinimumPosition() const { return !verticalScrollbar() || scrollOffset().y() <= 0; }
-    bool isVerticalScrollerPinnedToMaximumPosition() const { return !verticalScrollbar() || scrollOffset().y() >= maximumScrollOffset().y(); }
-
-    bool isPinnedInBothDirections(const IntSize&) const; 
-    bool isPinnedHorizontallyInDirection(int horizontalScrollDelta) const; 
-    bool isPinnedVerticallyInDirection(int verticalScrollDelta) const;
+    bool isPinnedForScrollDeltaOnAxis(float scrollDelta, ScrollEventAxis) const;
+    bool isPinnedForScrollDelta(const FloatSize&) const;
+    RectEdges<bool> edgePinnedState() const;
 
     // True if scrolling happens by moving compositing layers.
     virtual bool usesCompositedScrolling() const { return false; }
@@ -352,6 +350,11 @@ public:
     virtual bool shouldPlaceBlockDirectionScrollbarOnLeft() const = 0;
     
     virtual String debugDescription() const = 0;
+
+    virtual float pageScaleFactor() const
+    {
+        return 1.0f;
+    }
 
 protected:
     WEBCORE_EXPORT ScrollableArea();
@@ -383,11 +386,11 @@ private:
     // This function should be overridden by subclasses to perform the actual
     // scroll of the content.
     virtual void setScrollOffset(const ScrollOffset&) = 0;
-    ScrollSnapOffsetsInfo<LayoutUnit>& ensureSnapOffsetsInfo();
 
     mutable std::unique_ptr<ScrollAnimator> m_scrollAnimator;
 
 #if ENABLE(CSS_SCROLL_SNAP)
+    ScrollSnapOffsetsInfo<LayoutUnit>& ensureSnapOffsetsInfo();
     std::unique_ptr<ScrollSnapOffsetsInfo<LayoutUnit>> m_snapOffsetsInfo;
     unsigned m_currentHorizontalSnapPointIndex { 0 };
     unsigned m_currentVerticalSnapPointIndex { 0 };

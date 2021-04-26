@@ -243,10 +243,7 @@ setup_preboot_mounts(int pass)
     const bind_mount_t preboot_mnts[] = {
         {.bm_mnt_prefix = PREBOOT_VOL_MOUNTPOINT,
          .bm_mnt_to = "/usr/standalone/firmware",
-         .bm_mandatory = true},
-        {.bm_mnt_prefix = PREBOOT_VOL_MOUNTPOINT,
-         .bm_mnt_to = "/usr/local/standalone/firmware",
-         .bm_mandatory = false}
+         .bm_mandatory = true}
     };
 
     const bind_mount_t hw_mnts[] = {
@@ -463,7 +460,7 @@ main(argc, argv)
                     continue;
                 if (hasopt(fs->fs_mntops, "noauto"))
                     continue;
-                if (!strcmp(fs->fs_vfstype, "nfs")) {
+                if (!strcmp(fs->fs_vfstype, "nfs") || !strcmp(fs->fs_vfstype, "url")) {
                     if (hasopt(fs->fs_mntops, "net"))
                         continue;
                     /* check if already mounted */

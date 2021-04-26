@@ -273,9 +273,10 @@ as "pkcs11" if none was provided and the \fI--cert-type\fP option will be set as
 "ENG" if none was provided.
 
 (iOS and macOS only) If curl is built against Secure Transport, then the
-certificate string can either be the name of a certificate/private key in the
-system or user keychain, or the path to a PKCS#12-encoded certificate and
-private key. If you want to use a file from the current directory, please
+certificate string can either be the name or public key hash of a certificate/private
+key in the system or user keychain, or the path to a PKCS#12-encoded certificate and
+private key. A string beginning with "pkh/" will be interpreted as a
+public key hash. If you want to use a file from the current directory, please
 precede it with "./" prefix, in order to avoid confusion with a nickname.
 
 (Schannel only) Client certificates must be specified by a path

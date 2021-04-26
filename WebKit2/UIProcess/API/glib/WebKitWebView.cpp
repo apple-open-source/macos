@@ -73,6 +73,7 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/GUniquePtrSoup.h>
 #include <WebCore/JSDOMExceptionHandling.h>
+#include <WebCore/PlatformScreen.h>
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/URLSoup.h>
 #include <glib/gi18n-lib.h>
@@ -306,6 +307,8 @@ struct _WebKitWebViewPrivate {
 
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
     GRefPtr<WebKitWebsitePolicies> websitePolicies;
+
+    double textScaleFactor;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -470,6 +473,7 @@ void WebKitWebViewClient::didReceiveUserMessage(WKWPE::View&, UserMessage&& mess
 static gboolean webkitWebViewLoadFail(WebKitWebView* webView, WebKitLoadEvent, const char* failingURI, GError* error)
 {
     if (g_error_matches(error, WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED)
+        || g_error_matches(error, WEBKIT_PLUGIN_ERROR, WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD)
         || g_error_matches(error, WEBKIT_POLICY_ERROR, WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE))
         return FALSE;
 
@@ -755,7 +759,10 @@ static void webkitWebViewConstructed(GObject* object)
 
     if (priv->isEphemeral && !webkit_web_context_is_ephemeral(priv->context.get())) {
         priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new_ephemeral());
-        webkitWebsiteDataManagerAddProcessPool(priv->websiteDataManager.get(), webkitWebContextGetProcessPool(priv->context.get()));
+        auto* contextDataManager = webkit_web_context_get_website_data_manager(priv->context.get());
+        webkit_website_data_manager_set_tls_errors_policy(priv->websiteDataManager.get(), webkit_website_data_manager_get_tls_errors_policy(contextDataManager));
+        auto proxySettings = webkitWebsiteDataManagerGetDataStore(contextDataManager).networkProxySettings();
+        webkitWebsiteDataManagerGetDataStore(priv->websiteDataManager.get()).setNetworkProxySettings(WTFMove(proxySettings));
     }
 
     if (!priv->websitePolicies)
@@ -792,6 +799,15 @@ static void webkitWebViewConstructed(GObject* object)
 
     priv->backForwardList = adoptGRef(webkitBackForwardListCreate(&getPage(webView).backForwardList()));
     priv->windowProperties = adoptGRef(webkitWindowPropertiesCreate());
+
+    priv->textScaleFactor = WebCore::screenDPI() / 96.;
+    getPage(webView).setTextZoomFactor(priv->textScaleFactor);
+    WebCore::setScreenDPIObserverHandler([webView] {
+        auto& page = getPage(webView);
+        auto zoomFactor = page.textZoomFactor() / webView->priv->textScaleFactor;
+        webView->priv->textScaleFactor = WebCore::screenDPI() / 96.;
+        page.setTextZoomFactor(zoomFactor * webView->priv->textScaleFactor);
+    }, webView);
 }
 
 static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
@@ -941,11 +957,6 @@ static void webkitWebViewDispose(GObject* object)
         webkitWebContextWebViewDestroyed(webView->priv->context.get(), webView);
     }
 
-    if (webView->priv->websiteDataManager) {
-        webkitWebsiteDataManagerRemoveProcessPool(webView->priv->websiteDataManager.get(), webkitWebContextGetProcessPool(webView->priv->context.get()));
-        webView->priv->websiteDataManager = nullptr;
-    }
-
     if (webView->priv->currentScriptDialog) {
         webkit_script_dialog_close(webView->priv->currentScriptDialog);
         ASSERT(!webView->priv->currentScriptDialog);
@@ -954,6 +965,8 @@ static void webkitWebViewDispose(GObject* object)
 #if PLATFORM(WPE)
     webView->priv->view->close();
 #endif
+
+    WebCore::setScreenDPIObserverHandler(nullptr, webView);
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
 }
@@ -1192,9 +1205,14 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * Whether the #WebKitWebView is ephemeral. An ephemeral web view never writes
      * website data to the client storage, no matter what #WebKitWebsiteDataManager
      * its context is using. This is normally used to implement private browsing mode.
-     * This is a %G_PARAM_CONSTRUCT_ONLY property, so you have to create a ephemeral
-     * #WebKitWebView and it can't be changed. Note that all #WebKitWebView<!-- -->s
-     * created with an ephemeral #WebKitWebContext will be ephemeral automatically.
+     * This is a %G_PARAM_CONSTRUCT_ONLY property, so you have to create an ephemeral
+     * #WebKitWebView and it can't be changed. The ephemeral #WebKitWebsiteDataManager
+     * created for the #WebKitWebView will inherit the network settings from the
+     * #WebKitWebContext<!-- -->'s #WebKitWebsiteDataManager. To use different settings
+     * you can get the #WebKitWebsiteDataManager with webkit_web_view_get_website_data_manager()
+     * and set the new ones.
+     * Note that all #WebKitWebView<!-- -->s created with an ephemeral #WebKitWebContext
+     * will be ephemeral automatically.
      * See also webkit_web_context_new_ephemeral().
      *
      * Since: 2.16
@@ -2356,7 +2374,8 @@ void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView* webView, const char* fa
 {
     webkitWebViewCompleteAuthenticationRequest(webView);
 
-    WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_web_context_get_tls_errors_policy(webView->priv->context.get());
+    auto* websiteDataManager = webkit_web_view_get_website_data_manager(webView);
+    WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_website_data_manager_get_tls_errors_policy(websiteDataManager);
     if (tlsErrorsPolicy == WEBKIT_TLS_ERRORS_POLICY_FAIL) {
         gboolean returnValue;
         g_signal_emit(webView, signals[LOAD_FAILED_WITH_TLS_ERRORS], 0, failingURI, certificate, tlsErrors, &returnValue);
@@ -3597,9 +3616,8 @@ void webkit_web_view_set_zoom_level(WebKitWebView* webView, gdouble zoomLevel)
         return;
 
     auto& page = getPage(webView);
-    page.scalePage(1.0, IntPoint()); // Reset page scale when zoom level is changed
     if (webkit_settings_get_zoom_text_only(webView->priv->settings.get()))
-        page.setTextZoomFactor(zoomLevel);
+        page.setTextZoomFactor(zoomLevel * webView->priv->textScaleFactor);
     else
         page.setPageZoomFactor(zoomLevel);
     g_object_notify(G_OBJECT(webView), "zoom-level");
@@ -3620,7 +3638,7 @@ gdouble webkit_web_view_get_zoom_level(WebKitWebView* webView)
 
     auto& page = getPage(webView);
     gboolean zoomTextOnly = webkit_settings_get_zoom_text_only(webView->priv->settings.get());
-    return zoomTextOnly ? page.textZoomFactor() : page.pageZoomFactor();
+    return zoomTextOnly ? page.textZoomFactor() / webView->priv->textScaleFactor : page.pageZoomFactor();
 }
 
 /**
@@ -3642,7 +3660,7 @@ void webkit_web_view_can_execute_editing_command(WebKitWebView* webView, const c
     g_return_if_fail(command);
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
-    getPage(webView).validateCommand(String::fromUTF8(command), [task = WTFMove(task)](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
+    getPage(webView).validateCommand(String::fromUTF8(command), [task = WTFMove(task)](bool isEnabled, int32_t) {
         g_task_return_boolean(task.get(), isEnabled);
     });
 }
@@ -3781,11 +3799,14 @@ static void webkitWebViewRunJavaScriptWithParams(WebKitWebView* webView, const g
 {
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
 
-    getPage(webView).runJavaScriptInMainFrame(WTFMove(params), [task = WTFMove(task)](API::SerializedScriptValue* serializedScriptValue, Optional<ExceptionDetails> details, WebKit::CallbackBase::Error) {
+    getPage(webView).runJavaScriptInMainFrame(WTFMove(params), [task = WTFMove(task)] (auto&& result) {
+        RefPtr<API::SerializedScriptValue> serializedScriptValue;
         ExceptionDetails exceptionDetails;
-        if (details)
-            exceptionDetails = *details;
-        webkitWebViewRunJavaScriptCallback(serializedScriptValue, exceptionDetails, task.get());
+        if (result.has_value())
+            serializedScriptValue = WTFMove(result.value());
+        else
+            exceptionDetails = WTFMove(result.error());
+        webkitWebViewRunJavaScriptCallback(serializedScriptValue.get(), exceptionDetails, task.get());
     });
 }
 
@@ -3915,11 +3936,14 @@ void webkit_web_view_run_javascript_in_world(WebKitWebView* webView, const gchar
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
     auto world = API::ContentWorld::sharedWorldWithName(String::fromUTF8(worldName));
-    getPage(webView).runJavaScriptInFrameInScriptWorld({ String::fromUTF8(script), URL { }, false, WTF::nullopt, true }, WTF::nullopt, world.get(), [task = WTFMove(task)](API::SerializedScriptValue* serializedScriptValue, Optional<ExceptionDetails> details, WebKit::CallbackBase::Error) {
+    getPage(webView).runJavaScriptInFrameInScriptWorld({ String::fromUTF8(script), URL { }, false, WTF::nullopt, true }, WTF::nullopt, world.get(), [task = WTFMove(task)] (auto&& result) {
+        RefPtr<API::SerializedScriptValue> serializedScriptValue;
         ExceptionDetails exceptionDetails;
-        if (details)
-            exceptionDetails = *details;
-        webkitWebViewRunJavaScriptCallback(serializedScriptValue, exceptionDetails, task.get());
+        if (result.has_value())
+            serializedScriptValue = WTFMove(result.value());
+        else
+            exceptionDetails = WTFMove(result.error());
+        webkitWebViewRunJavaScriptCallback(serializedScriptValue.get(), exceptionDetails, task.get());
     });
 }
 
@@ -3958,11 +3982,14 @@ static void resourcesStreamReadCallback(GObject* object, GAsyncResult* result, g
     WebKitWebView* webView = WEBKIT_WEB_VIEW(g_task_get_source_object(task.get()));
     gpointer outputStreamData = g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(object));
     getPage(webView).runJavaScriptInMainFrame({ String::fromUTF8(reinterpret_cast<const gchar*>(outputStreamData)), URL { }, false, WTF::nullopt, true },
-        [task](API::SerializedScriptValue* serializedScriptValue, Optional<ExceptionDetails> details, WebKit::CallbackBase::Error) {
+        [task] (auto&& result) {
+            RefPtr<API::SerializedScriptValue> serializedScriptValue;
             ExceptionDetails exceptionDetails;
-            if (details)
-                exceptionDetails = *details;
-            webkitWebViewRunJavaScriptCallback(serializedScriptValue, exceptionDetails, task.get());
+            if (result.has_value())
+                serializedScriptValue = WTFMove(result.value());
+            else
+                exceptionDetails = WTFMove(result.error());
+            webkitWebViewRunJavaScriptCallback(serializedScriptValue.get(), exceptionDetails, task.get());
         });
 }
 

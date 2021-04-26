@@ -136,7 +136,12 @@ static Vector<ThreadInfo> threadInfos()
 void ResourceUsageThread::platformSaveStateBeforeStarting()
 {
 #if ENABLE(SAMPLING_PROFILER)
-    m_samplingProfilerMachThread = m_vm->samplingProfiler() ? m_vm->samplingProfiler()->machThread() : MACH_PORT_NULL;
+    m_samplingProfilerMachThread = MACH_PORT_NULL;
+
+    if (auto* profiler = m_vm->samplingProfiler()) {
+        if (auto* thread = profiler->thread())
+            m_samplingProfilerMachThread = thread->machThread();
+    }
 #endif
 }
 
@@ -166,8 +171,8 @@ void ResourceUsageThread::platformCollectCPUData(JSC::VM*, ResourceUsageData& da
 
     HashMap<mach_port_t, String> knownWorkerThreads;
     {
-        LockHolder lock(WorkerThread::workerThreadsMutex());
-        for (auto* thread : WorkerThread::workerThreads(lock)) {
+        auto locker = holdLock(WorkerOrWorkletThread::workerOrWorkletThreadsLock());
+        for (auto* thread : WorkerOrWorkletThread::workerOrWorkletThreads()) {
             // Ignore worker threads that have not been fully started yet.
             if (!thread->thread())
                 continue;

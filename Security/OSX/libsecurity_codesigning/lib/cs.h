@@ -162,6 +162,20 @@ static inline void checkFlags(SecCSFlags flags, SecCSFlags acceptable = 0)
 		MacOSError::throwMe(errSecCSInvalidFlags);
 }
 
+static inline Boolean isFlagSet(SecCSFlags flags, SecCSFlags toTest)
+{
+	return ((flags & toTest) == toTest);
+}
+
+static inline SecCSFlags addFlags(SecCSFlags flags, SecCSFlags toAdd)
+{
+	return (flags | toAdd);
+}
+
+static inline SecCSFlags clearFlags(SecCSFlags flags, SecCSFlags toClear)
+{
+	return (flags & ~toClear);
+}
 
 //
 // DTrace USDT function bracket.

@@ -687,6 +687,7 @@ VolumeMaxNotification(struct smbmount *smp, vfs_context_t context)
 	struct smb_share   *share;
 	int32_t				session_volume_cnt;
 	int					maxWorkingCnt;
+    struct smbiod      *iod = NULL;
 
 	share = smb_get_share_with_reference(smp);
 	session_volume_cnt = OSAddAtomic(0, &SS_TO_SESSION(share)->session_volume_cnt);
@@ -704,15 +705,22 @@ VolumeMaxNotification(struct smbmount *smp, vfs_context_t context)
 	if (!session_volume_cnt) {
 		session_volume_cnt = 1;
 	}
-    
+
+    if (smb_iod_get_main_iod(SS_TO_SESSION(share), &iod, __FUNCTION__)) { // No need to loop on all iods.
+        SMBERROR("Invalid iod\n");
+        return 0;
+    }
+
     if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
         /* SMB 2/3 relies on crediting */
-        maxWorkingCnt = (SS_TO_SESSION(share)->session_credits_max / 2) / session_volume_cnt;
+        maxWorkingCnt = (iod->iod_credits_max / 2) / session_volume_cnt;
     }
     else {
         /* SMB 1 relies on maxmux */
         maxWorkingCnt = (SS_TO_SESSION(share)->session_maxmux / 2) / session_volume_cnt;
     }
+    
+    smb_iod_rel(iod, NULL, __FUNCTION__);
     
 	smb_share_rele(share, context);
     

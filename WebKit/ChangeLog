@@ -1,3 +1,305 @@
+2021-03-23  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274714. rdar://problem/75751024
+
+    [Win] Fix build issue
+    https://bugs.webkit.org/show_bug.cgi?id=223451
+    <rdar://75545172>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebKitLegacy:
+    
+    Specify that WebKitLegacy links WebCore and PAL statically, since the correctness of the WEBCORE_EXPORT macro depends on that.
+    
+    * PlatformWin.cmake:
+    
+    Source/WebKitLegacy/win:
+    
+    Add WebCore namespace to function call.
+    
+    * Plugins/PluginView.cpp:
+    (WebCore::PluginView::getValueForURL):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274714 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-19  Per Arne  <pvollan@apple.com>
+
+            [Win] Fix build issue
+            https://bugs.webkit.org/show_bug.cgi?id=223451
+            <rdar://75545172>
+
+            Reviewed by Brent Fulgham.
+
+            Specify that WebKitLegacy links WebCore and PAL statically, since the correctness of the WEBCORE_EXPORT macro depends on that.
+
+            * PlatformWin.cmake:
+
+2020-12-11  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Determine correct visibility for linked frameworks
+        https://bugs.webkit.org/show_bug.cgi?id=210366
+
+        Reviewed by Michael Catanzaro.
+
+        Remove explicit setting of STATICALLY_LINKED_WITH_${framework}.
+
+        * PlatformFTW.cmake:
+        * PlatformWin.cmake:
+
+2020-12-03  Adam Roben  <aroben@apple.com>
+
+        Adopt FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=219504
+
+        Reviewed by Tim Horton.
+
+        * scripts/check-xcfilelists.sh: Use FALLBACK_PLATFORM it if it's
+        defined, otherwise use PLATFORM_NAME as before.
+
+2020-12-01  Keith Rollin  <krollin@apple.com>
+
+        Consolidate header postprocessing scripts
+        https://bugs.webkit.org/show_bug.cgi?id=219388
+        <rdar://problem/71840357>
+
+        Reviewed by David Kilzer.
+
+        Our build system contains the following scripts to perform some
+        postprocessing of headers that we export to the SDK:
+
+            JavaScriptCore/postprocess-headers.sh
+            WebKit/mac/postprocess-framework-headers.sh
+            WebKitLegacy/mac/postprocess-headers.sh
+
+        The preceding scripts are used when using the non-XCBuild -- or
+        "legacy" -- Xcode build system. They are invoked in a custom Run
+        Script build phase after the headers have been exported with the
+        standard Xcode facility for creating frameworks.
+
+        Alternatively, we also have the following postprocessing scripts:
+
+            WebKit/Scripts/postprocess-header-rule
+            JavaScriptCore/Scripts/postprocess-header-rule
+            WebKitLegacy/scripts/postprocess-header-rule
+
+        These scripts are used when using the XCBuild build system. They are
+        invoked *during* the header export process to copy and postprocess the
+        headers in one blow. They are part of a Custom Build Rule for
+        exporting files ending in ".h".
+
+        The reason why we have two sets of scripts is because of the different
+        capabilities of the two Xcode build systems. The legacy system does
+        not support a custom "export header" step that would allow us to copy
+        and postprocess each header in a single step. Therefore, when using
+        the legacy build system, we export in one build step and postprocess
+        in a subsequent build step. And XCBuild doesn't like the approach
+        taken by the old build system where files are exported first and then
+        munged in a separate step, since that confuses its notion of the state
+        of the build ("Hey! That file I exported in the previous build? I see
+        now that it's been changed, so I'm going to export it again. And
+        change its modification date. And then rebuild everything downstream
+        that uses it."). Therefore, XCBuild added a facility for copying and
+        postprocessing in one step.
+
+        The scripts supporting each of these approaches are very similar to
+        each other, such that there is a lot of code duplication between them.
+        At the same time, by having two sets of scripts that are very similar
+        to each other, we run the risk of "drift", where files in one set may
+        get updated while their counterparts in the other set are not.
+
+        Address this duplication by making the scripts in the "legacy" set be
+        mere stubs that invoke the scripts in the new "XCBuild" set. In doing
+        this, we also fix a case of drift: the legacy-based scripts made use
+        of a timestamp file to determine if headers needed to be reprocessed
+        and exported, while the XCBuild-based scripts used a "process the
+        files and export them if any actual changes now exist between this new
+        version and any previously-exported version" approach.
+
+        Along the way, fix a bug in WebKitLegacy's postprocess-header-rule
+        that resulted in WebKitAvailability.h not being processed. The
+        practical effect of this bug is that the file ended up with both macOS
+        and iOS code, along with the #if that controlled which chunk of code
+        was compiled, instead of just the chunk of code specific to the
+        targeted SDK. Normally, the unused chunk of code would get removed
+        through the invocation of `unifdef`. But, because of the bug, the
+        results of running `unifdef` were being discarded.
+
+        * scripts/postprocess-header-rule:
+
+2020-11-04  David Kilzer  <ddkilzer@apple.com>
+
+        WebKit should remove unused debug variant support
+        <https://webkit.org/b/218315>
+        <rdar://problem/70785369>
+
+        Reviewed by Darin Adler.
+
+        Remove support for building the debug variant since it is
+        currently unused. We now set default values for the
+        DEAD_CODE_STRIPPING, DEBUG_DEFINES, GCC_OPTIMIZATION_LEVEL and
+        STRIP_INSTALLED_PRODUCT variables.
+
+        Also move these values out of the Xcode project into
+        Base.xcconfig files using the [config=Debug] specifier so that
+        these overrides are next to the definitions.
+
+        Additional changes in behavior are noted below.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        - Move DEBUG_DEFINES to mac/Configurations/Base.xcconfig.
+        - Remove useless OTHER_LDFLAGS definitions.
+        - Remove unneeded BUILD_VARIANTS definition.
+
+2020-11-03  David Kilzer  <ddkilzer@apple.com>
+
+        Add test for cacheModelForMainBundle() in WebKitLegacy
+        <https://webkit.org/b/217960>
+
+        Reviewed by Darin Adler.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        - Add TestingFunctions.h to the project.
+        (Generate Export Files):
+        - Append WebKit.Testing.exp to the generated export file if
+          WK_BUILD_FOR_TESTING is set to YES.
+
+2020-11-03  Keith Rollin  <krollin@apple.com>
+
+        Extend check-for-inappropriate-files-in-framework to WebKitLegacy and JavaScriptCore
+        https://bugs.webkit.org/show_bug.cgi?id=218272
+        <rdar://problem/70748116>
+
+        Reviewed by Simon Fraser.
+
+        Bug 218268 reports that some *.txt files got included in WebKitLegacy.
+        To help protect against this happening in the future, extend
+        check-for-inappropriate-files-in-framework to check for *.txt files,
+        and apply the script to WebKitLegacy and JavaScriptCore in addition to
+        WebCore and WebKit.
+
+        In order to prevent this change from breaking local engineering builds
+        that still have these files in their build output directories, add a
+        couple of lines that will delete those *.txt files before making the
+        check for them.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2020-10-27  Keith Rollin  <krollin@apple.com>
+
+        Unexpected txt file: .../WebKitLegacy.framework/.../Sources.txt
+        https://bugs.webkit.org/show_bug.cgi?id=218268
+        <rdar://problem/70742539>
+
+        Reviewed by Tim Horton.
+
+        Sources.txt and SourcesCocoa.txt were added to the WebKitLegacy
+        project in https://trac.webkit.org/changeset/247401 as targets of the
+        WebKitLegacy target. This caused them to be treated as resources and
+        so were copied to the framework's Resources directory on a build.
+        These files don't need to be included in the build, and so are removed
+        from that target.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2020-10-17  Sam Weinig  <weinig@apple.com>
+
+        [Preferences] Add infrastructure for generating preferences for Windows WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=217876
+
+        Reviewed by Simon Fraser.
+
+        * PlatformWin.cmake:
+        Add generation of WebPreferences.
+
+2020-10-07  Keith Rollin  <krollin@apple.com>
+
+        Update post-processing rules for headers to not unnecessarily change timestamps
+        https://bugs.webkit.org/show_bug.cgi?id=217371
+        <rdar://problem/69992230>
+
+        Reviewed by Darin Adler.
+
+        Under XCBuild, the scripts employed in custom build rules can be
+        invoked in innocuous situations. A common example is when the user is
+        building from the command-line and they change the `make` output from
+        stdout to a file, or vice-versa. Changing the output changes the
+        setting of the COLOR_DIAGNOSTICS environment variable, which is enough
+        to cause XCBuild to think something is different and that the custom
+        build rule needs to be invoked. For the script's part, nothing
+        significant has changed, yet it post-processes the header files,
+        causing their modification dates to change, causing downstream
+        rebuilds to occur.
+
+        Fix this problem by adopting an approach that doesn't modify the
+        post-processed header files unless their contents actually change.
+
+        * scripts/postprocess-header-rule:
+
+2020-09-28  Sam Weinig  <weinig@apple.com>
+
+        [Preferences] Move GeneratePreferences.rb and yaml configuration files to WTF to be shared
+        https://bugs.webkit.org/show_bug.cgi?id=217056
+
+        Reviewed by Darin Adler.
+
+        Move GeneratePreferences.rb and WebPreferences*.yaml files from WebKitLegacy to WTF, and install them into the existing
+        $SDKROOT/usr/local/install/wtf/Scripts for use by down stack projects.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2020-09-26  Sam Weinig  <weinig@apple.com>
+
+        [Preferences] Generate Debug and Internal preferences for WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=217015
+
+        Reviewed by Darin Adler.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        Adds generation of WebPreferencesInternalFeatures.mm from WebPreferencesInternalFeatures.mm.erb.
+
+2020-09-26  Sam Weinig  <weinig@apple.com>
+
+        [Preferences] It should be possible to have different default values for WebKitLegacy and WebKit in preference yaml files
+        https://bugs.webkit.org/show_bug.cgi?id=216987
+
+        Reviewed by Darin Adler.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        Update script phase to explicitly specify the frontend (WebKitLegacy) and the templates to generate.
+
+2020-09-25  Sam Weinig  <weinig@apple.com>
+
+        [Preferences] Start generating experimental feature preferences for legacy WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=216909
+
+        Reviewed by Tim Horton.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        Add new files.
+
+2020-09-18  Youenn Fablet  <youenn@apple.com>
+
+        XHR.timeout is affected by long tasks
+        https://bugs.webkit.org/show_bug.cgi?id=216266
+        <rdar://problem/68908150>
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::isResourceLoadFinished):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2020-09-14  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo][MediaFoundation] r264188 introduced linker warning: LNK4199: /DELAYLOAD:mf.dll ignored; no imports found from mf.dll
+        https://bugs.webkit.org/show_bug.cgi?id=214170
+
+        Reviewed by Alex Christensen.
+
+        * PlatformWin.cmake:
+
 2020-08-12  Keith Rollin  <krollin@apple.com>
 
         Remove the need for defining USE_NEW_BUILD_SYSTEM

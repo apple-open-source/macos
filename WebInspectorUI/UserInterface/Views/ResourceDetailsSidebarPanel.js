@@ -82,7 +82,18 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
             return;
 
         if (this._resource && this._needsToRemoveResourceEventListeners) {
-            this._resource.removeEventListener(null, null, this);
+            this._resource.removeEventListener(WI.Resource.Event.URLDidChange, this._refreshURL, this);
+            this._resource.removeEventListener(WI.Resource.Event.MIMETypeDidChange, this._refreshMIMEType, this);
+            this._resource.removeEventListener(WI.Resource.Event.TypeDidChange, this._refreshResourceType, this);
+            this._resource.removeEventListener(WI.Resource.Event.LoadingDidFail, this._refreshErrorReason, this);
+            this._resource.removeEventListener(WI.Resource.Event.RequestHeadersDidChange, this._refreshRequestHeaders, this);
+            this._resource.removeEventListener(WI.Resource.Event.ResponseReceived, this._refreshRequestAndResponse, this);
+            this._resource.removeEventListener(WI.Resource.Event.CacheStatusDidChange, this._refreshRequestAndResponse, this);
+            this._resource.removeEventListener(WI.Resource.Event.MetricsDidChange, this._refreshRequestAndResponse, this);
+            this._resource.removeEventListener(WI.Resource.Event.SizeDidChange, this._refreshDecodedSize, this);
+            this._resource.removeEventListener(WI.Resource.Event.TransferSizeDidChange, this._refreshTransferSize, this);
+            this._resource.removeEventListener(WI.Resource.Event.InitiatedResourcesDidChange, this._handleResourceInitiatedResourcesDidChange, this);
+
             this._refreshRelatedResourcesSectionThrottler.cancel();
 
             this._needsToRemoveResourceEventListeners = false;
@@ -232,7 +243,7 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
         if (!this._resource)
             return;
 
-        this._locationFullURLRow.value = this._resource.url.insertWordBreakCharacters();
+        this._locationFullURLRow.value = this._resource.displayURL.insertWordBreakCharacters();
 
         var urlComponents = this._resource.urlComponents;
         if (urlComponents.scheme) {
@@ -622,10 +633,13 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
         this._resource.addEventListener(WI.Resource.Event.MetricsDidChange, this._refreshRequestAndResponse, this);
         this._resource.addEventListener(WI.Resource.Event.SizeDidChange, this._refreshDecodedSize, this);
         this._resource.addEventListener(WI.Resource.Event.TransferSizeDidChange, this._refreshTransferSize, this);
-        this._resource.addEventListener(WI.Resource.Event.InitiatedResourcesDidChange, () => {
-            this._refreshRelatedResourcesSectionThrottler.fire();
-        }, this);
+        this._resource.addEventListener(WI.Resource.Event.InitiatedResourcesDidChange, this._handleResourceInitiatedResourcesDidChange, this);
 
         this._needsToRemoveResourceEventListeners = true;
+    }
+
+    _handleResourceInitiatedResourcesDidChange(event)
+    {
+        this._refreshRelatedResourcesSectionThrottler.fire();
     }
 };

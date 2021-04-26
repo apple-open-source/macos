@@ -36,6 +36,7 @@ done
 
 frame_echo() {
     r=$(echo "$@")
+    logger -s ${r}
     echo $r | sed 's/./=/g'
     echo $r
     echo $r | sed 's/./=/g'
@@ -74,12 +75,28 @@ check_crash() {
 
 # kill daemon/agent/services to make sure we run the new version
 if sudo -n true ; then
-    sudo killall -9 kcm digest-service kdc GSSCred
-    sudo defaults write org.h5l.hx509 AllowHX509Validation -bool true
-fi
-defaults write org.h5l.hx509 AllowHX509Validation -bool true
+    #set the system time to ensure time sync with server will be correct
+    sudo systemsetup -setusingnetworktime on
 
-killall -9 kcm digest-service kdc GSSCred
+    sudo defaults write org.h5l.hx509 AllowHX509Validation -bool true
+    sudo defaults write /Library/Preferences/com.apple.GSS DebugLevel -int 20
+    sudo defaults write /Library/Preferences/.GlobalPreferences GSSDebugLevel -int 20;
+    sudo defaults write /Library/Preferences/.GlobalPreferences KerberosDebugLevel -int 20
+    sudo log config --mode "level:debug,persist:debug" --subsystem com.apple.Heimdal
+
+    sudo killall -9 kcm digest-service kdc GSSCred
+else
+    #set the system time to ensure time sync with server will be correct
+    systemsetup -setusingnetworktime on
+
+    defaults write org.h5l.hx509 AllowHX509Validation -bool true
+    defaults write /Library/Preferences/com.apple.GSS DebugLevel -int 20
+    defaults write /Library/Preferences/.GlobalPreferences GSSDebugLevel -int 20
+    defaults write /Library/Preferences/.GlobalPreferences KerberosDebugLevel -int 20
+    log config --mode "level:debug,persist:debug" --subsystem com.apple.Heimdal
+
+    killall -9 kcm digest-service kdc GSSCred
+fi
 
 crashuserold=$(mktemp /tmp/heimdal-crash-user-old-XXXXXX)
 crashsystemold=$(mktemp /tmp/heimdal-crash-user-old-XXXXXX)
@@ -170,7 +187,7 @@ fi
 # check apple non root
 # check-apple-netlogon -- <rdar://problem/16389320> re-enabled netlogon tests
 # check-apple-ad -- <rdar://problem/20488983> renabled check-apple-ad tests
-for a in check-apple-ad check-apple-netlogon check-apple-dump check-apple-mitdump check-apple-acquire ; do
+for a in check-apple-ad check-apple-dump check-apple-mitdump check-apple-acquire ; do
     run_test $a /usr/local/libexec/heimdal/tests/apple/$a
 done
 for a in test_export ; do

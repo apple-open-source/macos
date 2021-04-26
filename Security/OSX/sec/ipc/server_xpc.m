@@ -28,7 +28,7 @@
 #include <ipc/server_endpoint.h>
 #include <os/transaction_private.h>
 
-#if TARGET_DARWINOS
+#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -449,6 +449,32 @@
     }
 
     completion(SecServerDeleteForAppClipApplicationIdentifier((__bridge CFStringRef)identifier));
+}
+
+
+- (void)secItemPersistKeychainWritesAtHighPerformanceCost:(void (^)(OSStatus status, NSError* error))completion
+{
+    if (![self clientHasBooleanEntitlement:(__bridge NSString*)kSecEntitlementPrivatePerformanceImpactingAPI]) {
+        completion(errSecMissingEntitlement, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil]);
+        return;
+    }
+
+    __block CFErrorRef cferror = NULL;
+    secnotice("item", "Performing keychain database checkpoint");
+
+    bool status = kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+        return SecDbCheckpoint(dbt, &cferror);
+    });
+
+    if(!status) {
+        secerror("item: keychain database checkpoint failed: %@", cferror);
+    } else {
+        secnotice("item", "Keychain database checkpoint succeeded");
+    }
+
+    completion(status ? errSecSuccess : errSecInternal, (__bridge NSError*)cferror);
+
+    CFReleaseNull(cferror);
 }
 
 @end

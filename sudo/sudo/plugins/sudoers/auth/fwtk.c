@@ -33,12 +33,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #include <unistd.h>
 #include <pwd.h>
 
@@ -53,21 +48,21 @@ sudo_fwtk_init(struct passwd *pw, sudo_auth *auth)
 {
     static Cfg *confp;			/* Configuration entry struct */
     char resp[128];			/* Response from the server */
-    debug_decl(sudo_fwtk_init, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_fwtk_init, SUDOERS_DEBUG_AUTH);
 
     if ((confp = cfg_read("sudo")) == (Cfg *)-1) {
-	sudo_warnx(U_("unable to read fwtk config"));
+	sudo_warnx("%s", U_("unable to read fwtk config"));
 	debug_return_int(AUTH_FATAL);
     }
 
     if (auth_open(confp)) {
-	sudo_warnx(U_("unable to connect to authentication server"));
+	sudo_warnx("%s", U_("unable to connect to authentication server"));
 	debug_return_int(AUTH_FATAL);
     }
 
     /* Get welcome message from auth server */
     if (auth_recv(resp, sizeof(resp))) {
-	sudo_warnx(U_("lost connection to authentication server"));
+	sudo_warnx("%s", U_("lost connection to authentication server"));
 	debug_return_int(AUTH_FATAL);
     }
     if (strncmp(resp, "Authsrv ready", 13) != 0) {
@@ -85,13 +80,13 @@ sudo_fwtk_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_c
     char buf[SUDO_CONV_REPL_MAX + 12];	/* General prupose buffer */
     char resp[128];			/* Response from the server */
     int error;
-    debug_decl(sudo_fwtk_verify, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_fwtk_verify, SUDOERS_DEBUG_AUTH);
 
     /* Send username to authentication server. */
     (void) snprintf(buf, sizeof(buf), "authorize %s 'sudo'", pw->pw_name);
 restart:
     if (auth_send(buf) || auth_recv(resp, sizeof(resp))) {
-	sudo_warnx(U_("lost connection to authentication server"));
+	sudo_warnx("%s", U_("lost connection to authentication server"));
 	debug_return_int(AUTH_FATAL);
     }
 
@@ -110,7 +105,7 @@ restart:
 	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else if (strncmp(resp, "display ", 8) == 0) {
 	sudo_printf(SUDO_CONV_INFO_MSG|SUDO_CONV_PREFER_TTY, "%s\n", &resp[8]);
-	strlcpy(buf, "response dummy", sizeof(buf));
+	strlcpy(buf, "response noop", sizeof(buf));
 	goto restart;
     } else {
 	sudo_warnx("%s", resp);
@@ -123,7 +118,7 @@ restart:
     /* Send the user's response to the server */
     (void) snprintf(buf, sizeof(buf), "response '%s'", pass);
     if (auth_send(buf) || auth_recv(resp, sizeof(resp))) {
-	sudo_warnx(U_("lost connection to authentication server"));
+	sudo_warnx("%s", U_("lost connection to authentication server"));
 	error = AUTH_FATAL;
 	goto done;
     }
@@ -138,16 +133,15 @@ restart:
 	sudo_warnx("%s", resp);
     error = AUTH_FAILURE;
 done:
-    memset_s(buf, sizeof(buf), 0, sizeof(buf));
-    memset_s(pass, SUDO_PASS_MAX, 0, strlen(pass));
-    free(pass);
+    explicit_bzero(buf, sizeof(buf));
+    freezero(pass, strlen(pass));
     debug_return_int(error);
 }
 
 int
-sudo_fwtk_cleanup(struct passwd *pw, sudo_auth *auth)
+sudo_fwtk_cleanup(struct passwd *pw, sudo_auth *auth, bool force)
 {
-    debug_decl(sudo_fwtk_cleanup, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_fwtk_cleanup, SUDOERS_DEBUG_AUTH);
 
     auth_close();
     debug_return_int(AUTH_SUCCESS);

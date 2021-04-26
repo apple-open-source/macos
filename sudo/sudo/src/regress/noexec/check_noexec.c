@@ -27,12 +27,7 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #ifdef HAVE_WORDEXP_H
 # include <wordexp.h>
 #endif
@@ -46,7 +41,7 @@
 #include "sudo_util.h"
 #include "sudo_exec.h"
 
-__dso_public int main(int argc, char *argv[], char *envp[]);
+sudo_dso_public int main(int argc, char *argv[], char *envp[]);
 
 static bool
 report_status(int status, const char *what)
@@ -166,7 +161,7 @@ try_wordexp(void)
 	    break;
 	}
 	wordfree(&we);
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     default:
 	printf("%s: FAIL (wordexp) [%d]\n", getprogname(), rc);
 	break;
@@ -184,7 +179,7 @@ main(int argc, char *argv[], char *envp[])
 
     if (argc != 2) {
 	fprintf(stderr, "usage: %s regress | /path/to/sudo_noexec.so\n", getprogname());
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     /* Disable execution for post-exec and re-exec ourself. */

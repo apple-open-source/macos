@@ -68,9 +68,6 @@ void RemoteAudioSessionProxyManager::removeProxy(RemoteAudioSessionProxy& proxy)
 
 void RemoteAudioSessionProxyManager::setCategoryForProcess(RemoteAudioSessionProxy& proxy, AudioSession::CategoryType category, RouteSharingPolicy policy)
 {
-    if (proxy.category() == category && proxy.routeSharingPolicy() == policy)
-        return;
-
     HashCountedSet<AudioSession::CategoryType, WTF::IntHash<AudioSession::CategoryType>, WTF::StrongEnumHashTraits<AudioSession::CategoryType>> categoryCounts;
     HashCountedSet<RouteSharingPolicy, WTF::IntHash<RouteSharingPolicy>, WTF::StrongEnumHashTraits<RouteSharingPolicy>> policyCounts;
     for (auto& otherProxy : m_proxies) {
@@ -108,7 +105,7 @@ void RemoteAudioSessionProxyManager::setCategoryForProcess(RemoteAudioSessionPro
 void RemoteAudioSessionProxyManager::setPreferredBufferSizeForProcess(RemoteAudioSessionProxy& proxy, size_t preferredBufferSize)
 {
     for (auto& otherProxy : m_proxies) {
-        if (otherProxy.preferredBufferSize() < preferredBufferSize)
+        if (otherProxy.preferredBufferSize() && otherProxy.preferredBufferSize() < preferredBufferSize)
             preferredBufferSize = otherProxy.preferredBufferSize();
     }
 
@@ -155,6 +152,9 @@ bool RemoteAudioSessionProxyManager::tryToSetActiveForProcess(RemoteAudioSession
     // proxies who are already active. Walk over the proxies, and interrupt
     // those proxies whose categories indicate they cannot mix with others.
     for (auto& otherProxy : m_proxies) {
+        if (otherProxy.processIdentifier() == proxy.processIdentifier())
+            continue;
+
         if (!otherProxy.isActive())
             continue;
 
@@ -164,9 +164,7 @@ bool RemoteAudioSessionProxyManager::tryToSetActiveForProcess(RemoteAudioSession
         otherProxy.beginInterruption();
     }
 #endif
-
     return true;
-
 }
 
 void RemoteAudioSessionProxyManager::beginAudioSessionInterruption()

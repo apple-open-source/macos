@@ -105,7 +105,8 @@ xattr_info *
 SHA256_Path_XATTRs(char *path, char *buf) {
 	xattr_info *ai = NULL;
 
-	if (mflag) {
+	// mflag is passed during manifest comparision while xflag is used to generate the specification
+	if (mflag || xflag) {
 		ai = get_xdstream_privateid(path, buf);
 	} else {
 		ai = calculate_SHA256_XATTRs(path, buf);

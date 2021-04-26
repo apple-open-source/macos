@@ -153,6 +153,7 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     SecAccessGroupsSetCurrent(currentACL);
     CFReleaseNull(currentACL);
 
+    secd_test_teardown_delete_temp_keychain("secd_37_pairing_initial_sync");
 
     return 0;
 }

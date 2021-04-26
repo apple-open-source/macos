@@ -80,8 +80,25 @@
 #endif /* _PATH_CVTSUDOERS_CONF */
 
 /*
+ * NOTE: _PATH_SUDO_LOGSRVD_CONF is usually overridden by the Makefile.
+ */
+#ifndef _PATH_SUDO_LOGSRVD_CONF
+# define _PATH_SUDO_LOGSRVD_CONF	"/etc/sudo_logsrvd.conf"
+#endif /* _PATH_SUDO_LOGSRVD_CONF */
+
+/*
  * The following paths are controlled via the configure script.
  */
+
+/*
+ * Where sudo_logsrvd stores its pid file files.  Defaults to
+ * /var/run/sudo/sudo_logsrvd.pid, /var/db/sudo/sudo_logsrvd.pid,
+ * /var/lib/sudo/sudo_logsrvd.pid, /var/adm/sudo/sudo_logsrvd.pid or
+ * /usr/adm/sudo/sudo_logsrvd.pid depending on what exists on the system.
+ */
+#ifndef _PATH_SUDO_LOGSRVD_PID
+# define _PATH_SUDO_LOGSRVD_PID "/var/db/sudo/sudo_logsrvd.pid"
+#endif /* _PATH_SUDO_LOGSRVD_PID */
 
 /*
  * Where to store the time stamp files.  Defaults to /var/run/sudo/ts,
@@ -108,6 +125,14 @@
 #ifndef _PATH_SUDO_IO_LOGDIR
 # define _PATH_SUDO_IO_LOGDIR "/var/log/sudo-io"
 #endif /* _PATH_SUDO_IO_LOGDIR */
+
+/*
+ * Where to put the audit and other log files.  Defaults to /var/log,
+ * /var/adm or /usr/adm depending on what exists.
+ */
+#ifndef _PATH_SUDO_LOGDIR
+# define _PATH_SUDO_LOGDIR "/var/log"
+#endif /* _PATH_SUDO_LOGDIR */
 
 /*
  * Where to put the sudo log file when logging to a file.  Defaults to

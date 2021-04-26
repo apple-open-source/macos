@@ -80,7 +80,7 @@ public:
 	virtual CFArrayRef modifiedFiles();						// list of files modified by signing [main execcutable only]
 	virtual UnixPlusPlus::FileDesc &fd() = 0;				// a cached file descriptor for main executable file
 	virtual void flush();									// flush caches (refetch as needed)
-    virtual CFDictionaryRef diskRepInformation();           // information from diskrep
+    virtual CFDictionaryRef copyDiskRepInformation();		// information from diskrep
 
 	virtual void registerStapledTicket();
 

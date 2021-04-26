@@ -172,6 +172,9 @@ __BEGIN_DECLS
 /* Entitlement to allow deletion of app clip keychain items */
 #define kSecEntitlementPrivateAppClipDeletion CFSTR("com.apple.private.keychain.appclipdeletion")
 
+/* Entitlement to allow use of performance-impacting API */
+#define kSecEntitlementPrivatePerformanceImpactingAPI CFSTR("com.apple.private.keychain.performance_impacting_api")
+
 /* Entitlements to allow executing SecItemUpdateTokenItemsForAccessGroups SPI */
 #define kSecEntitlementUpdateTokenItems CFSTR("com.apple.private.keychain.allow-update-tokens")
 

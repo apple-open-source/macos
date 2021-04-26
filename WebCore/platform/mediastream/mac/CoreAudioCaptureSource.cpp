@@ -37,7 +37,7 @@
 #include "Logging.h"
 #include "PlatformMediaSessionManager.h"
 #include "Timer.h"
-#include "WebAudioSourceProviderAVFObjC.h"
+#include "WebAudioSourceProviderCocoa.h"
 #include <AudioToolbox/AudioConverter.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreMedia/CMSync.h>
@@ -684,6 +684,15 @@ CaptureDeviceManager& CoreAudioCaptureSourceFactory::audioCaptureDeviceManager()
     return CoreAudioCaptureDeviceManager::singleton();
 #else
     return AVAudioSessionCaptureDeviceManager::singleton();
+#endif
+}
+
+const Vector<CaptureDevice>& CoreAudioCaptureSourceFactory::speakerDevices() const
+{
+#if PLATFORM(MAC)
+    return CoreAudioCaptureDeviceManager::singleton().speakerDevices();
+#else
+    return AVAudioSessionCaptureDeviceManager::singleton().speakerDevices();
 #endif
 }
 

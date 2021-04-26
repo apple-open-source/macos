@@ -1,7 +1,7 @@
 " Vim support file to detect file types in scripts
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last change:	2020 Mar 06
+" Last change:	2020 Aug 15
 
 " This file is called by an autocommand for every file that has just been
 " loaded into a buffer.  It checks if the type of file can be recognized by
@@ -35,10 +35,12 @@ let s:line1 = getline(1)
 if s:line1 =~# "^#!"
   " A script that starts with "#!".
 
-  " Check for a line like "#!/usr/bin/env VAR=val bash".  Turn it into
+  " Check for a line like "#!/usr/bin/env {options} bash".  Turn it into
   " "#!/usr/bin/bash" to make matching easier.
+  " Recognize only a few {options} that are commonly used.
   if s:line1 =~# '^#!\s*\S*\<env\s'
     let s:line1 = substitute(s:line1, '\S\+=\S\+', '', 'g')
+    let s:line1 = substitute(s:line1, '\(-[iS]\|--ignore-environment\|--split-string\)', '', '')
     let s:line1 = substitute(s:line1, '\<env\s\+', '', '')
   endif
 
@@ -148,7 +150,7 @@ if s:line1 =~# "^#!"
   elseif s:name =~# 'ocaml'
     set ft=ocaml
 
-    " Awk scripts
+    " Awk scripts; also finds "gawk"
   elseif s:name =~# 'awk\>'
     set ft=awk
 

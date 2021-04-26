@@ -30,6 +30,7 @@
 #include "MessageNames.h"
 #include "StringReference.h"
 #include <WebCore/ContextMenuItem.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 
@@ -39,7 +40,6 @@
 
 namespace IPC {
 
-class DataReference;
 class ImportanceAssertion;
 enum class MessageFlags : uint8_t;
 enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t;
@@ -48,7 +48,6 @@ class Decoder {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static std::unique_ptr<Decoder> create(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&&);
-    explicit Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&&);
     ~Decoder();
 
     Decoder(const Decoder&) = delete;
@@ -58,7 +57,7 @@ public:
     MessageName messageName() const { return m_messageName; }
     uint64_t destinationID() const { return m_destinationID; }
 
-    bool isSyncMessage() const;
+    bool isSyncMessage() const { return messageIsSync(messageName()); }
     ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
     bool shouldUseFullySynchronousModeForTesting() const;
 
@@ -66,12 +65,10 @@ public:
     void setImportanceAssertion(std::unique_ptr<ImportanceAssertion>);
 #endif
 
-#if HAVE(QOS_CLASSES)
-    void setQOSClassOverride(pthread_override_t override) { m_qosClassOverride = override; }
-#endif
-
     static std::unique_ptr<Decoder> unwrapForTesting(Decoder&);
 
+    const uint8_t* buffer() const { return m_buffer; }
+    size_t currentBufferPosition() const { return m_bufferPos - m_buffer; }
     size_t length() const { return m_bufferEnd - m_buffer; }
 
     WARN_UNUSED_RETURN bool isValid() const { return m_bufferPos != nullptr; }
@@ -79,8 +76,9 @@ public:
 
     WARN_UNUSED_RETURN bool decodeFixedLengthData(uint8_t* data, size_t, size_t alignment);
 
-    // The data in the data reference here will only be valid for the lifetime of the ArgumentDecoder object.
-    WARN_UNUSED_RETURN bool decodeVariableLengthByteArray(DataReference&);
+    // The data in the returned pointer here will only be valid for the lifetime of the ArgumentDecoder object.
+    // Returns nullptr on failure.
+    WARN_UNUSED_RETURN const uint8_t* decodeFixedLengthReference(size_t, size_t alignment);
 
     template<typename T, std::enable_if_t<std::is_arithmetic<T>::value>* = nullptr>
     WARN_UNUSED_RETURN bool decode(T& value)
@@ -171,7 +169,24 @@ public:
 
     static const bool isIPCDecoder = true;
 
+    template <typename T>
+    static Optional<T> decodeSingleObject(const uint8_t* source, size_t numberOfBytes)
+    {
+        Optional<T> result;
+        Decoder decoder(source, numberOfBytes, ConstructWithoutHeader);
+        if (!decoder.isValid())
+            return WTF::nullopt;
+
+        decoder >> result;
+        return result;
+    }
+
 private:
+    Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&&);
+
+    enum ConstructWithoutHeaderTag { ConstructWithoutHeader };
+    Decoder(const uint8_t* buffer, size_t bufferSize, ConstructWithoutHeaderTag);
+
     bool alignBufferPosition(size_t alignment, size_t);
     bool bufferIsLargeEnoughToContain(size_t alignment, size_t) const;
 
@@ -189,10 +204,6 @@ private:
 
 #if PLATFORM(MAC)
     std::unique_ptr<ImportanceAssertion> m_importanceAssertion;
-#endif
-
-#if HAVE(QOS_CLASSES)
-    pthread_override_t m_qosClassOverride { nullptr };
 #endif
 };
 

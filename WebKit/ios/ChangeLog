@@ -1,3 +1,104 @@
+2020-11-06  Sam Weinig  <weinig@apple.com>
+
+        Further progress towards merging Settings.yaml into WebPreferences.yaml
+        https://bugs.webkit.org/show_bug.cgi?id=218663
+
+        Reviewed by Tim Horton.
+
+        * Misc/WebUIKitSupport.mm:
+        (WebKitGetMinimumZoomFontSize):
+        Use generated default value macro as the one in WebCore has now been removed.
+
+2020-10-06  Devin Rousso  <drousso@apple.com>
+
+        Move platform logic for CSS `hover` and `pointer` media queries outside of WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=217413
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        (WebChromeClientIOS::hoverSupportedByPrimaryPointingDevice const): Added.
+        (WebChromeClientIOS::pointerCharacteristicsOfPrimaryPointingDevice const): Added.
+        Mouse devices are not supported.
+
+2020-10-06  Devin Rousso  <drousso@apple.com>
+
+        CSS hover and "pointer: fine" media queries do not evaluate to true with iOS 13.4 mouse support
+        https://bugs.webkit.org/show_bug.cgi?id=209292
+        <rdar://problem/60663124>
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        (WebChromeClientIOS::hoverSupportedByAnyAvailablePointingDevice const): Added.
+        (WebChromeClientIOS::pointerCharacteristicsOfAllAvailablePointingDevices const): Added.
+        Mouse devices are not supported.
+
+2020-09-20  Darin Adler  <darin@apple.com>
+
+        Next step towards eliminating deprecated legacy positions
+        https://bugs.webkit.org/show_bug.cgi?id=216751
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[DOMNode startPosition]):
+        (-[DOMNode endPosition]):
+        Replaced calls to createLegacyEditingPosition with calls to
+        makeDeprecatedLegacyPosition or makeContainerOffsetPosition.
+
+2020-09-02  Darin Adler  <darin@apple.com>
+
+        Remove EAffinity, UPSTREAM, DOWNSTREAM, SEL_DEFAULT_AFFINITY, and VisibleSelection::selectionType
+        https://bugs.webkit.org/show_bug.cgi?id=216102
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame closestCaretRectInMarkedTextRangeForPoint:]): Use Affinity.
+        (-[WebFrame smartExtendRangedSelection:]): Use visibleStart/End/Extent so we don't
+        need to write explicit code to handle affinity.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition setAffinity:]): Use Affinity.
+
+2020-09-02  Darin Adler  <darin@apple.com>
+
+        Change Affinity into an enum class
+        https://bugs.webkit.org/show_bug.cgi?id=216096
+
+        Reviewed by Wenson Hsieh.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition positionByMovingInDirection:amount:withAffinityDownstream:]):
+        Use prefix.
+
+2020-09-01  Darin Adler  <darin@apple.com>
+
+        Remove comparePositions and make VisiblePosition improvements
+        https://bugs.webkit.org/show_bug.cgi?id=215982
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition positionByMovingInDirection:amount:withAffinityDownstream:]):
+        Use Upstream instead of VP_UPSTREAM_IF_POSSIBLE. Since we were calling
+        setAffinity here, VP_UPSTREAM_IF_POSSIBLE was misleading since that function
+        does not check the validity of the affinity.
+        (-[DOMNode startPosition]): Removed unnecessary explicit VP_DEFAULT_AFFINITY.
+        (-[DOMNode endPosition]): Ditto.
+
+2020-08-17  Darin Adler  <darin@apple.com>
+
+        Create documentOrder function, start refactoring to use it instead of Range::compare functions
+        https://bugs.webkit.org/show_bug.cgi?id=215551
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[DOMRange startPosition]): Rewrote to not use Range::startPosition.
+        (-[DOMRange endPosition]): Rewrote to not use Range::endPosition.
+
 2020-08-13  Tim Horton  <timothy_horton@apple.com>
 
         macCatalyst: Granting location permission doesn't allow geolocation access

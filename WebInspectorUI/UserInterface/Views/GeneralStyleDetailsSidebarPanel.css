@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,11 +64,6 @@
     border-top: 1px solid var(--border-color);
 }
 
-.sidebar > .panel.details.css-style.style-rules > .content ~ :matches(.options-container, .class-list-container) {
-    /* Cover the border-bottom of the last CSS rule. */
-    transform: translateY(-1px);
-}
-
 .sidebar > .panel.details.css-style > .content ~ .options-container {
     height: var(--navigation-bar-height);
     padding-top: 2px;
@@ -82,7 +77,7 @@
     width: 15px;
     min-width: 15px;
     height: 15px;
-    -webkit-margin-start: 6px;
+    margin-inline-start: 6px;
     content: url(../Images/Plus15.svg);
     opacity: 0.7;
 
@@ -96,7 +91,7 @@
 .sidebar > .panel.details.css-style > .content ~ .options-container > .toggle-class-toggle {
     position: relative;
     margin: 0 0 1px;
-    -webkit-margin-end: 5px;
+    margin-inline-end: 5px;
     padding: 2px 4px 3px;
     color: var(--text-color);
     background: none;
@@ -139,7 +134,9 @@
 }
 
 .sidebar > .panel.details.css-style > .content:not(.supports-new-rule) ~ .options-container > .new-rule,
-.sidebar > .panel.details.css-style > .content:not(.has-filter-bar) ~ .options-container > .filter-bar {
+.sidebar > .panel.details.css-style > .content:not(.supports-toggle-css-class) ~ .options-container > .toggle-class-toggle,
+.sidebar > .panel.details.css-style > .content:not(.has-filter-bar) ~ .options-container > .filter-bar,
+.sidebar > .panel.details.css-style > .content:not(.supports-new-rule):not(.supports-toggle-class):not(.has-filter-bar) ~ .options-container {
     display: none;
 }
 
@@ -212,4 +209,32 @@
     .sidebar > .panel.details.css-style > .content ~ .options-container > .new-rule {
         filter: var(--filter-invert);
     }
+}
+
+.panel.exclusive-presentation.details.css-style > .content > .pseudo-classes {
+    height: var(--navigation-bar-height);
+    flex-flow: row nowrap;
+    justify-content: center;
+}
+
+.panel.exclusive-presentation.details.css-style > .content > .pseudo-classes > .group {
+    flex-flow: row nowrap;
+    justify-content: center;
+    flex: 0;
+}
+
+.panel.exclusive-presentation.details.css-style > .content > .rules {
+    position: absolute; 
+    top: var(--navigation-bar-height);
+    left:0;
+    right:0;
+    bottom:0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.multi-sidebar.showing-multiple > .sidebar > .panel.details:not(.style-rules) > .content > .pseudo-classes,
+.multi-sidebar.showing-multiple > .sidebar > .panel.details:not(.style-rules) > .options-container > .toggle-class-toggle,
+.multi-sidebar.showing-multiple > .sidebar > .panel.details:not(.style-rules) > .class-list-container {
+    display: none;
 }

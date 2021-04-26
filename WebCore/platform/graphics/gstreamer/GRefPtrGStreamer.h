@@ -73,7 +73,7 @@ template<> void derefGPtr<GstElementFactory>(GstElementFactory* ptr);
 
 template<> GRefPtr<GstBuffer> adoptGRef(GstBuffer* ptr);
 template<> GstBuffer* refGPtr<GstBuffer>(GstBuffer* ptr);
-template<> void derefGPtr<GstBuffer>(GstBuffer* ptr);
+template<> WEBCORE_EXPORT void derefGPtr<GstBuffer>(GstBuffer* ptr);
 
 template<> GRefPtr<GstBufferList> adoptGRef(GstBufferList*);
 template<> GstBufferList* refGPtr<GstBufferList>(GstBufferList*);
@@ -123,6 +123,10 @@ template<> void derefGPtr<GstStream>(GstStream*);
 template<> GRefPtr<GstStreamCollection> adoptGRef(GstStreamCollection*);
 template<> GstStreamCollection* refGPtr<GstStreamCollection>(GstStreamCollection*);
 template<> void derefGPtr<GstStreamCollection>(GstStreamCollection*);
+
+template<> GRefPtr<GstClock> adoptGRef(GstClock*);
+template<> GstClock* refGPtr<GstClock>(GstClock*);
+template<> void derefGPtr<GstClock>(GstClock*);
 
 #if USE(GSTREAMER_GL)
 template<> GRefPtr<GstGLDisplay> adoptGRef(GstGLDisplay* ptr);

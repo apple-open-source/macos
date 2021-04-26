@@ -725,6 +725,28 @@ bool SecCertificatePathVCIsValid(SecCertificatePathVCRef certificatePath, CFAbso
     return result;
 }
 
+CFAbsoluteTime SecCertificatePathVCGetMaximumNotBefore(SecCertificatePathVCRef certificatePath) {
+    __block CFAbsoluteTime notBefore = -DBL_MAX;
+    SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {
+        CFAbsoluteTime certNotBefore = SecCertificateNotValidBefore(certificate);
+        if (certNotBefore > notBefore) {
+            notBefore = certNotBefore;
+        }
+    });
+    return notBefore;
+}
+
+CFAbsoluteTime SecCertificatePathVCGetMinimumNotAfter(SecCertificatePathVCRef certificatePath) {
+    __block CFAbsoluteTime notAfter = DBL_MAX;
+    SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {
+        CFAbsoluteTime certNotAfter = SecCertificateNotValidAfter(certificate);
+        if (certNotAfter < notAfter) {
+            notAfter = certNotAfter;
+        }
+    });
+    return notAfter;
+}
+
 bool SecCertificatePathVCHasWeakHash(SecCertificatePathVCRef certificatePath) {
     CFIndex ix, count = certificatePath->count;
 
@@ -896,6 +918,25 @@ CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef
 
     secdebug("rvc", "revocation valid until: %lg", enu);
     return enu;
+}
+
+CFAbsoluteTime SecCertificatePathVCGetLatestThisUpdate(SecCertificatePathVCRef path) {
+    CFIndex certIX, certCount = path->count;
+    CFAbsoluteTime ltu = -DBL_MAX;
+    if (certCount <= 1 || !path->rvcs) {
+        return ltu;
+    }
+
+    for (certIX = 0; certIX < path->rvcCount; ++certIX) {
+        SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, certIX);
+        CFAbsoluteTime thisCertThisUpdate = SecRVCGetLatestThisUpdate(rvc);
+        if (thisCertThisUpdate > ltu) {
+            ltu = thisCertThisUpdate;
+        }
+    }
+
+    secdebug("rvc", "revocation valid starting: %lg", ltu);
+    return ltu;
 }
 
 bool SecCertificatePathVCRevocationCheckedAllCerts(SecCertificatePathVCRef path) {

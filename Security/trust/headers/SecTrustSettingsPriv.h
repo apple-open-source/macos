@@ -50,6 +50,9 @@ __BEGIN_DECLS
 #define kSecTrustSettingsPolicyName               CFSTR("kSecTrustSettingsPolicyName")
 #define kSecTrustSettingsPolicyOptions            CFSTR("kSecTrustSettingsPolicyOptions")
 
+extern const CFStringRef kSecTrustStoreSPKIHashKey;
+extern const CFStringRef kSecTrustStoreHashAlgorithmKey;
+
 extern const CFStringRef kSecCTExceptionsCAsKey;
 extern const CFStringRef kSecCTExceptionsDomainsKey;
 extern const CFStringRef kSecCTExceptionsHashAlgorithmKey;
@@ -65,8 +68,8 @@ extern const CFStringRef kSecCTExceptionsSPKIHashKey;
  @discussions An exceptions dictionary has two optional keys:
  kSecCTExceptionsDomainsKey takes an array of strings. These strings are the domains that are excluded from enforcing CT. A leading "." is supported to signify subdomains. Wildcard domains are not supported.
  kSecCTExceptionsCAsKey takes an array of dictionaries. Each dictionary has two required keys:
-    kSecCTExceptionsHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
-    kSecCTExceptionsSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
+    kSecTrustStoreHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
+    kSecTrustStoreSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
  */
 bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error);
 
@@ -94,8 +97,8 @@ extern const CFStringRef kSecCARevocationSPKIHashKey;
  @result boolean indicating success of the operation. If false, error will be filled in with a description of the error.
  @discussions An additions dictionary currently has one defined key:
  kSecCARevocationAdditionsKey takes an array of dictionaries. Each dictionary has two required keys:
-    kSecCARevocationHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
-    kSecCARevocationSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
+    kSecTrustStoreHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
+    kSecTrustStoreSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
  */
 bool SecTrustStoreSetCARevocationAdditions(CFStringRef applicationIdentifier, CFDictionaryRef additions, CFErrorRef *error);
 
@@ -108,6 +111,30 @@ bool SecTrustStoreSetCARevocationAdditions(CFStringRef applicationIdentifier, CF
  @discussion The returned additions dictionary has the same options as input additions. See the discussion of SecTrustStoreSetCARevocationAdditions.
  */
 CF_RETURNS_RETAINED CFDictionaryRef SecTrustStoreCopyCARevocationAdditions(CFStringRef applicationIdentifier, CFErrorRef *error);
+
+/*
+ @function SecTrustStoreSetTransparentConnectionPins
+ @abstract Set a list of certificate authorities (specified by subject public key info hash) to which Transparent Connections should be pinned.
+ @param applicationIdentifier Identifier for the caller. If null, the application-identifier will be read from the caller's entitlements.
+ @param pins Array of dictionaries containing SPKI hashes to which Transparent Connections should be pinned. Existing entries for the keys in the dictionary will be replaced. Null removes all pins for this application. See the discussion sections below for a complete overview of options.
+ @param error On failure, describes the cause of the failure; otherwise, null.
+ @result boolean indicating success of the operation. If false, error will be filled in with a description of the error.
+ @discussion The pins dictionaries should each have the following keys and values
+    kSecTrustStoreHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
+    kSecTrustStoreSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
+ The device must be in HRN mode to honor these pins.
+ */
+bool SecTrustStoreSetTransparentConnectionPins(CFStringRef applicationIdentifier, CFArrayRef pins, CFErrorRef *error);
+
+/*
+ @function SecTrustStoreCopyTransparentConnectionPins
+ @abstract Return the certificate authority SPKI hashes  to which Transparent Connections should be pinned.
+ @param applicationIdentifier Identifier for the caller's additions to fetch. If null, all set exceptions will be returned (regardless of which caller set them).
+ @param error On failure, describes cause of the failure; otherwise, null.
+ @result The array of currently set CA pins. Null if none exist or upon failure.
+ @discussion The returned pins array has the same options as input pins. See the discussion of SecTrustStoreSetTransparentConnectionPins.
+ */
+CF_RETURNS_RETAINED CFArrayRef SecTrustStoreCopyTransparentConnectionPins(CFStringRef applicationIdentifier, CFErrorRef *error);
 
 #if SEC_OS_OSX
 

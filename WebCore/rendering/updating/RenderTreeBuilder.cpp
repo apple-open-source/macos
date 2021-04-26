@@ -460,17 +460,9 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
 
     if (AXObjectCache* cache = parent.document().axObjectCache())
         cache->childrenChanged(&parent, newChild);
-    if (is<RenderBlockFlow>(parent))
-        downcast<RenderBlockFlow>(parent).invalidateLineLayoutPath();
+
     if (parent.hasOutlineAutoAncestor() || parent.outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On)
         newChild->setHasOutlineAutoAncestor();
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
-        if (parent.document().view())
-            parent.document().view()->layoutContext().invalidateLayoutTreeContent();
-
-    }
-#endif
 }
 
 void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)
@@ -606,9 +598,18 @@ void RenderTreeBuilder::normalizeTreeAfterStyleChange(RenderElement& renderer, R
 
     // Out of flow children of RenderMultiColumnFlow are not really part of the multicolumn flow. We need to ensure that changes in positioning like this
     // trigger insertions into the multicolumn flow.
-    if (auto* enclosingFragmentedFlow = parent.enclosingFragmentedFlow(); is<RenderMultiColumnFlow>(enclosingFragmentedFlow) && wasOutOfFlowPositioned && !isOutOfFlowPositioned) {
-        multiColumnBuilder().multiColumnDescendantInserted(downcast<RenderMultiColumnFlow>(*enclosingFragmentedFlow), renderer);
-        renderer.initializeFragmentedFlowStateOnInsertion();
+    if (auto* enclosingFragmentedFlow = parent.enclosingFragmentedFlow(); is<RenderMultiColumnFlow>(enclosingFragmentedFlow)) {
+        auto movingIntoMulticolumn = wasOutOfFlowPositioned && !isOutOfFlowPositioned;
+        if (movingIntoMulticolumn) {
+            multiColumnBuilder().multiColumnDescendantInserted(downcast<RenderMultiColumnFlow>(*enclosingFragmentedFlow), renderer);
+            renderer.initializeFragmentedFlowStateOnInsertion();
+            return;
+        }
+        auto movingOutOfMulticolumn = !wasOutOfFlowPositioned && isOutOfFlowPositioned;
+        if (movingOutOfMulticolumn) {
+            multiColumnBuilder().restoreColumnSpannersForContainer(renderer, downcast<RenderMultiColumnFlow>(*enclosingFragmentedFlow));
+            return;
+        }
     }
 }
 
@@ -713,6 +714,7 @@ void RenderTreeBuilder::childFlowStateChangesAndAffectsParentBlock(RenderElement
             if (auto* newEnclosingFragmentedFlow = newParent->enclosingFragmentedFlow(); is<RenderMultiColumnFlow>(newEnclosingFragmentedFlow) && currentEnclosingFragment != newEnclosingFragmentedFlow) {
                 // Let the fragmented flow know that it has a new in-flow descendant.
                 multiColumnBuilder().multiColumnDescendantInserted(downcast<RenderMultiColumnFlow>(*newEnclosingFragmentedFlow), child);
+                child.initializeFragmentedFlowStateOnInsertion();
             }
         }
     } else {
@@ -902,13 +904,6 @@ RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderElement(RenderElement
         if (AXObjectCache* cache = parent.document().existingAXObjectCache())
             cache->childrenChanged(&parent);
     }
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
-        if (parent.document().view())
-            parent.document().view()->layoutContext().invalidateLayoutTreeContent();
-
-    }
-#endif
     return childToTake;
 }
 

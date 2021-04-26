@@ -23,15 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 
 #include "sudoers.h"
 
@@ -43,7 +37,7 @@ matches_env_pattern(const char *pattern, const char *var, bool *full_match)
     bool iswild = false, match = false;
     bool saw_sep = false;
     const char *cp;
-    debug_decl(matches_env_pattern, SUDOERS_DEBUG_ENV)
+    debug_decl(matches_env_pattern, SUDOERS_DEBUG_ENV);
 
     /* Locate position of the '=' separator in var=value. */
     sep_pos = strcspn(var, "=");

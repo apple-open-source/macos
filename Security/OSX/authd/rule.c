@@ -741,7 +741,7 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
                     mechanism_sql_fetch(mech, dbconn);
                 }
             }
-            if (!mechanism_exists(mech)) {
+            if (!mechanism_exists(mech) && !isInFVUnlock()) {
                 os_log_error(AUTHD_LOG, "Warning mechanism not found on disk %{public}s during import of %{public}s", mechanism_get_string(mech), rule_get_name(rule));
             }
             require_action(mechanism_get_id(mech) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, invalid mechanism %{public}s:%{public}s for %{public}s", mechanism_get_plugin(mech), mechanism_get_param(mech), rule_get_name(rule)));
@@ -1143,7 +1143,7 @@ rule_check_flags(rule_t rule, RuleFlags flags)
 bool
 rule_get_shared(rule_t rule)
 {
-    if (isInLWOS()) {
+    if (isInFVUnlock()) {
         return false;
     }
     return rule_check_flags(rule, RuleFlagShared);

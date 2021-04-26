@@ -661,7 +661,9 @@ static void paintStepper(ControlStates& controlStates, GraphicsContext& context,
     }
 
     LocalCurrentGraphicsContext localContext(context);
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[NSAppearance currentAppearance] _drawInRect:rect context:localContext.cgContext() options:@{
+    ALLOW_DEPRECATED_DECLARATIONS_END
         (__bridge NSString *)kCUIWidgetKey: (__bridge NSString *)kCUIWidgetButtonLittleArrows,
         (__bridge NSString *)kCUISizeKey: coreUISize,
         (__bridge NSString *)kCUIStateKey: coreUIState,
@@ -684,7 +686,9 @@ NSView *ThemeMac::ensuredView(ScrollView* scrollView, const ControlStates& contr
     // Use a fake view.
     static WebCoreThemeView *themeView = [[WebCoreThemeView alloc] init];
     [themeView setFrameSize:NSSizeFromCGSize(scrollView->totalContentsSize())];
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [themeView setAppearance:[NSAppearance currentAppearance]];
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     themeWindowHasKeyAppearance = !(controlStates.states() & ControlStates::WindowInactiveState);
 
@@ -971,11 +975,18 @@ bool ThemeMac::userPrefersReducedMotion() const
     return [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion];
 }
 
+bool ThemeMac::userPrefersContrast() const
+{
+    return [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldIncreaseContrast];
+}
+
 #if HAVE(LARGE_CONTROL_SIZE)
 
 bool ThemeMac::supportsLargeFormControls()
 {
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     static bool hasSupport = [[NSAppearance currentAppearance] _usesMetricsAppearance];
+    ALLOW_DEPRECATED_DECLARATIONS_END
     return hasSupport;
 }
 

@@ -54,6 +54,7 @@
 #include "ParseInt.h"
 #include "StructureInlines.h"
 #include <algorithm>
+#include <wtf/Hasher.h>
 #include <wtf/MathExtras.h>
 
 namespace JSC {
@@ -63,12 +64,16 @@ const ClassInfo JSBigInt::s_info = { "BigInt", nullptr, nullptr, nullptr, CREATE
 JSBigInt::JSBigInt(VM& vm, Structure* structure, Digit* data, unsigned length)
     : Base(vm, structure)
     , m_length(length)
-    , m_data(data, length)
+    , m_data(vm, this, data, length)
 { }
 
-void JSBigInt::destroy(JSCell* thisCell)
+void JSBigInt::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
-    static_cast<JSBigInt*>(thisCell)->~JSBigInt();
+    auto* thisObject = jsCast<JSBigInt*>(cell);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
+    Base::visitChildren(thisObject, visitor);
+    if (auto* data = thisObject->m_data.getUnsafe())
+        visitor.markAuxiliary(data);
 }
 
 void JSBigInt::initialize(InitializationType initType)
@@ -108,7 +113,7 @@ inline JSBigInt* JSBigInt::createWithLength(JSGlobalObject* nullOrGlobalObjectFo
     }
 
     ASSERT(length <= maxLength);
-    void* data = Gigacage::tryMalloc(Gigacage::Primitive, length * sizeof(Digit));
+    void* data = vm.primitiveGigacageAuxiliarySpace.allocateNonVirtual(vm, length * sizeof(Digit), nullptr, AllocationFailureMode::ReturnNull);
     if (UNLIKELY(!data)) {
         if (nullOrGlobalObjectForOOM) {
             auto scope = DECLARE_THROW_SCOPE(vm);
@@ -425,31 +430,6 @@ ALWAYS_INLINE JSBigInt::ImplResult::ImplResult(Int32BigIntImpl& int32Impl)
 ALWAYS_INLINE JSBigInt::ImplResult::ImplResult(JSValue value)
     : payload(value)
 { }
-
-static ALWAYS_INLINE JSValue tryConvertToBigInt32(JSBigInt* bigInt)
-{
-#if USE(BIGINT32)
-    if (UNLIKELY(!bigInt))
-        return JSValue();
-
-    if (bigInt->length() <= 1) {
-        if (!bigInt->length())
-            return jsBigInt32(0);
-        JSBigInt::Digit digit = bigInt->digit(0);
-        if (bigInt->sign()) {
-            static constexpr uint64_t maxValue = -static_cast<int64_t>(std::numeric_limits<int32_t>::min());
-            if (digit <= maxValue)
-                return jsBigInt32(static_cast<int32_t>(-static_cast<int64_t>(digit)));
-        } else {
-            static constexpr uint64_t maxValue = static_cast<uint64_t>(std::numeric_limits<int32_t>::max());
-            if (digit <= maxValue)
-                return jsBigInt32(static_cast<int32_t>(digit));
-        }
-    }
-#endif
-
-    return bigInt;
-}
 
 static ALWAYS_INLINE JSValue tryConvertToBigInt32(JSBigInt::ImplResult implResult)
 {
@@ -2068,6 +2048,7 @@ JSBigInt::ImplResult JSBigInt::rightShiftByAbsolute(JSGlobalObject* globalObject
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     if (!bitsShift) {
+        result->setDigit(resultLength - 1, 0);
         for (unsigned i = digitalShift; i < length; i++)
             result->setDigit(i - digitalShift, x.digit(i));
     } else {
@@ -2374,13 +2355,6 @@ double JSBigInt::toNumber(JSGlobalObject* globalObject) const
     auto scope = DECLARE_THROW_SCOPE(vm);
     throwTypeError(globalObject, scope, "Conversion from 'BigInt' to 'number' is not allowed."_s);
     return 0.0;
-}
-
-bool JSBigInt::getPrimitiveNumber(JSGlobalObject* globalObject, double& number, JSValue& result) const
-{
-    result = this;
-    number = toNumber(globalObject);
-    return true;
 }
 
 template <typename CharType>
@@ -3068,5 +3042,47 @@ JSValue JSBigInt::asUintN(JSGlobalObject* globalObject, uint64_t n, int32_t bigI
     return tryConvertToBigInt32(asUintNImpl(globalObject, n, Int32BigIntImpl { bigInt }));
 }
 #endif
+
+uint64_t JSBigInt::toBigUInt64Heap(JSBigInt* bigInt)
+{
+    auto length = bigInt->length();
+    if (!length)
+        return 0;
+    uint64_t value = 0;
+    if constexpr (sizeof(Digit) == 4) {
+        value = static_cast<uint64_t>(bigInt->digit(0));
+        if (length > 1)
+            value |= static_cast<uint64_t>(bigInt->digit(1)) << 32;
+    } else {
+        ASSERT(sizeof(Digit) == 8);
+        value = bigInt->digit(0);
+    }
+    if (!bigInt->sign())
+        return value;
+    return ~(value - 1); // To avoid undefined behavior, we compute two's compliment by hand in C while this is simply `-value`.
+}
+
+static ALWAYS_INLINE unsigned computeHash(JSBigInt::Digit* digits, unsigned length, bool sign)
+{
+    Hasher hasher;
+    WTF::add(hasher, sign);
+    for (unsigned index = 0; index < length; ++index)
+        WTF::add(hasher, digits[index]);
+    return hasher.hash();
+}
+
+Optional<unsigned> JSBigInt::concurrentHash()
+{
+    // FIXME: Implement JSBigInt::concurrentHash by inserting right store barriers.
+    // https://bugs.webkit.org/show_bug.cgi?id=216801
+    return WTF::nullopt;
+}
+
+unsigned JSBigInt::hashSlow()
+{
+    ASSERT(!m_hash);
+    m_hash = computeHash(dataStorage(), length(), m_sign);
+    return m_hash;
+}
 
 } // namespace JSC

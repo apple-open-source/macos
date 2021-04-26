@@ -14,9 +14,14 @@ _SMBFrameworkVersion
 _SMBGetNodeStatus
 _SMBGetServerProperties
 _SMBGetShareAttributes
+_SMBGetMultichannelProperties
+_SMBGetNicInfoProperties
+_SMBGetMultichannelSessionInfoProperties
 _SMBGetDfsReferral
+_SMBListSnapshots
 _SMBMountShare
 _SMBMountShareEx
+_SMBMountShareExDict
 _SMBNetFsCancel
 _SMBNetFsCloseSession
 _SMBNetFsCreateSessionRef
@@ -44,3 +49,4 @@ _SMBTransactMailSlot
 _SMBTransactNamedPipe
 _SMBWriteFile
 _SMBRemountServer
+_SMBConvertGMT

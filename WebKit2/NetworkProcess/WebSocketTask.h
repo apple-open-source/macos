@@ -31,6 +31,7 @@
 #include "WebSocketTaskSoup.h"
 #else
 
+
 namespace WebKit {
 
 class WebSocketTask {

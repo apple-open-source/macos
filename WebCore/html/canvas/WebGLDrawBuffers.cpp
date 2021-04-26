@@ -74,8 +74,8 @@ void WebGLDrawBuffers::drawBuffersWEBGL(const Vector<GCGLenum>& buffers)
             return;
         }
         // Because the backbuffer is simulated on all current WebKit ports, we need to change BACK to COLOR_ATTACHMENT0.
-        GCGLenum value = (bufs[0] == GraphicsContextGL::BACK) ? GraphicsContextGL::COLOR_ATTACHMENT0 : GraphicsContextGL::NONE;
-        m_context->graphicsContextGL()->getExtensions().drawBuffersEXT(1, &value);
+        GCGLenum value[1] { bufs[0] == GraphicsContextGL::BACK ? GraphicsContextGL::COLOR_ATTACHMENT0 : GraphicsContextGL::NONE };
+        m_context->graphicsContextGL()->getExtensions().drawBuffersEXT(value);
         m_context->setBackDrawBuffer(bufs[0]);
     } else {
         if (n > m_context->getMaxDrawBuffers()) {
@@ -83,7 +83,7 @@ void WebGLDrawBuffers::drawBuffersWEBGL(const Vector<GCGLenum>& buffers)
             return;
         }
         for (GCGLsizei i = 0; i < n; ++i) {
-            if (bufs[i] != GraphicsContextGL::NONE && bufs[i] != static_cast<GCGLenum>(ExtensionsGL::COLOR_ATTACHMENT0_EXT + i)) {
+            if (bufs[i] != GraphicsContextGL::NONE && bufs[i] != ExtensionsGL::COLOR_ATTACHMENT0_EXT + i) {
                 m_context->synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL", "COLOR_ATTACHMENTi_EXT or NONE");
                 return;
             }
@@ -95,13 +95,11 @@ void WebGLDrawBuffers::drawBuffersWEBGL(const Vector<GCGLenum>& buffers)
 // static
 bool WebGLDrawBuffers::satisfiesWebGLRequirements(WebGLRenderingContextBase& webglContext)
 {
-    GraphicsContextGLOpenGL* context = webglContext.graphicsContextGL();
+    GraphicsContextGL* context = webglContext.graphicsContextGL();
 
     // This is called after we make sure GL_EXT_draw_buffers is supported.
-    GCGLint maxDrawBuffers = 0;
-    GCGLint maxColorAttachments = 0;
-    context->getIntegerv(ExtensionsGL::MAX_DRAW_BUFFERS_EXT, &maxDrawBuffers);
-    context->getIntegerv(ExtensionsGL::MAX_COLOR_ATTACHMENTS_EXT, &maxColorAttachments);
+    GCGLint maxDrawBuffers = context->getInteger(ExtensionsGL::MAX_DRAW_BUFFERS_EXT);
+    GCGLint maxColorAttachments = context->getInteger(ExtensionsGL::MAX_COLOR_ATTACHMENTS_EXT);
     if (maxDrawBuffers < 4 || maxColorAttachments < 4)
         return false;
 

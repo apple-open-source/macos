@@ -40,4 +40,5 @@
 #include "trust/trustd/SecCertificateSource.h"
 #include "trust/trustd/SecPolicyServer.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
+#include "trust/trustd/trustdFileLocations.h"
 

@@ -492,25 +492,25 @@ struct smb_vnode_attr {
 #endif
 
 /* SMB 2/3 Commands, 2.2.1 */
-#define SMB2_NEGOTIATE		0x0000
-#define SMB2_SESSION_SETUP	0x0001
-#define SMB2_LOGOFF		0x0002
-#define SMB2_TREE_CONNECT	0x0003
-#define SMB2_TREE_DISCONNECT	0x0004
-#define SMB2_CREATE		0x0005
-#define SMB2_CLOSE		0x0006
-#define SMB2_FLUSH		0x0007
-#define SMB2_READ		0x0008
-#define SMB2_WRITE		0x0009
-#define SMB2_LOCK		0x000A
-#define SMB2_IOCTL		0x000B
-#define SMB2_CANCEL		0x000C
-#define SMB2_ECHO		0x000D
-#define SMB2_QUERY_DIRECTORY	0x000E
-#define SMB2_CHANGE_NOTIFY	0x000F
-#define SMB2_QUERY_INFO		0x0010
-#define SMB2_SET_INFO		0x0011
-#define SMB2_OPLOCK_BREAK	0x0012
+#define SMB2_NEGOTIATE       0x0000
+#define SMB2_SESSION_SETUP   0x0001
+#define SMB2_LOGOFF          0x0002
+#define SMB2_TREE_CONNECT    0x0003
+#define SMB2_TREE_DISCONNECT 0x0004
+#define SMB2_CREATE          0x0005
+#define SMB2_CLOSE           0x0006
+#define SMB2_FLUSH           0x0007
+#define SMB2_READ            0x0008
+#define SMB2_WRITE           0x0009
+#define SMB2_LOCK            0x000A
+#define SMB2_IOCTL           0x000B
+#define SMB2_CANCEL          0x000C
+#define SMB2_ECHO            0x000D
+#define SMB2_QUERY_DIRECTORY 0x000E
+#define SMB2_CHANGE_NOTIFY   0x000F
+#define SMB2_QUERY_INFO      0x0010
+#define SMB2_SET_INFO        0x0011
+#define SMB2_OPLOCK_BREAK    0x0012
 
 /* Internal Use */
 #define SMB2_NO_BLOCK		0x0080		/* do not block waiting for credits */
@@ -524,6 +524,7 @@ struct smb_vnode_attr {
 #define SMB2_DIALECT_0210   0x0210
 #define SMB2_DIALECT_0300   0x0300
 #define SMB2_DIALECT_0302   0x0302
+#define SMB2_DIALECT_0311   0x0311
 
 #define	SMB2_TID_UNKNOWN	0xffffffff
 
@@ -536,6 +537,7 @@ struct smb_vnode_attr {
 #define SMB2_FLAGS_RELATED_OPERATIONS   0x00000004
 #define SMB2_FLAGS_SIGNED               0x00000008
 #define SMB2_FLAGS_DFS_OPERATIONS       0x10000000
+#define SMB2_FLAGS_REPLAY_OPERATIONS    0x20000000
 
 /* Bitmask to define the valid SMB flags set. */
 #define SMB2_VALID_FLAGS_MASK 0x1000000F
@@ -552,6 +554,9 @@ struct smb_vnode_attr {
 #define SMB2_GLOBAL_CAP_PERSISTENT_HANDLES	0x00000010
 #define SMB2_GLOBAL_CAP_DIRECTORY_LEASING	0x00000020
 #define SMB2_GLOBAL_CAP_ENCRYPTION          0x00000040
+
+/* SMB 3 Session Setup Request Flags, 2.2.5 */
+#define SMB2_SESSION_FLAG_BINDING      0x01
 
 /* SMB 2/3 SessionFlags, 2.2.6 */
 #define SMB2_SESSION_FLAG_IS_GUEST      0x0001
@@ -639,6 +644,33 @@ struct smb_vnode_attr {
 #define SMB2_STD_ACCESS_MAXIMAL		0x02000000
 #define SMB2_STD_RESERVED_1		0x04000000
 #define SMB2_STD_RESERVED_2		0x08000000
+
+/* SMB 311 NEGOTIATE_CONTEXT names, 2.2.3.1 */
+#define SMB2_PREAUTH_INTEGRITY_CAPABILITIES     0x0001
+#define SMB2_ENCRYPTION_CAPABILITIES            0x0002
+#define SMB2_COMPRESSION_CAPABILITIES           0x0003
+#define SMB2_NETNAME_NEGOTIATE_CONTEXT_ID       0x0005
+#define SMB2_TRANSPORT_CAPABILITIES             0x0006
+#define SMB2_RDMA_TRANSFORM_CAPABILITIES        0x0007
+
+/* SMB 311 SMB2_PREAUTH_INTEGRITY_CAPABILITIES names, 2.2.3.1.1 */
+#define SMB2_PREAUTH_INTEGRITY_SHA512           0x0001
+
+/* SMB 311 SMB2_ENCRYPTION_CAPABILITIES names, 2.2.3.1.2 */
+#define SMB2_ENCRYPTION_AES_128_CCM               0x0001
+#define SMB2_ENCRYPTION_AES_128_GCM               0x0002
+#define SMB2_ENCRYPTION_AES_256_CCM               0x0003
+#define SMB2_ENCRYPTION_AES_256_GCM               0x0004
+
+/* SMB 311 SMB2_COMPRESSION_CAPABILITIES names, 2.2.3.1.3 */
+#define SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE   0x00000000
+#define SMB2_COMPRESSION_CAPABILITIES_FLAG_CHAINED 0x00000001
+
+#define SMB2_COMPRESSION_NONE                   0x0000
+#define SMB2_COMPRESSION_LZNT1                  0x0001
+#define SMB2_COMPRESSION_LZ77                   0x0002
+#define SMB2_COMPRESSION_LZ77_HUFFMAN           0x0003
+#define SMB2_COMPRESSION_PATTERN_V1             0x0004
 
 /* SMB 2/3 CREATE_CONTEXT names, 2.2.13.2 */
 #define SMB2_CREATE_EA_BUFFER                   0x45787441 /* "ExtA" */
@@ -835,10 +867,12 @@ struct FILE_STREAM_INFORMATION
 #define SMB3_AES_AUTHDATA_OFF       20
 #define SMB3_AES_AUTHDATA_LEN       32
 #define SMB3_CCM_NONCE_LEN          11
+#define SMB3_GCM_NONCE_LEN          12
 
 /* Transform Header (TF) */
 #define SMB3_AES_TF_HDR_LEN         52
 
+#define SMB311_ENCRYPTED_FLAG       0x0001
 #define SMB2_ENCRYPTION_AES128_CCM  0x0001
 
 #define SMB3_AES_TF_PROTO_OFF   0

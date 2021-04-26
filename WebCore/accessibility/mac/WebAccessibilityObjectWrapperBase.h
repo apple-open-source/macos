@@ -69,12 +69,10 @@ class VisiblePosition;
 - (WebCore::AXCoreObject*)axBackingObject;
 
 // These are pre-fixed with base so that AppKit does not end up calling into these directly (bypassing safety checks).
-- (NSString *)baseAccessibilityTitle;
 - (NSString *)baseAccessibilityDescription;
 - (NSString *)baseAccessibilityHelpText;
 - (NSArray<NSString *> *)baseAccessibilitySpeechHint;
 
-- (void)baseAccessibilitySetFocus:(BOOL)focus;
 - (NSString *)ariaLandmarkRoleDescription;
 
 - (id)attachmentView;

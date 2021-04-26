@@ -138,10 +138,10 @@ void MediaPlayerPrivateGStreamerMSE::load(const String& urlString)
     MediaPlayerPrivateGStreamer::load(urlString);
 }
 
-void MediaPlayerPrivateGStreamerMSE::load(const String& url, MediaSourcePrivateClient* mediaSource)
+void MediaPlayerPrivateGStreamerMSE::load(const URL& url, const ContentType&, MediaSourcePrivateClient* mediaSource)
 {
     m_mediaSource = mediaSource;
-    load(makeString("mediasource", url));
+    load(makeString("mediasource", url.string()));
 }
 
 void MediaPlayerPrivateGStreamerMSE::pause()
@@ -498,8 +498,14 @@ void MediaPlayerPrivateGStreamerMSE::updateStates()
     MediaPlayer::NetworkState oldNetworkState = m_networkState;
     MediaPlayer::ReadyState oldReadyState = m_readyState;
     GstState state, pending;
+    bool stateReallyChanged = false;
 
     GstStateChangeReturn getStateResult = gst_element_get_state(m_pipeline.get(), &state, &pending, 250 * GST_NSECOND);
+    if (state != m_currentState) {
+        m_oldState = m_currentState;
+        m_currentState = state;
+        stateReallyChanged = true;
+    }
 
     bool shouldUpdatePlaybackState = false;
     switch (getStateResult) {
@@ -574,6 +580,15 @@ void MediaPlayerPrivateGStreamerMSE::updateStates()
         if (m_requestedState == GST_STATE_PAUSED && state == GST_STATE_PAUSED) {
             shouldUpdatePlaybackState = true;
             GST_DEBUG("Requested state change to %s was completed", gst_element_state_get_name(state));
+        }
+
+        // Emit play state change notification only when going to PLAYING so that
+        // the media element gets a chance to enable its page sleep disabler.
+        // Emitting this notification in more cases triggers unwanted code paths
+        // and test timeouts.
+        if (stateReallyChanged && (m_oldState != m_currentState) && (m_oldState == GST_STATE_PAUSED && m_currentState == GST_STATE_PLAYING)) {
+            GST_INFO_OBJECT(pipeline(), "Playback state changed from %s to %s. Notifying the media player client", gst_element_state_get_name(m_oldState), gst_element_state_get_name(m_currentState));
+            shouldUpdatePlaybackState = true;
         }
 
         break;
@@ -690,16 +705,23 @@ void MediaPlayerPrivateGStreamerMSE::durationChanged()
 
 void MediaPlayerPrivateGStreamerMSE::trackDetected(AppendPipeline& appendPipeline, RefPtr<WebCore::TrackPrivateBase> newTrack, bool firstTrackDetected)
 {
+    ASSERT(isMainThread());
     ASSERT(appendPipeline.track() == newTrack);
 
     GstCaps* caps = appendPipeline.appsinkCaps();
     ASSERT(caps);
-    GST_DEBUG("track ID: %s, caps: %" GST_PTR_FORMAT, newTrack->id().string().latin1().data(), caps);
+    GST_DEBUG("Demuxer parsed metadata with track ID: %s, caps: %" GST_PTR_FORMAT, newTrack->id().string().latin1().data(), caps);
 
-    if (doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
+    // We set the size of the video only for the first initialization segment.
+    // This is intentional: Normally the video size depends on the frames arriving
+    // at the sink in the playback pipeline, not in the append pipeline; but we still
+    // want to report an initial size for HAVE_METADATA (first initialization segment).
+    if (m_videoSize.isEmpty() && doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         Optional<FloatSize> size = getVideoResolutionFromCaps(caps);
-        if (size.hasValue())
+        if (size.hasValue()) {
             m_videoSize = size.value();
+            GST_DEBUG("Setting initial video size: %gx%g", m_videoSize.width(), m_videoSize.height());
+        }
     }
 
     if (firstTrackDetected)
@@ -710,8 +732,7 @@ void MediaPlayerPrivateGStreamerMSE::trackDetected(AppendPipeline& appendPipelin
 
 void MediaPlayerPrivateGStreamerMSE::getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types)
 {
-    auto& gstRegistryScanner = GStreamerRegistryScannerMSE::singleton();
-    types = gstRegistryScanner.mimeTypeSet();
+    GStreamerRegistryScannerMSE::getSupportedDecodingTypes(types);
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivateGStreamerMSE::supportsType(const MediaEngineSupportParameters& parameters)
@@ -731,7 +752,7 @@ MediaPlayer::SupportsType MediaPlayerPrivateGStreamerMSE::supportsType(const Med
 
     GST_DEBUG("Checking mime-type \"%s\"", parameters.type.raw().utf8().data());
     auto& gstRegistryScanner = GStreamerRegistryScannerMSE::singleton();
-    result = gstRegistryScanner.isContentTypeSupported(parameters.type, parameters.contentTypesRequiringHardwareSupport);
+    result = gstRegistryScanner.isContentTypeSupported(GStreamerRegistryScanner::Configuration::Decoding, parameters.type, parameters.contentTypesRequiringHardwareSupport);
 
     auto finalResult = extendedSupportsType(parameters, result);
     GST_DEBUG("Supported: %s", convertEnumerationToString(finalResult).utf8().data());

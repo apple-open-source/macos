@@ -127,6 +127,7 @@
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextUndoInsertionMarkupMac.h>
+#import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreNSFontManagerExtras.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebNSAttributedStringExtras.h>
@@ -604,6 +605,11 @@ static Optional<NSInteger> toTag(WebCore::ContextMenuAction action)
         return WebMenuItemTagDictationAlternative;
     case ContextMenuItemTagToggleVideoFullscreen:
         return WebMenuItemTagToggleVideoFullscreen;
+#if ENABLE(APP_HIGHLIGHTS)
+    case ContextMenuItemTagAddHighlightToCurrentGroup:
+    case ContextMenuItemTagAddHighlightToNewGroup:
+        return WTF::nullopt;
+#endif
     case ContextMenuItemTagShareMenu:
         return WebMenuItemTagShareMenu;
     case ContextMenuItemTagToggleVideoEnhancedFullscreen:
@@ -1033,6 +1039,7 @@ static NSControlStateValue kit(TriState state)
 
     JSC::initialize();
     WTF::initializeMainThread();
+    WebCore::populateJITOperations();
 
     if (!oldSetCursorForMouseLocationIMP) {
         Method setCursorMethod = class_getInstanceMethod([NSWindow class], @selector(_setCursorForMouseLocation:));
@@ -1185,8 +1192,10 @@ static NSControlStateValue kit(TriState state)
     if ([types containsObject:WebCore::legacyPDFPasteboardType()] && (fragment = [self _documentFragmentFromPasteboard:pasteboard forType:WebCore::legacyPDFPasteboardType() inContext:context subresources:0]))
         return fragment;
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if ([types containsObject:(NSString *)kUTTypePNG] && (fragment = [self _documentFragmentFromPasteboard:pasteboard forType:(NSString *)kUTTypePNG inContext:context subresources:0]))
         return fragment;
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     if ([types containsObject:WebCore::legacyURLPasteboardType()] && (fragment = [self _documentFragmentFromPasteboard:pasteboard forType:WebCore::legacyURLPasteboardType() inContext:context subresources:0]))
         return fragment;
@@ -1960,8 +1969,10 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
 {
     static NSArray *types = nil;
     if (!types) {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         types = [[NSArray alloc] initWithObjects:WebArchivePboardType, WebCore::legacyHTMLPasteboardType(), WebCore::legacyFilenamesPasteboardType(), WebCore::legacyTIFFPasteboardType(), WebCore::legacyPDFPasteboardType(),
             WebCore::legacyURLPasteboardType(), WebCore::legacyRTFDPasteboardType(), WebCore::legacyRTFPasteboardType(), WebCore::legacyStringPasteboardType(), WebCore::legacyColorPasteboardType(), kUTTypePNG, nil];
+ALLOW_DEPRECATED_DECLARATIONS_END
         CFRetain(types);
     }
     return types;
@@ -2351,8 +2362,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return [self _web_documentFragmentFromPasteboard:pasteboard pasteboardType:WebCore::legacyTIFFPasteboardType() imageMIMEType:@"image/tiff"];
     if ([pboardType isEqualToString:WebCore::legacyPDFPasteboardType()])
         return [self _web_documentFragmentFromPasteboard:pasteboard pasteboardType:WebCore::legacyPDFPasteboardType() imageMIMEType:@"application/pdf"];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if ([pboardType isEqualToString:(NSString *)kUTTypePNG])
         return [self _web_documentFragmentFromPasteboard:pasteboard pasteboardType:(NSString *)kUTTypePNG imageMIMEType:@"image/png"];
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     if ([pboardType isEqualToString:WebCore::legacyURLPasteboardType()]) {
         NSURL *URL = [NSURL URLFromPasteboard:pasteboard];
@@ -2568,6 +2581,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     JSC::initialize();
     WTF::initializeMainThread();
+    WebCore::populateJITOperations();
 }
 
 #endif
@@ -4612,7 +4626,7 @@ static RefPtr<WebCore::KeyboardEvent> currentKeyboardEvent(WebCore::Frame* coreF
 
     if (auto* document = frame->document())
         document->setFocusedElement(0);
-    page->focusController().setInitialFocus(direction == NSSelectingNext ? WebCore::FocusDirectionForward : WebCore::FocusDirectionBackward,
+    page->focusController().setInitialFocus(direction == NSSelectingNext ? WebCore::FocusDirection::Forward : WebCore::FocusDirection::Backward,
                                              currentKeyboardEvent(frame).get());
     return YES;
 }
@@ -4651,7 +4665,7 @@ static RefPtr<WebCore::KeyboardEvent> currentKeyboardEvent(WebCore::Frame* coreF
         id nextResponder = [[self window] _newFirstResponderAfterResigning];
         bool nextResponderIsInWebView = [nextResponder isKindOfClass:[NSView class]]
             && [nextResponder isDescendantOf:[[[self _webView] mainFrame] frameView]];
-        if (!nextResponderIsInWebView)
+        if (!nextResponderIsInWebView && ![[self _webView] _isPerformingProgrammaticFocus])
             page->focusController().setFocused(false);
     }
     return resign;
@@ -6707,7 +6721,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         WebRangeIsRelativeTo rangeIsRelativeTo = needToRemoveSoftSpace ? WebRangeIsRelativeTo::Paragraph : WebRangeIsRelativeTo::EditableRoot;
         if (auto domRange = [[self _frame] _convertToDOMRange:replacementRange rangeIsRelativeTo:rangeIsRelativeTo]) {
             WebCore::IgnoreSelectionChangeForScope selectionChange { *coreFrame };
-            coreFrame->selection().setSelection(WebCore::VisibleSelection(*domRange, WebCore::SEL_DEFAULT_AFFINITY));
+            coreFrame->selection().setSelection(WebCore::VisibleSelection(*domRange));
             replacesText = replacementRange.length;
         }
     }

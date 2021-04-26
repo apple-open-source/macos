@@ -36,6 +36,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/WallTime.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA) || USE(CFURLCONNECTION)
@@ -98,7 +99,7 @@ public:
 };
 #endif
 
-class NetworkStorageSession {
+class NetworkStorageSession : public CanMakeWeakPtr<NetworkStorageSession> {
     WTF_MAKE_NONCOPYABLE(NetworkStorageSession); WTF_MAKE_FAST_ALLOCATED;
 public:
     using TopFrameDomain = WebCore::RegistrableDomain;
@@ -127,7 +128,6 @@ public:
     // May be null, in which case a Foundation default should be used.
     CFURLStorageSessionRef platformSession() { return m_platformSession.get(); }
     WEBCORE_EXPORT RetainPtr<CFHTTPCookieStorageRef> cookieStorage() const;
-    WEBCORE_EXPORT static void setStorageAccessAPIEnabled(bool);
 #elif USE(SOUP)
     WEBCORE_EXPORT explicit NetworkStorageSession(PAL::SessionID);
     ~NetworkStorageSession();
@@ -199,6 +199,8 @@ public:
     WEBCORE_EXPORT void setPrevalentDomainsToBlockAndDeleteCookiesFor(const Vector<RegistrableDomain>&);
     WEBCORE_EXPORT void setPrevalentDomainsToBlockButKeepCookiesFor(const Vector<RegistrableDomain>&);
     WEBCORE_EXPORT void setDomainsWithUserInteractionAsFirstParty(const Vector<RegistrableDomain>&);
+    WEBCORE_EXPORT void setDomainsWithCrossPageStorageAccess(const HashMap<TopFrameDomain, SubResourceDomain>&);
+    WEBCORE_EXPORT void grantCrossPageStorageAccess(const TopFrameDomain&, const SubResourceDomain&);
     WEBCORE_EXPORT void setAgeCapForClientSideCookies(Optional<Seconds>);
     WEBCORE_EXPORT bool hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, Optional<FrameIdentifier>, PageIdentifier) const;
     WEBCORE_EXPORT Vector<String> getAllStorageAccessEntries() const;
@@ -212,6 +214,16 @@ public:
     WEBCORE_EXPORT void didCommitCrossSiteLoadWithDataTransferFromPrevalentResource(const RegistrableDomain& toDomain, PageIdentifier);
     WEBCORE_EXPORT void resetCrossSiteLoadsWithLinkDecorationForTesting();
     WEBCORE_EXPORT void setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode);
+
+    WEBCORE_EXPORT const static HashMap<RegistrableDomain, HashSet<RegistrableDomain>>& storageAccessQuirks();
+    WEBCORE_EXPORT static bool canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(const SubResourceDomain&, const TopFrameDomain&);
+    WEBCORE_EXPORT static Optional<HashSet<RegistrableDomain>> subResourceDomainsInNeedOfStorageAccessForFirstParty(const RegistrableDomain&);
+    WEBCORE_EXPORT static bool loginDomainMatchesRequestingDomain(const TopFrameDomain&, const SubResourceDomain&);
+    WEBCORE_EXPORT static Optional<RegistrableDomain> findAdditionalLoginDomain(const TopFrameDomain&, const SubResourceDomain&);
+
+#endif
+    
+#if ENABLE(APP_BOUND_DOMAINS)
     WEBCORE_EXPORT void setAppBoundDomains(HashSet<RegistrableDomain>&&);
     WEBCORE_EXPORT void resetAppBoundDomains();
 #endif
@@ -220,9 +232,9 @@ private:
 #if PLATFORM(COCOA)
     enum IncludeHTTPOnlyOrNot { DoNotIncludeHTTPOnly, IncludeHTTPOnly };
     std::pair<String, bool> cookiesForSession(const URL& firstParty, const SameSiteInfo&, const URL&, Optional<FrameIdentifier>, Optional<PageIdentifier>, IncludeHTTPOnlyOrNot, IncludeSecureCookies, ShouldAskITP, ShouldRelaxThirdPartyCookieBlocking) const;
-    NSArray *httpCookies(CFHTTPCookieStorageRef) const;
-    NSArray *httpCookiesForURL(CFHTTPCookieStorageRef, NSURL *firstParty, const Optional<SameSiteInfo>&, NSURL *) const;
-    NSArray *cookiesForURL(const URL& firstParty, const SameSiteInfo&, const URL&, Optional<FrameIdentifier>, Optional<PageIdentifier>, ShouldAskITP, ShouldRelaxThirdPartyCookieBlocking) const;
+    RetainPtr<NSArray> httpCookies(CFHTTPCookieStorageRef) const;
+    RetainPtr<NSArray> httpCookiesForURL(CFHTTPCookieStorageRef, NSURL *firstParty, const Optional<SameSiteInfo>&, NSURL *) const;
+    RetainPtr<NSArray> cookiesForURL(const URL& firstParty, const SameSiteInfo&, const URL&, Optional<FrameIdentifier>, Optional<PageIdentifier>, ShouldAskITP, ShouldRelaxThirdPartyCookieBlocking) const;
     void setHTTPCookiesForURL(CFHTTPCookieStorageRef, NSArray *cookies, NSURL *, NSURL *mainDocumentURL, const SameSiteInfo&) const;
     void deleteHTTPCookie(CFHTTPCookieStorageRef, NSHTTPCookie *) const;
 #endif
@@ -268,6 +280,7 @@ private:
     HashSet<RegistrableDomain> m_registrableDomainsWithUserInteractionAsFirstParty;
     HashMap<PageIdentifier, HashMap<FrameIdentifier, RegistrableDomain>> m_framesGrantedStorageAccess;
     HashMap<PageIdentifier, HashMap<RegistrableDomain, RegistrableDomain>> m_pagesGrantedStorageAccess;
+    HashMap<TopFrameDomain, HashSet<SubResourceDomain>> m_pairsGrantedCrossPageStorageAccess;
     Optional<Seconds> m_cacheMaxAgeCapForPrevalentResources { };
     Optional<Seconds> m_ageCapForClientSideCookies { };
     Optional<Seconds> m_ageCapForClientSideCookiesShort { };

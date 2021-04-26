@@ -248,8 +248,8 @@ setIdentityPreferenceForImportedIdentity(SecKeychainRef importKeychain, NSString
                 OSStatus status = noErr;
                 importedIdRef = (SecIdentityRef)item;
 
-                status = SecIdentitySetPreference(importedIdRef, (CFStringRef)name, (CSSM_KEYUSE)0);
-                ok_status(status, "%s: SecIdentitySetPreference", testName);
+                status = SecIdentitySetPreferred(importedIdRef, (CFStringRef)name, NULL);
+                ok_status(status, "%s: SecIdentitySetPreferred", testName);
                 break;
             }
         }
@@ -264,17 +264,12 @@ setIdentityPreferenceForImportedIdentity(SecKeychainRef importKeychain, NSString
 
 static void removeIdentityPreference(bool test) {
     // Clean up the identity preference, since it's in the default keychain
-    CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
-    q = addLabel(q, CFSTR("kc-28-p12-import@apple.com"));
-
+    OSStatus status = SecIdentitySetPreferred(NULL, CFSTR("kc-28-p12-import@apple.com"), NULL);
     if(test) {
-        ok_status(SecItemDelete(q), "%s: SecItemDelete (identity preference)", testName);
+        ok_status(status, "%s: SecItemSetPreferred (clear identity preference)", testName);
     } else {
         // Our caller doesn't care if this works or not.
-        SecItemDelete(q);
     }
-    CFReleaseNull(q);
 }
 
 

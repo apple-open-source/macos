@@ -1,12 +1,24 @@
 #!/bin/sh
 #
-# Test #include facility
+# Test @include facility
 #
+
+: ${TESTSUDOERS=testsudoers}
 
 MYUID=`\ls -ln $TESTDIR/test2.inc | awk '{print $3}'`
 MYGID=`\ls -ln $TESTDIR/test2.inc | awk '{print $4}'`
 exec 2>&1
-./testsudoers -U $MYUID -G $MYGID root id <<EOF
+
+echo "Testing @include"
+echo ""
+$TESTSUDOERS -U $MYUID -G $MYGID root id <<EOF
+@include $TESTDIR/test2.inc
+EOF
+
+echo ""
+echo "Testing #include"
+echo ""
+$TESTSUDOERS -U $MYUID -G $MYGID root id <<EOF
 #include $TESTDIR/test2.inc
 EOF
 

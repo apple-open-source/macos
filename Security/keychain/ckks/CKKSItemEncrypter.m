@@ -76,17 +76,18 @@
     return nil;
 }
 
-+(CKKSItem*)encryptCKKSItem:(CKKSItem*)baseitem
-             dataDictionary:(NSDictionary *)dict
-           updatingCKKSItem:(CKKSItem*)olditem
-                  parentkey:(CKKSKey *)parentkey
-                      error:(NSError * __autoreleasing *) error
++ (CKKSItem*)encryptCKKSItem:(CKKSItem*)baseitem
+              dataDictionary:(NSDictionary *)dict
+            updatingCKKSItem:(CKKSItem*)olditem
+                   parentkey:(CKKSKey *)parentkey
+                    keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                       error:(NSError * __autoreleasing *) error
 {
     CKKSKey *itemkey = nil;
 
     // If we're updating a CKKSItem, extract its dictionary and overlay our new one on top
     if(olditem) {
-        NSMutableDictionary* oldDictionary = [[CKKSItemEncrypter decryptItemToDictionary: olditem error:error] mutableCopy];
+        NSMutableDictionary* oldDictionary = [[CKKSItemEncrypter decryptItemToDictionary:olditem keyCache:keyCache error:error] mutableCopy];
         if(!oldDictionary) {
             ckkserror("ckme", olditem.zoneID, "Couldn't decrypt old CKMirror entry: %@", (error ? *error : @"null error passed in"));
             return nil;
@@ -123,7 +124,7 @@
 
     NSDictionary<NSString*, NSData*>*  authenticatedData = [encryptedItem makeAuthenticatedDataDictionaryUpdatingCKKSItem: olditem encryptionVersion:encryptedItem.encver];
 
-    encryptedItem.encitem = [self encryptDictionary: dict key:itemkey.aessivkey authenticatedData:authenticatedData error:error];
+    encryptedItem.encitem = [CKKSItemEncrypter encryptDictionary: dict key:itemkey.aessivkey authenticatedData:authenticatedData error:error];
     if(!encryptedItem.encitem) {
         return nil;
     }
@@ -139,12 +140,21 @@
 }
 
 // Note that the only difference between v1 and v2 is the authenticated data selection, so we can happily pass encver along
-+ (NSDictionary*) decryptItemToDictionaryVersion1or2: (CKKSItem*) item error: (NSError * __autoreleasing *) error {
++ (NSDictionary*)decryptItemToDictionaryVersion1or2:(CKKSItem*)item
+                                           keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                                              error:(NSError * __autoreleasing *)error
+{
     NSDictionary* authenticatedData = nil;
 
     CKKSAESSIVKey* itemkey = nil;
+    CKKSKey* key = nil;
 
-    CKKSKey* key = [CKKSKey loadKeyWithUUID: item.parentKeyUUID zoneID:item.zoneID error:error];
+    if(keyCache) {
+        key = [keyCache loadKeyForUUID:item.parentKeyUUID zoneID:item.zoneID error:error];
+    } else {
+        key = [CKKSKey loadKeyWithUUID:item.parentKeyUUID zoneID:item.zoneID error:error];
+    }
+
     if(!key) {
         return nil;
     }
@@ -164,12 +174,15 @@
     return result;
 }
 
-+ (NSDictionary*) decryptItemToDictionary: (CKKSItem*) item error: (NSError * __autoreleasing *) error {
++ (NSDictionary*)decryptItemToDictionary:(CKKSItem*) item
+                                keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                                   error:(NSError * __autoreleasing *)error
+{
     switch (item.encver) {
         case CKKSItemEncryptionVersion1:
-            return [CKKSItemEncrypter decryptItemToDictionaryVersion1or2:item error:error];
+            return [CKKSItemEncrypter decryptItemToDictionaryVersion1or2:item keyCache:keyCache error:error];
         case CKKSItemEncryptionVersion2:
-            return [CKKSItemEncrypter decryptItemToDictionaryVersion1or2:item error:error];
+            return [CKKSItemEncrypter decryptItemToDictionaryVersion1or2:item keyCache:keyCache error:error];
         case CKKSItemEncryptionVersionNone: /* version 0 was no encrypted, no longer supported */
         default:
         {
@@ -186,7 +199,11 @@
     }
 }
 
-+ (NSData*)encryptDictionary: (NSDictionary*) dict key: (CKKSAESSIVKey*) key authenticatedData: (NSDictionary<NSString*, NSData*>*) ad  error: (NSError * __autoreleasing *) error {
++ (NSData*)encryptDictionary:(NSDictionary*)dict
+                         key:(CKKSAESSIVKey*)key
+           authenticatedData:(NSDictionary<NSString*, NSData*>*)ad
+                       error:(NSError * __autoreleasing *)error
+{
     NSData* data = [NSPropertyListSerialization dataWithPropertyList:dict
                                                               format:NSPropertyListBinaryFormat_v1_0
                                                              options:0

@@ -18,15 +18,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <time.h>
 
 #define SUDO_ERROR_WRAP 0
@@ -36,7 +30,7 @@
 #include "sudoers_debug.h"
 #include "parse.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 const struct gentime_test {
     char *gentime;

@@ -74,6 +74,7 @@ NS_ASSUME_NONNULL_BEGIN
                        sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
               accountStateTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 // Note: findView will not wait for any views to be created. You must handle

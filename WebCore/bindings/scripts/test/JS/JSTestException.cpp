@@ -46,9 +46,8 @@ using namespace JSC;
 
 // Attributes
 
-JSC::EncodedJSValue jsTestExceptionConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestExceptionConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
-JSC::EncodedJSValue jsTestExceptionName(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestExceptionConstructor);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestException_name);
 
 class JSTestExceptionPrototype final : public JSC::JSNonFinalObject {
 public:
@@ -82,29 +81,29 @@ private:
 };
 STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestExceptionPrototype, JSTestExceptionPrototype::Base);
 
-using JSTestExceptionConstructor = JSDOMConstructorNotConstructable<JSTestException>;
+using JSTestExceptionDOMConstructor = JSDOMConstructorNotConstructable<JSTestException>;
 
-template<> JSValue JSTestExceptionConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestExceptionDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(vm);
     return globalObject.functionPrototype();
 }
 
-template<> void JSTestExceptionConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestExceptionDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestException::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestException"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
-template<> const ClassInfo JSTestExceptionConstructor::s_info = { "TestException", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestExceptionConstructor) };
+template<> const ClassInfo JSTestExceptionDOMConstructor::s_info = { "TestException", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestExceptionDOMConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestExceptionPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestExceptionConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestExceptionConstructor) } },
-    { "name", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestExceptionName), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestExceptionConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "name", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestException_name), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
 };
 
 const ClassInfo JSTestExceptionPrototype::s_info = { "TestException", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestExceptionPrototype) };
@@ -144,7 +143,7 @@ JSObject* JSTestException::prototype(VM& vm, JSDOMGlobalObject& globalObject)
 
 JSValue JSTestException::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestExceptionConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestExceptionDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
 void JSTestException::destroy(JSC::JSCell* cell)
@@ -158,7 +157,7 @@ template<> inline JSTestException* IDLAttribute<JSTestException>::cast(JSGlobalO
     return jsDynamicCast<JSTestException*>(JSC::getVM(&lexicalGlobalObject), JSValue::decode(thisValue));
 }
 
-EncodedJSValue jsTestExceptionConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestExceptionConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -168,20 +167,7 @@ EncodedJSValue jsTestExceptionConstructor(JSGlobalObject* lexicalGlobalObject, E
     return JSValue::encode(JSTestException::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestExceptionConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
-{
-    VM& vm = JSC::getVM(lexicalGlobalObject);
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestExceptionPrototype*>(vm, JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype)) {
-        throwVMTypeError(lexicalGlobalObject, throwScope);
-        return false;
-    }
-    // Shadowing a built-in constructor
-    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
-}
-
-static inline JSValue jsTestExceptionNameGetter(JSGlobalObject& lexicalGlobalObject, JSTestException& thisObject)
+static inline JSValue jsTestException_nameGetter(JSGlobalObject& lexicalGlobalObject, JSTestException& thisObject)
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -189,9 +175,9 @@ static inline JSValue jsTestExceptionNameGetter(JSGlobalObject& lexicalGlobalObj
     RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.name())));
 }
 
-EncodedJSValue jsTestExceptionName(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestException_name, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
-    return IDLAttribute<JSTestException>::get<jsTestExceptionNameGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, "name");
+    return IDLAttribute<JSTestException>::get<jsTestException_nameGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, "name");
 }
 
 JSC::IsoSubspace* JSTestException::subspaceForImpl(JSC::VM& vm)

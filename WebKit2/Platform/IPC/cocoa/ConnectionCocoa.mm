@@ -28,6 +28,7 @@
 
 #import "DataReference.h"
 #import "ImportanceAssertion.h"
+#import "Logging.h"
 #import "MachMessage.h"
 #import "MachPort.h"
 #import "MachUtilities.h"
@@ -95,7 +96,10 @@ private:
     
     void watchdogTimerFired()
     {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        // FIXME: This was deprecated in favor of terminate_with_reason().
         xpc_connection_kill(m_xpcConnection.get(), SIGKILL);
+ALLOW_DEPRECATED_DECLARATIONS_END
         delete this;
     }
 
@@ -394,12 +398,13 @@ void Connection::initializeSendSource()
         }
     });
 
-    ASSERT(MACH_PORT_VALID(m_sendPort));
-    mach_port_t sendPort = m_sendPort;
-    dispatch_source_set_cancel_handler(m_sendSource, ^{
-        // Release our send right.
-        deallocateSendRightSafely(sendPort);
-    });
+    if (MACH_PORT_VALID(m_sendPort)) {
+        mach_port_t sendPort = m_sendPort;
+        dispatch_source_set_cancel_handler(m_sendSource, ^{
+            // Release our send right.
+            deallocateSendRightSafely(sendPort);
+        });
+    }
 }
 
 void Connection::resumeSendSource()
@@ -415,9 +420,14 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header)
     if (!(header->msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
         // We have a simple message.
         uint8_t* body = reinterpret_cast<uint8_t*>(header + 1);
-        size_t bodySize = header->msgh_size - sizeof(mach_msg_header_t);
+        auto bodySize = CheckedSize { header->msgh_size } - sizeof(mach_msg_header_t);
+        if (UNLIKELY(bodySize.hasOverflowed())) {
+            RELEASE_LOG_FAULT(IPC, "createMessageDecoder: Overflow when computing bodySize (header->msgh_size: %lu, sizeof(mach_msg_header_t): %lu)", static_cast<unsigned long>(header->msgh_size), sizeof(mach_msg_header_t));
+            ASSERT_NOT_REACHED();
+            return nullptr;
+        }
 
-        return Decoder::create(body, bodySize, nullptr, Vector<Attachment> { });
+        return Decoder::create(body, bodySize.unsafeGet(), nullptr, Vector<Attachment> { });
     }
 
     mach_msg_body_t* body = reinterpret_cast<mach_msg_body_t*>(header + 1);
@@ -462,9 +472,15 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header)
     }
 
     uint8_t* messageBody = descriptorData;
-    size_t messageBodySize = header->msgh_size - (descriptorData - reinterpret_cast<uint8_t*>(header));
+    ASSERT(descriptorData >= reinterpret_cast<uint8_t*>(header));
+    auto messageBodySize = CheckedSize { header->msgh_size } - static_cast<size_t>(descriptorData - reinterpret_cast<uint8_t*>(header));
+    if (UNLIKELY(messageBodySize.hasOverflowed())) {
+        RELEASE_LOG_FAULT(IPC, "createMessageDecoder: Overflow when computing bodySize (header->msgh_size: %lu, (descriptorData - reinterpret_cast<uint8_t*>(header)): %lu)", static_cast<unsigned long>(header->msgh_size), static_cast<unsigned long>(descriptorData - reinterpret_cast<uint8_t*>(header)));
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
 
-    return Decoder::create(messageBody, messageBodySize, nullptr, WTFMove(attachments));
+    return Decoder::create(messageBody, messageBodySize.unsafeGet(), nullptr, WTFMove(attachments));
 }
 
 // The receive buffer size should always include the maximum trailer size.
@@ -596,7 +612,10 @@ Optional<audit_token_t> Connection::getAuditToken()
 bool Connection::kill()
 {
     if (m_xpcConnection) {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        // FIXME: This was deprecated in favor of terminate_with_reason().
         xpc_connection_kill(m_xpcConnection.get(), SIGKILL);
+ALLOW_DEPRECATED_DECLARATIONS_END
         m_wasKilled = true;
         return true;
     }

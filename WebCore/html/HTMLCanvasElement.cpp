@@ -300,7 +300,7 @@ ExceptionOr<Optional<RenderingContext>> HTMLCanvasElement::getContext(JSC::JSGlo
         auto attributes = convert<IDLDictionary<WebGLContextAttributes>>(state, !arguments.isEmpty() ? arguments[0].get() : JSC::jsUndefined());
         RETURN_IF_EXCEPTION(scope, Exception { ExistingExceptionError });
 
-        auto context = createContextWebGL(contextId, WTFMove(attributes));
+        auto context = createContextWebGL(toWebGLVersion(contextId), WTFMove(attributes));
         if (!context)
             return Optional<RenderingContext> { WTF::nullopt };
 
@@ -335,7 +335,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type)
 
 #if ENABLE(WEBGL)
     if (HTMLCanvasElement::isWebGLType(type))
-        return getContextWebGL(type);
+        return getContextWebGL(HTMLCanvasElement::toWebGLVersion(type));
 #endif
 
 #if ENABLE(WEBGPU)
@@ -369,7 +369,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type)
 
     m_context = CanvasRenderingContext2D::create(*this, document().inQuirksMode());
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || ENABLE(ACCELERATED_2D_CANVAS)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
@@ -421,9 +421,20 @@ bool HTMLCanvasElement::isWebGLType(const String& type)
         || type == "webkit-3d";
 }
 
-WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(const String& type, WebGLContextAttributes&& attrs)
+GraphicsContextGLWebGLVersion HTMLCanvasElement::toWebGLVersion(const String& type)
 {
-    ASSERT(HTMLCanvasElement::isWebGLType(type));
+    ASSERT(isWebGLType(type));
+#if ENABLE(WEBGL2)
+    if (type == "webgl2")
+        return WebGLVersion::WebGL2;
+#else
+    UNUSED_PARAM(type);
+#endif
+    return WebGLVersion::WebGL1;
+}
+
+WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(WebGLVersion type, WebGLContextAttributes&& attrs)
+{
     ASSERT(!m_context);
 
     if (!shouldEnableWebGL(document().settings()))
@@ -433,7 +444,9 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(const String& t
     // https://immersive-web.github.io/webxr/#xr-compatible
     if (attrs.xrCompatible) {
         if (auto* window = document().domWindow())
-            NavigatorWebXR::xr(window->navigator()).ensureImmersiveXRDeviceIsSelected();
+            // FIXME: how to make this sync without blocking the main thread?
+            // For reference: https://immersive-web.github.io/webxr/#ref-for-dom-webglcontextattributes-xrcompatible
+            NavigatorWebXR::xr(window->navigator()).ensureImmersiveXRDeviceIsSelected([]() { });
     }
 #endif
 
@@ -455,10 +468,8 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(const String& t
     return downcast<WebGLRenderingContextBase>(m_context.get());
 }
 
-WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(const String& type, WebGLContextAttributes&& attrs)
+WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(WebGLVersion type, WebGLContextAttributes&& attrs)
 {
-    ASSERT(HTMLCanvasElement::isWebGLType(type));
-
     if (!shouldEnableWebGL(document().settings()))
         return nullptr;
 
@@ -525,7 +536,7 @@ ImageBitmapRenderingContext* HTMLCanvasElement::createContextBitmapRenderer(cons
 
     m_context = ImageBitmapRenderingContext::create(*this, WTFMove(settings));
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || ENABLE(ACCELERATED_2D_CANVAS)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
@@ -640,20 +651,17 @@ void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r)
 
         if (m_context) {
             shouldPaint = paintsIntoCanvasBuffer() || document().printing() || m_isSnapshotting;
-            if (shouldPaint)
+            if (shouldPaint) {
+                m_context->prepareForDisplayWithPaint();
                 m_context->paintRenderingResultsToCanvas();
+            }
         }
 
         if (shouldPaint) {
             if (hasCreatedImageBuffer()) {
-                if (m_presentedImage)
-                    context.drawImage(*m_presentedImage, snappedIntRect(r), renderer()->imageOrientation());
-                else if (ImageBuffer* imageBuffer = buffer())
+                if (ImageBuffer* imageBuffer = buffer())
                     context.drawImageBuffer(*imageBuffer, snappedIntRect(r));
             }
-
-            if (isGPUBased())
-                downcast<GPUBasedCanvasRenderingContext>(*m_context).markLayerComposited();
         }
     }
 
@@ -664,19 +672,6 @@ void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r)
 bool HTMLCanvasElement::isGPUBased() const
 {
     return m_context && m_context->isGPUBased();
-}
-
-void HTMLCanvasElement::makePresentationCopy()
-{
-    if (!m_presentedImage) {
-        // The buffer contains the last presented data, so save a copy of it.
-        m_presentedImage = buffer()->copyImage(CopyBackingStore, PreserveResolution::Yes);
-    }
-}
-
-void HTMLCanvasElement::clearPresentationCopy()
-{
-    m_presentedImage = nullptr;
 }
 
 void HTMLCanvasElement::setSurfaceSize(const IntSize& size)
@@ -779,6 +774,9 @@ ExceptionOr<Ref<OffscreenCanvas>> HTMLCanvasElement::transferControlToOffscreen(
         return Exception { InvalidStateError };
 
     m_context = makeUnique<PlaceholderRenderingContext>(*this);
+    if (m_context->isAccelerated())
+        invalidateStyleAndLayerComposition();
+
     return OffscreenCanvas::create(context, *this);
 }
 #endif
@@ -851,17 +849,6 @@ bool HTMLCanvasElement::shouldAccelerate(const IntSize& size) const
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
     return settings.canvasUsesAcceleratedDrawing();
-#elif ENABLE(ACCELERATED_2D_CANVAS)
-    if (m_context && !m_context->is2d())
-        return false;
-
-    if (!settings.accelerated2dCanvasEnabled())
-        return false;
-
-    if (area < settings.minimumAccelerated2dCanvasSize())
-        return false;
-
-    return true;
 #else
     UNUSED_PARAM(size);
     return false;
@@ -942,23 +929,26 @@ void HTMLCanvasElement::createImageBuffer() const
 
     auto hostWindow = (document().view() && document().view()->root()) ? document().view()->root()->hostWindow() : nullptr;
 
-    auto accelerate = shouldAccelerate(size()) ? ShouldAccelerate::Yes : ShouldAccelerate::No;
+    auto renderingMode = shouldAccelerate(size()) ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
     // FIXME: Add a new setting for DisplayList drawing on canvas.
     auto useDisplayList = m_usesDisplayListDrawing.valueOr(document().settings().displayListDrawingEnabled()) ? ShouldUseDisplayList::Yes : ShouldUseDisplayList::No;
-    setImageBuffer(ImageBuffer::create(size(), accelerate, useDisplayList, RenderingPurpose::Canvas, 1, ColorSpace::SRGB, hostWindow));
+    setImageBuffer(ImageBuffer::create(size(), renderingMode, useDisplayList, RenderingPurpose::Canvas, 1, ColorSpace::SRGB, PixelFormat::BGRA8, hostWindow));
 
     if (buffer() && buffer()->drawingContext())
         buffer()->drawingContext()->setTracksDisplayListReplay(m_tracksDisplayListReplay);
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || ENABLE(ACCELERATED_2D_CANVAS)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE)
     if (m_context && m_context->is2d()) {
         // Recalculate compositing requirements if acceleration state changed.
         const_cast<HTMLCanvasElement*>(this)->invalidateStyleAndLayerComposition();
     }
 #endif
+
+    if (m_context && buffer() && buffer()->prefersPreparationForDisplay())
+        const_cast<HTMLCanvasElement*>(this)->addObserver(document());
 }
 
-void HTMLCanvasElement::setImageBufferAndMarkDirty(std::unique_ptr<ImageBuffer>&& buffer)
+void HTMLCanvasElement::setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&& buffer)
 {
     IntSize oldSize = size();
     m_hasCreatedImageBuffer = true;
@@ -1005,7 +995,7 @@ void HTMLCanvasElement::clearImageBuffer() const
     }
 }
 
-void HTMLCanvasElement::clearCopiedImage()
+void HTMLCanvasElement::clearCopiedImage() const
 {
     m_copiedImage = nullptr;
     m_didClearImageBuffer = false;
@@ -1079,12 +1069,10 @@ bool HTMLCanvasElement::needsPreparationForDisplay()
 
 void HTMLCanvasElement::prepareForDisplay()
 {
-#if ENABLE(WEBGL)
     ASSERT(needsPreparationForDisplay());
 
     if (m_context)
         m_context->prepareForDisplay();
-#endif
 }
 
 bool HTMLCanvasElement::isControlledByOffscreen() const

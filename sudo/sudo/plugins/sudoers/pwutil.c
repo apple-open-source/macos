@@ -28,18 +28,13 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <unistd.h>
+# include <strings.h>		/* strcasecmp */
+#endif
 #ifdef HAVE_SETAUTHDB
 # include <usersec.h>
 #endif /* HAVE_SETAUTHDB */
@@ -92,7 +87,7 @@ void
 sudo_pwutil_set_backend(sudo_make_pwitem_t pwitem, sudo_make_gritem_t gritem,
     sudo_make_gidlist_item_t gidlist_item, sudo_make_grlist_item_t grlist_item)
 {
-    debug_decl(sudo_pwutil_set_backend, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_pwutil_set_backend, SUDOERS_DEBUG_NSS);
 
     make_pwitem = pwitem;
     make_gritem = gritem;
@@ -158,7 +153,7 @@ cmp_gidlist(const void *v1, const void *v2)
 void
 sudo_pw_addref(struct passwd *pw)
 {
-    debug_decl(sudo_pw_addref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_pw_addref, SUDOERS_DEBUG_NSS);
     ptr_to_item(pw)->refcnt++;
     debug_return;
 }
@@ -167,7 +162,7 @@ static void
 sudo_pw_delref_item(void *v)
 {
     struct cache_item *item = v;
-    debug_decl(sudo_pw_delref_item, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_pw_delref_item, SUDOERS_DEBUG_NSS);
 
     if (--item->refcnt == 0)
 	free(item);
@@ -178,7 +173,7 @@ sudo_pw_delref_item(void *v)
 void
 sudo_pw_delref(struct passwd *pw)
 {
-    debug_decl(sudo_pw_delref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_pw_delref, SUDOERS_DEBUG_NSS);
     sudo_pw_delref_item(ptr_to_item(pw));
     debug_return;
 }
@@ -191,7 +186,7 @@ sudo_getpwuid(uid_t uid)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_getpwuid, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_getpwuid, SUDOERS_DEBUG_NSS);
 
     if (pwcache_byuid == NULL) {
 	pwcache_byuid = rbcreate(cmp_pwuid);
@@ -262,7 +257,7 @@ sudo_getpwnam(const char *name)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_getpwnam, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_getpwnam, SUDOERS_DEBUG_NSS);
 
     if (pwcache_byname == NULL) {
 	pwcache_byname = rbcreate(cmp_pwnam);
@@ -338,7 +333,7 @@ sudo_mkpwent(const char *user, uid_t uid, gid_t gid, const char *home,
     struct passwd *pw;
     size_t len, name_len, home_len, shell_len;
     int i;
-    debug_decl(sudo_mkpwent, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_mkpwent, SUDOERS_DEBUG_NSS);
 
     if (pwcache_byuid == NULL)
 	pwcache_byuid = rbcreate(cmp_pwuid);
@@ -434,7 +429,7 @@ sudo_fakepwnam(const char *user, gid_t gid)
 {
     const char *errstr;
     uid_t uid;
-    debug_decl(sudo_fakepwnam, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_fakepwnam, SUDOERS_DEBUG_NSS);
 
     uid = (uid_t) sudo_strtoid(user + 1, &errstr);
     if (errstr != NULL) {
@@ -448,7 +443,7 @@ sudo_fakepwnam(const char *user, gid_t gid)
 void
 sudo_freepwcache(void)
 {
-    debug_decl(sudo_freepwcache, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_freepwcache, SUDOERS_DEBUG_NSS);
 
     if (pwcache_byuid != NULL) {
 	rbdestroy(pwcache_byuid, sudo_pw_delref_item);
@@ -481,7 +476,7 @@ cmp_grgid(const void *v1, const void *v2)
 void
 sudo_gr_addref(struct group *gr)
 {
-    debug_decl(sudo_gr_addref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gr_addref, SUDOERS_DEBUG_NSS);
     ptr_to_item(gr)->refcnt++;
     debug_return;
 }
@@ -490,7 +485,7 @@ static void
 sudo_gr_delref_item(void *v)
 {
     struct cache_item *item = v;
-    debug_decl(sudo_gr_delref_item, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gr_delref_item, SUDOERS_DEBUG_NSS);
 
     if (--item->refcnt == 0)
 	free(item);
@@ -501,7 +496,7 @@ sudo_gr_delref_item(void *v)
 void
 sudo_gr_delref(struct group *gr)
 {
-    debug_decl(sudo_gr_delref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gr_delref, SUDOERS_DEBUG_NSS);
     sudo_gr_delref_item(ptr_to_item(gr));
     debug_return;
 }
@@ -514,7 +509,7 @@ sudo_getgrgid(gid_t gid)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_getgrgid, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_getgrgid, SUDOERS_DEBUG_NSS);
 
     if (grcache_bygid == NULL) {
 	grcache_bygid = rbcreate(cmp_grgid);
@@ -578,7 +573,7 @@ sudo_getgrnam(const char *name)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_getgrnam, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_getgrnam, SUDOERS_DEBUG_NSS);
 
     if (grcache_byname == NULL) {
 	grcache_byname = rbcreate(cmp_grnam);
@@ -647,7 +642,7 @@ sudo_fakegrnam(const char *group)
     struct group *gr;
     size_t len, name_len;
     int i;
-    debug_decl(sudo_fakegrnam, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_fakegrnam, SUDOERS_DEBUG_NSS);
 
     if (grcache_bygid == NULL)
 	grcache_bygid = rbcreate(cmp_grgid);
@@ -722,7 +717,7 @@ sudo_fakegrnam(const char *group)
 void
 sudo_gidlist_addref(struct gid_list *gidlist)
 {
-    debug_decl(sudo_gidlist_addref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gidlist_addref, SUDOERS_DEBUG_NSS);
     ptr_to_item(gidlist)->refcnt++;
     debug_return;
 }
@@ -731,7 +726,7 @@ static void
 sudo_gidlist_delref_item(void *v)
 {
     struct cache_item *item = v;
-    debug_decl(sudo_gidlist_delref_item, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gidlist_delref_item, SUDOERS_DEBUG_NSS);
 
     if (--item->refcnt == 0)
 	free(item);
@@ -742,7 +737,7 @@ sudo_gidlist_delref_item(void *v)
 void
 sudo_gidlist_delref(struct gid_list *gidlist)
 {
-    debug_decl(sudo_gidlist_delref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_gidlist_delref, SUDOERS_DEBUG_NSS);
     sudo_gidlist_delref_item(ptr_to_item(gidlist));
     debug_return;
 }
@@ -750,7 +745,7 @@ sudo_gidlist_delref(struct gid_list *gidlist)
 void
 sudo_grlist_addref(struct group_list *grlist)
 {
-    debug_decl(sudo_grlist_addref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_grlist_addref, SUDOERS_DEBUG_NSS);
     ptr_to_item(grlist)->refcnt++;
     debug_return;
 }
@@ -759,7 +754,7 @@ static void
 sudo_grlist_delref_item(void *v)
 {
     struct cache_item *item = v;
-    debug_decl(sudo_grlist_delref_item, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_grlist_delref_item, SUDOERS_DEBUG_NSS);
 
     if (--item->refcnt == 0)
 	free(item);
@@ -770,7 +765,7 @@ sudo_grlist_delref_item(void *v)
 void
 sudo_grlist_delref(struct group_list *grlist)
 {
-    debug_decl(sudo_grlist_delref, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_grlist_delref, SUDOERS_DEBUG_NSS);
     sudo_grlist_delref_item(ptr_to_item(grlist));
     debug_return;
 }
@@ -778,7 +773,7 @@ sudo_grlist_delref(struct group_list *grlist)
 void
 sudo_freegrcache(void)
 {
-    debug_decl(sudo_freegrcache, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_freegrcache, SUDOERS_DEBUG_NSS);
 
     if (grcache_bygid != NULL) {
 	rbdestroy(grcache_bygid, sudo_gr_delref_item);
@@ -805,7 +800,7 @@ sudo_get_grlist(const struct passwd *pw)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_get_grlist, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_get_grlist, SUDOERS_DEBUG_NSS);
 
     sudo_debug_printf(SUDO_DEBUG_DEBUG, "%s: looking up group names for %s",
 	__func__, pw->pw_name);
@@ -864,8 +859,7 @@ int
 sudo_set_grlist(struct passwd *pw, char * const *groups)
 {
     struct cache_item key, *item;
-    struct rbnode *node;
-    debug_decl(sudo_set_grlist, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_set_grlist, SUDOERS_DEBUG_NSS);
 
     if (grlist_cache == NULL) {
 	grlist_cache = rbcreate(cmp_pwnam);
@@ -880,7 +874,7 @@ sudo_set_grlist(struct passwd *pw, char * const *groups)
      */
     key.k.name = pw->pw_name;
     getauthregistry(NULL, key.registry);
-    if ((node = rbfind(grlist_cache, &key)) == NULL) {
+    if (rbfind(grlist_cache, &key) == NULL) {
 	if ((item = make_grlist_item(pw, groups)) == NULL) {
 	    sudo_warnx(U_("unable to parse groups for %s"), pw->pw_name);
 	    debug_return_int(-1);
@@ -906,7 +900,7 @@ sudo_get_gidlist(const struct passwd *pw, unsigned int type)
 {
     struct cache_item key, *item;
     struct rbnode *node;
-    debug_decl(sudo_get_gidlist, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_get_gidlist, SUDOERS_DEBUG_NSS);
 
     sudo_debug_printf(SUDO_DEBUG_DEBUG, "%s: looking up group-IDs for %s",
 	__func__, pw->pw_name);
@@ -966,8 +960,7 @@ int
 sudo_set_gidlist(struct passwd *pw, char * const *gids, unsigned int type)
 {
     struct cache_item key, *item;
-    struct rbnode *node;
-    debug_decl(sudo_set_gidlist, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_set_gidlist, SUDOERS_DEBUG_NSS);
 
     if (gidlist_cache == NULL) {
 	gidlist_cache = rbcreate(cmp_gidlist);
@@ -983,7 +976,7 @@ sudo_set_gidlist(struct passwd *pw, char * const *gids, unsigned int type)
     key.k.name = pw->pw_name;
     key.type = type;
     getauthregistry(NULL, key.registry);
-    if ((node = rbfind(gidlist_cache, &key)) == NULL) {
+    if (rbfind(gidlist_cache, &key) == NULL) {
 	if ((item = make_gidlist_item(pw, gids, type)) == NULL) {
 	    sudo_warnx(U_("unable to parse gids for %s"), pw->pw_name);
 	    debug_return_int(-1);
@@ -1012,7 +1005,7 @@ user_in_group(const struct passwd *pw, const char *group)
     struct group *grp = NULL;
     bool matched = false;
     int i;
-    debug_decl(user_in_group, SUDOERS_DEBUG_NSS)
+    debug_decl(user_in_group, SUDOERS_DEBUG_NSS);
 
     /*
      * If it could be a sudo-style group-ID check gids first.

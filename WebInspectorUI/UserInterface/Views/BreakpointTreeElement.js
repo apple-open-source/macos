@@ -25,38 +25,28 @@
 
 WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeElement
 {
-    constructor(breakpoint, {className, title} = {})
+    constructor(breakpoint, {classNames, title, subtitle} = {})
     {
         console.assert(breakpoint instanceof WI.Breakpoint);
 
-        if (!className)
-            className = WI.BreakpointTreeElement.GenericLineIconStyleClassName;
+        if (!Array.isArray(classNames))
+            classNames = [];
+        classNames.push("breakpoint");
 
-        const subtitle = null;
-        super(["breakpoint", className], title, subtitle, breakpoint);
+        super(classNames, title, subtitle, breakpoint);
+
+        // This class should not be instantiated directly. Create a concrete subclass instead.
+        console.assert(this.constructor !== WI.BreakpointTreeElement && this instanceof WI.BreakpointTreeElement);
 
         this._breakpoint = breakpoint;
         this._probeSet = null;
 
-        this._listenerSet = new WI.EventListenerSet(this, "BreakpointTreeElement listeners");
-        if (!title)
-            this._listenerSet.register(breakpoint, WI.Breakpoint.Event.LocationDidChange, this._breakpointLocationDidChange);
-        this._listenerSet.register(breakpoint, WI.Breakpoint.Event.DisabledStateDidChange, this._updateStatus);
-        this._listenerSet.register(breakpoint, WI.Breakpoint.Event.AutoContinueDidChange, this._updateStatus);
-        this._listenerSet.register(breakpoint, WI.Breakpoint.Event.ResolvedStateDidChange, this._updateStatus);
-        this._listenerSet.register(WI.debuggerManager, WI.DebuggerManager.Event.BreakpointsEnabledDidChange, this._updateStatus);
-        this._listenerSet.register(WI.debuggerManager, WI.DebuggerManager.Event.ProbeSetAdded, this._probeSetAdded);
-        this._listenerSet.register(WI.debuggerManager, WI.DebuggerManager.Event.ProbeSetRemoved, this._probeSetRemoved);
-
         this.status = WI.ImageUtilities.useSVGSymbol("Images/Breakpoint.svg");
-        this.status.className = WI.BreakpointTreeElement.StatusImageElementStyleClassName;
+        this.status.className = "status-image";
+        this.status.addEventListener("mousedown", this._statusImageElementMouseDown.bind(this));
+        this.status.addEventListener("click", this._statusImageElementClicked.bind(this));
 
-        this._listenerSet.register(this.status, "mousedown", this._statusImageElementMouseDown);
-        this._listenerSet.register(this.status, "click", this._statusImageElementClicked);
-
-        if (!title)
-            this._updateTitles();
-        this._updateStatus();
+        this.updateStatus();
 
         this._iconAnimationLayerElement = document.createElement("span");
         this.iconElement.appendChild(this._iconAnimationLayerElement);
@@ -70,11 +60,6 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
         return this._breakpoint;
     }
 
-    get filterableData()
-    {
-        return {text: [this.breakpoint.contentIdentifier]};
-    }
-
     ondelete()
     {
         // We set this flag so that TreeOutlines that will remove this
@@ -82,15 +67,17 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
         // within the TreeOutline or from outside it (e.g. TextEditor).
         this.__deletedViaDeleteKeyboardShortcut = true;
 
-        if (WI.debuggerManager.isBreakpointRemovable(this._breakpoint)) {
-            WI.debuggerManager.removeBreakpoint(this._breakpoint);
+        if (this._breakpoint.removable) {
+            this._breakpoint.remove();
             return true;
         }
 
         if (this._breakpoint.disabled)
             InspectorFrontendHost.beep();
-        else
+        else {
             this._breakpoint.disabled = true;
+            this._breakpoint.reset();
+        }
         return false;
     }
 
@@ -110,7 +97,12 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
     {
         super.onattach();
 
-        this._listenerSet.install();
+        this._breakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this.updateStatus, this);
+        this._breakpoint.addEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this.updateStatus, this);
+
+        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.BreakpointsEnabledDidChange, this.updateStatus, this);
+        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ProbeSetAdded, this._probeSetAdded, this);
+        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ProbeSetRemoved, this._probeSetRemoved, this);
 
         for (var probeSet of WI.debuggerManager.probeSets)
             if (probeSet.breakpoint === this._breakpoint)
@@ -121,7 +113,12 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
     {
         super.ondetach();
 
-        this._listenerSet.uninstall();
+        this._breakpoint.removeEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this.updateStatus, this);
+        this._breakpoint.removeEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this.updateStatus, this);
+
+        WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.BreakpointsEnabledDidChange, this.updateStatus, this);
+        WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.ProbeSetAdded, this._probeSetAdded, this);
+        WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.ProbeSetRemoved, this._probeSetRemoved, this);
 
         if (this._probeSet)
             this._removeProbeSet(this._probeSet);
@@ -129,45 +126,25 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
 
     populateContextMenu(contextMenu, event)
     {
-        WI.breakpointPopoverController.appendContextMenuItems(contextMenu, this._breakpoint, this.status);
+        WI.BreakpointPopover.appendContextMenuItems(contextMenu, this._breakpoint, this.status);
 
         super.populateContextMenu(contextMenu, event);
     }
 
-    // Private
+    // Protected
 
-    _updateTitles()
-    {
-        var sourceCodeLocation = this._breakpoint.sourceCodeLocation;
-
-        var displayLineNumber = sourceCodeLocation.displayLineNumber;
-        var displayColumnNumber = sourceCodeLocation.displayColumnNumber;
-        if (displayColumnNumber > 0)
-            this.mainTitle = WI.UIString("Line %d:%d").format(displayLineNumber + 1, displayColumnNumber + 1); // The user visible line and column numbers are 1-based.
-        else
-            this.mainTitle = WI.UIString("Line %d").format(displayLineNumber + 1); // The user visible line number is 1-based.
-
-        if (sourceCodeLocation.hasMappedLocation()) {
-            this.subtitle = sourceCodeLocation.formattedLocationString();
-
-            if (sourceCodeLocation.hasFormattedLocation())
-                this.subtitleElement.classList.add(WI.BreakpointTreeElement.FormattedLocationStyleClassName);
-            else
-                this.subtitleElement.classList.remove(WI.BreakpointTreeElement.FormattedLocationStyleClassName);
-
-            this.tooltip = this.mainTitle + " \u2014 " + WI.UIString("originally %s").format(sourceCodeLocation.originalLocationString());
-        }
-    }
-
-    _updateStatus()
+    updateStatus()
     {
         if (!this.status)
             return;
 
-        this.status.classList.toggle(WI.BreakpointTreeElement.StatusImageDisabledStyleClassName, this._breakpoint.disabled);
-        this.status.classList.toggle(WI.BreakpointTreeElement.StatusImageAutoContinueStyleClassName, this._breakpoint.autoContinue);
-        this.status.classList.toggle(WI.BreakpointTreeElement.StatusImageResolvedStyleClassName, this._breakpoint.resolved && WI.debuggerManager.breakpointsEnabled);
+        this.status.classList.toggle("resolved", this._breakpoint.resolved);
+        this.status.classList.toggle("disabled", this._breakpoint.disabled);
+        if (this._breakpoint.editable)
+            this.status.classList.toggle("auto-continue", this._breakpoint.autoContinue);
     }
+
+    // Private
 
     _addProbeSet(probeSet)
     {
@@ -215,30 +192,19 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
 
     _dataUpdated()
     {
-        if (this.element.classList.contains(WI.BreakpointTreeElement.ProbeDataUpdatedStyleClassName)) {
+        if (this.element.classList.contains("data-updated")) {
             clearTimeout(this._removeIconAnimationTimeoutIdentifier);
-            this.element.classList.remove(WI.BreakpointTreeElement.ProbeDataUpdatedStyleClassName);
+            this.element.classList.remove("data-updated");
             // We want to restart the animation, which can only be done by removing the class,
             // performing layout, and re-adding the class. Try adding class back on next run loop.
             window.requestAnimationFrame(this._dataUpdated.bind(this));
             return;
         }
 
-        this.element.classList.add(WI.BreakpointTreeElement.ProbeDataUpdatedStyleClassName);
+        this.element.classList.add("data-updated");
         this._removeIconAnimationTimeoutIdentifier = setTimeout(() => {
-            this.element.classList.remove(WI.BreakpointTreeElement.ProbeDataUpdatedStyleClassName);
+            this.element.classList.remove("data-updated");
         }, WI.BreakpointTreeElement.ProbeDataUpdatedAnimationDuration);
-    }
-
-    _breakpointLocationDidChange(event)
-    {
-        console.assert(event.target === this._breakpoint);
-
-        // The Breakpoint has a new display SourceCode. The sidebar will remove us, and ondetach() will clear listeners.
-        if (event.data.oldDisplaySourceCode === this._breakpoint.displaySourceCode)
-            return;
-
-        this._updateTitles();
     }
 
     _statusImageElementMouseDown(event)
@@ -252,13 +218,5 @@ WI.BreakpointTreeElement = class BreakpointTreeElement extends WI.GeneralTreeEle
         this._breakpoint.cycleToNextMode();
     }
 };
-
-WI.BreakpointTreeElement.GenericLineIconStyleClassName = "breakpoint-generic-line-icon";
-WI.BreakpointTreeElement.StatusImageElementStyleClassName = "status-image";
-WI.BreakpointTreeElement.StatusImageResolvedStyleClassName = "resolved";
-WI.BreakpointTreeElement.StatusImageAutoContinueStyleClassName = "auto-continue";
-WI.BreakpointTreeElement.StatusImageDisabledStyleClassName = "disabled";
-WI.BreakpointTreeElement.FormattedLocationStyleClassName = "formatted-location";
-WI.BreakpointTreeElement.ProbeDataUpdatedStyleClassName = "data-updated";
 
 WI.BreakpointTreeElement.ProbeDataUpdatedAnimationDuration = 400; // milliseconds

@@ -59,6 +59,24 @@ static int testCheckV12DevEnabled(void) {
     return 0;
 }
 
+@implementation KeychainXCTestFailureLogger
+- (instancetype)init {
+    if((self = [super init])) {
+    }
+    return self;
+}
+
+- (void)testCase:(XCTestCase *)testCase didRecordIssue:(XCTIssue *)issue {
+    secnotice("keychainxctest", "XCTest failure: (%@)%@:%lu error: %@ -- %@\n%@",
+              testCase.name,
+              issue.sourceCodeContext.location.fileURL,
+              (unsigned long)issue.sourceCodeContext.location.lineNumber,
+              issue.compactDescription,
+              issue.detailedDescription,
+              issue.sourceCodeContext.callStack);
+}
+@end
+
 #if USE_KEYSTORE
 
 @interface SecDbKeychainItemV7 ()
@@ -135,12 +153,18 @@ static int testCheckV12DevEnabled(void) {
     bool _simcrashenabled;
 }
 
+static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
+
 @synthesize keychainPartialMock = _keychainPartialMock;
 
 + (void)setUp
 {
     [super setUp];
     SecCKKSDisable();
+
+    self.testFailureLogger = [[KeychainXCTestFailureLogger alloc] init];
+    [[XCTestObservationCenter sharedTestObservationCenter] addTestObserver:self.testFailureLogger];
+
     // Do not want test code to be allowed to init real keychain!
     secd_test_setup_temp_keychain("keychaintestthrowaway", NULL);
     securityd_init(NULL);
@@ -157,7 +181,8 @@ static int testCheckV12DevEnabled(void) {
     self.allowDecryption = true;
     self.didAKSDecrypt = NO;
     self.simulateRolledAKSKey = NO;
-    
+
+    secnotice("keychainxctest", "Beginning test %@", self.name);
 
     self.keyclassUsedForAKSDecryption = 0;
     
@@ -179,8 +204,10 @@ static int testCheckV12DevEnabled(void) {
 
     checkV12DevEnabled = testCheckV12DevEnabled;
     NSArray* partsOfName = [self.name componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" ]"]];
+    self.keychainDirectoryPrefix = partsOfName[1];
+
     // Calls SecKeychainDbReset which also resets metadata keys and backup manager
-    secd_test_setup_temp_keychain([partsOfName[1] UTF8String], NULL);
+    secd_test_setup_temp_keychain([self.keychainDirectoryPrefix UTF8String], NULL);
 
     _originalAccessGroups = SecAccessGroupsGetCurrent();
     SecResetLocalSecuritydXPCFakeEntitlements();
@@ -194,12 +221,31 @@ static int testCheckV12DevEnabled(void) {
     SecAccessGroupsSetCurrent(_originalAccessGroups);
     __security_simulatecrash_enable(_simcrashenabled);
 
+    if(self.keychainDirectoryPrefix) {
+        XCTAssertTrue(secd_test_teardown_delete_temp_keychain([self.keychainDirectoryPrefix UTF8String]), "Should be able to delete the temp keychain");
+    } else {
+        XCTFail("Should have had a keychain directory to remove");
+    }
+
+    secnotice("keychainxctest", "Ending test %@", self.name);
+
     [super tearDown];
 }
 
 + (void)tearDown {
+    secd_test_teardown_delete_temp_keychain("keychaintestthrowaway");
     SecResetLocalSecuritydXPCFakeEntitlements();
     [super tearDown];
+
+    [[XCTestObservationCenter sharedTestObservationCenter] removeTestObserver:self.testFailureLogger];
+}
+
++ (KeychainXCTestFailureLogger*)testFailureLogger {
+    return _testFailureLoggerVariable;
+}
+
++ (void)setTestFailureLogger:(KeychainXCTestFailureLogger*)logger {
+    _testFailureLoggerVariable = logger;
 }
 
 - (bool)isKeychainUnlocked

@@ -66,7 +66,6 @@ public:
     // AudioNode
     void process(size_t framesToProcess) override;
     void pullInputs(size_t framesToProcess) override;
-    void reset() override;
     void initialize() override;
     void uninitialize() override;
 
@@ -117,6 +116,7 @@ public:
 
     double tailTime() const override { return m_panner ? m_panner->tailTime() : 0; }
     double latencyTime() const override { return m_panner ? m_panner->latencyTime() : 0; }
+    bool requiresTailProcessing() const final;
 
 private:
     explicit WebKitAudioPannerNode(WebKitAudioContext&);
@@ -129,7 +129,7 @@ private:
     void notifyAudioSourcesConnectedToNode(AudioNode*, HashSet<AudioNode*>& visitedNodes);
 
     std::unique_ptr<Panner> m_panner;
-    PanningModelType m_panningModel;
+    PanningModelType m_panningModel { PanningModelType::HRTF };
 
     FloatPoint3D m_position;
     FloatPoint3D m_orientation;
@@ -138,15 +138,14 @@ private:
     // Gain
     DistanceEffect m_distanceEffect;
     ConeEffect m_coneEffect;
-    float m_lastGain;
 
     // HRTF Database loader
     RefPtr<HRTFDatabaseLoader> m_hrtfDatabaseLoader;
 
-    unsigned m_connectionCount;
+    unsigned m_connectionCount { 0 };
 
     // Synchronize process() and setPanningModel() which can change the panner.
-    mutable Lock m_pannerMutex;
+    mutable Lock m_processLock;
 };
 
 } // namespace WebCore

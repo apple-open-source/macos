@@ -68,6 +68,10 @@
 #import <wtf/ASCIICType.h>
 #import <wtf/text/StringBuilder.h>
 
+#if ENABLE(DATA_DETECTION)
+#import "DataDetection.h"
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 
 #import "WAKAppKitStubs.h"
@@ -343,7 +347,8 @@ private:
     
     void _processHeadElement(Element&);
     void _processMetaElementWithName(NSString *name, NSString *content);
-    
+
+    void _addLinkForElement(Element&, NSRange);
     void _addTableForElement(Element* tableElement);
     void _addTableCellForElement(Element* tableCellElement);
     void _addMarkersToList(NSTextList *list, NSRange range);
@@ -352,8 +357,8 @@ private:
 };
 
 HTMLConverter::HTMLConverter(const SimpleRange& range)
-    : m_start(createLegacyEditingPosition(range.start))
-    , m_end(createLegacyEditingPosition(range.end))
+    : m_start(makeContainerOffsetPosition(range.start))
+    , m_end(makeContainerOffsetPosition(range.end))
 {
     _attrStr = [[NSMutableAttributedString alloc] init];
     _documentAttrs = [[NSMutableDictionary alloc] init];
@@ -398,7 +403,7 @@ HTMLConverter::~HTMLConverter()
 
 AttributedString HTMLConverter::convert()
 {
-    if (comparePositions(m_start, m_end) > 0)
+    if (m_start > m_end)
         return { };
 
     Node* commonAncestorContainer = _caches->cacheAncestorsOfStartToBeConverted(m_start, m_end);
@@ -1632,6 +1637,25 @@ BOOL HTMLConverter::_enterElement(Element& element, BOOL embedded)
     return NO;
 }
 
+void HTMLConverter::_addLinkForElement(Element& element, NSRange range)
+{
+#if ENABLE(DATA_DETECTION)
+    if (DataDetection::isDataDetectorElement(element))
+        return;
+#endif
+
+    NSString *urlString = element.getAttribute(hrefAttr);
+    NSString *strippedString = [urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (urlString && [urlString length] > 0 && strippedString && [strippedString length] > 0 && ![strippedString hasPrefix:@"#"]) {
+        NSURL *url = element.document().completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
+        if (!url)
+            url = element.document().completeURL(stripLeadingAndTrailingHTMLSpaces(strippedString));
+        if (!url)
+            url = [NSURL _web_URLWithString:strippedString relativeToURL:_baseURL];
+        [_attrStr addAttribute:NSLinkAttributeName value:url ? (id)url : (id)urlString range:range];
+    }
+}
+
 void HTMLConverter::_addTableForElement(Element *tableElement)
 {
     RetainPtr<NSTextTable> table = adoptNS([(NSTextTable *)[PlatformNSTextTable alloc] init]);
@@ -1963,18 +1987,8 @@ void HTMLConverter::_exitElement(Element& element, NSInteger depth, NSUInteger s
 {
     String displayValue = _caches->propertyValueForNode(element, CSSPropertyDisplay);
     NSRange range = NSMakeRange(startIndex, [_attrStr length] - startIndex);
-    if (range.length > 0 && element.hasTagName(aTag)) {
-        NSString *urlString = element.getAttribute(hrefAttr);
-        NSString *strippedString = [urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        if (urlString && [urlString length] > 0 && strippedString && [strippedString length] > 0 && ![strippedString hasPrefix:@"#"]) {
-            NSURL *url = element.document().completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
-            if (!url)
-                url = element.document().completeURL(stripLeadingAndTrailingHTMLSpaces(strippedString));
-            if (!url)
-                url = [NSURL _web_URLWithString:strippedString relativeToURL:_baseURL];
-            [_attrStr addAttribute:NSLinkAttributeName value:url ? (id)url : (id)urlString range:range];
-        }
-    }
+    if (range.length > 0 && element.hasTagName(aTag))
+        _addLinkForElement(element, range);
     if (!_flags.reachedEnd && _caches->isBlockElement(element)) {
         [_writingDirectionArray removeAllObjects];
         if (displayValue == "table-cell" && [_textBlocks count] == 0) {
@@ -2294,7 +2308,7 @@ void HTMLConverter::_adjustTrailingNewline()
 
 Node* HTMLConverterCaches::cacheAncestorsOfStartToBeConverted(const Position& start, const Position& end)
 {
-    auto commonAncestor = commonShadowIncludingAncestor(start, end);
+    auto commonAncestor = commonInclusiveAncestor(start, end);
     Node* ancestor = start.containerNode();
 
     while (ancestor) {
@@ -2304,7 +2318,7 @@ Node* HTMLConverterCaches::cacheAncestorsOfStartToBeConverted(const Position& st
         ancestor = ancestor->parentInComposedTree();
     }
 
-    return commonAncestor.get();
+    return commonAncestor;
 }
 
 #if !PLATFORM(IOS_FAMILY)

@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>AppleSPUHIDDriverUserClient</string>
+		<string>AppleSPUHIDDeviceUserClient</string>
+	</array>
 	<key>com.apple.security.exception.iokit-user-client-class</key>
 	<array>
 		<string>IOHIDEventServiceUserClient</string>
@@ -23,6 +28,8 @@
 	<key>com.apple.iohideventsystem.server</key>
 	<true/>
 	<key>com.apple.bluetooth.nsxpc</key>
+	<true/>
+	<key>com.apple.bluetooth.system</key>
 	<true/>
 	<key>com.apple.hid.manager.user-access-device</key>
 	<true/>

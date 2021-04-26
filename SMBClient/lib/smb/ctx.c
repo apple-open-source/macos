@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2017 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,7 @@
 
 #include <Heimdal/krb5.h>
 
-#include "smbclient.h"
+#include <smbclient/smbclient.h>
 #include <smbclient/ntstatus.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/netbios.h>
@@ -80,6 +80,7 @@
 #include "gss.h"
 
 #include <ifaddrs.h>
+#include <spawn.h>
 #include <net/if_media.h>
 #include <net/if.h>
 #include <netsmb/smb_2.h>
@@ -91,11 +92,6 @@
 
 
 #define SPN_PLEASE_IGNORE_REALM CFSTR("cifs/not_defined_in_RFC4178@please_ignore")
-
-struct network_interface_info_vector {
-	struct network_interface_info_vector* next;
-	struct network_nic_info info;
-};
 
 /*
  * Since ENETFSACCOUNTRESTRICTED, ENETFSPWDNEEDSCHANGE, and ENETFSPWDPOLICY are only
@@ -622,267 +618,18 @@ done:
 	}
 }
 
-static void
-releaseNetworkInterfaceVector(struct network_interface_info_vector* vector)
+static bool
+needToSpawnMCNotifier(int pid)
 {
-	struct network_interface_info_vector* nextItem;
-	while (vector != NULL) {
-		nextItem = vector->next;
-		free(vector);
-		vector = nextItem;
-	}
-}
+    bool ret_val = false;
+    if ((pid == -1) || (kill(pid, 0)))
+    {
+        os_log_debug(OS_LOG_DEFAULT, "%s: Seems like MC notifier process is not running",
+                     __FUNCTION__);
+        ret_val = true;
+    }
 
-/*
- * Returns non zero if the property table of the object has a "BSD Name"
- * string entry, and the string matches the provided string argument.
- */
-static int
-matchBSDNameProperty(io_object_t obj, CFStringRef ifname)
-{
-	int                     match = 0;
-	kern_return_t           kr;
-	CFMutableDictionaryRef  properties;
-	CFStringRef             string;
-
-	kr = IORegistryEntryCreateCFProperties(obj, &properties,
-					       kCFAllocatorDefault,
-					       kNilOptions);
-
-	if ((kr != KERN_SUCCESS) || !properties) {
-		return false;
-	}
-
-	/* Look up the interface "BSD Name" property and perform matching. */
-	string = (CFStringRef) CFDictionaryGetValue(properties, CFSTR("BSD Name"));
-	if (string) {
-		if (CFStringCompare(ifname, string,
-				    kNilOptions) == kCFCompareEqualTo) {
-			match = 1;
-		}
-	}
-
-	CFRelease(properties);
-
-	return match;   /* true if matched */
-}
-
-/*
- * Get the parent object (a network controller) of an interface object
- */
-static io_object_t
-getControllerForInterface(io_object_t netif)
-{
-	io_iterator_t    ite;
-	kern_return_t    kr;
-	io_object_t      controller = 0;
-
-	/* We have the interface, we need its parent, the network controller. */
-	kr = IORegistryEntryGetParentIterator(netif, kIOServicePlane, &ite);
-	if (kr == kIOReturnSuccess) {
-		controller = IOIteratorNext(ite); /* the first entry */
-		IOObjectRelease(ite);
-	}
-
-	return controller;	/* caller must release this object */
-}
-
-/*
- * Searches the IOKit registry and return an interface object with the
- * given BSD interface name, i.e. en0.
- */
-static io_object_t
-getInterfaceWithBsdName(mach_port_t masterPort, CFStringRef ifname)
-{
-	kern_return_t   kr;
-	io_iterator_t   ite;
-	io_object_t     obj = 0;
-	const char *    className = "IONetworkInterface";
-
-	kr = IORegistryCreateIterator(masterPort, kIOServicePlane, true, &ite);
-
-	if (kr != kIOReturnSuccess) {
-		return 0;
-	}
-
-	while ((obj = IOIteratorNext(ite))) {
-		if (IOObjectConformsTo(obj, (char *) className) &&
-		    matchBSDNameProperty(obj, ifname))
-			break;
-
-		IOObjectRelease(obj);
-		obj = 0;
-	}
-
-	IOObjectRelease(ite);
-
-	return obj;
-}
-
-static int
-getLinkSpeed(char *name, mach_port_t masterPort)
-{
-	io_object_t             netif, controller;
-	kern_return_t           kr;
-	CFMutableDictionaryRef  properties;
-	CFNumberRef             number;
-	CFStringRef             ifname = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
-	int                     res = 0, num;
-
-	if ((netif = getInterfaceWithBsdName(masterPort, ifname)) == 0) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: getInterfaceWithBsdName failed for %s",
-			     __FUNCTION__, name);
-		goto release_ifname;
-	}
-
-	if ((controller = getControllerForInterface(netif)) == 0) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: getControllerForInterface failed for %s",
-			     __FUNCTION__, name);
-		goto release_netif;
-	}
-
-	if ((kr = IORegistryEntryCreateCFProperties(controller, &properties, kCFAllocatorDefault, kNilOptions)) != kIOReturnSuccess) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: IORegistryEntryCreateCFProperties failed for %s (%x)",
-			     __FUNCTION__, name, kr);
-		goto release_controller;
-	}
-
-	if ((number = (CFNumberRef) CFDictionaryGetValue(properties,
-							 CFSTR("IOLinkSpeed")))) {
-		if (CFNumberGetValue(number, kCFNumberIntType, &num)) {
-			res = num;
-		}
-	}
-
-	CFRelease(properties);
-release_controller:
-	IOObjectRelease(controller);
-release_netif:
-	IOObjectRelease(netif);
-release_ifname:
-	CFRelease(ifname);
-
-	return res;
-}
-
-/*
- * This routine query the Client's interface and build an Interface List
- * so later on we could use it for Multi Channel
- */
-static int
-createNetworkInterfaceVector(struct network_interface_info_vector** responseVector,
-			     uint32_t *vector_length, uint32_t *extra_data_size)
-{
-	int sockfd;
-	int err = 0;
-	struct ifaddrs *ifaddr, *ifa;
-	struct ifmediareq ifmr;
-	mach_port_t masterPort = 0;
-	kern_return_t kr;
-	struct network_interface_info_vector* inerfaceInfoItem = NULL;
-	*vector_length = 0;
-	*extra_data_size = 0;
-
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: failed to open socket, with error [%d]",
-			     __FUNCTION__, errno);
-		return errno;
-	}
-
-	if (getifaddrs(&ifaddr) < 0) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: failed to get getifaddrs info, with error [%d]",
-			     __FUNCTION__, errno);
-		close(sockfd);
-		return errno;
-	}
-
-	if ((kr = IOMasterPort(bootstrap_port, &masterPort)) != KERN_SUCCESS) {
-		os_log_error(OS_LOG_DEFAULT,
-			     "%s: IOMasterPort failed %x, unable to get links speed",
-			     __FUNCTION__, kr);
-	}
-
-	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-		memset(&ifmr,0,sizeof(struct ifmediareq));
-
-		/* Skip invalid address */
-		if (ifa->ifa_addr == NULL) {
-			continue;
-		}
-
-		/* We currently support only IPV4 / IPV6 families */
-		if (ifa->ifa_addr->sa_family != AF_INET &&
-		    ifa->ifa_addr->sa_family != AF_INET6) {
-			continue;
-		}
-
-		/* Query interface media */
-		strcpy(ifmr.ifm_name, ifa->ifa_name);
-		if(ioctl(sockfd, SIOCGIFMEDIA, &ifmr)) {
-			continue;
-		}
-
-		/* Skip inactive interfaces */
-		if ((ifmr.ifm_status & IFM_ACTIVE) == 0) {
-			continue;
-		}
-
-		/* We currently support only eth and wifi */
-		if ((IFM_TYPE(ifmr.ifm_active) & IFM_ETHER) == 0 && (IFM_TYPE(ifmr.ifm_active) & IFM_IEEE80211) == 0) {
-			continue;
-		}
-
-		uint64_t link_speed =
-		    masterPort ? getLinkSpeed(ifa->ifa_name, masterPort) : 0;
-		if (link_speed == 0) {
-			continue;
-		}
-
-		if ((*responseVector) == NULL) {
-			(*responseVector) = (struct network_interface_info_vector*) malloc(sizeof(struct network_interface_info_vector) + ifa->ifa_addr->sa_len);
-			inerfaceInfoItem = *responseVector;
-		} else {
-			(*responseVector)->next = (struct network_interface_info_vector*) malloc(sizeof(struct network_interface_info_vector));
-			(*responseVector) = (*responseVector)->next;
-		}
-
-		if ((*responseVector) == NULL) {
-			err = ENOMEM;
-			goto fail;
-		}
-        
-		memset((*responseVector), 0, sizeof(struct network_nic_info));
-        
-		(*responseVector)->next = NULL;
-		(*responseVector)->info.nic_index = if_nametoindex(ifa->ifa_name);
-		/* RSS/RDMA capabilities are not supported. */
-		(*responseVector)->info.nic_caps = 0;
-		(*responseVector)->info.nic_link_speed = link_speed;
-		(*responseVector)->info.nic_type = IFM_TYPE(ifmr.ifm_active);
-		(*responseVector)->info.port = 0;
-
-		memset((void*) &((*responseVector)->info.addr), 0, ifa->ifa_addr->sa_len);
-		memcpy((void*) &((*responseVector)->info.addr), ifa->ifa_addr, ifa->ifa_addr->sa_len);
-
-		*extra_data_size+= ifa->ifa_addr->sa_len;
-		(*vector_length)++;
-	}
-
-	/* Free memory */
-	close(sockfd);
-	freeifaddrs(ifaddr);
-	IOObjectRelease(masterPort);
-	*responseVector = inerfaceInfoItem;
-	return 0;
-fail:
-	/* Release all allocated interface */
-	releaseNetworkInterfaceVector(inerfaceInfoItem);
-	return err;
+    return ret_val;
 }
 
 /*
@@ -891,6 +638,7 @@ fail:
  */
 static int findMatchingSession(struct smb_ctx *ctx,
                                CFMutableArrayRef addressArray,
+                               void *sessionp,
                                Boolean forceHiFi)
 {
 	struct smbioc_negotiate	rq;
@@ -954,6 +702,10 @@ static int findMatchingSession(struct smb_ctx *ctx,
              * mountpoint.
              */
             rq.ioc_extra_flags |= SMB_HIFI_REQUESTED;
+        }
+
+        if (sessionp != NULL) {
+            rq.ioc_sessionp = sessionp;
         }
 
         /* Call the kernel to see if we already have a session */
@@ -1128,6 +880,26 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 	if (ctx->prefs.protocol_version_map & 0x0004) {
 		rq.ioc_extra_flags |= SMB_SMB3_ENABLED;
 	}
+    
+    if (ctx->prefs.altflags & SMBFS_MNT_DISABLE_311) {
+        /* obtained from nsmb.conf */
+        rq.ioc_extra_flags |= SMB_DISABLE_311;
+    }
+
+    if (rq.ioc_extra_flags & (SMB_SMB2_ENABLED | SMB_SMB3_ENABLED)) {
+        if (ctx->prefs.altflags & SMBFS_MNT_MULTI_CHANNEL_ON) {  // obtained from nsmb.conf
+            rq.ioc_extra_flags |= SMB_MULTICHANNEL_ENABLE;
+            rq.ioc_mc_max_channel = ctx->prefs.mc_max_channels;
+            rq.ioc_mc_max_rss_channel = ctx->prefs.mc_max_rss_channels;
+            bcopy(ctx->prefs.mc_client_if_blacklist,
+                  rq.ioc_mc_client_if_blacklist,
+                  sizeof(rq.ioc_mc_client_if_blacklist));
+            rq.ioc_mc_client_if_blacklist_len = ctx->prefs.mc_client_if_blacklist_len;
+            if (ctx->prefs.altflags & SMBFS_MNT_MC_PREFER_WIRED) {
+                rq.ioc_extra_flags |= SMB_MC_PREFER_WIRED;
+            }
+        }
+    }
 
 	/* Check to see what versions of SMB require signing */
     if (ctx->prefs.signing_required) {
@@ -2433,7 +2205,7 @@ smb_connect_one(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowe
          }
 	 } else {
 		 /* Search all the address and see if we are already connected */
-         if ((!forceNewSession) && findMatchingSession(ctx, addressArray, FALSE) == 0) {
+         if ((!forceNewSession) && findMatchingSession(ctx, addressArray, NULL, FALSE) == 0) {
 			 goto done;
          }
          
@@ -3019,7 +2791,7 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	if (!ctx->ct_session_shared) {
 		error = smb_session_security(ctx, authInfoDict);
 	}
-
+    
 	/* If we are not sharing the session we need to authenticate */
 	if (!ctx->ct_session_shared) {
 		/*
@@ -3032,50 +2804,121 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 			 * table.
 			 */
 			struct smbioc_client_interface client_interface_update;
-			bzero(&client_interface_update,
-			      sizeof(client_interface_update));
-			struct network_interface_info_vector* info_vector = NULL;
-			uint32_t extra_sockaddr_size;
-			error = createNetworkInterfaceVector(&info_vector, &client_interface_update.interface_instance_count, &extra_sockaddr_size);
+
+            error = get_client_interfaces(&client_interface_update);
 
 			if (!error) {
-				client_interface_update.total_buffer_size = client_interface_update.interface_instance_count * sizeof(struct network_nic_info) + extra_sockaddr_size;
-				client_interface_update.ioc_info_array = (struct network_nic_info*) malloc(client_interface_update.total_buffer_size);
-				if (client_interface_update.ioc_info_array != NULL) {
-					memset ((void*) client_interface_update.ioc_info_array, 0, client_interface_update.total_buffer_size);
-					struct network_interface_info_vector* tmp = info_vector;
-					struct network_nic_info* interface_entry = client_interface_update.ioc_info_array;
+                if (smb_ioctl_call(ctx->ct_fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &client_interface_update) == -1) {
+                    /* Some internal error happened? */
+                    error = errno;
+                } else {
+                    /* The real error */
+                    error = client_interface_update.ioc_errno;
+                }
+                free(client_interface_update.ioc_info_array);
+            }
 
-					while (tmp) {
-						memcpy((void*) interface_entry, (void*) &tmp->info, sizeof(struct network_nic_info));
-						memcpy((void*) &interface_entry->addr, (void*)&tmp->info.addr, tmp->info.addr.sa_len);
-						interface_entry->next_offset = sizeof(struct network_nic_info) + tmp->info.addr.sa_len;
+            /* TODO: think on a better place to put this */
+            /* Raise the mc_notifier if needed */
+            struct smbioc_notifier_pid ioc_pid;
+            if (ioctl(ctx->ct_fd, SMBIOC_GET_NOTIFIER_PID, &ioc_pid) == -1) {
+                /* Some internal error happened? */
+                error = errno;
+            } else {
+                pid_t child = -1;
+                if (needToSpawnMCNotifier(ioc_pid.pid)) {
+                    char **environ = NULL;
+                    short psflags = POSIX_SPAWN_CLOEXEC_DEFAULT;
+                    posix_spawnattr_t psattr = {0};
+                    sigset_t sig_mask = {0};
+                    pid_t process_group = 0;
+                    uint32_t notifier_on_timeout = 0;
 
-						interface_entry = (struct network_nic_info*)((void*)((uint8_t *)interface_entry + interface_entry->next_offset));
-						tmp = tmp->next;
-					}
+                    /*
+                     * <71090647>
+                     * Need to set POSIX_SPAWN_CLOEXEC_DEFAULT, otherwise
+                     * mc_notifier will inherit any open fd which includes the
+                     * current open /dev/nsmb# and that holds a session ref.
+                     * If the session ref does not go to 0, then the SMB Log
+                     * off will never get sent.
+                     */
+                    error = posix_spawnattr_init(&psattr);
+                    if (error != 0) {
+                        os_log_error(OS_LOG_DEFAULT, "%s: posix_spawnattr_init failed (%d)",
+                                     __FUNCTION__, error);
+                    }
+                    
+                    /*
+                     * <72188692> Reset all signals to defaults since we use
+                     * SIGTERM to tell mc_notifiier when to quit
+                     */
+                    if (error == 0) {
+                        sigfillset(&sig_mask);
+                        error = posix_spawnattr_setsigmask(&psattr,
+                                                           &sig_mask);
+                        if (error != 0) {
+                            os_log_error(OS_LOG_DEFAULT, "%s: posix_spawnattr_setsigmask failed (%d)",
+                                         __FUNCTION__, error);
+                        }
+                        else {
+                            psflags |= POSIX_SPAWN_SETSIGDEF;
+                        }
+                    }
+                    
+                    /*
+                     * <72188692> Change our process group so that when the
+                     * parent process exits, it wont send mc_notifier a SIGTERM
+                     * and cause it to exit early. Since the process_group is
+                     * set to 0, then the child process group ID will be set to
+                     * the same as its pid.
+                     */
+                    if (error == 0) {
+                        error = posix_spawnattr_setpgroup(&psattr,
+                                                          process_group);
+                        if (error != 0) {
+                            os_log_error(OS_LOG_DEFAULT, "%s: posix_spawnattr_setpgroup failed (%d)",
+                                         __FUNCTION__, error);
+                        }
+                        else {
+                            psflags |= POSIX_SPAWN_SETPGROUP;
+                        }
+                    }
+                    
+                    /* Set the posix_spawn flags */
+                    if (error == 0) {
+                        error = posix_spawnattr_setflags(&psattr, psflags);
+                        if (error != 0) {
+                            os_log_error(OS_LOG_DEFAULT, "%s: posix_spawnattr_setflags failed (%d)",
+                                         __FUNCTION__, error);
+                        }
+                    }
+ 
+                    /* Call posix_spawn to launch mc_notifier */
+                    if (error == 0) {
+                        error = posix_spawn(&child, "/usr/libexec/mc_notifier",
+                                            NULL, &psattr, NULL, environ);
+                        if (error) {
+                            os_log_error(OS_LOG_DEFAULT, "%s: posix_spawn failed (%d)",
+                                         __FUNCTION__, error);
+                        }
+                    }
 
-					releaseNetworkInterfaceVector(info_vector);
-					/*
-					 * Call the kernel to see if we already
-					 * have a session.
-					 */
-					if (smb_ioctl_call(ctx->ct_fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &client_interface_update) == -1) {
-						/* Some internal error happened? */
-						error = errno;
-					} else {
-						/* The real error */
-						error = client_interface_update.ioc_errno;
-					}
-
-					free(client_interface_update.ioc_info_array);
-				} else {
-					error = ENOMEM;
-				}
-			}
-		}
-	}
-	
+                    if (error == 0) {
+                        while (ioctl(ctx->ct_fd, SMBIOC_GET_NOTIFIER_PID, &ioc_pid) != -1 && ioc_pid.pid != child) {
+                            sleep(1);
+                            notifier_on_timeout++;
+                            if (notifier_on_timeout > 60) {
+                                os_log_error(OS_LOG_DEFAULT, "%s: MC notifier timeout (%d)",
+                                             __FUNCTION__, error);
+                                break;
+                            }
+                        }
+                    } /* if (error == 0) */
+                } /* if (needToSpawnMCNotifier) */
+            } /* Couldnt find mc_notifier pid */
+		} /* Server supports multichannel */
+	} /* Not a shared session */
+    
 	/*
 	 * The connection went down for some reason. Attempt to connect again
 	 * and retry the authentication.
@@ -3133,19 +2976,21 @@ done:
 	return error;
 }
 
-int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions, CFDictionaryRef *mInfo, 
+int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
+              CFDictionaryRef mOptions, CFDictionaryRef *mInfo, 
 			  void (*callout)(void  *, void *), void *args)
 {
 	CFMutableDictionaryRef mdict = NULL;
 	struct UniqueSMBShareID req;
 	Boolean ForceNewSession = SMBGetDictBooleanValue(mOptions, kNetFSForceNewSessionKey, FALSE);
-	struct smb_mount_args mdata;
+    struct smb_mount_args mdata = {0};
 	int error = 0;
 	char mount_point[MAXPATHLEN];
 	struct stat st;
 	int mntflags;
 	CFNumberRef numRef;
 	struct smb_ctx *dfs_ctx = ctx;
+    CFStringRef strRef = NULL;
 
 	if (!ForceNewSession) {
 		/* 
@@ -3219,7 +3064,39 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
         /* Kerberos is not allowed to access home dir for automounts */
         krb5_set_home_dir_access(NULL, false);
     }
-    
+
+    /* Is it a snapshot mount? */
+    if (mOptions) {
+        strRef = (CFStringRef)CFDictionaryGetValue (mOptions, kSnapshotTimeKey);
+        if (strRef) {
+            CFStringGetCString(strRef, mdata.snapshot_time,
+                               sizeof(mdata.snapshot_time), kCFStringEncodingUTF8);
+            if (strlen(mdata.snapshot_time) > 0) {
+                /* Convert the @GMT token to local time */
+                mdata.snapshot_local_time = SMBConvertGMT(mdata.snapshot_time);
+
+                if (mdata.snapshot_local_time != 0) {
+                    mdata.altflags |= SMBFS_MNT_SNAPSHOT;
+
+                    /* Read only and Force New Session should already be set */
+                    if (!(mntflags & MNT_RDONLY)) {
+                        os_log_error(OS_LOG_DEFAULT, "smb_mount: Snapshot mounts should have read only set. Setting read only option");
+                        mntflags |= MNT_RDONLY;
+                    }
+
+                    if (!ForceNewSession) {
+                        os_log_error(OS_LOG_DEFAULT, "smb_mount: Snapshot mounts should have Force New Session set. Setting Force New Session option");
+                        ForceNewSession = true;
+                    }
+               }
+                else {
+                    os_log_error(OS_LOG_DEFAULT, "smb_mount: SMBConvertGMT failed for <%s>",
+                                 mdata.snapshot_time);
+                }
+            }
+        }
+    }
+
     /* Create the dictionary used to return mount information in. */
 	mdict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (!mdict) {
@@ -3707,12 +3584,15 @@ int findMountPointSession(void *inRef, const char *mntPoint)
 	CFMutableArrayRef addressArray = NULL;
 	CFMutableDataRef addressData = NULL;
 	int error;
-	
+    struct smbSockAddrPB pb = {0};
+
 	memset(&conn, 0, sizeof(conn));
-	if (fsctl(mntPoint, (unsigned int)smbfsGetSessionSockaddrFSCTL, &conn.storage, 0 ) != 0) {
-		return errno;
-	}
-	addressArray = CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeArrayCallBacks);
+    if (fsctl(mntPoint, (unsigned int)smbfsGetSessionSockaddrFSCTL2, &pb, 0 ) != 0) {
+        return errno;
+    }
+    memcpy(&conn.storage, &pb.addr, pb.addr.ss_len);
+
+    addressArray = CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeArrayCallBacks);
 	if (!addressArray) {
 		return ENOMEM;
 	}
@@ -3721,13 +3601,13 @@ int findMountPointSession(void *inRef, const char *mntPoint)
 		CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
 		CFArrayAppendValue(addressArray, addressData);
 		CFRelease(addressData);
-		error = findMatchingSession(inRef, addressArray, FALSE);
+		error = findMatchingSession(inRef, addressArray, pb.sessionp, FALSE);
         if (error == ENOENT) {
             /*
              * <67014611> Maybe it was mounted with HiFi option? Try searching
              * again with HiFi option set.
              */
-            error = findMatchingSession(inRef, addressArray, TRUE);
+            error = findMatchingSession(inRef, addressArray, pb.sessionp, TRUE);
         }
 	} else {
 		error = ENOMEM;

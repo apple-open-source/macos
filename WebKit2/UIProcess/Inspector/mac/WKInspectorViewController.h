@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #import <wtf/NakedPtr.h>
 
 OBJC_CLASS WKWebView;
+OBJC_CLASS _WKInspectorConfiguration;
 
 namespace WebKit {
 class WebPageProxy;
@@ -43,7 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) WKWebView *webView;
 @property (nonatomic, weak) id <WKInspectorViewControllerDelegate> delegate;
 
-- (instancetype)initWithInspectedPage:(NakedPtr<WebKit::WebPageProxy>)inspectedPage;
+- (instancetype)initWithConfiguration:(_WKInspectorConfiguration *)configuration inspectedPage:(NakedPtr<WebKit::WebPageProxy>)inspectedPage;
 
 + (BOOL)viewIsInspectorWebView:(NSView *)view;
 
@@ -56,6 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)inspectorViewControllerInspectorIsUnderTest:(WKInspectorViewController *)inspectorViewController;
 - (void)inspectorViewController:(WKInspectorViewController *)inspectorViewController willMoveToWindow:(NSWindow *)newWindow;
 - (void)inspectorViewControllerDidMoveToWindow:(WKInspectorViewController *)inspectorViewController;
+- (void)inspectorViewController:(WKInspectorViewController *)inspectorViewController openURLExternally:(NSURL *)url;
 @end
 
 NS_ASSUME_NONNULL_END

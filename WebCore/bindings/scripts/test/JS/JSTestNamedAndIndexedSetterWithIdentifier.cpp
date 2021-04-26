@@ -49,13 +49,12 @@ using namespace JSC;
 
 // Functions
 
-JSC::EncodedJSValue JSC_HOST_CALL jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionNamedSetter(JSC::JSGlobalObject*, JSC::CallFrame*);
-JSC::EncodedJSValue JSC_HOST_CALL jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionIndexedSetter(JSC::JSGlobalObject*, JSC::CallFrame*);
+static JSC_DECLARE_HOST_FUNCTION(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_namedSetter);
+static JSC_DECLARE_HOST_FUNCTION(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_indexedSetter);
 
 // Attributes
 
-JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestNamedAndIndexedSetterWithIdentifierConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestNamedAndIndexedSetterWithIdentifierConstructor);
 
 class JSTestNamedAndIndexedSetterWithIdentifierPrototype final : public JSC::JSNonFinalObject {
 public:
@@ -89,30 +88,30 @@ private:
 };
 STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedAndIndexedSetterWithIdentifierPrototype, JSTestNamedAndIndexedSetterWithIdentifierPrototype::Base);
 
-using JSTestNamedAndIndexedSetterWithIdentifierConstructor = JSDOMConstructorNotConstructable<JSTestNamedAndIndexedSetterWithIdentifier>;
+using JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor = JSDOMConstructorNotConstructable<JSTestNamedAndIndexedSetterWithIdentifier>;
 
-template<> JSValue JSTestNamedAndIndexedSetterWithIdentifierConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(vm);
     return globalObject.functionPrototype();
 }
 
-template<> void JSTestNamedAndIndexedSetterWithIdentifierConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestNamedAndIndexedSetterWithIdentifier::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestNamedAndIndexedSetterWithIdentifier"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
-template<> const ClassInfo JSTestNamedAndIndexedSetterWithIdentifierConstructor::s_info = { "TestNamedAndIndexedSetterWithIdentifier", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterWithIdentifierConstructor) };
+template<> const ClassInfo JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor::s_info = { "TestNamedAndIndexedSetterWithIdentifier", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestNamedAndIndexedSetterWithIdentifierPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNamedAndIndexedSetterWithIdentifierConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNamedAndIndexedSetterWithIdentifierConstructor) } },
-    { "namedSetter", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionNamedSetter), (intptr_t) (2) } },
-    { "indexedSetter", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionIndexedSetter), (intptr_t) (2) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNamedAndIndexedSetterWithIdentifierConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "namedSetter", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_namedSetter), (intptr_t) (2) } },
+    { "indexedSetter", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_indexedSetter), (intptr_t) (2) } },
 };
 
 const ClassInfo JSTestNamedAndIndexedSetterWithIdentifierPrototype::s_info = { "TestNamedAndIndexedSetterWithIdentifier", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterWithIdentifierPrototype) };
@@ -152,7 +151,7 @@ JSObject* JSTestNamedAndIndexedSetterWithIdentifier::prototype(VM& vm, JSDOMGlob
 
 JSValue JSTestNamedAndIndexedSetterWithIdentifier::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestNamedAndIndexedSetterWithIdentifierConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestNamedAndIndexedSetterWithIdentifierDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
 void JSTestNamedAndIndexedSetterWithIdentifier::destroy(JSC::JSCell* cell)
@@ -180,7 +179,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::getOwnPropertySlot(JSObject* obj
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+    if (auto namedProperty = accessVisibleNamedProperty<LegacyOverrideBuiltIns::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
         auto value = toJS<IDLDOMString>(*lexicalGlobalObject, WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(0), value);
         return true;
@@ -209,7 +208,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::getOwnPropertySlotByIndex(JSObje
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+    if (auto namedProperty = accessVisibleNamedProperty<LegacyOverrideBuiltIns::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
         auto value = toJS<IDLDOMString>(*lexicalGlobalObject, WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(0), value);
         return true;
@@ -217,7 +216,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::getOwnPropertySlotByIndex(JSObje
     return JSObject::getOwnPropertySlotByIndex(object, lexicalGlobalObject, index, slot);
 }
 
-void JSTestNamedAndIndexedSetterWithIdentifier::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, EnumerationMode mode)
+void JSTestNamedAndIndexedSetterWithIdentifier::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto* thisObject = jsCast<JSTestNamedAndIndexedSetterWithIdentifier*>(object);
@@ -238,7 +237,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::put(JSCell* cell, JSGlobalObject
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
         RETURN_IF_EXCEPTION(throwScope, true);
-        thisObject->wrapped().indexedSetter(index.value(), WTFMove(nativeValue));
+        invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().indexedSetter(index.value(), WTFMove(nativeValue)); });
         return true;
     }
 
@@ -251,7 +250,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::put(JSCell* cell, JSGlobalObject
             auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
             auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
             RETURN_IF_EXCEPTION(throwScope, true);
-            thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue));
+            invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue)); });
             return true;
         }
     }
@@ -269,7 +268,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::putByIndex(JSCell* cell, JSGloba
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
         RETURN_IF_EXCEPTION(throwScope, true);
-        thisObject->wrapped().indexedSetter(index, WTFMove(nativeValue));
+        invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().indexedSetter(index, WTFMove(nativeValue)); });
         return true;
     }
 
@@ -282,7 +281,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::putByIndex(JSCell* cell, JSGloba
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
         RETURN_IF_EXCEPTION(throwScope, true);
-        thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue));
+        invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue)); });
         return true;
     }
 
@@ -300,7 +299,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::defineOwnProperty(JSObject* obje
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, propertyDescriptor.value());
         RETURN_IF_EXCEPTION(throwScope, true);
-        thisObject->wrapped().indexedSetter(index.value(), WTFMove(nativeValue));
+        invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().indexedSetter(index.value(), WTFMove(nativeValue)); });
         return true;
     }
 
@@ -314,7 +313,7 @@ bool JSTestNamedAndIndexedSetterWithIdentifier::defineOwnProperty(JSObject* obje
             auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
             auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, propertyDescriptor.value());
             RETURN_IF_EXCEPTION(throwScope, true);
-            thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue));
+            invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().namedSetter(propertyNameToString(propertyName), WTFMove(nativeValue)); });
             return true;
         }
     }
@@ -329,7 +328,7 @@ template<> inline JSTestNamedAndIndexedSetterWithIdentifier* IDLOperation<JSTest
     return jsDynamicCast<JSTestNamedAndIndexedSetterWithIdentifier*>(JSC::getVM(&lexicalGlobalObject), callFrame.thisValue());
 }
 
-EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestNamedAndIndexedSetterWithIdentifierConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -339,20 +338,7 @@ EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierConstructor(JSGlobalObje
     return JSValue::encode(JSTestNamedAndIndexedSetterWithIdentifier::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestNamedAndIndexedSetterWithIdentifierConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
-{
-    VM& vm = JSC::getVM(lexicalGlobalObject);
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestNamedAndIndexedSetterWithIdentifierPrototype*>(vm, JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype)) {
-        throwVMTypeError(lexicalGlobalObject, throwScope);
-        return false;
-    }
-    // Shadowing a built-in constructor
-    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
-}
-
-static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionNamedSetterBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::ClassParameter castedThis)
+static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_namedSetterBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::ClassParameter castedThis)
 {
     auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -372,12 +358,12 @@ static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierProto
     return JSValue::encode(jsUndefined());
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionNamedSetter(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_namedSetter, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
 {
-    return IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::call<jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionNamedSetterBody>(*lexicalGlobalObject, *callFrame, "namedSetter");
+    return IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::call<jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_namedSetterBody>(*lexicalGlobalObject, *callFrame, "namedSetter");
 }
 
-static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionIndexedSetterBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::ClassParameter castedThis)
+static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_indexedSetterBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::ClassParameter castedThis)
 {
     auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -397,9 +383,9 @@ static inline JSC::EncodedJSValue jsTestNamedAndIndexedSetterWithIdentifierProto
     return JSValue::encode(jsUndefined());
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionIndexedSetter(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_indexedSetter, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
 {
-    return IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::call<jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunctionIndexedSetterBody>(*lexicalGlobalObject, *callFrame, "indexedSetter");
+    return IDLOperation<JSTestNamedAndIndexedSetterWithIdentifier>::call<jsTestNamedAndIndexedSetterWithIdentifierPrototypeFunction_indexedSetterBody>(*lexicalGlobalObject, *callFrame, "indexedSetter");
 }
 
 JSC::IsoSubspace* JSTestNamedAndIndexedSetterWithIdentifier::subspaceForImpl(JSC::VM& vm)

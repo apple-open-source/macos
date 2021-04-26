@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #define SHOW_USAGE_MESSAGE 2
 
 // This is included to make SECURITY_COMMAND macros result in declarations of

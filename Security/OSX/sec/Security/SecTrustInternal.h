@@ -54,6 +54,8 @@ __BEGIN_DECLS
 
 extern const CFStringRef kSecCertificateDetailSHA1Digest;
 
+bool SecTrustIsTrustResultValid(SecTrustRef trust, CFAbsoluteTime verifyTime);
+
 #if TARGET_OS_OSX
 SecKeyRef SecTrustCopyPublicKey_ios(SecTrustRef trust);
 CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);

@@ -165,16 +165,18 @@ size_t der_sizeof_dictionary(CFDictionaryRef dict, CFErrorRef *error)
 }
 
 static uint8_t* der_encode_key_value(CFPropertyListRef key, CFPropertyListRef value, CFErrorRef *error,
+                                     bool repair,
                                      const uint8_t* der, uint8_t *der_end)
 {
     return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
-                                                                  der_encode_plist(key, error, der,
-                                                                                   der_encode_plist(value, error, der, der_end))),
+                                                                  der_encode_plist_repair(key, error, repair, der,
+                                                                                          der_encode_plist_repair(value, error, repair, der, der_end))),
                                       error);
 }
 
 struct encode_context {
     bool         success;
+    bool         repair_contents;
     CFErrorRef * error;
     CFMutableArrayRef list;
     CFAllocatorRef allocator;
@@ -197,7 +199,7 @@ static void add_sequence_to_array(const void *key_void, const void *value_void, 
             uint8_t* const encode_begin = CFDataGetMutableBytePtr(encoded_kv);
             uint8_t* encode_end = encode_begin + der_size;
 
-            encode_end = der_encode_key_value(key, value, context->error, encode_begin, encode_end);
+            encode_end = der_encode_key_value(key, value, context->error, context->repair_contents, encode_begin, encode_end);
 
             if (encode_end != NULL) {
                 CFDataDeleteBytes(encoded_kv, CFRangeMake(0, (encode_end - encode_begin)));
@@ -220,9 +222,15 @@ static CFComparisonResult cfdata_compare_der_contents(const void *val1, const vo
 uint8_t* der_encode_dictionary(CFDictionaryRef dictionary, CFErrorRef *error,
                                const uint8_t *der, uint8_t *der_end)
 {
+    return der_encode_dictionary_repair(dictionary, error, false, der, der_end);
+}
+
+uint8_t* der_encode_dictionary_repair(CFDictionaryRef dictionary, CFErrorRef *error,
+                                      bool repair, const uint8_t *der, uint8_t *der_end)
+{
     CFMutableArrayRef elements = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     
-    struct encode_context context = { .success = true, .error = error, .list = elements };
+    struct encode_context context = { .success = true, .error = error, .list = elements, .repair_contents = repair };
     CFDictionaryApplyFunction(dictionary, add_sequence_to_array, &context);
     
     if (!context.success) {

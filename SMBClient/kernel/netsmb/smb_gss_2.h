@@ -26,7 +26,7 @@
 
 int smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
                     vfs_context_t context);
-int smb_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action, 
+int smb_gss_ssandx(struct smbiod *iod, uint32_t caps, uint16_t *action, 
                    vfs_context_t context);
 
 

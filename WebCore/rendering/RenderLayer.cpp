@@ -46,7 +46,6 @@
 #include "RenderLayer.h"
 
 #include "BoxShape.h"
-#include "CSSAnimationController.h"
 #include "CSSFilter.h"
 #include "CSSPropertyNames.h"
 #include "Chrome.h"
@@ -118,6 +117,7 @@
 #include "ScaleTransformOperation.h"
 #include "ScriptDisallowedScope.h"
 #include "ScrollAnimator.h"
+#include "ScrollSnapOffsetsInfo.h"
 #include "Scrollbar.h"
 #include "ScrollbarTheme.h"
 #include "ScrollingCoordinator.h"
@@ -135,10 +135,6 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/TextStream.h>
-
-#if ENABLE(CSS_SCROLL_SNAP)
-#include "AxisScrollSnapOffsets.h"
-#endif
 
 #define MIN_INTERSECT_FOR_REVEAL 32
 
@@ -365,9 +361,11 @@ RenderLayer::RenderLayer(RenderLayerModelObject& rendererLayerModelObject)
 
     if (Element* element = renderer().element()) {
         // We save and restore only the scrollOffset as the other scroll values are recalculated.
-        m_scrollPosition = element->savedLayerScrollPosition();
-        if (!m_scrollPosition.isZero())
-            scrollAnimator().setCurrentPosition(m_scrollPosition);
+        if (renderBox()) {
+            m_scrollPosition = element->savedLayerScrollPosition();
+            if (!m_scrollPosition.isZero())
+                scrollAnimator().setCurrentPosition(m_scrollPosition);
+        }
         element->setSavedLayerScrollPosition(IntPoint());
     }
 }
@@ -597,6 +595,20 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || (renderer.style().willChange() && renderer.style().willChange()->canCreateStackingContext());
 }
 
+static void expandScrollRectToVisibleTargetRectToIncludeScrollPadding(RenderBox* renderBox, const LayoutRect& viewRect, LayoutRect& targetRect)
+{
+    if (!renderBox)
+        return;
+    // scroll-padding applies to the scroll container, but expand the rectangle that we want to expose in order
+    // simulate padding the scroll container. This rectangle is passed up the tree of scrolling elements to
+    // ensure that the padding on this scroll container is maintained.
+    const auto& scrollPadding = renderBox->style().scrollPadding();
+    LayoutBoxExtent scrollPaddingExtents(
+        valueForLength(scrollPadding.top(), viewRect.height()), valueForLength(scrollPadding.right(), viewRect.width()),
+        valueForLength(scrollPadding.bottom(), viewRect.height()), valueForLength(scrollPadding.left(), viewRect.width()));
+    targetRect.expand(scrollPaddingExtents);
+}
+
 bool RenderLayer::shouldBeNormalFlowOnly() const
 {
     if (canCreateStackingContext(*this))
@@ -607,7 +619,6 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
         || renderer().isVideo()
         || renderer().isEmbeddedObject()
         || renderer().isRenderIFrame()
-        || (renderer().isRenderImage() && downcast<RenderImage>(renderer()).isEditableImage())
         || (renderer().style().specifiesColumns() && !isRenderViewLayer())
         || renderer().isInFlowRenderFragmentedFlow();
 }
@@ -1307,7 +1318,7 @@ void RenderLayer::updateTransform()
     if (hasTransform) {
         auto& renderBox = downcast<RenderBox>(renderer());
         m_transform->makeIdentity();
-        renderBox.style().applyTransform(*m_transform, snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(renderBox.style().transformBox())), renderBox.document().deviceScaleFactor()), RenderStyle::IncludeTransformOrigin);
+        renderBox.style().applyTransform(*m_transform, snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(renderBox.style().transformBox())), renderBox.document().deviceScaleFactor()));
         makeMatrixRenderable(*m_transform, canRender3DTransforms());
     }
 
@@ -1318,7 +1329,7 @@ void RenderLayer::updateTransform()
     }
 }
 
-TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOrigin applyOrigin) const
+TransformationMatrix RenderLayer::currentTransform(OptionSet<RenderStyle::TransformOperationOption> options) const
 {
     if (!m_transform)
         return { };
@@ -1328,35 +1339,23 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
 
     auto& renderBox = downcast<RenderBox>(renderer());
 
-    if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
-        if (auto* timeline = renderer().documentTimeline()) {
-            if (timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
-                TransformationMatrix currTransform;
-                std::unique_ptr<RenderStyle> style = timeline->animatedStyleForRenderer(renderer());
-                FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(style->transformBox())), renderBox.document().deviceScaleFactor());
-                style->applyTransform(currTransform, pixelSnappedBorderRect, applyOrigin);
-                makeMatrixRenderable(currTransform, canRender3DTransforms());
-                return currTransform;
-            }
-        }
-    } else {
-        if (renderer().legacyAnimation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
+    if (auto* timeline = renderer().documentTimeline()) {
+        if (timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
             TransformationMatrix currTransform;
-            std::unique_ptr<RenderStyle> style = renderer().legacyAnimation().animatedStyleForRenderer(renderer());
+            std::unique_ptr<RenderStyle> style = renderer().animatedStyle();
             FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(style->transformBox())), renderBox.document().deviceScaleFactor());
-            style->applyTransform(currTransform, pixelSnappedBorderRect, applyOrigin);
+            style->applyTransform(currTransform, pixelSnappedBorderRect, options);
             makeMatrixRenderable(currTransform, canRender3DTransforms());
             return currTransform;
         }
     }
 
-
     // m_transform includes transform-origin, so we need to recompute the transform here.
-    if (applyOrigin == RenderStyle::ExcludeTransformOrigin) {
+    if (!options.contains(RenderStyle::TransformOperationOption::TransformOrigin)) {
         TransformationMatrix currTransform;
-        std::unique_ptr<RenderStyle> style = renderer().legacyAnimation().animatedStyleForRenderer(renderer());
+        std::unique_ptr<RenderStyle> style = renderer().animatedStyle();
         FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(style->transformBox())), renderBox.document().deviceScaleFactor());
-        renderBox.style().applyTransform(currTransform, pixelSnappedBorderRect, RenderStyle::ExcludeTransformOrigin);
+        renderBox.style().applyTransform(currTransform, pixelSnappedBorderRect, RenderStyle::individualTransformOperations);
         makeMatrixRenderable(currTransform, canRender3DTransforms());
         return currTransform;
     }
@@ -1924,7 +1923,7 @@ bool RenderLayer::isRubberBandInProgress() const
 
 bool RenderLayer::forceUpdateScrollbarsOnMainThreadForPerformanceTesting() const
 {
-    return renderer().settings().forceUpdateScrollbarsOnMainThreadForPerformanceTesting();
+    return renderer().settings().scrollingPerformanceTestingEnabled();
 }
 
 RenderLayer* RenderLayer::enclosingTransformedAncestor() const
@@ -2822,7 +2821,13 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
     LayoutRect newRect = absoluteRect;
     FrameView& frameView = renderer().view().frameView();
     auto* parentLayer = enclosingContainingBlockLayer(*this, CrossFrameBoundaries::No);
-    bool autoscrollNotInProgress = !renderer().frame().eventHandler().autoscrollInProgress();
+
+    auto shouldUseAnimatedScroll = [this](Element* element, ScrollBehavior behavior)
+    {
+        bool useAnimatedScrolling = !renderer().frame().eventHandler().autoscrollInProgress()
+            && element && useSmoothScrolling(behavior, element);
+        return useAnimatedScrolling ? AnimatedScroll::Yes : AnimatedScroll::No;
+    };
 
     if (allowsCurrentScroll()) {
         // Don't scroll to reveal an overflow layer that is restricted by the -webkit-line-clamp property.
@@ -2830,20 +2835,24 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
         RenderBox* box = renderBox();
         ASSERT(box);
         LayoutRect localExposeRect(box->absoluteToLocalQuad(FloatQuad(FloatRect(absoluteRect))).boundingBox());
+
+        // localExposedRect is now the absolute rect in local coordinates, but relative to the
+        // border edge. Make the rectangle relative to the scrollable area.
+        localExposeRect.moveBy(-LayoutPoint(box->borderLeft(), box->borderTop()));
+
         if (shouldPlaceBlockDirectionScrollbarOnLeft()) {
             // For direction: rtl; writing-mode: horizontal-tb box, the scroll bar is on the left side. The visible rect
             // starts from the right side of scroll bar. So the x of localExposeRect should start from the same position too.
             localExposeRect.moveBy(LayoutPoint(-verticalScrollbarWidth(), 0));
         }
         LayoutRect layerBounds(0_lu, 0_lu, box->clientWidth(), box->clientHeight());
+        expandScrollRectToVisibleTargetRectToIncludeScrollPadding(box, layerBounds, localExposeRect);
         LayoutRect revealRect = getRectToExpose(layerBounds, localExposeRect, insideFixed, options.alignX, options.alignY);
 
         ScrollOffset clampedScrollOffset = clampScrollOffset(scrollOffset() + toIntSize(roundedIntRect(revealRect).location()));
         if (clampedScrollOffset != scrollOffset() || currentScrollBehaviorStatus() != ScrollBehaviorStatus::NotInAnimation) {
             ScrollOffset oldScrollOffset = scrollOffset();
-            AnimatedScroll animated = AnimatedScroll::No;
-            if (autoscrollNotInProgress && useSmoothScrolling(options.behavior, box->element()))
-                animated = AnimatedScroll::Yes;
+            auto animated = shouldUseAnimatedScroll(box->element(), options.behavior);
             setScrollPosition(scrollPositionFromOffset(clampedScrollOffset), ScrollType::Programmatic, ScrollClamping::Clamped, animated);
             IntSize scrollOffsetDifference = clampedScrollOffset - oldScrollOffset;
             localExposeRect.move(-scrollOffsetDifference);
@@ -2863,18 +2872,19 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
                 ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
                 LayoutRect viewRect = frameView.visibleContentRect(LegacyIOSDocumentVisibleRect);
-                LayoutRect exposeRect = getRectToExpose(viewRect, absoluteRect, insideFixed, options.alignX, options.alignY);
+
+                auto* element = ownerElement->contentDocument() ? ownerElement->contentDocument()->documentElement() : nullptr;
+                RenderBox* renderer = element ? element->renderBox() : nullptr;
+                expandScrollRectToVisibleTargetRectToIncludeScrollPadding(renderer, viewRect, newRect);
+
+                LayoutRect exposeRect = getRectToExpose(viewRect, newRect, insideFixed, options.alignX, options.alignY);
 
                 IntPoint scrollPosition(roundedIntPoint(exposeRect.location()));
                 // Adjust offsets if they're outside of the allowable range.
                 scrollPosition = scrollPosition.constrainedBetween(IntPoint(), IntPoint(frameView.contentsSize()));
                 // FIXME: Should we use contentDocument()->scrollingElement()?
                 // See https://bugs.webkit.org/show_bug.cgi?id=205059
-                AnimatedScroll animated = AnimatedScroll::No;
-                if (autoscrollNotInProgress
-                    && ownerElement->contentDocument()
-                    && useSmoothScrolling(options.behavior, ownerElement->contentDocument()->documentElement()))
-                    animated = AnimatedScroll::Yes;
+                auto animated = shouldUseAnimatedScroll(element, options.behavior);
                 frameView.setScrollPosition(scrollPosition, ScrollClamping::Clamped, animated);
 
                 if (options.shouldAllowCrossOriginScrolling == ShouldAllowCrossOriginScrolling::Yes || frameView.safeToPropagateScrollToParent()) {
@@ -2911,15 +2921,17 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
             LayoutRect targetRect = absoluteRect;
             targetRect.move(0, frameView.headerHeight());
 
+            auto* element = frameView.frame().document() ? frameView.frame().document()->documentElement() : nullptr;
+            RenderBox* renderer = element ? element->renderBox() : nullptr;
+            expandScrollRectToVisibleTargetRectToIncludeScrollPadding(renderer, viewRect, targetRect);
+
             LayoutRect revealRect = getRectToExpose(viewRect, targetRect, insideFixed, options.alignX, options.alignY);
             // Avoid scrolling to the rounded value of revealRect.location() if we don't actually need to scroll
             if (revealRect != viewRect) {
                 ScrollOffset clampedScrollPosition = roundedIntPoint(revealRect.location()).constrainedBetween(minScrollPosition, maxScrollPosition);
                 // FIXME: Should we use document()->scrollingElement()?
                 // See https://bugs.webkit.org/show_bug.cgi?id=205059
-                AnimatedScroll animated = AnimatedScroll::No;
-                if (autoscrollNotInProgress && useSmoothScrolling(options.behavior, renderer().document().documentElement()))
-                    animated = AnimatedScroll::Yes;
+                auto animated = shouldUseAnimatedScroll(element, options.behavior);
                 frameView.setScrollPosition(clampedScrollPosition, ScrollClamping::Clamped, animated);
             }
 
@@ -3148,6 +3160,21 @@ ScrollingNodeID RenderLayer::scrollingNodeID() const
         return 0;
 
     return backing()->scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling);
+}
+
+bool RenderLayer::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEvent, Optional<WheelScrollGestureState> gestureState)
+{
+    if (!isScrollableOrRubberbandable())
+        return false;
+
+#if ENABLE(ASYNC_SCROLLING)
+    if (usesAsyncScrolling() && scrollingNodeID()) {
+        if (auto* scrollingCoordinator = page().scrollingCoordinator())
+            return scrollingCoordinator->handleWheelEventForScrolling(wheelEvent, scrollingNodeID(), gestureState);
+    }
+#endif
+
+    return ScrollableArea::handleWheelEventForScrolling(wheelEvent, gestureState);
 }
 
 IntRect RenderLayer::visibleContentRectInternal(VisibleContentRectIncludesScrollbars scrollbarInclusion, VisibleContentRectBehavior) const
@@ -3601,7 +3628,7 @@ void RenderLayer::updateSnapOffsets()
         return;
 
     RenderBox* box = enclosingElement()->renderBox();
-    updateSnapOffsetsForScrollableArea(*this, *downcast<HTMLElement>(enclosingElement()), *box, box->style());
+    updateSnapOffsetsForScrollableArea(*this, *box, box->style(), box->paddingBoxRect());
 }
 
 bool RenderLayer::isScrollSnapInProgress() const
@@ -3912,6 +3939,7 @@ void RenderLayer::updateScrollInfoAfterLayout()
     ScrollOffset originalScrollOffset = scrollOffset();
 
     computeScrollDimensions();
+    updateSelfPaintingLayer();
 
 #if ENABLE(CSS_SCROLL_SNAP)
     // FIXME: Ensure that offsets are also updated in case of programmatic style changes.
@@ -4476,24 +4504,24 @@ Path RenderLayer::computeClipPath(const LayoutSize& offsetFromRoot, LayoutRect& 
     return Path();
 }
 
-bool RenderLayer::setupClipPath(GraphicsContext& context, const LayerPaintingInfo& paintingInfo, const LayoutSize& offsetFromRoot, Optional<LayoutRect>& rootRelativeBounds)
+bool RenderLayer::setupClipPath(GraphicsContext& context, const LayerPaintingInfo& paintingInfo, const LayoutSize& offsetFromRoot)
 {
     if (!renderer().hasClipPath() || context.paintingDisabled() || paintingInfo.paintDirtyRect.isEmpty())
         return false;
 
-    if (!rootRelativeBounds)
-        rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { });
-
     // SVG elements get clipped in SVG code.
     if (is<RenderSVGRoot>(renderer()))
         return false;
+
+    // It's not clear that this geometry is correct: https://github.com/w3c/csswg-drafts/issues/5786
+    auto rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { UseLocalClipRectIfPossible });
 
     auto& style = renderer().style();
     LayoutSize paintingOffsetFromRoot = LayoutSize(snapSizeToDevicePixel(offsetFromRoot + paintingInfo.subpixelOffset, LayoutPoint(), renderer().document().deviceScaleFactor()));
     ASSERT(style.clipPath());
     if (is<ShapeClipPathOperation>(*style.clipPath()) || (is<BoxClipPathOperation>(*style.clipPath()) && is<RenderBox>(renderer()))) {
         WindRule windRule;
-        Path path = computeClipPath(paintingOffsetFromRoot, rootRelativeBounds.value(), windRule);
+        Path path = computeClipPath(paintingOffsetFromRoot, rootRelativeBounds, windRule);
         context.save();
         context.clipPath(path, windRule);
         return true;
@@ -4504,7 +4532,7 @@ bool RenderLayer::setupClipPath(GraphicsContext& context, const LayerPaintingInf
         Element* element = renderer().document().getElementById(referenceClipPathOperation->fragment());
         if (element && element->renderer() && is<RenderSVGResourceClipper>(element->renderer())) {
             context.save();
-            auto referenceBox = snapRectToDevicePixels(rootRelativeBounds.value(), renderer().document().deviceScaleFactor());
+            auto referenceBox = snapRectToDevicePixels(rootRelativeBounds, renderer().document().deviceScaleFactor());
             auto offset = referenceBox.location();
             context.translate(offset);
             FloatRect svgReferenceBox { {}, referenceBox.size() };
@@ -4534,7 +4562,7 @@ RenderLayerFilters* RenderLayer::filtersForPainting(GraphicsContext& context, Op
     return nullptr;
 }
 
-GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, LayerPaintingInfo& paintingInfo, OptionSet<PaintLayerFlag> paintFlags, const LayoutSize& offsetFromRoot, Optional<LayoutRect>& rootRelativeBounds)
+GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, LayerPaintingInfo& paintingInfo, OptionSet<PaintLayerFlag> paintFlags, const LayoutSize& offsetFromRoot)
 {
     auto* paintingFilters = filtersForPainting(destinationContext, paintFlags);
     if (!paintingFilters)
@@ -4543,10 +4571,9 @@ GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, 
     LayoutRect filterRepaintRect = paintingFilters->dirtySourceRect();
     filterRepaintRect.move(offsetFromRoot);
 
-    if (!rootRelativeBounds)
-        rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { });
+    auto rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { });
 
-    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(destinationContext, enclosingIntRect(rootRelativeBounds.value()), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
+    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(destinationContext, enclosingIntRect(rootRelativeBounds), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
     if (!filterContext)
         return nullptr;
 
@@ -4616,7 +4643,6 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
     updateLayerListsIfNeeded();
 
     LayoutSize offsetFromRoot = offsetFromAncestor(paintingInfo.rootLayer);
-    Optional<LayoutRect> rootRelativeBounds;
 
     // FIXME: We shouldn't have to disable subpixel quantization for overflow clips or subframes once we scroll those
     // things on the scrolling thread.
@@ -4630,7 +4656,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
 
     bool hasClipPath = false;
     if (shouldApplyClipPath(paintingInfo.paintBehavior, localPaintFlags))
-        hasClipPath = setupClipPath(context, paintingInfo, columnAwareOffsetFromRoot, rootRelativeBounds);
+        hasClipPath = setupClipPath(context, paintingInfo, columnAwareOffsetFromRoot);
 
     bool selectionAndBackgroundsOnly = paintingInfo.paintBehavior.contains(PaintBehavior::SelectionAndBackgroundsOnly);
     bool selectionOnly = paintingInfo.paintBehavior.contains(PaintBehavior::SelectionOnly);
@@ -4669,7 +4695,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
 
     { // Scope for filter-related state changes.
         LayerPaintingInfo localPaintingInfo(paintingInfo);
-        GraphicsContext* filterContext = setupFilters(context, localPaintingInfo, paintFlags, columnAwareOffsetFromRoot, rootRelativeBounds);
+        GraphicsContext* filterContext = setupFilters(context, localPaintingInfo, paintFlags, columnAwareOffsetFromRoot);
         if (filterContext && haveTransparency) {
             // If we have a filter and transparency, we have to eagerly start a transparency layer here, rather than risk a child layer lazily starts one with the wrong context.
             beginTransparencyLayers(context, localPaintingInfo, paintingInfo.paintDirtyRect);
@@ -6166,20 +6192,13 @@ bool RenderLayer::getOverlapBoundsIncludingChildrenAccountingForTransformAnimati
     bounds = calculateLayerBounds(this, LayoutSize(), boundsFlags);
     
     LayoutRect animatedBounds = bounds;
-    if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
-        if (auto* timeline = renderer().documentTimeline()) {
-            if (timeline->computeExtentOfAnimation(renderer(), animatedBounds)) {
-                bounds = animatedBounds;
-                return true;
-            }
-        }
-    } else {
-        if (renderer().legacyAnimation().computeExtentOfAnimation(renderer(), animatedBounds)) {
+    if (auto* timeline = renderer().documentTimeline()) {
+        if (timeline->computeExtentOfAnimation(renderer(), animatedBounds)) {
             bounds = animatedBounds;
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -6524,12 +6543,11 @@ bool RenderLayer::shouldBeSelfPaintingLayer() const
         return true;
 
     return hasOverlayScrollbars()
-        || canUseCompositedScrolling()
+        || hasCompositedScrollableOverflow()
         || renderer().isTableRow()
         || renderer().isCanvas()
         || renderer().isVideo()
         || renderer().isEmbeddedObject()
-        || (renderer().isRenderImage() && downcast<RenderImage>(renderer()).isEditableImage())
         || renderer().isRenderIFrame()
         || renderer().isInFlowRenderFragmentedFlow();
 }
@@ -7076,7 +7094,8 @@ bool RenderLayer::invalidateEventRegion(EventRegionInvalidationReason reason)
         auto& view = renderer().view();
         LOG_WITH_STREAM(EventRegions, stream << " calling setNeedsEventRegionUpdateForNonCompositedFrame on " << view);
         view.setNeedsEventRegionUpdateForNonCompositedFrame();
-        if (renderer().settings().visibleDebugOverlayRegions() & (TouchActionRegion | EditableElementRegion | WheelEventHandlerRegion))
+        auto visibleDebugOverlayRegions = OptionSet<DebugOverlayRegions>::fromRaw(renderer().settings().visibleDebugOverlayRegions());
+        if (visibleDebugOverlayRegions.containsAny({ DebugOverlayRegions::TouchActionRegion, DebugOverlayRegions::EditableElementRegion, DebugOverlayRegions::WheelEventHandlerRegion }))
             view.setNeedsRepaintHackAfterCompositingLayerUpdateForDebugOverlaysOnly();
         view.compositor().scheduleCompositingLayerUpdate();
     }

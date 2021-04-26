@@ -134,9 +134,7 @@ static Seconds maximumBufferingTime(CachedResource* resource)
     case CachedResource::Type::Ping:
     case CachedResource::Type::CSSStyleSheet:
     case CachedResource::Type::Script:
-#if ENABLE(SVG_FONTS)
     case CachedResource::Type::SVGFontResource:
-#endif
     case CachedResource::Type::FontResource:
 #if ENABLE(APPLICATION_MANIFEST)
     case CachedResource::Type::ApplicationManifest:
@@ -228,12 +226,14 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     if (!tryLoadingUsingURLSchemeHandler(resourceLoader, trackingParameters)) {
         WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be scheduled with the NetworkProcess");
 
+#if ENABLE(SERVICE_WORKER)
         if (!resourceLoader.options().serviceWorkerRegistrationIdentifier && InspectorInstrumentationWebKit::shouldInterceptRequest(resourceLoader.frame(), resourceLoader.request())) {
             InspectorInstrumentationWebKit::interceptRequest(resourceLoader, [this, protectedResourceLoader = makeRefPtr(&resourceLoader), trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, resource](const ResourceRequest& request) {
                 scheduleLoadFromNetworkProcess(*protectedResourceLoader, request, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
             });
             return;
         }
+#endif
         scheduleLoadFromNetworkProcess(resourceLoader, resourceLoader.request(), trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
         return;
     }
@@ -335,8 +335,11 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     auto* webFrameLoaderClient = frame ? toWebFrameLoaderClient(frame->loader().client()) : nullptr;
     auto* webFrame = webFrameLoaderClient ? &webFrameLoaderClient->webFrame() : nullptr;
     auto* webPage = webFrame ? webFrame->page() : nullptr;
+
+#if ENABLE(APP_BOUND_DOMAINS)
     if (webFrame)
         loadParameters.isNavigatingToAppBoundDomain = webFrame->isTopFrameNavigatingToAppBoundDomain();
+#endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (document) {
@@ -382,7 +385,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     loadParameters.isMainResourceNavigationForAnyFrame = resourceLoader.frame() && resourceLoader.options().mode == FetchOptions::Mode::Navigate;
 
-    loadParameters.shouldEnableCrossOriginResourcePolicy = RuntimeEnabledFeatures::sharedFeatures().crossOriginResourcePolicyEnabled() && !loadParameters.isMainFrameNavigation;
+    loadParameters.shouldEnableCrossOriginResourcePolicy = !loadParameters.isMainFrameNavigation;
 
     if (resourceLoader.options().mode == FetchOptions::Mode::Navigate) {
         Vector<RefPtr<SecurityOrigin>> frameAncestorOrigins;
@@ -600,9 +603,10 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
             loadParameters.cspResponseHeaders = contentSecurityPolicy->responseHeaders();
     }
     loadParameters.originalRequestHeaders = originalRequestHeaders;
-    
+#if ENABLE(APP_BOUND_DOMAINS)
     if (webFrame)
         loadParameters.isNavigatingToAppBoundDomain = webFrame->isTopFrameNavigatingToAppBoundDomain();
+#endif
     addParametersShared(webFrame->coreFrame(), loadParameters);
 
     data.shrink(0);
@@ -681,9 +685,10 @@ void WebLoaderStrategy::startPingLoad(Frame& frame, ResourceRequest& request, co
             loadParameters.cspResponseHeaders = contentSecurityPolicy->responseHeaders();
     }
     addParametersShared(&frame, loadParameters);
-    
+#if ENABLE(APP_BOUND_DOMAINS)
     loadParameters.isNavigatingToAppBoundDomain = webFrame->isTopFrameNavigatingToAppBoundDomain();
-    
+#endif
+
 #if ENABLE(CONTENT_EXTENSIONS)
     loadParameters.mainDocumentURL = document->topDocument().url();
     // FIXME: Instead of passing userContentControllerIdentifier, we should just pass webPageId to NetworkProcess.
@@ -750,7 +755,9 @@ void WebLoaderStrategy::preconnectTo(WebCore::ResourceRequest&& request, WebPage
     parameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
     // FIXME: Use the proper destination once all fetch options are passed.
     parameters.options.destination = FetchOptions::Destination::EmptyString;
+#if ENABLE(APP_BOUND_DOMAINS)
     parameters.isNavigatingToAppBoundDomain = webFrame.isTopFrameNavigatingToAppBoundDomain();
+#endif
 
     WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::PreconnectTo(preconnectionIdentifier, WTFMove(parameters)), 0);
 }
@@ -770,6 +777,15 @@ void WebLoaderStrategy::addOnlineStateChangeListener(Function<void(bool)>&& list
 {
     WebProcess::singleton().ensureNetworkProcessConnection();
     m_onlineStateChangeListeners.append(WTFMove(listener));
+}
+
+void WebLoaderStrategy::isResourceLoadFinished(CachedResource& resource, CompletionHandler<void(bool)>&& callback)
+{
+    if (!resource.loader()) {
+        callback(true);
+        return;
+    }
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::IsResourceLoadFinished(resource.loader()->identifier()), WTFMove(callback), 0);
 }
 
 void WebLoaderStrategy::setOnLineState(bool isOnLine)

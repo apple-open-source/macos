@@ -98,7 +98,6 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << placeholder;
     encoder << label;
     encoder << ariaLabel;
-    encoder << embeddedViewID;
     encoder << focusedElementIdentifier;
 #if ENABLE(DATALIST_ELEMENT)
     encoder << hasSuggestions;
@@ -111,6 +110,7 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << shouldAvoidResizingWhenInputViewBoundsChange;
     encoder << shouldAvoidScrollingWhenFocusedContentIsVisible;
     encoder << shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation;
+    encoder << isFocusingWithValidationMessage;
 }
 
 bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInformation& result)
@@ -220,9 +220,6 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
     if (!decoder.decode(result.ariaLabel))
         return false;
 
-    if (!decoder.decode(result.embeddedViewID))
-        return false;
-
     if (!decoder.decode(result.focusedElementIdentifier))
         return false;
 
@@ -248,6 +245,9 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
         return false;
 
     if (!decoder.decode(result.shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation))
+        return false;
+
+    if (!decoder.decode(result.isFocusingWithValidationMessage))
         return false;
 
     return true;

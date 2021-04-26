@@ -77,7 +77,8 @@ struct OpaqueSecORVC {
     /* Index of cert in builder that this RVC is for 0 = leaf, etc. */
     CFIndex certIX;
 
-    /* Date until which this revocation status is valid. */
+    /* Validity period for which this revocation status. */
+    CFAbsoluteTime thisUpdate;
     CFAbsoluteTime nextUpdate;
 
     /* URL of current responder. For logging purposes. */
@@ -89,6 +90,7 @@ struct OpaqueSecORVC {
 bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder);
 void SecPathBuilderCheckKnownIntermediateConstraints(SecPathBuilderRef builder);
 CFAbsoluteTime SecRVCGetEarliestNextUpdate(SecRVCRef rvc);
+CFAbsoluteTime SecRVCGetLatestThisUpdate(SecRVCRef rvc);
 void SecRVCDelete(SecRVCRef rvc);
 bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc);
 bool SecRVCHasRevokedValidInfo(SecRVCRef rvc);

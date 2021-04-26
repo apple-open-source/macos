@@ -56,6 +56,10 @@
 #include <array>
 #endif
 
+#if HAVE(QOS_CLASSES)
+#include <dispatch/dispatch.h>
+#endif
+
 namespace WTF {
 
 class AbstractLocker;
@@ -92,15 +96,28 @@ enum class ThreadType : uint8_t {
 };
 
 class Thread : public ThreadSafeRefCounted<Thread> {
+    static std::atomic<uint32_t> s_uid;
 public:
     friend class ThreadGroup;
     friend WTF_EXPORT_PRIVATE void initialize();
 
     WTF_EXPORT_PRIVATE ~Thread();
 
+    enum class QOS {
+        UserInteractive,
+        UserInitiated,
+        Default,
+        Utility,
+        Background
+    };
+
+#if HAVE(QOS_CLASSES)
+    static dispatch_qos_class_t dispatchQOSClass(QOS);
+#endif
+
     // Returns nullptr if thread creation failed.
     // The thread name must be a literal since on some platforms it's passed in to the thread.
-    WTF_EXPORT_PRIVATE static Ref<Thread> create(const char* threadName, Function<void()>&&, ThreadType threadType = ThreadType::Unknown);
+    WTF_EXPORT_PRIVATE static Ref<Thread> create(const char* threadName, Function<void()>&&, ThreadType = ThreadType::Unknown, QOS = QOS::UserInitiated);
 
     // Returns Thread object.
     static Thread& current();
@@ -110,6 +127,8 @@ public:
     WTF_EXPORT_PRIVATE static Lock& allThreadsMutex();
 
     WTF_EXPORT_PRIVATE unsigned numberOfThreadGroups();
+
+    uint32_t uid() const { return m_uid; }
 
 #if OS(WINDOWS)
     // Returns ThreadIdentifier directly. It is useful if the user only cares about identity
@@ -157,6 +176,10 @@ public:
     WTF_EXPORT_PRIVATE size_t getRegisters(PlatformRegisters&);
 
 #if USE(PTHREADS)
+#if OS(LINUX)
+    WTF_EXPORT_PRIVATE static ThreadIdentifier currentID();
+    ThreadIdentifier id() const { return m_id; }
+#endif
     WTF_EXPORT_PRIVATE bool signal(int signalNumber);
 #endif
 
@@ -167,7 +190,6 @@ public:
 
 #if HAVE(QOS_CLASSES)
     WTF_EXPORT_PRIVATE static void setGlobalMaxQOSClass(qos_class_t);
-    WTF_EXPORT_PRIVATE static qos_class_t adjustedQOSClass(qos_class_t);
 #endif
 
     // Called in the thread during initialization.
@@ -244,7 +266,7 @@ protected:
     void initializeInThread();
 
     // Internal platform-specific Thread establishment implementation.
-    bool establishHandle(NewThreadContext*, Optional<size_t>);
+    bool establishHandle(NewThreadContext*, Optional<size_t> stackSize, QOS);
 
 #if USE(PTHREADS)
     void establishPlatformSpecificHandle(PlatformThreadHandle);
@@ -254,6 +276,10 @@ protected:
 
 #if USE(PTHREADS) && !OS(DARWIN)
     static void signalHandlerSuspendResume(int, siginfo_t*, void* ucontext);
+#endif
+
+#if HAVE(QOS_CLASSES)
+    static qos_class_t adjustedQOSClass(qos_class_t);
 #endif
 
     static const char* normalizeThreadName(const char* threadName);
@@ -324,11 +350,15 @@ protected:
     StackBounds m_stack { StackBounds::emptyBounds() };
     HashMap<ThreadGroup*, std::weak_ptr<ThreadGroup>> m_threadGroupMap;
     PlatformThreadHandle m_handle;
+    uint32_t m_uid;
 #if OS(WINDOWS)
     ThreadIdentifier m_id { 0 };
 #elif OS(DARWIN)
     mach_port_t m_platformThread { MACH_PORT_NULL };
 #elif USE(PTHREADS)
+#if OS(LINUX)
+    ThreadIdentifier m_id { 0 };
+#endif
     PlatformRegisters* m_platformRegisters { nullptr };
     unsigned m_suspendCount { 0 };
 #endif
@@ -355,6 +385,7 @@ inline Thread::Thread()
     , m_isDestroyedOnce(false)
     , m_isCompilationThread(false)
     , m_gcThreadType(static_cast<unsigned>(GCThreadType::None))
+    , m_uid(++s_uid)
 {
 }
 

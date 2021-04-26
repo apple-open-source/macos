@@ -20,22 +20,19 @@
 #include "config.h"
 #include "PlatformXROpenXR.h"
 
-#if ENABLE(WEBXR)
+#if ENABLE(WEBXR) && USE(OPENXR)
 
 #include "Logging.h"
-#if USE_OPENXR
 #include <openxr/openxr_platform.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Optional.h>
+#include <wtf/Scope.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/WTFString.h>
-#endif // USE_OPENXR
-#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
 namespace PlatformXR {
-
-#if USE_OPENXR
 
 template<typename T, XrStructureType StructureType>
 T createStructure()
@@ -56,36 +53,32 @@ String resultToString(XrResult value, XrInstance instance)
     return makeString("<unknown ", int(value), ">");
 }
 
-#define RETURN_IF_FAILED(result, call, instance, ...)                                               \
-    if (XR_FAILED(result)) {                                                                        \
-        LOG(XR, "%s %s: %s\n", __func__, call, resultToString(result, instance).utf8().data());     \
-        return __VA_ARGS__;                                                                         \
-    }                                                                                               \
-
-#endif // USE_OPENXR
+#define RETURN_IF_FAILED(result, call, instance, ...)                                           \
+    if (XR_FAILED(result)) {                                                                    \
+        LOG(XR, "%s %s: %s\n", __func__, call, resultToString(result, instance).utf8().data()); \
+        return __VA_ARGS__;                                                                     \
+    }
 
 struct Instance::Impl {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     Impl();
     ~Impl();
 
-#if USE_OPENXR
     XrInstance xrInstance() const { return m_instance; }
-#endif
+    WorkQueue& queue() const { return m_workQueue; }
 
 private:
-#if USE_OPENXR
     void enumerateApiLayerProperties() const;
     bool checkInstanceExtensionProperties() const;
 
     XrInstance m_instance { XR_NULL_HANDLE };
-#endif // USE_OPENXR
+    Ref<WorkQueue> m_workQueue;
 };
 
-#if USE_OPENXR
 void Instance::Impl::enumerateApiLayerProperties() const
 {
+    ASSERT(&RunLoop::current() == &m_workQueue->runLoop());
     uint32_t propertyCountOutput { 0 };
     XrResult result = xrEnumerateApiLayerProperties(0, &propertyCountOutput, nullptr);
     RETURN_IF_FAILED(result, "xrEnumerateApiLayerProperties()", m_instance);
@@ -118,6 +111,7 @@ static bool isExtensionSupported(const char* extensionName, Vector<XrExtensionPr
 
 bool Instance::Impl::checkInstanceExtensionProperties() const
 {
+    ASSERT(&RunLoop::current() == &m_workQueue->runLoop());
     uint32_t propertyCountOutput { 0 };
     XrResult result = xrEnumerateInstanceExtensionProperties(nullptr, 0, &propertyCountOutput, nullptr);
     RETURN_IF_FAILED(result, "xrEnumerateInstanceExtensionProperties", m_instance, false);
@@ -150,48 +144,48 @@ bool Instance::Impl::checkInstanceExtensionProperties() const
 
     return true;
 }
-#endif // USE_OPENXR
 
 Instance::Impl::Impl()
+    : m_workQueue(WorkQueue::create("OpenXR queue"))
 {
-#if USE_OPENXR
-    LOG(XR, "OpenXR: initializing\n");
+    m_workQueue->dispatch([this]() {
+        LOG(XR, "OpenXR: initializing\n");
 
-    enumerateApiLayerProperties();
+        enumerateApiLayerProperties();
 
-    if (!checkInstanceExtensionProperties())
-        return;
+        if (!checkInstanceExtensionProperties())
+            return;
 
-    static const char* s_applicationName = "WebXR (WebKit)";
-    static const uint32_t s_applicationVersion = 1;
+        static const char* s_applicationName = "WebXR (WebKit)";
+        static const uint32_t s_applicationVersion = 1;
 
-    const char* const enabledExtensions[] = {
-        XR_MND_HEADLESS_EXTENSION_NAME,
-    };
+        const char* const enabledExtensions[] = {
+            XR_MND_HEADLESS_EXTENSION_NAME,
+        };
 
-    auto createInfo = createStructure<XrInstanceCreateInfo, XR_TYPE_INSTANCE_CREATE_INFO>();
-    createInfo.createFlags = 0;
-    std::memcpy(createInfo.applicationInfo.applicationName, s_applicationName, XR_MAX_APPLICATION_NAME_SIZE);
-    createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
-    createInfo.applicationInfo.applicationVersion = s_applicationVersion;
-    createInfo.enabledApiLayerCount = 0;
-    createInfo.enabledExtensionCount = WTF_ARRAY_LENGTH(enabledExtensions);
-    createInfo.enabledExtensionNames = enabledExtensions;
+        auto createInfo = createStructure<XrInstanceCreateInfo, XR_TYPE_INSTANCE_CREATE_INFO>();
+        createInfo.createFlags = 0;
+        std::memcpy(createInfo.applicationInfo.applicationName, s_applicationName, XR_MAX_APPLICATION_NAME_SIZE);
+        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+        createInfo.applicationInfo.applicationVersion = s_applicationVersion;
+        createInfo.enabledApiLayerCount = 0;
+        createInfo.enabledExtensionCount = WTF_ARRAY_LENGTH(enabledExtensions);
+        createInfo.enabledExtensionNames = enabledExtensions;
 
-    XrInstance instance;
-    XrResult result = xrCreateInstance(&createInfo, &instance);
-    RETURN_IF_FAILED(result, "xrCreateInstance()", m_instance);
-    m_instance = instance;
-    LOG(XR, "xrCreateInstance(): using instance %p\n", m_instance);
-#endif // USE_OPENXR
+        XrInstance instance;
+        XrResult result = xrCreateInstance(&createInfo, &instance);
+        RETURN_IF_FAILED(result, "xrCreateInstance()", m_instance);
+        m_instance = instance;
+        LOG(XR, "xrCreateInstance(): using instance %p\n", m_instance);
+    });
 }
 
 Instance::Impl::~Impl()
 {
-#if USE_OPENXR
-    if (m_instance != XR_NULL_HANDLE)
-        xrDestroyInstance(m_instance);
-#endif
+    m_workQueue->dispatch([this] {
+        if (m_instance != XR_NULL_HANDLE)
+            xrDestroyInstance(m_instance);
+    });
 }
 
 Instance& Instance::singleton()
@@ -210,46 +204,65 @@ Instance::Instance()
 {
 }
 
-void Instance::enumerateImmersiveXRDevices()
+void Instance::enumerateImmersiveXRDevices(CompletionHandler<void(const DeviceList& devices)>&& callback)
 {
-#if USE_OPENXR
-    if (m_impl->xrInstance() == XR_NULL_HANDLE) {
-        LOG(XR, "%s Unable to enumerate XR devices. No XrInstance present\n", __FUNCTION__);
-        return;
-    }
+    m_impl->queue().dispatch([this, callback = WTFMove(callback)]() mutable {
+        auto callbackOnExit = makeScopeExit([&]() {
+            callOnMainThread([callback = WTFMove(callback)]() mutable {
+                callback({ });
+            });
+        });
 
-    auto systemGetInfo = createStructure<XrSystemGetInfo, XR_TYPE_SYSTEM_GET_INFO>();
-    systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+        if (m_impl->xrInstance() == XR_NULL_HANDLE) {
+            LOG(XR, "%s Unable to enumerate XR devices. No XrInstance present\n", __FUNCTION__);
+            return;
+        }
 
-    XrSystemId systemId;
-    XrResult result = xrGetSystem(m_impl->xrInstance(), &systemGetInfo, &systemId);
-    RETURN_IF_FAILED(result, "xrGetSystem", m_impl->xrInstance());
+        auto systemGetInfo = createStructure<XrSystemGetInfo, XR_TYPE_SYSTEM_GET_INFO>();
+        systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
+        XrSystemId systemId;
+        XrResult result = xrGetSystem(m_impl->xrInstance(), &systemGetInfo, &systemId);
+        RETURN_IF_FAILED(result, "xrGetSystem", m_impl->xrInstance());
+
+        callbackOnExit.release();
+
+        callOnMainThread([this, callback = WTFMove(callback), systemId]() mutable {
+            m_immersiveXRDevices = DeviceList::from(makeUniqueRef<OpenXRDevice>(systemId, m_impl->xrInstance(), m_impl->queue(), [this, callback = WTFMove(callback)]() mutable {
+                ASSERT(isMainThread());
+                callback(m_immersiveXRDevices);
+            }));
+        });
+    });
+}
+
+OpenXRDevice::OpenXRDevice(XrSystemId id, XrInstance instance, WorkQueue& queue, CompletionHandler<void()>&& callback)
+    : m_systemId(id)
+    , m_instance(instance)
+    , m_queue(queue)
+{
+    ASSERT(isMainThread());
+    m_queue.dispatch([this, callback = WTFMove(callback)]() mutable {
+        auto systemProperties = createStructure<XrSystemProperties, XR_TYPE_SYSTEM_PROPERTIES>();
+        auto result = xrGetSystemProperties(m_instance, m_systemId, &systemProperties);
+        if (XR_SUCCEEDED(result))
+            m_supportsOrientationTracking = systemProperties.trackingProperties.orientationTracking == XR_TRUE;
 #if !LOG_DISABLED
-    auto systemProperties = createStructure<XrSystemProperties, XR_TYPE_SYSTEM_PROPERTIES>();
-    result = xrGetSystemProperties(m_impl->xrInstance(), systemId, &systemProperties);
-    if (result == XR_SUCCESS)
+        else
+            LOG(XR, "xrGetSystemProperties(): error %s\n", resultToString(result, m_instance).utf8().data());
         LOG(XR, "Found XRSystem %lu: \"%s\", vendor ID %d\n", systemProperties.systemId, systemProperties.systemName, systemProperties.vendorId);
 #endif
 
-    m_immersiveXRDevices.append(makeUnique<OpenXRDevice>(systemId, m_impl->xrInstance()));
-#endif // USE_OPENXR
+        collectSupportedSessionModes();
+        collectConfigurationViews();
+
+        callOnMainThread(WTFMove(callback));
+    });
 }
 
-#if USE_OPENXR
-OpenXRDevice::OpenXRDevice(XrSystemId id, XrInstance instance)
-    : m_systemId(id)
-    , m_instance(instance)
+OpenXRDevice::~OpenXRDevice()
 {
-    auto systemProperties = createStructure<XrSystemProperties, XR_TYPE_SYSTEM_PROPERTIES>();
-    XrResult result = xrGetSystemProperties(instance, m_systemId, &systemProperties);
-    if (result == XR_SUCCESS)
-        m_supportsOrientationTracking = systemProperties.trackingProperties.orientationTracking == XR_TRUE;
-    else
-        LOG(XR, "xrGetSystemProperties(): error %s\n", resultToString(result, m_instance).utf8().data());
-
-    collectSupportedSessionModes();
-    collectConfigurationViews();
+    shutDownTrackingAndRendering();
 }
 
 Device::ListOfEnabledFeatures OpenXRDevice::enumerateReferenceSpaces(XrSession& session) const
@@ -293,6 +306,7 @@ Device::ListOfEnabledFeatures OpenXRDevice::enumerateReferenceSpaces(XrSession& 
 
 void OpenXRDevice::collectSupportedSessionModes()
 {
+    ASSERT(&RunLoop::current() == &m_queue.runLoop());
     uint32_t viewConfigurationCount;
     auto result = xrEnumerateViewConfigurations(m_instance, m_systemId, 0, &viewConfigurationCount, nullptr);
     RETURN_IF_FAILED(result, "xrEnumerateViewConfigurations", m_instance);
@@ -335,6 +349,7 @@ void OpenXRDevice::collectSupportedSessionModes()
 
 void OpenXRDevice::collectConfigurationViews()
 {
+    ASSERT(&RunLoop::current() == &m_queue.runLoop());
     for (auto& config : m_viewConfigurationProperties.values()) {
         uint32_t viewCount;
         auto configType = config.viewConfigurationType;
@@ -367,8 +382,51 @@ WebCore::IntSize OpenXRDevice::recommendedResolution(SessionMode mode)
     return Device::recommendedResolution(mode);
 }
 
-#endif // USE_OPENXR
+XrViewConfigurationType toXrViewConfigurationType(SessionMode mode)
+{
+    switch (mode) {
+    case SessionMode::ImmersiveVr:
+        return XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+    case SessionMode::Inline:
+    case SessionMode::ImmersiveAr:
+        return XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO;
+    };
+    ASSERT_NOT_REACHED();
+    return XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO;
+}
+
+void OpenXRDevice::initializeTrackingAndRendering(SessionMode mode)
+{
+    m_queue.dispatch([this, mode]() {
+        ASSERT(m_instance != XR_NULL_HANDLE);
+        ASSERT(m_session == XR_NULL_HANDLE);
+
+        m_currentViewConfigurationType = toXrViewConfigurationType(mode);
+        ASSERT(m_configurationViews.contains(m_currentViewConfigurationType));
+
+        // Create the session.
+        auto sessionCreateInfo = createStructure<XrSessionCreateInfo, XR_TYPE_SESSION_CREATE_INFO>();
+        sessionCreateInfo.systemId = m_systemId;
+        auto result = xrCreateSession(m_instance, &sessionCreateInfo, &m_session);
+        RETURN_IF_FAILED(result, "xrEnumerateInstanceExtensionProperties", m_instance);
+    });
+}
+
+void OpenXRDevice::resetSession()
+{
+    m_queue.dispatch([this]() {
+        if (m_session == XR_NULL_HANDLE)
+            return;
+        xrDestroySession(m_session);
+        m_session = XR_NULL_HANDLE;
+    });
+}
+
+void OpenXRDevice::shutDownTrackingAndRendering()
+{
+    resetSession();
+}
 
 } // namespace PlatformXR
 
-#endif // ENABLE(WEBXR)
+#endif // ENABLE(WEBXR) && USE(OPENXR)

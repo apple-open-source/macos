@@ -24,33 +24,42 @@
 #if ENABLE(WEB_AUDIO) && USE(GSTREAMER)
 
 #include "AudioBus.h"
+#include "AudioDestinationGStreamer.h"
 #include "AudioIOCallback.h"
+#include "AudioUtilities.h"
 #include "GStreamerCommon.h"
 #include <gst/app/gstappsrc.h>
 #include <gst/audio/audio-info.h>
 #include <gst/pbutils/missing-plugins.h>
+#include <wtf/Condition.h>
+#include <wtf/Lock.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/glib/WTFGType.h>
 
 using namespace WebCore;
 
 typedef struct _WebKitWebAudioSrcClass   WebKitWebAudioSrcClass;
-typedef struct _WebKitWebAudioSourcePrivate WebKitWebAudioSourcePrivate;
+typedef struct _WebKitWebAudioSrcPrivate WebKitWebAudioSrcPrivate;
 
 struct _WebKitWebAudioSrc {
     GstBin parent;
 
-    WebKitWebAudioSourcePrivate* priv;
+    WebKitWebAudioSrcPrivate* priv;
 };
 
 struct _WebKitWebAudioSrcClass {
     GstBinClass parentClass;
 };
 
-#define WEBKIT_WEB_AUDIO_SRC_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEBAUDIO_SRC, WebKitWebAudioSourcePrivate))
-struct _WebKitWebAudioSourcePrivate {
+static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+    GST_PAD_SRC,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE(GST_AUDIO_NE(F32))));
+
+struct _WebKitWebAudioSrcPrivate {
     gfloat sampleRate;
     AudioBus* bus;
-    AudioIOCallback* provider;
+    AudioDestinationGStreamer* destination;
     guint framesToPull;
     guint bufferSize;
 
@@ -70,29 +79,48 @@ struct _WebKitWebAudioSourcePrivate {
     GRefPtr<GstBufferPool> pool;
 
     bool enableGapBufferSupport;
+    bool hasRenderedAudibleFrame { false };
+
+    Lock dispatchToRenderThreadLock;
+    Function<void(Function<void()>&&)> dispatchToRenderThreadFunction;
+
+    bool dispatchDone;
+    Lock dispatchLock;
+    Condition dispatchCondition;
+
+    _WebKitWebAudioSrcPrivate()
+    {
+        sourcePad = webkitGstGhostPadFromStaticTemplate(&srcTemplate, "src", nullptr);
+
+        g_rec_mutex_init(&mutex);
+
+        // GAP buffer support is enabled only for GStreamer 1.12.5 because of a
+        // memory leak that was fixed in that version.
+        // https://bugzilla.gnome.org/show_bug.cgi?id=793067
+        enableGapBufferSupport = webkitGstCheckVersion(1, 12, 5);
+    }
+
+    ~_WebKitWebAudioSrcPrivate()
+    {
+        g_rec_mutex_clear(&mutex);
+    }
 };
 
 enum {
     PROP_RATE = 1,
     PROP_BUS,
-    PROP_PROVIDER,
+    PROP_DESTINATION,
     PROP_FRAMES
 };
-
-static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE(GST_AUDIO_NE(F32))));
 
 GST_DEBUG_CATEGORY_STATIC(webkit_web_audio_src_debug);
 #define GST_CAT_DEFAULT webkit_web_audio_src_debug
 
 static void webKitWebAudioSrcConstructed(GObject*);
-static void webKitWebAudioSrcFinalize(GObject*);
 static void webKitWebAudioSrcSetProperty(GObject*, guint propertyId, const GValue*, GParamSpec*);
 static void webKitWebAudioSrcGetProperty(GObject*, guint propertyId, GValue*, GParamSpec*);
 static GstStateChangeReturn webKitWebAudioSrcChangeState(GstElement*, GstStateChange);
-static void webKitWebAudioSrcLoop(WebKitWebAudioSrc*);
+static void webKitWebAudioSrcRenderIteration(WebKitWebAudioSrc*);
 
 static GstCaps* getGStreamerMonoAudioCaps(float sampleRate)
 {
@@ -133,10 +161,7 @@ static GstAudioChannelPosition webKitWebAudioGStreamerChannelPosition(int channe
 }
 
 #define webkit_web_audio_src_parent_class parent_class
-G_DEFINE_TYPE_WITH_CODE(WebKitWebAudioSrc, webkit_web_audio_src, GST_TYPE_BIN, GST_DEBUG_CATEGORY_INIT(webkit_web_audio_src_debug, \
-                            "webkitwebaudiosrc", \
-                            0, \
-                            "webaudiosrc element"));
+WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitWebAudioSrc, webkit_web_audio_src, GST_TYPE_BIN, GST_DEBUG_CATEGORY_INIT(webkit_web_audio_src_debug, "webkitwebaudiosrc", 0, "webaudiosrc element"))
 
 static void webkit_web_audio_src_class_init(WebKitWebAudioSrcClass* webKitWebAudioSrcClass)
 {
@@ -147,7 +172,6 @@ static void webkit_web_audio_src_class_init(WebKitWebAudioSrcClass* webKitWebAud
     gst_element_class_set_metadata(elementClass, "WebKit WebAudio source element", "Source", "Handles WebAudio data from WebCore", "Philippe Normand <pnormand@igalia.com>");
 
     objectClass->constructed = webKitWebAudioSrcConstructed;
-    objectClass->finalize = webKitWebAudioSrcFinalize;
     elementClass->change_state = webKitWebAudioSrcChangeState;
 
     objectClass->set_property = webKitWebAudioSrcSetProperty;
@@ -165,51 +189,29 @@ static void webkit_web_audio_src_class_init(WebKitWebAudioSrcClass* webKitWebAud
                                     g_param_spec_pointer("bus", "bus",
                                                          "Bus", flags));
 
-    g_object_class_install_property(objectClass,
-                                    PROP_PROVIDER,
-                                    g_param_spec_pointer("provider", "provider",
-                                                         "Provider", flags));
+    g_object_class_install_property(objectClass, PROP_DESTINATION, g_param_spec_pointer("destination", "destination",
+        "Destination", flags));
 
     g_object_class_install_property(objectClass,
                                     PROP_FRAMES,
                                     g_param_spec_uint("frames", "frames",
                                                       "Number of audio frames to pull at each iteration",
-                                                      0, G_MAXUINT8, 128, flags));
-
-    g_type_class_add_private(webKitWebAudioSrcClass, sizeof(WebKitWebAudioSourcePrivate));
-}
-
-static void webkit_web_audio_src_init(WebKitWebAudioSrc* src)
-{
-    WebKitWebAudioSourcePrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(src, WEBKIT_TYPE_WEB_AUDIO_SRC, WebKitWebAudioSourcePrivate);
-    src->priv = priv;
-    new (priv) WebKitWebAudioSourcePrivate();
-
-    priv->sourcePad = webkitGstGhostPadFromStaticTemplate(&srcTemplate, "src", nullptr);
-    gst_element_add_pad(GST_ELEMENT(src), priv->sourcePad);
-
-    priv->provider = nullptr;
-    priv->bus = nullptr;
-
-    g_rec_mutex_init(&priv->mutex);
-    priv->task = adoptGRef(gst_task_new(reinterpret_cast<GstTaskFunction>(webKitWebAudioSrcLoop), src, nullptr));
-
-    // GAP buffer support is enabled only for GStreamer 1.12.5 because of a
-    // memory leak that was fixed in that version.
-    // https://bugzilla.gnome.org/show_bug.cgi?id=793067
-    priv->enableGapBufferSupport = webkitGstCheckVersion(1, 12, 5);
-
-    gst_task_set_lock(priv->task.get(), &priv->mutex);
+                                                      0, G_MAXUINT8, AudioUtilities::renderQuantumSize, flags));
 }
 
 static void webKitWebAudioSrcConstructed(GObject* object)
 {
     WebKitWebAudioSrc* src = WEBKIT_WEB_AUDIO_SRC(object);
-    WebKitWebAudioSourcePrivate* priv = src->priv;
+    WebKitWebAudioSrcPrivate* priv = src->priv;
 
     ASSERT(priv->bus);
-    ASSERT(priv->provider);
+    ASSERT(priv->destination);
     ASSERT(priv->sampleRate);
+
+    gst_element_add_pad(GST_ELEMENT(src), priv->sourcePad);
+
+    priv->task = adoptGRef(gst_task_new(reinterpret_cast<GstTaskFunction>(webKitWebAudioSrcRenderIteration), src, nullptr));
+    gst_task_set_lock(priv->task.get(), &priv->mutex);
 
     priv->interleave = gst_element_factory_make("audiointerleave", nullptr);
 
@@ -248,21 +250,10 @@ static void webKitWebAudioSrcConstructed(GObject* object)
     gst_ghost_pad_set_target(GST_GHOST_PAD(priv->sourcePad), targetPad.get());
 }
 
-static void webKitWebAudioSrcFinalize(GObject* object)
-{
-    WebKitWebAudioSrc* src = WEBKIT_WEB_AUDIO_SRC(object);
-    WebKitWebAudioSourcePrivate* priv = src->priv;
-
-    g_rec_mutex_clear(&priv->mutex);
-
-    priv->~WebKitWebAudioSourcePrivate();
-    GST_CALL_PARENT(G_OBJECT_CLASS, finalize, ((GObject* )(src)));
-}
-
 static void webKitWebAudioSrcSetProperty(GObject* object, guint propertyId, const GValue* value, GParamSpec* pspec)
 {
     WebKitWebAudioSrc* src = WEBKIT_WEB_AUDIO_SRC(object);
-    WebKitWebAudioSourcePrivate* priv = src->priv;
+    WebKitWebAudioSrcPrivate* priv = src->priv;
 
     switch (propertyId) {
     case PROP_RATE:
@@ -271,8 +262,8 @@ static void webKitWebAudioSrcSetProperty(GObject* object, guint propertyId, cons
     case PROP_BUS:
         priv->bus = static_cast<AudioBus*>(g_value_get_pointer(value));
         break;
-    case PROP_PROVIDER:
-        priv->provider = static_cast<AudioIOCallback*>(g_value_get_pointer(value));
+    case PROP_DESTINATION:
+        priv->destination = static_cast<AudioDestinationGStreamer*>(g_value_get_pointer(value));
         break;
     case PROP_FRAMES:
         priv->framesToPull = g_value_get_uint(value);
@@ -287,7 +278,7 @@ static void webKitWebAudioSrcSetProperty(GObject* object, guint propertyId, cons
 static void webKitWebAudioSrcGetProperty(GObject* object, guint propertyId, GValue* value, GParamSpec* pspec)
 {
     WebKitWebAudioSrc* src = WEBKIT_WEB_AUDIO_SRC(object);
-    WebKitWebAudioSourcePrivate* priv = src->priv;
+    WebKitWebAudioSrcPrivate* priv = src->priv;
 
     switch (propertyId) {
     case PROP_RATE:
@@ -296,8 +287,8 @@ static void webKitWebAudioSrcGetProperty(GObject* object, guint propertyId, GVal
     case PROP_BUS:
         g_value_set_pointer(value, priv->bus);
         break;
-    case PROP_PROVIDER:
-        g_value_set_pointer(value, priv->provider);
+    case PROP_DESTINATION:
+        g_value_set_pointer(value, priv->destination);
         break;
     case PROP_FRAMES:
         g_value_set_uint(value, priv->framesToPull);
@@ -308,22 +299,19 @@ static void webKitWebAudioSrcGetProperty(GObject* object, guint propertyId, GVal
     }
 }
 
-static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndRenderAudio(WebKitWebAudioSrc* src)
+static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffers(WebKitWebAudioSrc* src)
 {
-    WebKitWebAudioSourcePrivate* priv = src->priv;
+    WebKitWebAudioSrcPrivate* priv = src->priv;
 
     ASSERT(priv->bus);
-    ASSERT(priv->provider);
-    if (!priv->provider || !priv->bus) {
-        GST_ELEMENT_ERROR(src, CORE, FAILED, ("Internal WebAudioSrc error"), ("Can't start without provider or bus"));
+    ASSERT(priv->destination);
+    if (!priv->destination || !priv->bus) {
+        GST_ELEMENT_ERROR(src, CORE, FAILED, ("Internal WebAudioSrc error"), ("Can't start without destination or bus"));
         gst_task_stop(src->priv->task.get());
         return WTF::nullopt;
     }
 
     ASSERT(priv->pool);
-    GstClockTime timestamp = gst_util_uint64_scale(priv->numberOfSamples, GST_SECOND, priv->sampleRate);
-    priv->numberOfSamples += priv->framesToPull;
-    GstClockTime duration = gst_util_uint64_scale(priv->numberOfSamples, GST_SECOND, priv->sampleRate) - timestamp;
 
     Vector<GRefPtr<GstBuffer>> channelBufferList;
     channelBufferList.reserveInitialCapacity(priv->sources.size());
@@ -340,8 +328,6 @@ static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndR
         }
 
         ASSERT(buffer);
-        GST_BUFFER_TIMESTAMP(buffer.get()) = timestamp;
-        GST_BUFFER_DURATION(buffer.get()) = duration;
         GstMappedBuffer mappedBuffer(buffer.get(), GST_MAP_READWRITE);
         ASSERT(mappedBuffer);
         mappedBuffers.uncheckedAppend(WTFMove(mappedBuffer));
@@ -349,27 +335,40 @@ static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndR
         channelBufferList.uncheckedAppend(WTFMove(buffer));
     }
 
-    // FIXME: Add support for local/live audio input.
-    priv->provider->render(nullptr, priv->bus, priv->framesToPull, { });
-
     return makeOptional(channelBufferList);
 }
 
-static void webKitWebAudioSrcLoop(WebKitWebAudioSrc* src)
+static void webKitWebAudioSrcRenderAndPushFrames(GRefPtr<GstElement>&& element, Vector<GRefPtr<GstBuffer>>&& channelBufferList)
 {
-    WebKitWebAudioSourcePrivate* priv = src->priv;
+    auto* src = WEBKIT_WEB_AUDIO_SRC(element.get());
+    auto* priv = src->priv;
 
-    Optional<Vector<GRefPtr<GstBuffer>>> channelBufferList = webKitWebAudioSrcAllocateBuffersAndRenderAudio(src);
-    if (!channelBufferList) {
-        gst_task_stop(src->priv->task.get());
-        return;
+    ASSERT(channelBufferList.size() == priv->sources.size());
+
+    GstClockTime timestamp = gst_util_uint64_scale(priv->numberOfSamples, GST_SECOND, priv->sampleRate);
+    priv->numberOfSamples += priv->framesToPull;
+    GstClockTime duration = gst_util_uint64_scale(priv->numberOfSamples, GST_SECOND, priv->sampleRate) - timestamp;
+
+    AudioIOPosition outputTimestamp;
+    if (auto clock = adoptGRef(gst_element_get_clock(element.get()))) {
+        auto clockTime = gst_clock_get_time(clock.get());
+        outputTimestamp.position = Seconds::fromNanoseconds(timestamp);
+        outputTimestamp.timestamp = MonotonicTime::fromRawSeconds(static_cast<double>((g_get_monotonic_time() + GST_TIME_AS_USECONDS(clockTime)) / 1000000.0));
     }
 
-    ASSERT(channelBufferList->size() == priv->sources.size());
+    // FIXME: Add support for local/live audio input.
+    priv->destination->callRenderCallback(nullptr, priv->bus, priv->framesToPull, outputTimestamp);
+
+    if (!priv->hasRenderedAudibleFrame && !priv->bus->isSilent()) {
+        priv->destination->notifyIsPlaying(true);
+        priv->hasRenderedAudibleFrame = true;
+    }
 
     bool failed = false;
     for (unsigned i = 0; i < priv->sources.size(); ++i) {
-        auto& buffer = channelBufferList.value()[i];
+        auto& buffer = channelBufferList[i];
+        GST_BUFFER_TIMESTAMP(buffer.get()) = outputTimestamp.position.nanoseconds();
+        GST_BUFFER_DURATION(buffer.get()) = duration;
 
         if (priv->enableGapBufferSupport && priv->bus->channel(i)->isSilent())
             GST_BUFFER_FLAG_SET(buffer.get(), GST_BUFFER_FLAG_GAP);
@@ -384,25 +383,65 @@ static void webKitWebAudioSrcLoop(WebKitWebAudioSrc* src)
             // FLUSHING and EOS are not errors.
             if (ret < GST_FLOW_EOS || ret == GST_FLOW_NOT_LINKED)
                 GST_ELEMENT_ERROR(src, CORE, PAD, ("Internal WebAudioSrc error"), ("Failed to push buffer on %s flow: %s", GST_OBJECT_NAME(appsrc.get()), gst_flow_get_name(ret)));
-            gst_task_stop(src->priv->task.get());
+            gst_task_stop(priv->task.get());
             failed = true;
         }
+    }
+
+    {
+        LockHolder lock(priv->dispatchLock);
+        priv->dispatchDone = true;
+        priv->dispatchCondition.notifyOne();
+    }
+}
+
+static void webKitWebAudioSrcRenderIteration(WebKitWebAudioSrc* src)
+{
+    auto* priv = src->priv;
+    auto channelBufferList = webKitWebAudioSrcAllocateBuffers(src);
+    if (!channelBufferList) {
+        gst_task_stop(priv->task.get());
+        return;
+    }
+
+    {
+        LockHolder lock(priv->dispatchLock);
+        priv->dispatchDone = false;
+    }
+
+    auto locker = tryHoldLock(priv->dispatchToRenderThreadLock);
+    if (!locker || !priv->dispatchToRenderThreadFunction)
+        return;
+
+    priv->dispatchToRenderThreadFunction([channels = WTFMove(*channelBufferList), protectedThis = GRefPtr<GstElement>(GST_ELEMENT_CAST(src))]() mutable {
+        webKitWebAudioSrcRenderAndPushFrames(WTFMove(protectedThis), WTFMove(channels));
+    });
+
+    {
+        LockHolder lock(priv->dispatchLock);
+        if (!priv->dispatchDone)
+            priv->dispatchCondition.wait(priv->dispatchLock);
     }
 }
 
 static GstStateChangeReturn webKitWebAudioSrcChangeState(GstElement* element, GstStateChange transition)
 {
     GstStateChangeReturn returnValue = GST_STATE_CHANGE_SUCCESS;
-    WebKitWebAudioSrc* src = WEBKIT_WEB_AUDIO_SRC(element);
+    auto* src = WEBKIT_WEB_AUDIO_SRC(element);
+    auto* priv = src->priv;
+
+#if GST_CHECK_VERSION(1, 14, 0)
+    GST_DEBUG_OBJECT(element, "%s", gst_state_change_get_name(transition));
+#endif
 
     switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
-        if (!src->priv->interleave) {
+        if (!priv->interleave) {
             gst_element_post_message(element, gst_missing_element_message_new(element, "audiointerleave"));
             GST_ELEMENT_ERROR(src, CORE, MISSING_PLUGIN, (nullptr), ("no audiointerleave"));
             return GST_STATE_CHANGE_FAILURE;
         }
-        src->priv->numberOfSamples = 0;
+        priv->numberOfSamples = 0;
         break;
     default:
         break;
@@ -416,32 +455,40 @@ static GstStateChangeReturn webKitWebAudioSrcChangeState(GstElement* element, Gs
 
     switch (transition) {
     case GST_STATE_CHANGE_READY_TO_PAUSED: {
-        GST_DEBUG_OBJECT(src, "READY->PAUSED");
-
-        src->priv->pool = gst_buffer_pool_new();
-        GstStructure* config = gst_buffer_pool_get_config(src->priv->pool.get());
-        gst_buffer_pool_config_set_params(config, nullptr, src->priv->bufferSize, 0, 0);
-        gst_buffer_pool_set_config(src->priv->pool.get(), config);
-        if (!gst_buffer_pool_set_active(src->priv->pool.get(), TRUE))
+        priv->pool = gst_buffer_pool_new();
+        GstStructure* config = gst_buffer_pool_get_config(priv->pool.get());
+        gst_buffer_pool_config_set_params(config, nullptr, priv->bufferSize, 0, 0);
+        gst_buffer_pool_set_config(priv->pool.get(), config);
+        if (!gst_buffer_pool_set_active(priv->pool.get(), TRUE))
             returnValue = GST_STATE_CHANGE_FAILURE;
-        else if (!gst_task_start(src->priv->task.get()))
+        else if (!gst_task_start(priv->task.get()))
             returnValue = GST_STATE_CHANGE_FAILURE;
         break;
     }
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-        GST_DEBUG_OBJECT(src, "PAUSED->READY");
-
-        gst_buffer_pool_set_flushing(src->priv->pool.get(), TRUE);
-        if (!gst_task_join(src->priv->task.get()))
+        {
+            LockHolder lock(priv->dispatchLock);
+            priv->dispatchDone = false;
+            priv->dispatchCondition.notifyAll();
+        }
+        gst_buffer_pool_set_flushing(priv->pool.get(), TRUE);
+        if (!gst_task_join(priv->task.get()))
             returnValue = GST_STATE_CHANGE_FAILURE;
-        gst_buffer_pool_set_active(src->priv->pool.get(), FALSE);
-        src->priv->pool = nullptr;
+
+        gst_buffer_pool_set_active(priv->pool.get(), FALSE);
+        priv->pool = nullptr;
         break;
     default:
         break;
     }
 
     return returnValue;
+}
+
+void webkitWebAudioSourceSetDispatchToRenderThreadFunction(WebKitWebAudioSrc* src, Function<void(Function<void()>&&)>&& function)
+{
+    auto locker = holdLock(src->priv->dispatchToRenderThreadLock);
+    src->priv->dispatchToRenderThreadFunction = WTFMove(function);
 }
 
 #endif // ENABLE(WEB_AUDIO) && USE(GSTREAMER)

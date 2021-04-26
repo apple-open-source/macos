@@ -40,7 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error;
 
-- (NSDate *)lastHealthCheckupDate:(NSError * _Nullable *)error;
+- (NSDate* _Nullable)lastHealthCheckupDate:(NSError * _Nullable *)error;
 - (BOOL)persistLastHealthCheck:(NSDate*)lastCheck error:(NSError**)error;
 
 - (BOOL)persistOctagonJoinAttempt:(OTAccountMetadataClassC_AttemptedAJoinState)attempt error:(NSError**)error;

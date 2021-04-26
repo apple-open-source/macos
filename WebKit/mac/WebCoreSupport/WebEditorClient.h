@@ -69,7 +69,7 @@ private:
     bool shouldEndEditing(const WebCore::SimpleRange&) final;
     bool shouldInsertNode(WebCore::Node&, const Optional<WebCore::SimpleRange>&, WebCore::EditorInsertAction) final;
     bool shouldInsertText(const String&, const Optional<WebCore::SimpleRange>&, WebCore::EditorInsertAction) final;
-    bool shouldChangeSelectedRange(const Optional<WebCore::SimpleRange>& fromRange, const Optional<WebCore::SimpleRange>& toRange, WebCore::EAffinity, bool stillSelecting) final;
+    bool shouldChangeSelectedRange(const Optional<WebCore::SimpleRange>& fromRange, const Optional<WebCore::SimpleRange>& toRange, WebCore::Affinity, bool stillSelecting) final;
 
     bool shouldApplyStyle(const WebCore::StyleProperties&, const Optional<WebCore::SimpleRange>&) final;
     void didApplyStyle() final;
@@ -216,28 +216,28 @@ private:
     EditorStateIsContentEditable m_lastEditorStateWasContentEditable { EditorStateIsContentEditable::Unset };
 };
 
-inline NSSelectionAffinity kit(WebCore::EAffinity affinity)
+inline NSSelectionAffinity kit(WebCore::Affinity affinity)
 {
     switch (affinity) {
-        case WebCore::EAffinity::UPSTREAM:
-            return NSSelectionAffinityUpstream;
-        case WebCore::EAffinity::DOWNSTREAM:
-            return NSSelectionAffinityDownstream;
+    case WebCore::Affinity::Upstream:
+        return NSSelectionAffinityUpstream;
+    case WebCore::Affinity::Downstream:
+        return NSSelectionAffinityDownstream;
     }
     ASSERT_NOT_REACHED();
-    return NSSelectionAffinityUpstream;
+    return NSSelectionAffinityDownstream;
 }
 
-inline WebCore::EAffinity core(NSSelectionAffinity affinity)
+inline WebCore::Affinity core(NSSelectionAffinity affinity)
 {
     switch (affinity) {
     case NSSelectionAffinityUpstream:
-        return WebCore::EAffinity::UPSTREAM;
+        return WebCore::Affinity::Upstream;
     case NSSelectionAffinityDownstream:
-        return WebCore::EAffinity::DOWNSTREAM;
+        return WebCore::Affinity::Downstream;
     }
     ASSERT_NOT_REACHED();
-    return WebCore::EAffinity::UPSTREAM;
+    return WebCore::Affinity::Downstream;
 }
 
 #if PLATFORM(IOS_FAMILY)

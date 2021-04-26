@@ -380,6 +380,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
             return ResourceLoadInfo::Type::Other;
         case WebCore::FetchOptions::Destination::Audio:
             return ResourceLoadInfo::Type::Media;
+        case WebCore::FetchOptions::Destination::Audioworklet:
+            return ResourceLoadInfo::Type::Other;
         case WebCore::FetchOptions::Destination::Document:
             return ResourceLoadInfo::Type::Document;
         case WebCore::FetchOptions::Destination::Embed:
@@ -392,6 +394,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
             return ResourceLoadInfo::Type::ApplicationManifest;
         case WebCore::FetchOptions::Destination::Object:
             return ResourceLoadInfo::Type::Object;
+        case WebCore::FetchOptions::Destination::Paintworklet:
+            return ResourceLoadInfo::Type::Other;
         case WebCore::FetchOptions::Destination::Report:
             return ResourceLoadInfo::Type::CSPReport;
         case WebCore::FetchOptions::Destination::Script:
@@ -463,7 +467,7 @@ void NetworkResourceLoader::cleanup(LoadResult result)
 
 void NetworkResourceLoader::convertToDownload(DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
 {
-    RELEASE_LOG_IF_ALLOWED("convertToDownload: (downloadID=%" PRIu64 ", hasNetworkLoad=%d, hasResponseCompletionHandler=%d)", downloadID.downloadID(), !!m_networkLoad, !!m_responseCompletionHandler);
+    RELEASE_LOG_IF_ALLOWED("convertToDownload: (downloadID=%" PRIu64 ", hasNetworkLoad=%d, hasResponseCompletionHandler=%d)", downloadID.toUInt64(), !!m_networkLoad, !!m_responseCompletionHandler);
 
     // This can happen if the resource came from the disk cache.
     if (!m_networkLoad) {
@@ -810,12 +814,12 @@ void NetworkResourceLoader::willSendRedirectedRequest(ResourceRequest&& request,
     ++m_redirectCount;
     m_redirectResponse = redirectResponse;
 
-    Optional<AdClickAttribution::Conversion> adClickConversion;
+    Optional<PrivateClickMeasurement::AttributionTriggerData> privateClickMeasurementAttributionTriggerData;
     if (!sessionID().isEphemeral()) {
-        if (auto result = AdClickAttribution::parseConversionRequest(redirectRequest.url()))
-            adClickConversion = result.value();
+        if (auto result = PrivateClickMeasurement::parseAttributionRequest(redirectRequest.url()))
+            privateClickMeasurementAttributionTriggerData = result.value();
         else if (!result.error().isEmpty())
-            addConsoleMessage(MessageSource::AdClickAttribution, MessageLevel::Error, result.error());
+            addConsoleMessage(MessageSource::PrivateClickMeasurement, MessageLevel::Error, result.error());
     }
 
     auto maxAgeCap = validateCacheEntryForMaxAgeCapValidation(request, redirectRequest, redirectResponse);
@@ -823,12 +827,12 @@ void NetworkResourceLoader::willSendRedirectedRequest(ResourceRequest&& request,
         m_cache->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
 
     if (m_networkLoadChecker) {
-        if (adClickConversion)
+        if (privateClickMeasurementAttributionTriggerData)
             m_networkLoadChecker->enableContentExtensionsCheck();
         m_networkLoadChecker->storeRedirectionIfNeeded(request, redirectResponse);
 
         RELEASE_LOG_IF_ALLOWED("willSendRedirectedRequest: Checking redirect using NetworkLoadChecker");
-        m_networkLoadChecker->checkRedirection(WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse), this, [protectedThis = makeRef(*this), this, storedCredentialsPolicy = m_networkLoadChecker->storedCredentialsPolicy(), adClickConversion = WTFMove(adClickConversion)](auto&& result) mutable {
+        m_networkLoadChecker->checkRedirection(WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse), this, [protectedThis = makeRef(*this), this, storedCredentialsPolicy = m_networkLoadChecker->storedCredentialsPolicy(), privateClickMeasurementAttributionTriggerData = WTFMove(privateClickMeasurementAttributionTriggerData)](auto&& result) mutable {
             if (!result.has_value()) {
                 if (result.error().isCancellation()) {
                     RELEASE_LOG_IF_ALLOWED("willSendRedirectedRequest: NetworkLoadChecker::checkRedirection returned with a cancellation");
@@ -861,26 +865,26 @@ void NetworkResourceLoader::willSendRedirectedRequest(ResourceRequest&& request,
             }
 
             m_shouldRestartLoad = storedCredentialsPolicy != m_networkLoadChecker->storedCredentialsPolicy();
-            this->continueWillSendRedirectedRequest(WTFMove(result->request), WTFMove(result->redirectRequest), WTFMove(result->redirectResponse), WTFMove(adClickConversion));
+            this->continueWillSendRedirectedRequest(WTFMove(result->request), WTFMove(result->redirectRequest), WTFMove(result->redirectResponse), WTFMove(privateClickMeasurementAttributionTriggerData));
         });
         return;
     }
-    continueWillSendRedirectedRequest(WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse), WTFMove(adClickConversion));
+    continueWillSendRedirectedRequest(WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse), WTFMove(privateClickMeasurementAttributionTriggerData));
 }
 
-void NetworkResourceLoader::continueWillSendRedirectedRequest(ResourceRequest&& request, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse, Optional<AdClickAttribution::Conversion>&& adClickConversion)
+void NetworkResourceLoader::continueWillSendRedirectedRequest(ResourceRequest&& request, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse, Optional<PrivateClickMeasurement::AttributionTriggerData>&& privateClickMeasurementAttributionTriggerData)
 {
-    RELEASE_LOG_IF_ALLOWED("continueWillSendRedirectedRequest: (m_isKeptAlive=%d, hasAdClickConversion=%d)", m_isKeptAlive, !!adClickConversion);
+    RELEASE_LOG_IF_ALLOWED("continueWillSendRedirectedRequest: (m_isKeptAlive=%d, hasAdClickConversion=%d)", m_isKeptAlive, !!privateClickMeasurementAttributionTriggerData);
     ASSERT(!isSynchronous());
+
+    NetworkSession* networkSession = nullptr;
+    if (privateClickMeasurementAttributionTriggerData && (networkSession = m_connection->networkProcess().networkSession(sessionID())))
+        networkSession->handlePrivateClickMeasurementConversion(WTFMove(*privateClickMeasurementAttributionTriggerData), request.url(), redirectRequest);
 
     if (m_isKeptAlive) {
         continueWillSendRequest(WTFMove(redirectRequest), false);
         return;
     }
-
-    NetworkSession* networkSession = nullptr;
-    if (adClickConversion && (networkSession = m_connection->networkProcess().networkSession(sessionID())))
-        networkSession->handleAdClickAttributionConversion(WTFMove(*adClickConversion), request.url(), redirectRequest);
 
     // We send the request body separately because the ResourceRequest body normally does not get encoded when sent over IPC, as an optimization.
     // However, we really need the body here because a redirect cross-site may cause a process-swap and the request to start again in a new WebContent process.

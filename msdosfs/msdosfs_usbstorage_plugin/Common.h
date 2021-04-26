@@ -337,8 +337,6 @@ typedef struct
 typedef struct FileRecord_s
 {
     MultiReadSingleWriteHandler_s   sRecordLck;
-    pthread_mutex_t                 sUnAlignedWriteLck;
-    RecordDataCond_t                sCondTable[NUM_OF_COND];
 
     RecordIdentifier_e              eRecordID;
     FileSystemRecord_s*             psFSRecord;
@@ -384,7 +382,10 @@ typedef struct
 
 typedef struct
 {
-    volatile bool bIsPreAllocated;
+    volatile bool     bIsPreAllocated;
+    pthread_mutex_t   sUnAlignedWriteLck;
+    RecordDataCond_t  sCondTable[NUM_OF_COND];
+    atomic_uint_least64_t   uWriteCounter; //Indicate how many threads are during write 
 } FileData_s;
 
 typedef struct

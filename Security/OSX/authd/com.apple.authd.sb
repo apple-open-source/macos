@@ -9,7 +9,8 @@
 
 (allow file-read*)
 
-(allow file-read* file-write*
+(allow file-write*
+       (regex #"^(/System)?/Volumes/Preboot/.*/var/db/\.scnotenforced")
        (regex #"^/private/var/db/auth\.db.*$")
        (literal "/private/var/db/mds/system/mds.lock")
        (subpath (param "TMP_DIR")))

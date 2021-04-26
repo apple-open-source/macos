@@ -78,7 +78,9 @@ WI.MediaTimelineOverviewGraph = class MediaTimelineOverviewGraph extends WI.Time
 
     layout()
     {
-        if (!this.visible)
+        super.layout();
+
+        if (this.hidden)
             return;
 
         let secondsPerPixel = this.timelineOverview.secondsPerPixel;
@@ -135,11 +137,11 @@ WI.MediaTimelineOverviewGraph = class MediaTimelineOverviewGraph extends WI.Time
 
         if (isNaN(record.startTime)) {
             this._recordsWithoutStartTime.add(record);
-            record.singleFireEventListener(WI.TimelineRecord.Event.Updated, (event) => {
+            record.singleFireEventListener(WI.TimelineRecord.Event.Updated, function(event) {
                 this._processRecord(record);
 
                 this.needsLayout();
-            });
+            }, this);
             return;
         }
 

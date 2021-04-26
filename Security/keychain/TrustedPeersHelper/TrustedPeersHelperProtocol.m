@@ -222,6 +222,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 @implementation TrustedPeersHelperEgoPeerStatus
 
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
+                 egoPeerMachineID:(NSString* _Nullable)egoPeerMachineID
                            status:(TPPeerStatus)egoStatus
         viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
             peerCountsByMachineID:(NSDictionary<NSString *,NSNumber *> * _Nonnull)peerCountsByMachineID
@@ -230,6 +231,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 {
     if((self = [super init])) {
         _egoPeerID = egoPeerID;
+        _egoPeerMachineID = egoPeerMachineID;
         _egoStatus = egoStatus;
         _viablePeerCountsByModelID = viablePeerCountsByModelID;
         _peerCountsByMachineID = peerCountsByMachineID;
@@ -245,7 +247,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<TPHEgoPeerState: %@>", self.egoPeerID];
+    return [NSString stringWithFormat:@"<TPHEgoPeerState: %@ (mid:%@)>", self.egoPeerID, self.egoPeerMachineID];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -255,6 +257,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 - (instancetype)initWithCoder:(NSCoder *)coder {
     if ((self = [super init])) {
         _egoPeerID = [coder decodeObjectOfClass:[NSString class] forKey:@"peerID"];
+        _egoPeerMachineID = [coder decodeObjectOfClass:[NSString class] forKey:@"mID"];
         _egoStatus = (TPPeerStatus)[coder decodeInt64ForKey:@"egoStatus"];
         _viablePeerCountsByModelID = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSDictionary class], [NSString class], [NSNumber class]]] forKey:@"viablePeerCountsByModelID"];
         _numberOfPeersInOctagon = 0;
@@ -272,6 +275,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (void)encodeWithCoder:(NSCoder *)coder {
     [coder encodeObject:self.egoPeerID forKey:@"peerID"];
+    [coder encodeObject:self.egoPeerMachineID forKey:@"mID"];
     [coder encodeInt64:self.egoStatus forKey:@"egoStatus"];
     [coder encodeObject:self.viablePeerCountsByModelID forKey:@"viablePeerCountsByModelID"];
     [coder encodeObject:self.peerCountsByMachineID forKey:@"peerCountsByMachineID"];

@@ -36,6 +36,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface NSImage ()
++ (instancetype)imageWithImageRep:(NSImageRep *)imageRep;
 - (void)lockFocusWithRect:(NSRect)rect context:(nullable NSGraphicsContext *)context hints:(nullable NSDictionary *)hints flipped:(BOOL)flipped;
 @end
 
@@ -56,6 +57,6 @@ extern const NSImageHintKey NSImageHintSymbolScale;
 
 NS_ASSUME_NONNULL_END
 
-#endif
+#endif // HAVE(ALTERNATE_ICONS)
 
-#endif
+#endif // USE(APPLE_INTERNAL_SDK)

@@ -310,7 +310,7 @@ done:
     return result;
 }
 
-bool isInLWOS()
+bool isInFVUnlock()
 {
     // temporary solution until we find a better way
     return getenv("__OSINSTALL_ENVIRONMENT") != NULL;

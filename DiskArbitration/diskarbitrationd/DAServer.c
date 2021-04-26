@@ -2080,12 +2080,13 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                     if ( path )
                                     {
-                                        status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH, path);
+                                        status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH | SANDBOX_CHECK_ALLOW_APPROVAL, path);
 
                                         if ( status )
                                         {
                                             status = kDAReturnNotPrivileged;
                                         }
+
                                         free( path );
                                     }
 

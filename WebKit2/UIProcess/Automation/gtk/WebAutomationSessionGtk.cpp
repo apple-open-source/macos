@@ -31,6 +31,7 @@
 #include "WebPageProxy.h"
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/GtkVersioning.h>
+#include <WebCore/Scrollbar.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -64,7 +65,7 @@ static unsigned mouseButtonToGdkButton(MouseButton button)
     return GDK_BUTTON_PRIMARY;
 }
 
-void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
+void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers, const String& pointerType)
 {
     unsigned gdkButton = mouseButtonToGdkButton(button);
     auto modifier = stateModifierForGdkButton(gdkButton);
@@ -73,29 +74,29 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
 
     switch (interaction) {
     case MouseInteraction::Move:
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Motion, 0, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Motion, 0, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0, pointerType);
         break;
     case MouseInteraction::Down: {
         int doubleClickTime, doubleClickDistance;
         g_object_get(gtk_widget_get_settings(page.viewWidget()), "gtk-double-click-time", &doubleClickTime, "gtk-double-click-distance", &doubleClickDistance, nullptr);
         updateClickCount(button, locationInView, Seconds::fromMilliseconds(doubleClickTime), doubleClickDistance);
         m_currentModifiers |= modifier;
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, m_clickCount);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, m_clickCount, pointerType);
         break;
     }
     case MouseInteraction::Up:
         m_currentModifiers &= ~modifier;
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0, pointerType);
         break;
     case MouseInteraction::SingleClick:
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 1);
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 1, pointerType);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0, pointerType);
         break;
     case MouseInteraction::DoubleClick:
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 1);
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0);
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 2);
-        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 1, pointerType);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0, pointerType);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Press, gdkButton, m_currentModifiers | modifier, locationInView.x(), locationInView.y(), state, 2, pointerType);
+        webkitWebViewBaseSynthesizeMouseEvent(viewWidget, MouseEventType::Release, gdkButton, m_currentModifiers, locationInView.x(), locationInView.y(), state, 0, pointerType);
         break;
     }
 }
@@ -122,12 +123,20 @@ static int keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey key)
 {
     switch (key) {
     case Inspector::Protocol::Automation::VirtualKey::Shift:
+        return GDK_KEY_Shift_L;
+    case Inspector::Protocol::Automation::VirtualKey::ShiftRight:
         return GDK_KEY_Shift_R;
     case Inspector::Protocol::Automation::VirtualKey::Control:
+        return GDK_KEY_Control_L;
+    case Inspector::Protocol::Automation::VirtualKey::ControlRight:
         return GDK_KEY_Control_R;
     case Inspector::Protocol::Automation::VirtualKey::Alternate:
         return GDK_KEY_Alt_L;
+    case Inspector::Protocol::Automation::VirtualKey::AlternateRight:
+        return GDK_KEY_Alt_R;
     case Inspector::Protocol::Automation::VirtualKey::Meta:
+        return GDK_KEY_Meta_L;
+    case Inspector::Protocol::Automation::VirtualKey::MetaRight:
         return GDK_KEY_Meta_R;
     case Inspector::Protocol::Automation::VirtualKey::Command:
         return GDK_KEY_Execute;
@@ -149,24 +158,44 @@ static int keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey key)
         return GDK_KEY_Escape;
     case Inspector::Protocol::Automation::VirtualKey::PageUp:
         return GDK_KEY_Page_Up;
+    case Inspector::Protocol::Automation::VirtualKey::PageUpRight:
+        return GDK_KEY_KP_Page_Up;
     case Inspector::Protocol::Automation::VirtualKey::PageDown:
         return GDK_KEY_Page_Down;
+    case Inspector::Protocol::Automation::VirtualKey::PageDownRight:
+        return GDK_KEY_KP_Page_Down;
     case Inspector::Protocol::Automation::VirtualKey::End:
         return GDK_KEY_End;
+    case Inspector::Protocol::Automation::VirtualKey::EndRight:
+        return GDK_KEY_KP_End;
     case Inspector::Protocol::Automation::VirtualKey::Home:
         return GDK_KEY_Home;
+    case Inspector::Protocol::Automation::VirtualKey::HomeRight:
+        return GDK_KEY_KP_Home;
     case Inspector::Protocol::Automation::VirtualKey::LeftArrow:
         return GDK_KEY_Left;
+    case Inspector::Protocol::Automation::VirtualKey::LeftArrowRight:
+        return GDK_KEY_KP_Left;
     case Inspector::Protocol::Automation::VirtualKey::UpArrow:
         return GDK_KEY_Up;
+    case Inspector::Protocol::Automation::VirtualKey::UpArrowRight:
+        return GDK_KEY_KP_Up;
     case Inspector::Protocol::Automation::VirtualKey::RightArrow:
         return GDK_KEY_Right;
+    case Inspector::Protocol::Automation::VirtualKey::RightArrowRight:
+        return GDK_KEY_KP_Right;
     case Inspector::Protocol::Automation::VirtualKey::DownArrow:
         return GDK_KEY_Down;
+    case Inspector::Protocol::Automation::VirtualKey::DownArrowRight:
+        return GDK_KEY_KP_Down;
     case Inspector::Protocol::Automation::VirtualKey::Insert:
         return GDK_KEY_Insert;
+    case Inspector::Protocol::Automation::VirtualKey::InsertRight:
+        return GDK_KEY_KP_Insert;
     case Inspector::Protocol::Automation::VirtualKey::Delete:
         return GDK_KEY_Delete;
+    case Inspector::Protocol::Automation::VirtualKey::DeleteRight:
+        return GDK_KEY_KP_Delete;
     case Inspector::Protocol::Automation::VirtualKey::Space:
         return GDK_KEY_space;
     case Inspector::Protocol::Automation::VirtualKey::Semicolon:
@@ -240,12 +269,16 @@ static int keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey key)
 static unsigned modifiersForKeyCode(unsigned keyCode)
 {
     switch (keyCode) {
+    case GDK_KEY_Shift_L:
     case GDK_KEY_Shift_R:
         return GDK_SHIFT_MASK;
+    case GDK_KEY_Control_L:
     case GDK_KEY_Control_R:
         return GDK_CONTROL_MASK;
     case GDK_KEY_Alt_L:
+    case GDK_KEY_Alt_R:
         return GDK_MOD1_MASK;
+    case GDK_KEY_Meta_L:
     case GDK_KEY_Meta_R:
         return GDK_META_MASK;
     }
@@ -260,7 +293,7 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
             keyCode = keyCodeForVirtualKey(virtualKey);
         },
         [&] (CharKey charKey) {
-            keyCode = gdk_unicode_to_keyval(g_utf8_get_char(&charKey));
+            keyCode = gdk_unicode_to_keyval(charKey);
         }
     );
     unsigned modifiers = modifiersForKeyCode(keyCode);
@@ -295,5 +328,15 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
     } while (*p);
 }
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
+
+#if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+void WebAutomationSession::platformSimulateWheelInteraction(WebPageProxy& page, const WebCore::IntPoint& locationInViewport, const WebCore::IntSize& delta)
+{
+    auto* viewWidget = reinterpret_cast<WebKitWebViewBase*>(page.viewWidget());
+    FloatSize scrollDelta(delta);
+    scrollDelta.scale(1 / static_cast<float>(Scrollbar::pixelsPerLineStep()));
+    webkitWebViewBaseSynthesizeWheelEvent(viewWidget, -scrollDelta.width(), -scrollDelta.height(), locationInViewport.x(), locationInViewport.y(), WheelEventPhase::NoPhase, WheelEventPhase::NoPhase);
+}
+#endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 
 } // namespace WebKit

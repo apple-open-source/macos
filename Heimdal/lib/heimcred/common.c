@@ -55,6 +55,7 @@ HEIMCRED_CONST(CFTypeRef, kHEIMTargetName);
  */
 
 HeimCredContext HeimCredCTX;
+typedef struct HeimCredEventContext_s *HeimCredEventContextRef;
 
 /*
  *
@@ -140,6 +141,19 @@ HeimCredReleaseItem(CFTypeRef item)
     CFRELEASE_NULL(cred->uuid);
     CFRELEASE_NULL(cred->attributes);
 #if HEIMCRED_SERVER
+    HEIMDAL_MUTEX_lock(&cred->event_mutex);
+    if (cred->expireEventContext) {
+	HEIMDAL_MUTEX_lock(&cred->expireEventContext->cred_mutex);
+	cred->expireEventContext->cred = NULL;
+	HEIMDAL_MUTEX_unlock(&cred->expireEventContext->cred_mutex);
+	CFRELEASE_NULL(cred->expireEventContext);
+    }
+    if (cred->renewEventContext) {
+	HEIMDAL_MUTEX_lock(&cred->renewEventContext->cred_mutex);
+	cred->renewEventContext->cred = NULL;
+	HEIMDAL_MUTEX_unlock(&cred->renewEventContext->cred_mutex);
+	CFRELEASE_NULL(cred->renewEventContext);
+    }
     if (cred->renew_event) {
 	heim_ipc_event_cancel(cred->renew_event);
 	heim_ipc_event_free(cred->renew_event);
@@ -150,9 +164,42 @@ HeimCredReleaseItem(CFTypeRef item)
 	heim_ipc_event_free(cred->expire_event);
 	cred->expire_event = NULL;
     }
+    HEIMDAL_MUTEX_unlock(&cred->event_mutex);
     HEIMDAL_MUTEX_destroy(&cred->event_mutex);
 #endif
 }
+
+#if HEIMCRED_SERVER
+static void
+HeimCredEventContextReleaseItem(CFTypeRef item)
+{
+    HeimCredEventContextRef ctx = (HeimCredEventContextRef)item;
+    HEIMDAL_MUTEX_destroy(&ctx->cred_mutex);
+}
+
+
+CFTypeID
+HeimCredEventContextGetTypeID(void)
+{
+    _HeimCredInitCommon();
+    return HeimCredCTX.heid;
+}
+
+HeimCredEventContextRef
+HeimCredEventContextCreateItem(HeimCredRef cred)
+{
+    HeimCredEventContextRef ctx = (HeimCredEventContextRef)_CFRuntimeCreateInstance(NULL, HeimCredCTX.heid, sizeof(struct HeimCredEventContext_s) - sizeof(CFRuntimeBase), NULL);
+    if (ctx == NULL)
+	return NULL;
+
+    // cred is a "weak" reference to break the retain cycle.  cred->event->event_context->cred
+    // the cred will set this value to NULL when it is released and the event handlers retain the cred during execution.
+    ctx->cred = cred;
+    HEIMDAL_MUTEX_init(&ctx->cred_mutex);
+    return ctx;
+}
+#endif
+
 
 void
 _HeimCredInitCommon(void)
@@ -172,6 +219,20 @@ _HeimCredInitCommon(void)
 		HeimCredCopyDebugName
 	    };
 	    HeimCredCTX.haid = _CFRuntimeRegisterClass(&HeimCredClass);
+#if HEIMCRED_SERVER
+	    static const CFRuntimeClass HeimCredEventContextClass = {
+		0,
+		"HeimCredEventContext",
+		NULL,
+		NULL,
+		HeimCredEventContextReleaseItem,
+		NULL,
+		NULL,
+		NULL,
+		NULL
+	    };
+	    HeimCredCTX.heid = _CFRuntimeRegisterClass(&HeimCredEventContextClass);
+#endif
 
 	    HeimCredCTX.queue = dispatch_queue_create("HeimCred", NULL);
 
@@ -205,6 +266,8 @@ HeimCredCreateItem(CFUUIDRef uuid)
     cred->expire_event = NULL;
     cred->renew_event = NULL;
     HEIMDAL_MUTEX_init(&cred->event_mutex);
+    cred->is_acquire_cred = false;
 #endif
     return cred;
 }
+

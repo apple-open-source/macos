@@ -23,16 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 
 #include "sudo.h"
@@ -65,7 +57,7 @@ getenv_unhooked(const char *name)
     return val;
 }
 
-__dso_public char *
+sudo_dso_public char *
 getenv(const char *name)
 {
     char *val = NULL;
@@ -137,7 +129,7 @@ putenv_unhooked(PUTENV_CONST char *string)
     return rpl_putenv(string);
 }
 
-__dso_public int
+sudo_dso_public int
 putenv(PUTENV_CONST char *string)
 {
     switch (process_hooks_putenv((char *)string)) {
@@ -209,7 +201,7 @@ setenv_unhooked(const char *var, const char *val, int overwrite)
     return rpl_setenv(var, val, overwrite);
 }
 
-__dso_public int
+sudo_dso_public int
 setenv(const char *var, const char *val, int overwrite)
 {
     switch (process_hooks_setenv(var, val, overwrite)) {
@@ -274,9 +266,9 @@ unsetenv_unhooked(const char *var)
 }
 
 #ifdef UNSETENV_VOID
-__dso_public void
+sudo_dso_public void
 #else
-__dso_public int
+sudo_dso_public int
 #endif
 unsetenv(const char *var)
 {

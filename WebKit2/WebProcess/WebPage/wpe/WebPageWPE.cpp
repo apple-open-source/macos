@@ -30,6 +30,8 @@
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/NotImplemented.h>
+#include <WebCore/PlatformScreen.h>
+#include <WebCore/PointerCharacteristics.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -71,6 +73,42 @@ String WebPage::platformUserAgent(const URL&) const
 {
     notImplemented();
     return String();
+}
+
+bool WebPage::hoverSupportedByPrimaryPointingDevice() const
+{
+#if ENABLE(TOUCH_EVENTS)
+    return !screenIsTouchPrimaryInputDevice();
+#else
+    return true;
+#endif
+}
+
+bool WebPage::hoverSupportedByAnyAvailablePointingDevice() const
+{
+#if ENABLE(TOUCH_EVENTS)
+    return !screenHasTouchDevice();
+#else
+    return true;
+#endif
+}
+
+Optional<PointerCharacteristics> WebPage::pointerCharacteristicsOfPrimaryPointingDevice() const
+{
+#if ENABLE(TOUCH_EVENTS)
+    if (screenIsTouchPrimaryInputDevice())
+        return PointerCharacteristics::Coarse;
+#endif
+    return PointerCharacteristics::Fine;
+}
+
+OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailablePointingDevices() const
+{
+#if ENABLE(TOUCH_EVENTS)
+    if (screenHasTouchDevice())
+        return PointerCharacteristics::Coarse;
+#endif
+    return PointerCharacteristics::Fine;
 }
 
 } // namespace WebKit

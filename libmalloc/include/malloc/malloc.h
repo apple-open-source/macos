@@ -29,6 +29,7 @@
 #include <sys/cdefs.h>
 #include <Availability.h>
 
+#ifndef RC_HIDE_HARDWARE_FALL_2018_IOS
 #if __has_feature(ptrauth_calls)
 #include <ptrauth.h>
 
@@ -51,6 +52,7 @@
 		FALSE, ptrauth_string_discriminator("malloc_introspect_tbl")) ptr
 
 #endif	// __has_feature(ptrauth_calls)
+#endif	// RC_HIDE_HARDWARE_FALL_2018_IOS
 
 #ifndef MALLOC_ZONE_FN_PTR
 #define MALLOC_ZONE_FN_PTR(fn) fn

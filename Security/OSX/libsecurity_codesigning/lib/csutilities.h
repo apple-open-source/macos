@@ -247,6 +247,18 @@ bool pathFileSystemUsesXattrFiles(const char *path);
 // Check if path is a valid extended attribute file.
 bool pathIsValidXattrFile(const string fullPath, const char *scope = "csutilities");
 
+// Check whether the provided fullPath is prefixed by the prefixPath on a directory boundary.
+// Also rejects if the prefixPath is a perfect match since its no longer a strict prefix.
+bool isPathPrefix(string prefixPath, string fullPath);
+
+// Retrieves the path remaining of fullPath after the prefixPath is removed, including any leading /'s.
+string pathRemaining(string fullPath, string prefix);
+
+// Iterates the path by removing the last path component and calling the handler, which returns
+// whether to continue iterating.  Returns whether any pathHandler call resulted
+// in stopping the iteration.
+bool iterateLargestSubpaths(string path, bool (^pathHandler)(string));
+
 } // end namespace CodeSigning
 } // end namespace Security
 

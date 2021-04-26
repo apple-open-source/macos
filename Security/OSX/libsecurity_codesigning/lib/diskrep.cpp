@@ -216,7 +216,7 @@ void DiskRep::flush()
 	// nothing cached
 }
 
-CFDictionaryRef DiskRep::diskRepInformation()
+CFDictionaryRef DiskRep::copyDiskRepInformation()
 {
     return NULL;
 }

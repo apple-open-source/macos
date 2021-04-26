@@ -314,6 +314,7 @@ f_strptime(typval_T *argvars, typval_T *rettv)
     char_u	*enc;
 
     CLEAR_FIELD(tmval);
+    tmval.tm_isdst = -1;
     fmt = tv_get_string(&argvars[0]);
     str = tv_get_string(&argvars[1]);
 
@@ -496,10 +497,12 @@ check_due_timer(void)
 	    may_garbage_collect = FALSE;
 	    save_vimvars(&vvsave);
 
+	    // Invoke the callback.
 	    timer->tr_firing = TRUE;
 	    timer_callback(timer);
 	    timer->tr_firing = FALSE;
 
+	    // Restore stuff.
 	    timer_next = timer->tr_next;
 	    did_one = TRUE;
 	    timer_busy = save_timer_busy;
@@ -741,7 +744,7 @@ f_timer_info(typval_T *argvars, typval_T *rettv)
 f_timer_pause(typval_T *argvars, typval_T *rettv UNUSED)
 {
     timer_T	*timer = NULL;
-    int		paused = (int)tv_get_number(&argvars[1]);
+    int		paused = (int)tv_get_bool(&argvars[1]);
 
     if (argvars[0].v_type != VAR_NUMBER)
 	emsg(_(e_number_exp));

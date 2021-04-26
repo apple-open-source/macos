@@ -76,21 +76,35 @@
 //create a standard kerberos id returning only the uuid.
 + (BOOL)createCredentialAndCache:(struct peer *)peer name:(NSString*)clientName returningCacheUuid:(CFUUIDRef *)uuid
 {
+    return [self createCredentialAndCache:peer name:clientName returningCacheUuid:uuid credentialUUID:NULL];
+}
+
+//create a standard kerberos id returning only the cache uuid and cred.
++ (BOOL)createCredentialAndCache:(struct peer *)peer name:(NSString*)clientName returningCacheUuid:(CFUUIDRef *)cacheUUID credentialUUID:(CFUUIDRef *)credUUID
+{
     CFDictionaryRef replyAttributes;
     bool worked = [GSSCredTestUtil createCredentialAndCache:peer name:clientName returningCredentialDictionary:&replyAttributes];
     if (worked && replyAttributes) {
-	if (CFDictionaryContainsKey(replyAttributes, kHEIMAttrParentCredential)) {
-	    *uuid = CFDictionaryGetValue(replyAttributes, kHEIMAttrParentCredential);
-	    if (*uuid) CFRetain(*uuid);
+
+	if (credUUID) {
+	    *credUUID = CFDictionaryGetValue(replyAttributes, kHEIMAttrUUID);
+	    if (*credUUID) CFRetain(*credUUID);
+	}
+
+	if (cacheUUID) {
+	    if (CFDictionaryContainsKey(replyAttributes, kHEIMAttrParentCredential)) {
+		*cacheUUID = CFDictionaryGetValue(replyAttributes, kHEIMAttrParentCredential);
+		if (*cacheUUID) CFRetain(*cacheUUID);
+	    }
 	}
 	CFRelease(replyAttributes);
 	[self flushCache]; //we have to manually save, because GSSCred does this as part of the XPC handler
 	return YES;
-	
+
     }
-    
+
     return NO;
-    
+
 }
 
 //create a standard kerberos id returning the dictonary of attributes
@@ -112,6 +126,7 @@
 				  (id)kHEIMAttrAuthTime:[NSDate date],
 				  (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
 				  (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				  (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
     CFRELEASE_NULL(parentUUID);
     return [GSSCredTestUtil createCredential:peer name:clientName attributes:(__bridge CFDictionaryRef)attributes returningDictionary:dict];
@@ -306,7 +321,7 @@
     return defaultCred;
 }
 
-+ (BOOL)fetchDefaultCredential:(struct peer *)peer returningName:(NSString * __autoreleasing *)name
++ (BOOL)fetchDefaultCredential:(struct peer *)peer returningName:(CFStringRef *)name
 {
     
     CFUUIDRef defCred = NULL;
@@ -358,7 +373,7 @@
 	return NO;
     }
     
-    NSArray *results = (__bridge NSArray *)(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
+    NSArray *results = CFBridgingRelease(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
     *items = results;
     if (!*items) {
 	return NO;
@@ -386,7 +401,7 @@
 	return NO;
     }
     
-    NSArray *all = (__bridge NSArray *)(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
+    NSArray *all = CFBridgingRelease(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
     
     NSMutableArray *results = [@[] mutableCopy];
     
@@ -431,7 +446,7 @@
 	return NO;
     }
     
-    NSArray *all = (__bridge NSArray *)(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
+    NSArray *all = CFBridgingRelease(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
     
     NSMutableArray *results = [@[] mutableCopy];
     
@@ -551,6 +566,36 @@
     return 0;
 }
 
++ (BOOL)deleteCacheContents:(struct peer *)peer parentUUID:(CFUUIDRef)parentUUID
+{
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "query");
+    xpc_dictionary_set_int64(request, "version", 0);
+
+    NSDictionary *query = @{(id)kHEIMAttrType:(id)kHEIMTypeKerberos, (id)kHEIMAttrParentCredential:(__bridge id)parentUUID};
+
+    xpc_object_t xpcquery = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)(query));
+    xpc_dictionary_set_value(request, "query", xpcquery);
+
+    xpc_object_t reply = xpc_dictionary_create(NULL, NULL, 0);
+    do_Query(peer, request, reply);
+
+    //check for error
+    xpc_object_t error = xpc_dictionary_get_dictionary(reply, "error");
+    if (error) {
+	return NO;
+    }
+
+    NSArray *all = (__bridge NSArray *)(HeimCredMessageCopyAttributes(reply, "items", CFArrayGetTypeID()));
+
+
+    [all enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+	CFUUIDRef uuid = (__bridge CFUUIDRef)obj;
+	[GSSCredTestUtil delete:peer uuid:uuid];
+    }];
+
+    return YES;
+}
 #pragma mark -
 #pragma mark hold
 
@@ -603,11 +648,19 @@
 
 + (void)flushCache
 {
+    static NSObject *_lock;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+	_lock = [NSObject new];
+    });
+
     //dispatch to main to prevent concurrency issues with the event threads.
     dispatch_sync(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-	if (HeimCredCTX.needFlush) {
-	    HeimCredCTX.needFlush = false;
-	    storeCredCache();
+	@synchronized (_lock) {
+	    if (HeimCredCTX.needFlush) {
+		HeimCredCTX.needFlush = false;
+		storeCredCache();
+	    }
 	}
     });
 }

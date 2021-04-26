@@ -26,7 +26,6 @@
 #import "config.h"
 #import "LegacyCustomProtocolManager.h"
 
-#import "DataReference.h"
 #import "LegacyCustomProtocolManagerMessages.h"
 #import "NetworkProcess.h"
 #import <Foundation/NSURLSession.h>
@@ -69,7 +68,7 @@ void LegacyCustomProtocolManager::networkProcessCreated(NetworkProcess& networkP
 
 @implementation WKCustomProtocol
 
-@synthesize customProtocolID=_customProtocolID;
+@synthesize customProtocolID = _customProtocolID;
 
 + (BOOL)canInitWithRequest:(NSURLRequest *)request
 {

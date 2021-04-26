@@ -13,17 +13,29 @@ ASAN_IN_NORMAL_VARIANT = $(ASAN_IN_NORMAL_VARIANT_RC_$(RC_SUPPORT_ADDRESS_SANITI
 // Apple Internal Sanitizer dylib path
 SANITIZER_DYLIB_DIR = /usr/appleinternal/lib/sanitizers
 
-ASAN_CFLAGS_ =
-ASAN_CFLAGS_YES = -DCURRENT_VARIANT_asan=1
-ASAN_LDFLAGS_ =
+ASAN_CFLAGS_NO =
+ASAN_CFLAGS_YES = -DSUPPORT_ASAN=1
+ASAN_LDFLAGS_NO =
 SHARED_ASAN_LDFLAGS = -L $(SDKROOT)$(SANITIZER_DYLIB_DIR) -Xlinker -not_for_dyld_shared_cache -rpath $(SANITIZER_DYLIB_DIR)/
 ASAN_LDFLAGS_YES[sdk=macosx*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_osx_dynamic
 ASAN_LDFLAGS_YES[sdk=iphoneos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_ios_dynamic
 ASAN_LDFLAGS_YES[sdk=watchos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_watchos_dynamic
 ASAN_LDFLAGS_YES[sdk=appletvos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_tvos_dynamic
 ASAN_LDFLAGS_YES[sdk=bridgeos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_bridgeos_dynamic
-ASAN_IN_NORMAL_VARIANT_CFLAGS = $(ASAN_CFLAGS_$(ASAN_IN_NORMAL_VARIANT))
-ASAN_IN_NORMAL_VARIANT_LDFLAGS = $(ASAN_LDFLAGS_$(ASAN_IN_NORMAL_VARIANT))
+
+// "no_asan" variant
+//
+// The "no_asan" variant is only built when ASAN_IN_NORMAL_VARIANT=YES.
+// The variant exists to provide a way to opt-out processes from the
+// "Whole OS ASan" mode. It should be identical to the "normal" variant
+// except it does **not** upward link the ASan runtime. Despite the name,
+// this does not enforce that ASan is not used. This is because an ASan
+// instrumented binary could also cause the ASan runtime to be loaded.
+NOASAN_CFLAGS_YES = $(ASAN_CFLAGS_YES)
+NOASAN_LDFLAGS_YES =
+EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_NO =
+EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_YES = no_asan
+EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT = $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_$(ASAN_IN_NORMAL_VARIANT))
 
 SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
 SDK_INSTALL_VARIANT_1 = driverkit
@@ -35,7 +47,7 @@ SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_P
 SDK_RUNTIME_HEADERS_PREFIX = Runtime
 
 BUILD_VARIANTS = $(BUILD_VARIANTS_$(SDK_INSTALL_VARIANT))
-BUILD_VARIANTS_default = normal debug asan
+BUILD_VARIANTS_default = normal debug asan $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT)
 BUILD_VARIANTS_driverkit = normal debug
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib
@@ -50,9 +62,22 @@ ORDER_FILE[sdk=iphonesimulator*] =
 ORDER_FILE[sdk=driverkit*] =
 SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
 SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/PrivateFrameworks $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
-OTHER_CFLAGS = -include $(BUILT_PRODUCTS_DIR)/config.$(CURRENT_ARCH).$(CURRENT_VARIANT).h -DCURRENT_VARIANT_$(CURRENT_VARIANT)=1 $(ASAN_IN_NORMAL_VARIANT_CFLAGS)
-OTHER_LDFLAGS = -Wl,-search_paths_first -nodefaultlibs @$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt $(ASAN_IN_NORMAL_VARIANT_LDFLAGS) $(DRIVERKIT_LDFLAGS)
+
+OTHER_CFLAGS = -include $(BUILT_PRODUCTS_DIR)/config.$(CURRENT_ARCH).$(CURRENT_VARIANT).h -DCURRENT_VARIANT_$(CURRENT_VARIANT)=1
+OTHER_CFLAGS_normal = $(ASAN_CFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
+// Preserve existing behaviour of modifying debug variant.
+OTHER_CFLAGS_debug = $(ASAN_CFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
+OTHER_CFLAGS_asan = $(ASAN_CFLAGS_YES)
+OTHER_CFLAGS_no_asan = $(NOASAN_CFLAGS_YES)
+
+OTHER_LDFLAGS = -Wl,-search_paths_first -nodefaultlibs @$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt $(DRIVERKIT_LDFLAGS)
+OTHER_LDFLAGS_normal = $(ASAN_LDFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
+// Preserve existing behaviour of modifying debug variant.
+OTHER_LDFLAGS_debug = $(ASAN_LDFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
 OTHER_LDFLAGS_asan = $(ASAN_LDFLAGS_YES)
+OTHER_LDFLAGS_no_asan = $(NOASAN_LDFLAGS_YES)
+
+
 // whitelist of libraries in DriverKit SDK allowed to link directly against libSystem.dylib (outside of the umbrella)
 DRIVERKIT_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit
 LD_GENERATE_MAP_FILE = YES

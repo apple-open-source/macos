@@ -39,6 +39,7 @@ typedef struct __SecTrustStore *SecTrustStoreRef;
 enum {
 	kSecTrustStoreDomainSystem = 1,
 	kSecTrustStoreDomainUser = 2,
+	kSecTrustStoreDomainAdmin = 3,
 };
 typedef uint32_t SecTrustStoreDomain;
 

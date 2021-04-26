@@ -38,6 +38,7 @@
 #import "heimcred.h"
 #import "aks.h"
 #import "mock_aks.h"
+#import "acquirecred.h"
 
 @interface GSSCredTests : XCTestCase
 @property (nullable) struct peer * peer;
@@ -66,12 +67,17 @@
     HeimCredGlobalCTX.sessionExists = sessionExistsMock;
     HeimCredGlobalCTX.saveToDiskIfNeeded = saveToDiskIfNeededMock;
     HeimCredGlobalCTX.getValueFromPreferences = getValueFromPreferencesMock;
+    HeimCredGlobalCTX.expireFunction = expire_func;
+    HeimCredGlobalCTX.renewFunction = renew_func;
+    HeimCredGlobalCTX.finalFunction = final_func;
     HeimCredGlobalCTX.notifyCaches = NULL;
     HeimCredGlobalCTX.gssCredHelperClientClass = nil;
     
+    CFRELEASE_NULL(HeimCredCTX.mechanisms);
     HeimCredCTX.mechanisms = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.mechanisms != NULL, "out of memory");
-    
+
+    CFRELEASE_NULL(HeimCredCTX.schemas);
     HeimCredCTX.schemas = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.schemas != NULL, "out of memory");
     
@@ -91,8 +97,9 @@
 #else
     archivePath = @"/var/tmp/heim-credential-store.archive.test";
 #endif
-    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     _HeimCredInitCommon();
+    CFRELEASE_NULL(HeimCredCTX.sessions);
+    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     
     //always start clean
     NSError *error;
@@ -108,14 +115,10 @@
 }
 
 - (void)tearDown {
-    
     NSError *error;
     [[NSFileManager defaultManager] removeItemAtPath:archivePath error:&error];
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = NULL;
-    
-    CFRELEASE_NULL(HeimCredCTX.sessions);
-    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
 //pragma mark - Tests
@@ -135,7 +138,9 @@
     CFDictionaryRef attributes;
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    
+
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(uuid);
 }
 
 //add credential and fetch it
@@ -188,7 +193,11 @@
     error = [GSSCredTestUtil delete:self.peer uuid:uuid2];
     XCTAssertEqual(error, 0, "deleting the second credential should work too");
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 0);
-    
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(uuid1);
+    CFRELEASE_NULL(uuid2);
+    CFRELEASE_NULL(uuid3);
 }
 
 //pragma mark - ACL Tests
@@ -210,6 +219,7 @@
     NSArray *acl = CFDictionaryGetValue(attributes, kHEIMAttrBundleIdentifierACL);
     
     self.peer->bundleID = CFSTR("com.apple.foo");
+    CFRELEASE_NULL(attributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
@@ -228,7 +238,8 @@
     XCTAssertFalse([acl containsObject:@"*"], "The ACL should not contain a wildcard");
     XCTAssertTrue(acl.count == 1, "The ACL should contain two entries");
 #endif
-   
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(uuid);
 }
 
 //add credential with ACL, no entitlement
@@ -252,6 +263,8 @@
 #else
     XCTAssertEqual(result, 0, "Saving wildcard ACL should be the default in sumulators");
 #endif
+
+    CFRELEASE_NULL(uuid);
 }
 
 //add credential with ACL, unauthorized source app
@@ -275,6 +288,8 @@
 #else
    XCTAssertEqual(result, 0, "Credentials should be available to all apps in sumulators");
 #endif
+
+    CFRELEASE_NULL(uuid);
 }
 
 //add credential with wildcard ACL, authorized source app
@@ -309,6 +324,7 @@
     attributes = @{(id)kHEIMAttrBundleIdentifierACL:@[@"*"]};
     result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid2 attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
     XCTAssertEqual(result, 0, "Accountsd should be able to set wildcard acl");
+    CFRELEASE_NULL(returnAttributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid2 returningDictionary:&returnAttributes];
     acl = CFDictionaryGetValue(returnAttributes, kHEIMAttrBundleIdentifierACL);
     XCTAssertTrue([acl containsObject:@"*"], "The ACL should contain a wildcard");
@@ -322,7 +338,10 @@
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's bundleid");
     XCTAssertEqual(items.count, 2, "Two credentials should be added");
-    
+
+    CFRELEASE_NULL(returnAttributes);
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(uuid2);
     
 }
 //add credential with non-wildcard ACL, authorized source app
@@ -361,6 +380,9 @@
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential fetch for with results should not fail");
     XCTAssertEqual(items.count, 0, "This credential should not match the acl");
+
+    CFRELEASE_NULL(uuid);
+
 }
 
 //fetch credential matching is managed app ACL
@@ -395,6 +417,8 @@
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential fetch for with results should not fail");
     XCTAssertEqual(items.count, 0, "The unmanaged app should not find the credential");
+
+    CFRELEASE_NULL(uuid);
 }
 
 //fetch credential matching another bundle with is managed app ACL
@@ -436,6 +460,8 @@
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential fetch for wrong bundle should not fail");
     XCTAssertEqual(items.count, 0, "Apps not in the acl should find nothing");
+
+    CFRELEASE_NULL(uuid);
 }
 
 //pragma mark - MultiUser Tests
@@ -463,7 +489,9 @@
     
     CFStringRef storedAltDSID = CFDictionaryGetValue(attributes, kHEIMAttrAltDSID);
     XCTAssertTrue([@"abcd1234" isEqualToString:(__bridge NSString *) storedAltDSID], "Stored altdsid should be the current value");
-    
+
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testMultiUserFetchRootOrNot {
@@ -485,6 +513,7 @@
     
     _altDSID = @"foo";
     CFRELEASE_NULL(self.peer->currentDSID);
+    CFRELEASE_NULL(uuid);
     worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
     XCTAssertTrue(worked, "Credential should be created successfully");
     
@@ -500,8 +529,8 @@
     _currentUid = 0;
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid];
     XCTAssertTrue(worked, "Credential for wrong alt DSID should be available to root");
-    
-    
+
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testUpdatingAltDSIDShouldFail {
@@ -520,7 +549,8 @@
     NSDictionary *attributes = @{(id)kHEIMAttrAltDSID:@"foo"};
     uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
     XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Updating the altDSID is not allowed.");
-    
+
+    CFRELEASE_NULL(uuid);
 }
 #endif
 
@@ -546,7 +576,8 @@
     CFRELEASE_NULL(self.peer->currentDSID);
     worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&uuid];
     XCTAssertTrue(worked, "Credential should be created successfully");
-    
+
+    CFRELEASE_NULL(uuid);
     worked = [GSSCredTestUtil createNTLMCredential:self.peer returningUuid:&uuid];
     XCTAssertTrue(worked, "Credential should be created successfully");
     
@@ -576,7 +607,7 @@
 #elif TARGET_OS_OSX
     XCTAssertEqual(error, kHeimCredErrorCommandUnavailable, "Delete all should not be available on MacOS");
 #endif
-    
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testCreatingAndFetchingCredentialWithUidMatching {
@@ -742,7 +773,11 @@
     XCTAssertFalse([items containsObject:@"test4@EXAMPLE.COM"], "Credential from fourth connection should not be found");
     
     [GSSCredTestUtil freePeer:queryPeer];
-    
+
+    CFRELEASE_NULL(firstUuid);
+    CFRELEASE_NULL(secondUuid);
+    CFRELEASE_NULL(thirdUuid);
+    CFRELEASE_NULL(fourthUuid);
 }
 
 - (void)testUpdatingUidShouldFail {
@@ -761,6 +796,7 @@
     uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
     XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Updating the Uid is not allowed.");
 
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testDefaultCredential {
@@ -843,7 +879,169 @@
     XCTAssertTrue(CFEqual(uuid2, defCred), "The third credential should be the default.");
     
     [GSSCredTestUtil freePeer:secondPeer];
-    
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(uuid1);
+}
+
+- (void)testDefaultCredentialElectionAfterDestroyCache
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(uuid, defCred), "The only credential cache should be the default.");
+
+    //delete the cred cache
+    uint64_t error = [GSSCredTestUtil delete:self.peer uuid:uuid];
+    XCTAssertEqual(error, 0, "Deleting the credential cache should work.");
+
+    //create an empty cache
+    CFUUIDRef emptyUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test3@example.com" attributes:(__bridge CFDictionaryRef)(parentAttributes) returningUuid:&emptyUUID];
+    XCTAssertTrue(worked, "Empty cache should be created successfully.");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(uuid, defCred), "The deleted credential cache should no longer be the default.");
+    XCTAssertFalse(CFEqual(emptyUUID, defCred), "The empty credential cache should not be the default.");
+
+    //create another credential and cache
+    CFUUIDRef nextCred = NULL;
+    worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&nextCred];
+    XCTAssertTrue(worked, "New Credential and cache should be created successfully.");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(nextCred, defCred), "The new credential cache should be the default.");
+
+    //remove caches
+    [GSSCredTestUtil delete:self.peer uuid:nextCred];
+    XCTAssertFalse(CFEqual(emptyUUID, defCred), "The empty credential cache should not be the default.");
+    [GSSCredTestUtil delete:self.peer uuid:emptyUUID];
+    XCTAssertFalse(CFEqual(emptyUUID, defCred), "The empty credential cache should no not be the default.");
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(emptyUUID);
+    CFRELEASE_NULL(nextCred);
+}
+
+- (void)testDefaultCredentialElectionAfterDestroyCredsButNotCache
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(uuid, defCred), "The only credential cache should be the default.");
+
+    //delete only the creds from the cache
+    [GSSCredTestUtil deleteCacheContents:self.peer parentUUID:uuid];
+
+    //create an empty cache
+    CFUUIDRef emptyUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    [GSSCredTestUtil createCredential:self.peer name:@"test3@example.com" attributes:(__bridge CFDictionaryRef)(parentAttributes) returningUuid:&emptyUUID];
+
+    //create another credential and cache
+    CFUUIDRef nextCred = NULL;
+    worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&nextCred];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+
+    // Removing all credentials from a cache does not change it from being the default cache.
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(uuid, defCred), "The original credential cache should be the default.");
+
+    //cleanup
+    [GSSCredTestUtil delete:self.peer uuid:nextCred];
+    [GSSCredTestUtil delete:self.peer uuid:emptyUUID];
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(emptyUUID);
+    CFRELEASE_NULL(nextCred);
+}
+
+- (void)testDefaultCredentialElectionNotExpiredTGT
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(uuid, defCred), "The only credential cache should be the default.");
+
+    //create another credential and cache
+    CFUUIDRef expiredCred = NULL;
+    CFUUIDRef expiredCredCache = NULL;
+    worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&expiredCredCache credentialUUID:&expiredCred];
+    XCTAssertTrue(worked, "New Credential and cache should be created successfully.");
+
+    //set the cred to be expired
+    NSDictionary *attributes = @{ (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:-300]};
+    [GSSCredTestUtil setAttributes:self.peer uuid:expiredCred attributes:(__bridge CFDictionaryRef)attributes returningDictionary:NULL];
+
+    //create another credential and cache
+    CFUUIDRef anotherCred = NULL;
+    worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&anotherCred];
+    XCTAssertTrue(worked, "New Credential and cache should be created successfully.");
+
+    //delete the cred cache (triggers the election)
+    uint64_t error = [GSSCredTestUtil delete:self.peer uuid:uuid];
+    XCTAssertEqual(error, 0, "Deleting the credential cache should work.");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(expiredCredCache, defCred), "The new credential cache should not be the default.");
+
+    //remove caches
+    [GSSCredTestUtil delete:self.peer uuid:anotherCred];
+    XCTAssertFalse(CFEqual(expiredCredCache, defCred), "The expired credential cache should not be the default.");
+    [GSSCredTestUtil delete:self.peer uuid:expiredCredCache];
+
+    CFRELEASE_NULL(expiredCred);
+    CFRELEASE_NULL(expiredCredCache);
+    CFRELEASE_NULL(anotherCred);
+}
+
+- (void)testDefaultCredentialElectionCreateTGTWhenNoDefault
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential should be created successfully.");
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(uuid, defCred), "The only credential cache should be the default.");
+
+    //delete the cred cache (triggers the election)
+    uint64_t error = [GSSCredTestUtil delete:self.peer uuid:uuid];
+    XCTAssertEqual(error, 0, "Deleting the credential cache should work.");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(uuid, defCred), "The default credential cache should not be the original one.");
+
+    //create another credential and cache
+    CFUUIDRef anotherCred = NULL;
+    worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test1@EXAMPLE.COM" returningCacheUuid:&anotherCred];
+    XCTAssertTrue(worked, "New Credential and cache should be created successfully.");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(anotherCred, defCred), "The new credential cache should be the default.");
+
+    [GSSCredTestUtil delete:self.peer uuid:anotherCred];
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(anotherCred);
 }
 
 - (void)testDefaultCredentialLoadOrderedCredFirst {
@@ -864,7 +1062,7 @@
         
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
 
-    CFUUIDRef cacheUUID = CFUUIDCreateFromString(NULL, CFSTR("4FAD3654-D2ED-4A6A-A6E4-5227315D3DBE"));
+    CFUUIDRef cacheUUID = CFUUIDCreateFromString(NULL, CFSTR("5EBFA5CB-2F69-488E-8467-676481345F6A"));
     
     CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
     XCTAssertTrue(CFEqual(cacheUUID, defCred), "The default credential must be the cache, even if not loaded first.");
@@ -960,7 +1158,7 @@
 	CFUUIDRef junkUUID = NULL;
 	NSString *name = [NSString stringWithFormat:@"test%d@EXAMPLE.COM", i];
 	[GSSCredTestUtil createCredentialAndCache:self.peer name:name returningCacheUuid:&junkUUID];
-
+	CFRELEASE_NULL(junkUUID);
     }
     
     //verify default before reading file
@@ -980,18 +1178,18 @@
     //UUIDs are not the same across loads, so we compare with the cred name
     
     //verify the same cred is default after loading.
-    NSString *defaultCredName;
+    CFStringRef defaultCredName = NULL;
     worked = [GSSCredTestUtil fetchDefaultCredential:self.peer returningName:&defaultCredName];
     XCTAssertTrue(worked, "The default cred should exist");
-    XCTAssertTrue([defaultCredName isEqualToString:@"test@EXAMPLE.COM"], "The first credential should still be the default.");
-    defaultCredName = nil;
+    XCTAssertTrue(CFEqual(defaultCredName, CFSTR("test@EXAMPLE.COM")), "The first credential should still be the default.");
+    CFRELEASE_NULL(defaultCredName);
     
     defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
     result = [GSSCredTestUtil delete:self.peer uuid:defCred];
     XCTAssertEqual(result, 0, "Deleting the default credential should work.");
     
     //verify the elected cred is the default
-    NSString *defaultCredNameBeforeSave;
+    CFStringRef defaultCredNameBeforeSave = NULL;
     worked = [GSSCredTestUtil fetchDefaultCredential:self.peer returningName:&defaultCredNameBeforeSave];
     XCTAssertTrue(worked, "The default cred should exist");
     //check default cred attributes here
@@ -1005,12 +1203,14 @@
     readCredCache();
     
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
-    
+
+    CFRELEASE_NULL(defaultCredName);
     worked = [GSSCredTestUtil fetchDefaultCredential:self.peer returningName:&defaultCredName];
     XCTAssertTrue(worked, "The default cred should exist");
-    XCTAssertTrue([defaultCredName isEqualToString:defaultCredNameBeforeSave], "The default credential before saving still be the default.");
-    defaultCredName = nil;
-    
+    XCTAssertTrue(CFEqual(defaultCredName, defaultCredNameBeforeSave), "The default credential before saving still be the default.");
+    CFRELEASE_NULL(defaultCredName);
+    CFRELEASE_NULL(defaultCredNameBeforeSave);
+
     //if a new cred is made and selected as default, it should also persist across save / loads
     CFUUIDRef uuid2 = NULL;
     worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test2@EXAMPLE.COM" returningCacheUuid:&uuid2];
@@ -1028,12 +1228,72 @@
     readCredCache();
     
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
-    
+
+    CFRELEASE_NULL(defaultCredName);
     worked = [GSSCredTestUtil fetchDefaultCredential:self.peer returningName:&defaultCredName];
     XCTAssertTrue(worked, "The default cred should exist");
-    XCTAssertTrue([defaultCredName isEqualToString:@"test2@EXAMPLE.COM"], "The third credential should be the default.");
-    defaultCredName = nil;
+    XCTAssertTrue(CFEqual(defaultCredName, CFSTR("test2@EXAMPLE.COM")), "The third credential should be the default.");
+
+    CFRELEASE_NULL(defaultCredName);
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(uuid1);
+    CFRELEASE_NULL(uuid2);
+}
+
+- (void)testDefaultCredentialLoadNonExpiredCred
+{
+    // this file has a non expired credential in it that should be the default after loading.
+    // to remake it, run a test and copy the archive file from /var/tmp.
+    // use plutil -convert xml1 {the file} to convert it to XML.  modify the entries so that the first value loaded is a cred and not a cache.
+    // use plutil -convert binary1 {the file} to convert it back to binary and add it to the test bundle.
+
+    // modify the plist and make the expiration date very far in the future
+
+    NSString *path = [[NSBundle bundleForClass:[self class]] pathForResource:@"heim-load-test-1" ofType:@"plist"];
+    archivePath = path;
+
+    //use mock encryption
+    HeimCredGlobalCTX.encryptData = encryptDataMock;
+    HeimCredGlobalCTX.decryptData = decryptDataMock;
     
+    readCredCache();
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef cacheUUID = CFUUIDCreateFromString(NULL, CFSTR("46DCCE07-1A9F-40C4-8CCE-EA64C8E205BC"));
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(cacheUUID, defCred), "The default credential must be the cache because it is not expired");
+
+    CFRELEASE_NULL(cacheUUID);
+
+}
+
+- (void)testDefaultCredentialLoadExpiredCred
+{
+    // this file has a expired credential in it that should not be the default after loading.
+    // to remake it, run a test and copy the archive file from /var/tmp.
+    // use plutil -convert xml1 {the file} to convert it to XML.  modify the entries so that the first value loaded is a cred and not a cache.
+    // use plutil -convert binary1 {the file} to convert it back to binary and add it to the test bundle.
+
+    //use mock encryption
+    HeimCredGlobalCTX.encryptData = encryptDataMock;
+    HeimCredGlobalCTX.decryptData = decryptDataMock;
+
+    NSString *path = [[NSBundle bundleForClass:[self class]] pathForResource:@"heim-load-test-2" ofType:@"plist"];
+    archivePath = path;
+
+    readCredCache();
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef cacheUUID = CFUUIDCreateFromString(NULL, CFSTR("46DCCE07-1A9F-40C4-8CCE-EA64C8E205BC"));
+
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(cacheUUID, defCred), "The default credential must not be the cache because it is expired.");
+
+    CFRELEASE_NULL(cacheUUID);
+
 }
 
 - (void)testPrivilidgedAccessToPassword {
@@ -1140,6 +1400,7 @@
     
     [GSSCredTestUtil freePeer:notGssdPeer];
 #endif
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testArchiveFilePermissions

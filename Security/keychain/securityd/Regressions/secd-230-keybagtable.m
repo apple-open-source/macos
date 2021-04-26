@@ -137,6 +137,7 @@ static int keychainTestEnvironment(const char *environmentName, dispatch_block_t
     SecAccessGroupsSetCurrent(old_ag);
     CFReleaseSafe(test_ag);
     // Reset custom $HOME
+    secd_test_teardown_delete_temp_keychain(environmentName);
     SetCustomHomePath(NULL);
     SecKeychainDbReset(NULL);
     return 0;

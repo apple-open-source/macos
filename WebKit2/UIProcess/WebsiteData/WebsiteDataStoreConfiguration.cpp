@@ -67,9 +67,7 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_indexedDBDatabaseDirectory = this->m_indexedDBDatabaseDirectory;
     copy->m_serviceWorkerRegistrationDirectory = this->m_serviceWorkerRegistrationDirectory;
     copy->m_webSQLDatabaseDirectory = this->m_webSQLDatabaseDirectory;
-#if USE(GLIB)
     copy->m_hstsStorageDirectory = this->m_hstsStorageDirectory;
-#endif
     copy->m_localStorageDirectory = this->m_localStorageDirectory;
     copy->m_mediaKeysStorageDirectory = this->m_mediaKeysStorageDirectory;
     copy->m_alternativeServicesDirectory = this->m_alternativeServicesDirectory;
@@ -94,6 +92,7 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_requiresSecureHTTPSProxyConnection = this->m_requiresSecureHTTPSProxyConnection;
     copy->m_preventsSystemHTTPProxyAuthentication = this->m_preventsSystemHTTPProxyAuthentication;
     copy->m_standaloneApplicationURL = this->m_standaloneApplicationURL;
+    copy->m_enableInAppBrowserPrivacyForTesting = this->m_enableInAppBrowserPrivacyForTesting;
 #if PLATFORM(COCOA)
     if (m_proxyConfiguration)
         copy->m_proxyConfiguration = adoptCF(CFDictionaryCreateCopy(nullptr, this->m_proxyConfiguration.get()));

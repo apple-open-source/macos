@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
 #include <WebCore/InspectorFrontendClient.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
@@ -59,12 +60,19 @@ namespace WebCore {
 class CertificateInfo;
 }
 
+namespace API {
+class InspectorClient;
+}
+
 namespace WebKit {
 
 class WebFrameProxy;
 class WebInspectorProxyClient;
 class WebPageProxy;
 class WebPreferences;
+#if ENABLE(INSPECTOR_EXTENSIONS)
+class WebInspectorUIExtensionControllerProxy;
+#endif
 
 enum class AttachmentSide {
     Bottom,
@@ -76,6 +84,7 @@ class WebInspectorProxy
     : public API::ObjectImpl<API::Object::Type::Inspector>
     , public IPC::MessageReceiver
     , public Inspector::FrontendChannel
+    , public CanMakeWeakPtr<WebInspectorProxy>
 #if PLATFORM(WIN)
     , public WebCore::WindowMessageListener
 #endif
@@ -86,13 +95,21 @@ public:
         return adoptRef(*new WebInspectorProxy(inspectedPage));
     }
 
-    ~WebInspectorProxy();
+    explicit WebInspectorProxy(WebPageProxy&);
+    virtual ~WebInspectorProxy();
 
     void invalidate();
+
+    API::InspectorClient& inspectorClient() { return *m_inspectorClient; }
+    void setInspectorClient(std::unique_ptr<API::InspectorClient>&&);
 
     // Public APIs
     WebPageProxy* inspectedPage() const { return m_inspectedPage; }
     WebPageProxy* inspectorPage() const { return m_inspectorPage; }
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    WebInspectorUIExtensionControllerProxy& extensionController() const { return *m_extensionController; }
+#endif
 
     bool isConnected() const { return !!m_inspectorPage; }
     bool isVisible() const { return m_isVisible; }
@@ -120,7 +137,7 @@ public:
     void inspectedViewFrameDidChange(CGFloat = 0);
     void windowFrameDidChange();
     void windowFullScreenDidChange();
-    NSWindow* inspectorWindow() const { return m_inspectorWindow.get(); }
+    NSWindow *inspectorWindow() const { return m_inspectorWindow.get(); }
 
     void closeFrontendPage();
     void closeFrontendAfterInactivityTimerFired();
@@ -140,6 +157,7 @@ public:
     void showConsole();
     void showResources();
     void showMainResourceForFrame(WebFrameProxy*);
+    void openURLExternally(const String& url);
 
     AttachmentSide attachmentSide() const { return m_attachmentSide; }
     bool isAttached() const { return m_isAttached; }
@@ -183,9 +201,10 @@ public:
     static const unsigned initialWindowWidth;
     static const unsigned initialWindowHeight;
 
-private:
-    explicit WebInspectorProxy(WebPageProxy&);
+    // Testing methods.
+    void evaluateInFrontendForTesting(const String&);
 
+private:
     void createFrontendPage();
     void closeFrontendPageAndWindow();
 
@@ -209,6 +228,7 @@ private:
     bool platformIsFront();
     void platformAttachAvailabilityChanged(bool);
     void platformSetForcedAppearance(WebCore::InspectorFrontendClient::Appearance);
+    void platformOpenURLExternally(const String&);
     void platformInspectedURLChanged(const String&);
     void platformShowCertificate(const WebCore::CertificateInfo&);
     unsigned platformInspectedWindowHeight();
@@ -273,7 +293,12 @@ private:
 
     WebPageProxy* m_inspectedPage { nullptr };
     WebPageProxy* m_inspectorPage { nullptr };
+    std::unique_ptr<API::InspectorClient> m_inspectorClient;
 
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    std::unique_ptr<WebInspectorUIExtensionControllerProxy> m_extensionController;
+#endif
+    
     bool m_underTest { false };
     bool m_isVisible { false };
     bool m_isAttached { false };
@@ -284,6 +309,7 @@ private:
     bool m_elementSelectionActive { false };
     bool m_ignoreElementSelectionChange { false };
     bool m_isActiveFrontend { false };
+    bool m_closing { false };
 
     AttachmentSide m_attachmentSide {AttachmentSide::Bottom};
 

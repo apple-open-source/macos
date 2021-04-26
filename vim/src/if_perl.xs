@@ -44,12 +44,13 @@
 # define PERL_NO_INLINE_FUNCTIONS
 #endif
 
-/* Work around for using MSVC and ActivePerl 5.18. */
 #ifdef _MSC_VER
+// Work around for using MSVC and ActivePerl 5.18.
 # define __inline__ __inline
-
 // Work around for using MSVC and Strawberry Perl 5.30.
 # define __builtin_expect(expr, val) (expr)
+// Work around for using MSVC and Strawberry Perl 5.32.
+# define NO_THREAD_SAFE_LOCALE
 #endif
 
 #ifdef __GNUC__
@@ -241,6 +242,9 @@ typedef int perl_key;
 # else
 #  define Perl_sv_2pv dll_Perl_sv_2pv
 # endif
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
+#  define Perl_sv_2pvbyte_flags dll_Perl_sv_2pvbyte_flags
+# endif
 # define Perl_sv_2pvbyte dll_Perl_sv_2pvbyte
 # define Perl_sv_bless dll_Perl_sv_bless
 # if (PERL_REVISION == 5) && (PERL_VERSION >= 8)
@@ -397,6 +401,9 @@ static char* (*Perl_sv_2pv_nolen)(pTHX_ SV*);
 static char* (*Perl_sv_2pv)(pTHX_ SV*, STRLEN*);
 # endif
 static char* (*Perl_sv_2pvbyte)(pTHX_ SV*, STRLEN*);
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
+static char* (*Perl_sv_2pvbyte_flags)(pTHX_ SV*, STRLEN*, I32);
+# endif
 static SV* (*Perl_sv_bless)(pTHX_ SV*, HV*);
 # if (PERL_REVISION == 5) && (PERL_VERSION >= 8)
 static void (*Perl_sv_catpvn_flags)(pTHX_ SV* , const char*, STRLEN, I32);
@@ -553,6 +560,9 @@ static struct {
     {"Perl_sv_2pv", (PERL_PROC*)&Perl_sv_2pv},
 # endif
     {"Perl_sv_2pvbyte", (PERL_PROC*)&Perl_sv_2pvbyte},
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
+    {"Perl_sv_2pvbyte_flags", (PERL_PROC*)&Perl_sv_2pvbyte_flags},
+# endif
 # ifdef PERL589_OR_LATER
     {"Perl_sv_2iv_flags", (PERL_PROC*)&Perl_sv_2iv_flags},
     {"Perl_newXS_flags", (PERL_PROC*)&Perl_newXS_flags},
@@ -658,6 +668,11 @@ S_SvREFCNT_dec(pTHX_ SV *sv)
 }
 # endif
 
+/* perl-5.32 needs Perl_SvREFCNT_dec */
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
+#  define Perl_SvREFCNT_dec S_SvREFCNT_dec
+# endif
+
 /* perl-5.26 also needs S_TOPMARK and S_POPMARK. */
 # if (PERL_REVISION == 5) && (PERL_VERSION >= 26)
 PERL_STATIC_INLINE I32
@@ -679,6 +694,20 @@ S_POPMARK(pTHX)
 				  (IV)*(PL_markstack_ptr-1))));
     assert((PL_markstack_ptr > PL_markstack) || !"MARK underflow");
     return *PL_markstack_ptr--;
+}
+# endif
+
+/* perl-5.32 needs Perl_POPMARK */
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
+#  define Perl_POPMARK S_POPMARK
+
+/* perl-5.32 needs Perl_SvTRUE */
+PERL_STATIC_INLINE bool
+Perl_SvTRUE(pTHX_ SV *sv) {
+    if (!LIKELY(sv))
+        return FALSE;
+    SvGETMAGIC(sv);
+    return SvTRUE_nomg_NN(sv);
 }
 # endif
 
@@ -813,7 +842,6 @@ msg_split(
     char_u *
 eval_to_string(
     char_u	*arg UNUSED,
-    char_u	**nextcmd UNUSED,
     int		dolist UNUSED)
 {
     return NULL;
@@ -1067,7 +1095,7 @@ replace_line(linenr_T *line, linenr_T *end)
     }
     else
     {
-	ml_delete(*line, FALSE);
+	ml_delete(*line);
 	deleted_lines_mark(*line, 1L);
 	--(*end);
 	--(*line);
@@ -1435,7 +1463,7 @@ PerlIOVim_write(pTHX_ PerlIO *f, const void *vbuf, Size_t count)
     char_u *str;
     PerlIOVim * s = PerlIOSelf(f, PerlIOVim);
 
-    str = vim_strnsave((char_u *)vbuf, (int)count);
+    str = vim_strnsave((char_u *)vbuf, count);
     if (str == NULL)
 	return 0;
     msg_split((char_u *)str, s->attr);
@@ -1543,7 +1571,7 @@ Eval(str)
     PREINIT:
 	char_u *value;
     PPCODE:
-	value = eval_to_string((char_u *)str, (char_u **)0, TRUE);
+	value = eval_to_string((char_u *)str, TRUE);
 	if (value == NULL)
 	{
 	    XPUSHs(sv_2mortal(newSViv(0)));
@@ -1862,7 +1890,7 @@ Delete(vimbuf, ...)
 
 		    if (u_savedel(lnum, 1) == OK)
 		    {
-			ml_delete(lnum, 0);
+			ml_delete(lnum);
 			check_cursor();
 			deleted_lines_mark(lnum, 1L);
 		    }

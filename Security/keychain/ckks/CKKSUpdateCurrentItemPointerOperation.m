@@ -335,7 +335,7 @@
                     }
 
                     // Schedule a 'view changed' notification
-                    [strongCKKS.notifyViewChangedScheduler trigger];
+                    [strongCKKS.viewState.notifyViewChangedScheduler trigger];
                 }
                 return CKKSDatabaseTransactionCommit;
             }];
@@ -345,7 +345,7 @@
         };
 
         [self dependOnBeforeGroupFinished: self.modifyRecordsOperation];
-        [ckks.database addOperation: self.modifyRecordsOperation];
+        [ckks.operationDependencies.ckdatabase addOperation:self.modifyRecordsOperation];
 
         return CKKSDatabaseTransactionCommit;
     }];

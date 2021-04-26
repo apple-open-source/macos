@@ -28,6 +28,7 @@
 
 #include "ArgumentCoders.h"
 #include "DataReference.h"
+#include "Logging.h"
 #include "MessageFlags.h"
 #include <stdio.h>
 #include <wtf/StdLibExtras.h>
@@ -40,20 +41,39 @@ namespace IPC {
 
 static const uint8_t* copyBuffer(const uint8_t* buffer, size_t bufferSize)
 {
-    auto bufferCopy = static_cast<uint8_t*>(fastMalloc(bufferSize));
-    memcpy(bufferCopy, buffer, bufferSize);
+    uint8_t* bufferCopy;
+    if (!tryFastMalloc(bufferSize).getValue(bufferCopy)) {
+        RELEASE_LOG_FAULT(IPC, "Decoder::copyBuffer: tryFastMalloc(%lu) failed", bufferSize);
+        return nullptr;
+    }
 
+    memcpy(bufferCopy, buffer, bufferSize);
     return bufferCopy;
 }
 
 std::unique_ptr<Decoder> Decoder::create(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&& attachments)
 {
-    auto decoder = makeUnique<Decoder>(buffer, bufferSize, bufferDeallocator, WTFMove(attachments));
+    ASSERT(buffer);
+    if (UNLIKELY(!buffer)) {
+        RELEASE_LOG_FAULT(IPC, "Decoder::create() called with a null buffer (bufferSize: %lu)", bufferSize);
+        return nullptr;
+    }
+
+    const uint8_t* bufferCopy;
+    if (!bufferDeallocator) {
+        bufferCopy = copyBuffer(buffer, bufferSize);
+        ASSERT(bufferCopy);
+        if (UNLIKELY(!bufferCopy))
+            return nullptr;
+    } else
+        bufferCopy = buffer;
+
+    auto decoder = std::unique_ptr<Decoder>(new Decoder(bufferCopy, bufferSize, bufferDeallocator, WTFMove(attachments)));
     return decoder->isValid() ? WTFMove(decoder) : nullptr;
 }
 
 Decoder::Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&& attachments)
-    : m_buffer { bufferDeallocator ? buffer : copyBuffer(buffer, bufferSize) }
+    : m_buffer { buffer }
     , m_bufferPos { m_buffer }
     , m_bufferEnd { m_buffer + bufferSize }
     , m_bufferDeallocator { bufferDeallocator }
@@ -64,14 +84,30 @@ Decoder::Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDealloca
         return;
     }
 
-    if (!decode(m_messageFlags))
+    if (!decode(m_messageFlags)) {
+        markInvalid();
         return;
+    }
 
-    if (!decode(m_messageName))
+    if (!decode(m_messageName)) {
+        markInvalid();
         return;
+    }
 
-    if (!decode(m_destinationID))
+    if (!decode(m_destinationID)) {
+        markInvalid();
         return;
+    }
+}
+
+Decoder::Decoder(const uint8_t* buffer, size_t bufferSize, ConstructWithoutHeaderTag)
+    : m_buffer { buffer }
+    , m_bufferPos { m_buffer }
+    , m_bufferEnd { m_buffer + bufferSize }
+    , m_bufferDeallocator([] (const uint8_t*, size_t) { })
+{
+    if (reinterpret_cast<uintptr_t>(m_buffer) % alignof(uint64_t))
+        markInvalid();
 }
 
 Decoder::~Decoder()
@@ -84,16 +120,6 @@ Decoder::~Decoder()
         fastFree(const_cast<uint8_t*>(m_buffer));
 
     // FIXME: We need to dispose of the mach ports in cases of failure.
-
-#if HAVE(QOS_CLASSES)
-    if (m_qosClassOverride)
-        pthread_override_qos_class_end_np(m_qosClassOverride);
-#endif
-}
-
-bool Decoder::isSyncMessage() const
-{
-    return m_messageFlags.contains(MessageFlags::SyncMessage);
 }
 
 ShouldDispatchWhenWaitingForSyncReply Decoder::shouldDispatchMessageWhenWaitingForSyncReply() const
@@ -160,7 +186,7 @@ bool Decoder::alignBufferPosition(size_t alignment, size_t size)
         markInvalid();
         return false;
     }
-    
+
     m_bufferPos = alignedPosition;
     return true;
 }
@@ -181,20 +207,15 @@ bool Decoder::decodeFixedLengthData(uint8_t* data, size_t size, size_t alignment
     return true;
 }
 
-bool Decoder::decodeVariableLengthByteArray(DataReference& dataReference)
+const uint8_t* Decoder::decodeFixedLengthReference(size_t size, size_t alignment)
 {
-    uint64_t size;
-    if (!decode(size))
-        return false;
-    
-    if (!alignBufferPosition(1, size))
-        return false;
+    if (!alignBufferPosition(alignment, size))
+        return nullptr;
 
     const uint8_t* data = m_bufferPos;
     m_bufferPos += size;
 
-    dataReference = DataReference(data, size);
-    return true;
+    return data;
 }
 
 bool Decoder::removeAttachment(Attachment& attachment)

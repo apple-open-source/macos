@@ -23,15 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 
 #include "sudo_compat.h"
 #include "sudo_queue.h"
@@ -43,7 +36,7 @@ struct sudoers_string *
 sudoers_string_alloc(const char *s)
 {
     struct sudoers_string *cs;
-    debug_decl(sudoers_string_alloc, SUDOERS_DEBUG_UTIL)
+    debug_decl(sudoers_string_alloc, SUDOERS_DEBUG_UTIL);
 
     if ((cs = malloc(sizeof(*cs))) != NULL) {
 	if ((cs->str = strdup(s)) == NULL) {
@@ -68,7 +61,7 @@ struct sudoers_str_list *
 str_list_alloc(void)
 {
     struct sudoers_str_list *strlist;
-    debug_decl(str_list_alloc, SUDOERS_DEBUG_UTIL)
+    debug_decl(str_list_alloc, SUDOERS_DEBUG_UTIL);
 
     strlist = malloc(sizeof(*strlist));
     if (strlist != NULL) {
@@ -84,7 +77,7 @@ str_list_free(void *v)
 {
     struct sudoers_str_list *strlist = v;
     struct sudoers_string *first;
-    debug_decl(str_list_free, SUDOERS_DEBUG_UTIL)
+    debug_decl(str_list_free, SUDOERS_DEBUG_UTIL);
 
     if (strlist != NULL) {
 	if (--strlist->refcnt == 0) {

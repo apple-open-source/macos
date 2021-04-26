@@ -44,6 +44,8 @@ WI.IndexedDBManager = class IndexedDBManager extends WI.Object
 
     activateExtraDomain(domain)
     {
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
+
         console.assert(domain === "IndexedDB");
 
         for (let target of WI.targets)
@@ -91,7 +93,8 @@ WI.IndexedDBManager = class IndexedDBManager extends WI.Object
                 target.IndexedDBAgent.disable();
         }
 
-        WI.Frame.removeEventListener(null, null, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.SecurityOriginDidChange, this._securityOriginDidChange, this);
 
         this._reset();
     }

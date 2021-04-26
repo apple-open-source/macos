@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2013-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2013-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,61 +23,26 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
-#include <time.h>
 #include <ctype.h>
 
 #include "sudoers.h"
+#include "sudo_json.h"
 #include "cvtsudoers.h"
 #include <gram.h>
-
-/*
- * JSON values may be of the following types.
- */
-enum json_value_type {
-    JSON_STRING,
-    JSON_ID,
-    JSON_NUMBER,
-    JSON_OBJECT,
-    JSON_ARRAY,
-    JSON_BOOL,
-    JSON_NULL
-};
-
-/*
- * JSON value suitable for printing.
- * Note: this does not support object or array values.
- */
-struct json_value {
-    enum json_value_type type;
-    union {
-	char *string;
-	int number;
-	id_t id;
-	bool boolean;
-    } u;
-};
 
 /*
  * Closure used to store state when iterating over all aliases.
  */
 struct json_alias_closure {
-    FILE *fp;
+    struct json_container *jsonc;
     const char *title;
     unsigned int count;
     int alias_type;
-    int indent;
-    bool need_comma;
 };
 
 /*
@@ -92,201 +57,56 @@ enum word_type {
 };
 
 /*
- * Print "indent" number of blank characters.
+ * Print sudo command member in JSON format, with correct indentation.
  */
 static void
-print_indent(FILE *fp, int indent)
-{
-    while (indent--)
-	putc(' ', fp);
-}
-
-/*
- * Print a JSON string, escaping special characters.
- * Does not support unicode escapes.
- */
-static void
-print_string_json_unquoted(FILE *fp, const char *str)
-{
-    char ch;
-
-    while ((ch = *str++) != '\0') {
-	switch (ch) {
-	case '"':
-	case '\\':
-	    putc('\\', fp);
-	    break;
-	case '\b':
-	    ch = 'b';
-	    putc('\\', fp);
-	    break;
-	case '\f':
-	    ch = 'f';
-	    putc('\\', fp);
-	    break;
-	case '\n':
-	    ch = 'n';
-	    putc('\\', fp);
-	    break;
-	case '\r':
-	    ch = 'r';
-	    putc('\\', fp);
-	    break;
-	case '\t':
-	    ch = 't';
-	    putc('\\', fp);
-	    break;
-	}
-	putc(ch, fp);
-    }
-}
-
-/*
- * Print a quoted JSON string, escaping special characters.
- * Does not support unicode escapes.
- */
-static void
-print_string_json(FILE *fp, const char *str)
-{
-    putc('\"', fp);
-    print_string_json_unquoted(fp, str);
-    putc('\"', fp);
-}
-
-/*
- * Print a JSON name: value pair with proper quoting and escaping.
- */
-static void
-print_pair_json(FILE *fp, const char *pre, const char *name,
-    const struct json_value *value, const char *post, int indent)
-{
-    debug_decl(print_pair_json, SUDOERS_DEBUG_UTIL)
-
-    print_indent(fp, indent);
-
-    /* prefix */
-    if (pre != NULL)
-	fputs(pre, fp);
-
-    /* name */
-    print_string_json(fp, name);
-    putc(':', fp);
-    putc(' ', fp);
-
-    /* value */
-    switch (value->type) {
-    case JSON_STRING:
-	print_string_json(fp, value->u.string);
-	break;
-    case JSON_ID:
-	fprintf(fp, "%u", (unsigned int)value->u.id);
-	break;
-    case JSON_NUMBER:
-	fprintf(fp, "%d", value->u.number);
-	break;
-    case JSON_NULL:
-	fputs("null", fp);
-	break;
-    case JSON_BOOL:
-	fputs(value->u.boolean ? "true" : "false", fp);
-	break;
-    case JSON_OBJECT:
-	sudo_fatalx("internal error: can't print JSON_OBJECT");
-	break;
-    case JSON_ARRAY:
-	sudo_fatalx("internal error: can't print JSON_ARRAY");
-	break;
-    }
-
-    /* postfix */
-    if (post != NULL)
-	fputs(post, fp);
-
-    debug_return;
-}
-
-/*
- * Print a JSON string with optional prefix and postfix to fp.
- * Strings are not quoted but are escaped as per the JSON spec.
- */
-static void
-printstr_json(FILE *fp, const char *pre, const char *str, const char *post,
-    int indent)
-{
-    debug_decl(printstr_json, SUDOERS_DEBUG_UTIL)
-
-    print_indent(fp, indent);
-    if (pre != NULL)
-	fputs(pre, fp);
-    if (str != NULL) {
-	print_string_json_unquoted(fp, str);
-    }
-    if (post != NULL)
-	fputs(post, fp);
-    debug_return;
-}
-
-/*
- * Print sudo command member in JSON format, with specified indentation.
- * If last_one is false, a comma will be printed before the newline
- * that closes the object.
- */
-static void
-print_command_json(FILE *fp, const char *name, int type, bool negated, int indent, bool last_one)
+print_command_json(struct json_container *jsonc, const char *name, bool negated)
 {
     struct sudo_command *c = (struct sudo_command *)name;
+    struct command_digest *digest;
     struct json_value value;
+    char *cmnd = c->cmnd;
     const char *digest_name;
-    debug_decl(print_command_json, SUDOERS_DEBUG_UTIL)
-
-    printstr_json(fp, "{", NULL, NULL, indent);
-    if (negated || c->digest != NULL) {
-	putc('\n', fp);
-	indent += 4;
-    } else {
-	putc(' ', fp);
-	indent = 0;
-    }
+    debug_decl(print_command_json, SUDOERS_DEBUG_UTIL);
 
     /* Print command with optional command line args. */
     if (c->args != NULL) {
-	printstr_json(fp, "\"", "command", "\": ", indent);
-	printstr_json(fp, "\"", c->cmnd, " ", 0);
-	printstr_json(fp, NULL, c->args, "\"", 0);
+	if (asprintf(&cmnd, "%s %s", c->cmnd, c->args) == -1) {
+	    sudo_fatalx(U_("%s: %s"), __func__,
+		U_("unable to allocate memory"));
+	}
+    }
+    value.type = JSON_STRING;
+    value.u.string = cmnd ? cmnd : "ALL";
+
+    if (!negated && TAILQ_EMPTY(&c->digests)) {
+	/* Print as { "command": "command and args" } */
+	sudo_json_add_value_as_object(jsonc, "command", &value);
     } else {
-	value.type = JSON_STRING;
-	value.u.string = c->cmnd;
-	print_pair_json(fp, NULL, "command", &value, NULL, indent);
+	/* Print as multi-line object. */
+	sudo_json_open_object(jsonc, NULL);
+	sudo_json_add_value(jsonc, "command", &value);
+
+	/* Optional digest list. */
+	TAILQ_FOREACH(digest, &c->digests, entries) {
+	    digest_name = digest_type_to_name(digest->digest_type);
+	    value.type = JSON_STRING;
+	    value.u.string = digest->digest_str;
+	    sudo_json_add_value(jsonc, digest_name, &value);
+	}
+
+	/* Command may be negated. */
+	if (negated) {
+	    value.type = JSON_BOOL;
+	    value.u.boolean = true;
+	    sudo_json_add_value(jsonc, "negated", &value);
+	}
+
+	sudo_json_close_object(jsonc);
     }
 
-    /* Optional digest. */
-    if (c->digest != NULL) {
-	fputs(",\n", fp);
-	digest_name = digest_type_to_name(c->digest->digest_type);
-	value.type = JSON_STRING;
-	value.u.string = c->digest->digest_str;
-	print_pair_json(fp, NULL, digest_name, &value, NULL, indent);
-    }
-
-    /* Command may be negated. */
-    if (negated) {
-	fputs(",\n", fp);
-	value.type = JSON_BOOL;
-	value.u.boolean = true;
-	print_pair_json(fp, NULL, "negated", &value, NULL, indent);
-    }
-
-    if (indent != 0) {
-	indent -= 4;
-	putc('\n', fp);
-	print_indent(fp, indent);
-    } else {
-	putc(' ', fp);
-    }
-    putc('}', fp);
-    if (!last_one)
-	putc(',', fp);
-    putc('\n', fp);
+    if (cmnd != c->cmnd)
+	free(cmnd);
 
     debug_return;
 }
@@ -332,37 +152,38 @@ defaults_to_word_type(int defaults_type)
 }
 
 /*
- * Print struct member in JSON format, with specified indentation.
- * If last_one is false, a comma will be printed before the newline
- * that closes the object.
+ * Print struct member in JSON format, with correct indentation.
  */
 static void
-print_member_json_int(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    char *name, int type, bool negated, enum word_type word_type,
-    bool last_one, int indent, bool expand_aliases)
+print_member_json_int(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, char *name, int type, bool negated,
+    enum word_type word_type, bool expand_aliases)
 {
     struct json_value value;
     const char *typestr = NULL;
     const char *errstr;
     int alias_type = UNSPEC;
     id_t id;
-    debug_decl(print_member_json_int, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_member_json_int, SUDOERS_DEBUG_UTIL);
 
     /* Most of the time we print a string. */
     value.type = JSON_STRING;
-    if (name != NULL) {
-	value.u.string = name;
-    } else {
-	switch (type) {
-	case ALL:
+    switch (type) {
+    case ALL:
+	if (name == NULL) {
 	    value.u.string = "ALL";
-	    break;
-	case MYSELF:
-	    value.u.string = "";
-	    break;
-	default:
-	    sudo_fatalx("missing member name for type %d", type);
+	} else {
+	    /* ALL used with digest, print as a command. */
+	    type = COMMAND;
 	}
+	break;
+    case MYSELF:
+	value.u.string = "";
+	break;
+    default:
+	if (name == NULL)
+	    sudo_fatalx("missing member name for type %d", type);
+	value.u.string = name;
     }
 
     switch (type) {
@@ -405,7 +226,7 @@ print_member_json_int(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	typestr = "networkaddr";
 	break;
     case COMMAND:
-	print_command_json(fp, name, type, negated, indent, last_one);
+	print_command_json(jsonc, name, negated);
 	debug_return;
     case ALL:
     case MYSELF:
@@ -485,44 +306,35 @@ print_member_json_int(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	/* Print each member of the alias. */
 	if ((a = alias_get(parse_tree, value.u.string, alias_type)) != NULL) {
 	    TAILQ_FOREACH(m, &a->members, entries) {
-		print_member_json_int(fp, parse_tree, m->name, m->type,
+		print_member_json_int(jsonc, parse_tree, m->name, m->type,
 		    negated ? !m->negated : m->negated,
-		    alias_to_word_type(alias_type),
-		    last_one && TAILQ_NEXT(m, entries) == NULL, indent, true);
+		    alias_to_word_type(alias_type), true);
 	    }
 	    alias_put(a);
 	}
     } else {
 	if (negated) {
-	    print_indent(fp, indent);
-	    fputs("{\n", fp);
-	    indent += 4;
-	    print_pair_json(fp, NULL, typestr, &value, ",\n", indent);
+	    sudo_json_open_object(jsonc, NULL);
+	    sudo_json_add_value(jsonc, typestr, &value);
 	    value.type = JSON_BOOL;
 	    value.u.boolean = true;
-	    print_pair_json(fp, NULL, "negated", &value, "\n", indent);
-	    indent -= 4;
-	    print_indent(fp, indent);
-	    putc('}', fp);
+	    sudo_json_add_value(jsonc, "negated", &value);
+	    sudo_json_close_object(jsonc);
 	} else {
-	    print_pair_json(fp, "{ ", typestr, &value, " }", indent);
+	    sudo_json_add_value_as_object(jsonc, typestr, &value);
 	}
-
-	if (!last_one)
-	    putc(',', fp);
-	putc('\n', fp);
     }
 
     debug_return;
 }
 
 static void
-print_member_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct member *m, enum word_type word_type, bool last_one,
-    int indent, bool expand_aliases)
+print_member_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, struct member *m,
+    enum word_type word_type, bool expand_aliases)
 {
-    print_member_json_int(fp, parse_tree, m->name, m->type, m->negated,
-	word_type, last_one, indent, expand_aliases);
+    print_member_json_int(jsonc, parse_tree, m->name, m->type, m->negated,
+	word_type, expand_aliases);
 }
 
 /*
@@ -534,29 +346,23 @@ print_alias_json(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
 {
     struct json_alias_closure *closure = v;
     struct member *m;
-    debug_decl(print_alias_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_alias_json, SUDOERS_DEBUG_UTIL);
 
     if (a->type != closure->alias_type)
 	debug_return_int(0);
 
     /* Open the aliases object or close the last entry, then open new one. */
     if (closure->count++ == 0) {
-	fprintf(closure->fp, "%s\n%*s\"%s\": {\n",
-	    closure->need_comma ? "," : "", closure->indent, "",
-	    closure->title);
-	closure->indent += 4;
+	sudo_json_open_object(closure->jsonc, closure->title);
     } else {
-	fprintf(closure->fp, "%*s],\n", closure->indent, "");
+	sudo_json_close_array(closure->jsonc);
     }
-    printstr_json(closure->fp, "\"", a->name, "\": [\n", closure->indent);
+    sudo_json_open_array(closure->jsonc, a->name);
 
-    closure->indent += 4;
     TAILQ_FOREACH(m, &a->members, entries) {
-	print_member_json(closure->fp, parse_tree, m,
-	    alias_to_word_type(closure->alias_type),
-	    TAILQ_NEXT(m, entries) == NULL, closure->indent, false);
+	print_member_json(closure->jsonc, parse_tree, m,
+	    alias_to_word_type(closure->alias_type), false);
     }
-    closure->indent -= 4;
     debug_return_int(0);
 }
 
@@ -564,26 +370,23 @@ print_alias_json(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
  * Print the binding for a Defaults entry of the specified type.
  */
 static void
-print_binding_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct member_list *binding, int type, int indent, bool expand_aliases)
+print_binding_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, struct member_list *binding,
+    int type, bool expand_aliases)
 {
     struct member *m;
-    debug_decl(print_binding_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_binding_json, SUDOERS_DEBUG_UTIL);
 
     if (TAILQ_EMPTY(binding))
 	debug_return;
 
-    fprintf(fp, "%*s\"Binding\": [\n", indent, "");
-    indent += 4;
-
     /* Print each member object in binding. */
+    sudo_json_open_array(jsonc, "Binding");
     TAILQ_FOREACH(m, binding, entries) {
-	print_member_json(fp, parse_tree, m, defaults_to_word_type(type),
-	     TAILQ_NEXT(m, entries) == NULL, indent, expand_aliases);
+	print_member_json(jsonc, parse_tree, m, defaults_to_word_type(type),
+	     expand_aliases);
     }
-
-    indent -= 4;
-    fprintf(fp, "%*s],\n", indent, "");
+    sudo_json_close_array(jsonc);
 
     debug_return;
 }
@@ -592,14 +395,13 @@ print_binding_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print a Defaults list JSON format.
  */
 static void
-print_defaults_list_json(FILE *fp, struct defaults *def, int indent)
+print_defaults_list_json(struct json_container *jsonc, struct defaults *def)
 {
     char savech, *start, *end = def->val;
     struct json_value value;
-    debug_decl(print_defaults_list_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_defaults_list_json, SUDOERS_DEBUG_UTIL);
 
-    fprintf(fp, "%*s{\n", indent, "");
-    indent += 4;
+    sudo_json_open_object(jsonc, NULL);
     value.type = JSON_STRING;
     switch (def->op) {
     case '+':
@@ -616,10 +418,8 @@ print_defaults_list_json(FILE *fp, struct defaults *def, int indent)
 	value.u.string = "unsupported";
 	break;
     }
-    print_pair_json(fp, NULL, "operation", &value, ",\n", indent);
-    printstr_json(fp, "\"", def->var, "\": [\n", indent);
-    indent += 4;
-    print_indent(fp, indent);
+    sudo_json_add_value(jsonc, "operation", &value);
+    sudo_json_open_array(jsonc, def->var);
     /* Split value into multiple space-separated words. */
     do {
 	/* Remove leading blanks, must have a non-empty string. */
@@ -633,16 +433,13 @@ print_defaults_list_json(FILE *fp, struct defaults *def, int indent)
 	    continue;
 	savech = *end;
 	*end = '\0';
-	print_string_json(fp, start);
-	if (savech != '\0')
-	    putc(',', fp);
+	value.type = JSON_STRING;
+	value.u.string = start;
+	sudo_json_add_value(jsonc, NULL, &value);
 	*end = savech;
     } while (*end++ != '\0');
-    putc('\n', fp);
-    indent -= 4;
-    fprintf(fp, "%*s]\n", indent, "");
-    indent -= 4;
-    fprintf(fp, "%*s}", indent, "");
+    sudo_json_close_array(jsonc);
+    sudo_json_close_object(jsonc);
 
     debug_return;
 }
@@ -663,20 +460,19 @@ get_defaults_type(struct defaults *def)
 /*
  * Export all Defaults in JSON format.
  */
-static bool
-print_defaults_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    int indent, bool expand_aliases, bool need_comma)
+static void
+print_defaults_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, bool expand_aliases)
 {
     struct json_value value;
     struct defaults *def, *next;
     int type;
-    debug_decl(print_defaults_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_defaults_json, SUDOERS_DEBUG_UTIL);
 
     if (TAILQ_EMPTY(&parse_tree->defaults))
-	debug_return_bool(need_comma);
+	debug_return;
 
-    fprintf(fp, "%s\n%*s\"Defaults\": [\n", need_comma ? "," : "", indent, "");
-    indent += 4;
+    sudo_json_open_array(jsonc, "Defaults");
 
     TAILQ_FOREACH_SAFE(def, &parse_tree->defaults, entries, next) {
 	type = get_defaults_type(def);
@@ -687,30 +483,28 @@ print_defaults_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	}
 
 	/* Found it, print object container and binding (if any). */
-	fprintf(fp, "%*s{\n", indent, "");
-	indent += 4;
-	print_binding_json(fp, parse_tree, def->binding, def->type,
-	    indent, expand_aliases);
+	sudo_json_open_object(jsonc, NULL);
+	print_binding_json(jsonc, parse_tree, def->binding, def->type,
+	    expand_aliases);
 
 	/* Validation checks. */
 	/* XXX - validate values in addition to names? */
 
 	/* Print options, merging ones with the same binding. */
-	fprintf(fp, "%*s\"Options\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "Options");
 	for (;;) {
 	    next = TAILQ_NEXT(def, entries);
 	    /* XXX - need to update cur too */
 	    if ((type & T_MASK) == T_FLAG || def->val == NULL) {
 		value.type = JSON_BOOL;
 		value.u.boolean = def->op;
-		print_pair_json(fp, "{ ", def->var, &value, " }", indent);
+		sudo_json_add_value_as_object(jsonc, def->var, &value);
 	    } else if ((type & T_MASK) == T_LIST) {
-		print_defaults_list_json(fp, def, indent);
+		print_defaults_list_json(jsonc, def);
 	    } else {
 		value.type = JSON_STRING;
 		value.u.string = def->val;
-		print_pair_json(fp, "{ ", def->var, &value, " }", indent);
+		sudo_json_add_value_as_object(jsonc, def->var, &value);
 	    }
 	    if (next == NULL || def->binding != next->binding)
 		break;
@@ -721,216 +515,197 @@ print_defaults_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
 		/* XXX - just pass it through as a string anyway? */
 		break;
 	    }
-	    fputs(",\n", fp);
 	}
-	putc('\n', fp);
-	indent -= 4;
-	print_indent(fp, indent);
-	fputs("]\n", fp);
-	indent -= 4;
-	print_indent(fp, indent);
-	fprintf(fp, "}%s\n", next != NULL ? "," : "");
+	sudo_json_close_array(jsonc);
+	sudo_json_close_object(jsonc);
     }
 
     /* Close Defaults array; comma (if any) & newline will be printer later. */
-    indent -= 4;
-    print_indent(fp, indent);
-    fputs("]", fp);
+    sudo_json_close_array(jsonc);
 
-    debug_return_bool(true);
+    debug_return;
 }
 
 /*
  * Export all aliases of the specified type in JSON format.
  * Iterates through the entire aliases tree.
  */
-static bool
-print_aliases_by_type_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    int alias_type, const char *title, int indent, bool need_comma)
+static void
+print_aliases_by_type_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, int alias_type, const char *title)
 {
     struct json_alias_closure closure;
-    debug_decl(print_aliases_by_type_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_aliases_by_type_json, SUDOERS_DEBUG_UTIL);
 
-    closure.fp = fp;
-    closure.indent = indent;
+    closure.jsonc = jsonc;
     closure.count = 0;
     closure.alias_type = alias_type;
     closure.title = title;
-    closure.need_comma = need_comma;
     alias_apply(parse_tree, print_alias_json, &closure);
     if (closure.count != 0) {
-	print_indent(fp, closure.indent);
-	fputs("]\n", fp);
-	closure.indent -= 4;
-	print_indent(fp, closure.indent);
-	putc('}', fp);
-	need_comma = true;
+	sudo_json_close_array(jsonc);
+	sudo_json_close_object(jsonc);
     }
 
-    debug_return_bool(need_comma);
+    debug_return;
 }
 
 /*
  * Export all aliases in JSON format.
  */
-static bool
-print_aliases_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    int indent, bool need_comma)
+static void
+print_aliases_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree)
 {
-    debug_decl(print_aliases_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_aliases_json, SUDOERS_DEBUG_UTIL);
 
-    need_comma = print_aliases_by_type_json(fp, parse_tree, USERALIAS,
-	"User_Aliases", indent, need_comma);
-    need_comma = print_aliases_by_type_json(fp, parse_tree, RUNASALIAS,
-	"Runas_Aliases", indent, need_comma);
-    need_comma = print_aliases_by_type_json(fp, parse_tree, HOSTALIAS,
-	"Host_Aliases", indent, need_comma);
-    need_comma = print_aliases_by_type_json(fp, parse_tree, CMNDALIAS,
-	"Command_Aliases", indent, need_comma);
+    print_aliases_by_type_json(jsonc, parse_tree, USERALIAS, "User_Aliases");
+    print_aliases_by_type_json(jsonc, parse_tree, RUNASALIAS, "Runas_Aliases");
+    print_aliases_by_type_json(jsonc, parse_tree, HOSTALIAS, "Host_Aliases");
+    print_aliases_by_type_json(jsonc, parse_tree, CMNDALIAS, "Command_Aliases");
 
-    debug_return_bool(need_comma);
+    debug_return;
+}
+
+/* Does the next entry differ only in the command itself? */
+static bool
+cmndspec_continues(struct cmndspec *cs, struct cmndspec *next)
+{
+    bool ret = next != NULL &&
+	!RUNAS_CHANGED(cs, next) && !TAGS_CHANGED(cs->tags, next->tags)
+#ifdef HAVE_PRIV_SET
+	&& cs->privs == next->privs && cs->limitprivs == next->limitprivs
+#endif /* HAVE_PRIV_SET */
+#ifdef HAVE_SELINUX
+	&& cs->role == next->role && cs->type == next->type
+#endif /* HAVE_SELINUX */
+	&& cs->runchroot == next->runchroot && cs->runcwd == next->runcwd;
+    return ret;
 }
 
 /*
- * Print a Cmnd_Spec in JSON format at the specified indent level.
+ * Print a Cmnd_Spec in JSON format at the correct indent level.
  * A pointer to the next Cmnd_Spec is passed in to make it possible to
  * merge adjacent entries that are identical in all but the command.
  */
 static void
-print_cmndspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct cmndspec *cs, struct cmndspec **nextp,
-    struct defaults_list *options, bool expand_aliases, int indent)
+print_cmndspec_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, struct cmndspec *cs,
+    struct cmndspec **nextp, struct defaults_list *options, bool expand_aliases)
 {
     struct cmndspec *next = *nextp;
     struct json_value value;
     struct defaults *def;
     struct member *m;
     struct tm *tp;
-    bool last_one;
     char timebuf[sizeof("20120727121554Z")];
-    debug_decl(print_cmndspec_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_cmndspec_json, SUDOERS_DEBUG_UTIL);
 
     /* Open Cmnd_Spec object. */
-    fprintf(fp, "%*s{\n", indent, "");
-    indent += 4;
+    sudo_json_open_object(jsonc, NULL);
 
     /* Print runasuserlist */
     if (cs->runasuserlist != NULL) {
-	fprintf(fp, "%*s\"runasusers\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "runasusers");
 	TAILQ_FOREACH(m, cs->runasuserlist, entries) {
-	    print_member_json(fp, parse_tree, m, TYPE_RUNASUSER,
-		TAILQ_NEXT(m, entries) == NULL, indent, expand_aliases);
+	    print_member_json(jsonc, parse_tree, m, TYPE_RUNASUSER,
+		expand_aliases);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
     }
 
     /* Print runasgrouplist */
     if (cs->runasgrouplist != NULL) {
-	fprintf(fp, "%*s\"runasgroups\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "runasgroups");
 	TAILQ_FOREACH(m, cs->runasgrouplist, entries) {
-	    print_member_json(fp, parse_tree, m, TYPE_RUNASGROUP,
-		TAILQ_NEXT(m, entries) == NULL, indent, expand_aliases);
+	    print_member_json(jsonc, parse_tree, m, TYPE_RUNASGROUP,
+		expand_aliases);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
     }
 
     /* Print options and tags */
     if (cs->timeout > 0 || cs->notbefore != UNSPEC || cs->notafter != UNSPEC ||
-	TAGS_SET(cs->tags) || !TAILQ_EMPTY(options)) {
+	cs->runchroot != NULL || cs->runcwd != NULL || TAGS_SET(cs->tags) ||
+	!TAILQ_EMPTY(options)) {
 	struct cmndtag tag = cs->tags;
-	const char *prefix = "\n";
 
-	fprintf(fp, "%*s\"Options\": [", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "Options");
+	if (cs->runchroot != NULL) {
+	    value.type = JSON_STRING;
+	    value.u.string = cs->runchroot;
+	    sudo_json_add_value(jsonc, "runchroot", &value);
+	}
+	if (cs->runcwd != NULL) {
+	    value.type = JSON_STRING;
+	    value.u.string = cs->runcwd;
+	    sudo_json_add_value(jsonc, "runcwd", &value);
+	}
 	if (cs->timeout > 0) {
 	    value.type = JSON_NUMBER;
 	    value.u.number = cs->timeout;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "command_timeout", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "command_timeout", &value);
 	}
 	if (cs->notbefore != UNSPEC) {
 	    if ((tp = gmtime(&cs->notbefore)) == NULL) {
-		sudo_warn(U_("unable to get GMT time"));
+		sudo_warn("%s", U_("unable to get GMT time"));
 	    } else {
 		if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
-		    sudo_warnx(U_("unable to format timestamp"));
+		    sudo_warnx("%s", U_("unable to format timestamp"));
 		} else {
 		    value.type = JSON_STRING;
 		    value.u.string = timebuf;
-		    fputs(prefix, fp);
-		    print_pair_json(fp, "{ ", "notbefore", &value, " }", indent);
-		    prefix = ",\n";
+		    sudo_json_add_value_as_object(jsonc, "notbefore", &value);
 		}
 	    }
 	}
 	if (cs->notafter != UNSPEC) {
 	    if ((tp = gmtime(&cs->notafter)) == NULL) {
-		sudo_warn(U_("unable to get GMT time"));
+		sudo_warn("%s", U_("unable to get GMT time"));
 	    } else {
 		if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
-		    sudo_warnx(U_("unable to format timestamp"));
+		    sudo_warnx("%s", U_("unable to format timestamp"));
 		} else {
 		    value.type = JSON_STRING;
 		    value.u.string = timebuf;
-		    fputs(prefix, fp);
-		    print_pair_json(fp, "{ ", "notafter", &value, " }", indent);
-		    prefix = ",\n";
+		    sudo_json_add_value_as_object(jsonc, "notafter", &value);
 		}
 	    }
 	}
 	if (tag.nopasswd != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = !tag.nopasswd;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "authenticate", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "authenticate", &value);
 	}
 	if (tag.noexec != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.noexec;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "noexec", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "noexec", &value);
 	}
 	if (tag.send_mail != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.send_mail;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "send_mail", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "send_mail", &value);
 	}
 	if (tag.setenv != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.setenv;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "setenv", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "setenv", &value);
 	}
 	if (tag.follow != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.follow;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "sudoedit_follow", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "sudoedit_follow", &value);
 	}
 	if (tag.log_input != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.log_input;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "log_input", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "log_input", &value);
 	}
 	if (tag.log_output != UNSPEC) {
 	    value.type = JSON_BOOL;
 	    value.u.boolean = tag.log_output;
-	    fputs(prefix, fp);
-	    print_pair_json(fp, "{ ", "log_output", &value, " }", indent);
-	    prefix = ",\n";
+	    sudo_json_add_value_as_object(jsonc, "log_output", &value);
 	}
 	TAILQ_FOREACH(def, options, entries) {
 	    int type = get_defaults_type(def);
@@ -939,57 +714,48 @@ print_cmndspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
 		/* XXX - just pass it through as a string anyway? */
 		continue;
 	    }
-	    fputs(prefix, fp);
 	    if ((type & T_MASK) == T_FLAG || def->val == NULL) {
 		value.type = JSON_BOOL;
 		value.u.boolean = def->op;
-		print_pair_json(fp, "{ ", def->var, &value, " }", indent);
+		sudo_json_add_value_as_object(jsonc, def->var, &value);
 	    } else if ((type & T_MASK) == T_LIST) {
-		print_defaults_list_json(fp, def, indent);
+		print_defaults_list_json(jsonc, def);
 	    } else {
 		value.type = JSON_STRING;
 		value.u.string = def->val;
-		print_pair_json(fp, "{ ", def->var, &value, " }", indent);
+		sudo_json_add_value_as_object(jsonc, def->var, &value);
 	    }
-	    prefix = ",\n";
 	}
-	putc('\n', fp);
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
     }
 
 #ifdef HAVE_SELINUX
     /* Print SELinux role/type */
     if (cs->role != NULL && cs->type != NULL) {
-	fprintf(fp, "%*s\"SELinux_Spec\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "SELinux_Spec");
 	value.type = JSON_STRING;
 	value.u.string = cs->role;
-	print_pair_json(fp, NULL, "role", &value, ",\n", indent);
+	sudo_json_add_value(jsonc, "role", &value);
 	value.u.string = cs->type;
-	print_pair_json(fp, NULL, "type", &value, "\n", indent);
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_add_value(jsonc, "type", &value);
+	sudo_json_close_array(jsonc);
     }
 #endif /* HAVE_SELINUX */
 
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
-	fprintf(fp, "%*s\"Solaris_Priv_Spec\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "Solaris_Priv_Spec");
 	value.type = JSON_STRING;
 	if (cs->privs != NULL) {
 	    value.u.string = cs->privs;
-	    print_pair_json(fp, NULL, "privs", &value,
-		cs->limitprivs != NULL ? ",\n" : "\n", indent);
+	    sudo_json_add_value(jsonc, "privs", &value);
 	}
 	if (cs->limitprivs != NULL) {
 	    value.u.string = cs->limitprivs;
-	    print_pair_json(fp, NULL, "limitprivs", &value, "\n", indent);
+	    sudo_json_add_value(jsonc, "limitprivs", &value);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
     }
 #endif /* HAVE_PRIV_SET */
 
@@ -997,34 +763,20 @@ print_cmndspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
      * Merge adjacent commands with matching tags, runas, SELinux
      * role/type and Solaris priv settings.
      */
-    fprintf(fp, "%*s\"Commands\": [\n", indent, "");
-    indent += 4;
+    sudo_json_open_array(jsonc, "Commands");
     for (;;) {
+	print_member_json(jsonc, parse_tree, cs->cmnd, TYPE_COMMAND,
+	    expand_aliases);
 	/* Does the next entry differ only in the command itself? */
-	/* XXX - move into a function that returns bool */
-	last_one = next == NULL ||
-	    RUNAS_CHANGED(cs, next) || TAGS_CHANGED(cs->tags, next->tags)
-#ifdef HAVE_PRIV_SET
-	    || cs->privs != next->privs || cs->limitprivs != next->limitprivs
-#endif /* HAVE_PRIV_SET */
-#ifdef HAVE_SELINUX
-	    || cs->role != next->role || cs->type != next->type
-#endif /* HAVE_SELINUX */
-	    ;
-
-	print_member_json(fp, parse_tree, cs->cmnd, TYPE_COMMAND,
-	    last_one, indent, expand_aliases);
-	if (last_one)
+	if (!cmndspec_continues(cs, next))
 	    break;
 	cs = next;
 	next = TAILQ_NEXT(cs, entries);
     }
-    indent -= 4;
-    fprintf(fp, "%*s]\n", indent, "");
+    sudo_json_close_array(jsonc);
 
     /* Close Cmnd_Spec object. */
-    indent -= 4;
-    fprintf(fp, "%*s}%s\n", indent, "", TAILQ_NEXT(cs, entries) != NULL ? "," : "");
+    sudo_json_close_object(jsonc);
 
     *nextp = next;
 
@@ -1032,16 +784,17 @@ print_cmndspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
 }
 
 /*
- * Print a User_Spec in JSON format at the specified indent level.
+ * Print a User_Spec in JSON format at the correct indent level.
  */
 static void
-print_userspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct userspec *us, int indent, bool expand_aliases)
+print_userspec_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, struct userspec *us,
+    bool expand_aliases)
 {
     struct privilege *priv;
     struct member *m;
     struct cmndspec *cs, *next;
-    debug_decl(print_userspec_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_userspec_json, SUDOERS_DEBUG_UTIL);
 
     /*
      * Each userspec struct may contain multiple privileges for
@@ -1050,67 +803,56 @@ print_userspec_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
      */
     TAILQ_FOREACH(priv, &us->privileges, entries) {
 	/* Open User_Spec object. */
-	fprintf(fp, "%*s{\n", indent, "");
-	indent += 4;
+	sudo_json_open_object(jsonc, NULL);
 
 	/* Print users list. */
-	fprintf(fp, "%*s\"User_List\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "User_List");
 	TAILQ_FOREACH(m, &us->users, entries) {
-	    print_member_json(fp, parse_tree, m, TYPE_USERNAME,
-		TAILQ_NEXT(m, entries) == NULL, indent, expand_aliases);
+	    print_member_json(jsonc, parse_tree, m, TYPE_USERNAME,
+		expand_aliases);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
 
 	/* Print hosts list. */
-	fprintf(fp, "%*s\"Host_List\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "Host_List");
 	TAILQ_FOREACH(m, &priv->hostlist, entries) {
-	    print_member_json(fp, parse_tree, m, TYPE_HOSTNAME,
-		TAILQ_NEXT(m, entries) == NULL, indent, expand_aliases);
+	    print_member_json(jsonc, parse_tree, m, TYPE_HOSTNAME,
+		expand_aliases);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s],\n", indent, "");
+	sudo_json_close_array(jsonc);
 
 	/* Print commands. */
-	fprintf(fp, "%*s\"Cmnd_Specs\": [\n", indent, "");
-	indent += 4;
+	sudo_json_open_array(jsonc, "Cmnd_Specs");
 	TAILQ_FOREACH_SAFE(cs, &priv->cmndlist, entries, next) {
-	    print_cmndspec_json(fp, parse_tree, cs, &next, &priv->defaults,
-		expand_aliases, indent);
+	    print_cmndspec_json(jsonc, parse_tree, cs, &next, &priv->defaults,
+		expand_aliases);
 	}
-	indent -= 4;
-	fprintf(fp, "%*s]\n", indent, "");
+	sudo_json_close_array(jsonc);
 
 	/* Close User_Spec object. */
-	indent -= 4;
-	fprintf(fp, "%*s}%s\n", indent, "", TAILQ_NEXT(priv, entries) != NULL ||
-	    TAILQ_NEXT(us, entries) != NULL ? "," : "");
+	sudo_json_close_object(jsonc);
     }
 
     debug_return;
 }
 
-static bool
-print_userspecs_json(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    int indent, bool expand_aliases, bool need_comma)
+static void
+print_userspecs_json(struct json_container *jsonc,
+    struct sudoers_parse_tree *parse_tree, bool expand_aliases)
 {
     struct userspec *us;
-    debug_decl(print_userspecs_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_userspecs_json, SUDOERS_DEBUG_UTIL);
 
     if (TAILQ_EMPTY(&parse_tree->userspecs))
-	debug_return_bool(need_comma);
+	debug_return;
 
-    fprintf(fp, "%s\n%*s\"User_Specs\": [\n", need_comma ? "," : "", indent, "");
-    indent += 4;
+    sudo_json_open_array(jsonc, "User_Specs");
     TAILQ_FOREACH(us, &parse_tree->userspecs, entries) {
-	print_userspec_json(fp, parse_tree, us, indent, expand_aliases);
+	print_userspec_json(jsonc, parse_tree, us, expand_aliases);
     }
-    indent -= 4;
-    fprintf(fp, "%*s]", indent, "");
+    sudo_json_close_array(jsonc);
 
-    debug_return_bool(true);
+    debug_return;
 }
 
 /*
@@ -1120,42 +862,44 @@ bool
 convert_sudoers_json(struct sudoers_parse_tree *parse_tree,
     const char *output_file, struct cvtsudoers_config *conf)
 {
-    bool ret = true, need_comma = false;
-    const int indent = 4;
+    struct json_container jsonc;
+    bool ret = true;
     FILE *output_fp = stdout;
-    debug_decl(convert_sudoers_json, SUDOERS_DEBUG_UTIL)
+    debug_decl(convert_sudoers_json, SUDOERS_DEBUG_UTIL);
 
     if (strcmp(output_file, "-") != 0) {
 	if ((output_fp = fopen(output_file, "w")) == NULL)
 	    sudo_fatal(U_("unable to open %s"), output_file);
     }
 
-    /* Open JSON output. */
-    putc('{', output_fp);
+    /* 4 space indent, non-compact, exit on memory allocation failure. */
+    sudo_json_init(&jsonc, 4, false, true);
 
     /* Dump Defaults in JSON format. */
     if (!ISSET(conf->suppress, SUPPRESS_DEFAULTS)) {
-	need_comma = print_defaults_json(output_fp, parse_tree, indent,
-	    conf->expand_aliases, need_comma);
+	print_defaults_json(&jsonc, parse_tree, conf->expand_aliases);
     }
 
     /* Dump Aliases in JSON format. */
     if (!conf->expand_aliases && !ISSET(conf->suppress, SUPPRESS_ALIASES)) {
-	need_comma = print_aliases_json(output_fp, parse_tree, indent,
-	    need_comma);
+	print_aliases_json(&jsonc, parse_tree);
     }
 
     /* Dump User_Specs in JSON format. */
     if (!ISSET(conf->suppress, SUPPRESS_PRIVS)) {
-	print_userspecs_json(output_fp, parse_tree, indent,
-	    conf->expand_aliases, need_comma);
+	print_userspecs_json(&jsonc, parse_tree, conf->expand_aliases);
     }
 
-    /* Close JSON output. */
-    fputs("\n}\n", output_fp);
-    (void)fflush(output_fp);
-    if (ferror(output_fp))
-	ret = false;
+    /* Write JSON output. */
+    if (sudo_json_get_len(&jsonc) != 0) {
+	putc('{', output_fp);
+	fputs(sudo_json_get_buf(&jsonc), output_fp);
+	fputs("\n}\n", output_fp);
+	(void)fflush(output_fp);
+	if (ferror(output_fp))
+	    ret = false;
+    }
+    sudo_json_free(&jsonc);
     if (output_fp != stdout)
 	fclose(output_fp);
 

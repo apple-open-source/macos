@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -26,8 +26,8 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <sys/ioctl.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #if defined(HAVE_STDINT_H)
@@ -35,12 +35,7 @@
 #elif defined(HAVE_INTTYPES_H)
 # include <inttypes.h>
 #endif
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <time.h>
 #include <ctype.h>
@@ -55,31 +50,29 @@
 #endif /* HAVE_STDBOOL_H */
 #include <regex.h>
 #include <signal.h>
-#include <time.h>
-
-#include <pathnames.h>
-
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
-
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "logging.h"
-#include "iolog.h"
-#include "iolog_files.h"
-#include "sudo_queue.h"
-#include "sudo_plugin.h"
-#include "sudo_conf.h"
-#include "sudo_debug.h"
-#include "sudo_event.h"
-#include "sudo_util.h"
-
 #ifdef HAVE_GETOPT_LONG
 # include <getopt.h>
 # else
 # include "compat/getopt.h"
 #endif /* HAVE_GETOPT_LONG */
 
+#include "pathnames.h"
+#include "sudo_compat.h"
+#include "sudo_conf.h"
+#include "sudo_debug.h"
+#include "sudo_event.h"
+#include "sudo_eventlog.h"
+#include "sudo_fatal.h"
+#include "sudo_gettext.h"
+#include "sudo_iolog.h"
+#include "sudo_plugin.h"
+#include "sudo_queue.h"
+#include "sudo_util.h"
+
+#include "logging.h"
+
 struct replay_closure {
+    const char *iolog_dir;
     struct sudo_event_base *evbase;
     struct sudo_event *delay_ev;
     struct sudo_event *keyboard_ev;
@@ -89,7 +82,9 @@ struct replay_closure {
     struct sudo_event *sigquit_ev;
     struct sudo_event *sigterm_ev;
     struct sudo_event *sigtstp_ev;
+    struct timespec *max_delay;
     struct timing_closure timing;
+    int iolog_dir_fd;
     bool interactive;
     bool suspend_wait;
     struct io_buffer {
@@ -117,13 +112,15 @@ struct search_node {
 #define ST_FROMDATE	7
 #define ST_TODATE	8
 #define ST_CWD		9
+#define ST_HOST		10
     char type;
     bool negated;
     bool or;
     union {
 	regex_t cmdre;
-	time_t tstamp;
+	struct timespec tstamp;
 	char *cwd;
+	char *host;
 	char *tty;
 	char *user;
 	char *runas_group;
@@ -139,16 +136,26 @@ static double speed_factor = 1.0;
 
 static const char *session_dir = _PATH_SUDO_IO_LOGDIR;
 
-static bool terminal_can_resize, terminal_was_resized;
+static bool terminal_can_resize, terminal_was_resized, follow_mode;
 
-static int terminal_rows, terminal_cols;
+static int terminal_lines, terminal_cols;
 
 static int ttyfd = -1;
 
-static const char short_opts[] =  "d:f:hlm:nRSs:V";
+static struct iolog_file iolog_files[] = {
+    { false },	/* IOFD_STDIN */
+    { false },	/* IOFD_STDOUT */
+    { false },	/* IOFD_STDERR */
+    { false },	/* IOFD_TTYIN  */
+    { false },	/* IOFD_TTYOUT */
+    { true, },	/* IOFD_TIMING */
+};
+
+static const char short_opts[] =  "d:f:Fhlm:nRSs:V";
 static struct option long_opts[] = {
     { "directory",	required_argument,	NULL,	'd' },
     { "filter",		required_argument,	NULL,	'f' },
+    { "follow",		no_argument,		NULL,	'F' },
     { "help",		no_argument,		NULL,	'h' },
     { "list",		no_argument,		NULL,	'l' },
     { "max-wait",	required_argument,	NULL,	'm' },
@@ -165,16 +172,17 @@ extern char *get_timestr(time_t, int);
 extern time_t get_date(char *);
 
 static int list_sessions(int, char **, const char *, const char *, const char *);
-static int open_io_fd(char *path, int len, struct io_log_file *iol);
 static int parse_expr(struct search_node_list *, char **, bool);
 static void read_keyboard(int fd, int what, void *v);
 static void help(void) __attribute__((__noreturn__));
-static int replay_session(struct timespec *max_wait, const char *decimal, bool interactive, bool suspend_wait);
+static int replay_session(int iolog_dir_fd, const char *iolog_dir,
+    struct timespec *max_wait, const char *decimal, bool interactive,
+    bool suspend_wait);
 static void sudoreplay_cleanup(void);
 static void usage(int);
 static void write_output(int fd, int what, void *v);
 static void restore_terminal_size(void);
-static void setup_terminal(struct log_info *li, bool interactive, bool resize);
+static void setup_terminal(struct eventlog *evlog, bool interactive, bool resize);
 
 #define VALID_ID(s) (isalnum((unsigned char)(s)[0]) && \
     isalnum((unsigned char)(s)[1]) && isalnum((unsigned char)(s)[2]) && \
@@ -187,23 +195,22 @@ static void setup_terminal(struct log_info *li, bool interactive, bool resize);
     isalnum((unsigned char)(s)[3]) && isalnum((unsigned char)(s)[4]) && \
     (s)[5] == '/' && \
     isalnum((unsigned char)(s)[6]) && isalnum((unsigned char)(s)[7]) && \
-    (s)[8] == '/' && (s)[9] == 'l' && (s)[10] == 'o' && (s)[11] == 'g' && \
-    (s)[12] == '\0')
+    (s)[8] == '\0')
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 int
 main(int argc, char *argv[])
 {
-    int ch, i, plen, exitcode = 0;
+    int ch, i, iolog_dir_fd, len, exitcode = EXIT_FAILURE;
     bool def_filter = true, listonly = false;
     bool interactive = true, suspend_wait = false, resize = true;
     const char *decimal, *id, *user = NULL, *pattern = NULL, *tty = NULL;
-    char *cp, *ep, path[PATH_MAX];
-    struct log_info *li;
+    char *cp, *ep, iolog_dir[PATH_MAX];
+    struct eventlog *evlog;
     struct timespec max_delay_storage, *max_delay = NULL;
     double dval;
-    debug_decl(main, SUDO_DEBUG_MAIN)
+    debug_decl(main, SUDO_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
     {
@@ -237,18 +244,21 @@ main(int argc, char *argv[])
 	    def_filter = false;
 	    for (cp = strtok_r(optarg, ",", &ep); cp; cp = strtok_r(NULL, ",", &ep)) {
 		if (strcmp(cp, "stdin") == 0)
-		    io_log_files[IOFD_STDIN].enabled = true;
+		    iolog_files[IOFD_STDIN].enabled = true;
 		else if (strcmp(cp, "stdout") == 0)
-		    io_log_files[IOFD_STDOUT].enabled = true;
+		    iolog_files[IOFD_STDOUT].enabled = true;
 		else if (strcmp(cp, "stderr") == 0)
-		    io_log_files[IOFD_STDERR].enabled = true;
+		    iolog_files[IOFD_STDERR].enabled = true;
 		else if (strcmp(cp, "ttyin") == 0)
-		    io_log_files[IOFD_TTYIN].enabled = true;
+		    iolog_files[IOFD_TTYIN].enabled = true;
 		else if (strcmp(cp, "ttyout") == 0)
-		    io_log_files[IOFD_TTYOUT].enabled = true;
+		    iolog_files[IOFD_TTYOUT].enabled = true;
 		else
 		    sudo_fatalx(U_("invalid filter option: %s"), optarg);
 	    }
+	    break;
+	case 'F':
+	    follow_mode = true;
 	    break;
 	case 'h':
 	    help();
@@ -287,6 +297,7 @@ main(int argc, char *argv[])
 	    break;
 	case 'V':
 	    (void) printf(_("%s version %s\n"), getprogname(), PACKAGE_VERSION);
+	    exitcode = EXIT_SUCCESS;
 	    goto done;
 	default:
 	    usage(1);
@@ -307,115 +318,72 @@ main(int argc, char *argv[])
 
     /* By default we replay stdout, stderr and ttyout. */
     if (def_filter) {
-	io_log_files[IOFD_STDOUT].enabled = true;
-	io_log_files[IOFD_STDERR].enabled = true;
-	io_log_files[IOFD_TTYOUT].enabled = true;
+	iolog_files[IOFD_STDOUT].enabled = true;
+	iolog_files[IOFD_STDERR].enabled = true;
+	iolog_files[IOFD_TTYOUT].enabled = true;
     }
 
     /* 6 digit ID in base 36, e.g. 01G712AB or free-form name */
     id = argv[0];
     if (VALID_ID(id)) {
-	plen = snprintf(path, sizeof(path), "%s/%.2s/%.2s/%.2s/timing",
+	len = snprintf(iolog_dir, sizeof(iolog_dir), "%s/%.2s/%.2s/%.2s",
 	    session_dir, id, &id[2], &id[4]);
-	if (plen < 0 || plen >= ssizeof(path))
-	    sudo_fatalx(U_("%s/%.2s/%.2s/%.2s/timing: %s"), session_dir,
+	if (len < 0 || len >= ssizeof(iolog_dir))
+	    sudo_fatalx(U_("%s/%.2s/%.2s/%.2s: %s"), session_dir,
 		id, &id[2], &id[4], strerror(ENAMETOOLONG));
     } else if (id[0] == '/') {
-	plen = snprintf(path, sizeof(path), "%s/timing", id);
-	if (plen < 0 || plen >= ssizeof(path))
+	len = snprintf(iolog_dir, sizeof(iolog_dir), "%s", id);
+	if (len < 0 || len >= ssizeof(iolog_dir))
 	    sudo_fatalx(U_("%s/timing: %s"), id, strerror(ENAMETOOLONG));
     } else {
-	plen = snprintf(path, sizeof(path), "%s/%s/timing", session_dir, id);
-	if (plen < 0 || plen >= ssizeof(path))
-	    sudo_fatalx(U_("%s/%s/timing: %s"), session_dir, id,
+	len = snprintf(iolog_dir, sizeof(iolog_dir), "%s/%s", session_dir, id);
+	if (len < 0 || len >= ssizeof(iolog_dir)) {
+	    sudo_fatalx(U_("%s/%s: %s"), session_dir, id,
 		strerror(ENAMETOOLONG));
+	}
     }
-    plen -= 7;
 
     /* Open files for replay, applying replay filter for the -f flag. */
+    if ((iolog_dir_fd = iolog_openat(AT_FDCWD, iolog_dir, O_RDONLY)) == -1)
+	sudo_fatal("%s", iolog_dir);
     for (i = 0; i < IOFD_MAX; i++) {
-	if (open_io_fd(path, plen, &io_log_files[i]) == -1)
-	    sudo_fatal(U_("unable to open %s"), path);
+	if (!iolog_open(&iolog_files[i], iolog_dir_fd, i, "r")) {
+	    if (errno != ENOENT) {
+		sudo_fatal(U_("unable to open %s/%s"), iolog_dir,
+		    iolog_fd_to_name(i));
+	    }
+	}
+    }
+    if (!iolog_files[IOFD_TIMING].enabled) {
+	sudo_fatal(U_("unable to open %s/%s"), iolog_dir,
+	    iolog_fd_to_name(IOFD_TIMING));
     }
 
     /* Parse log file. */
-    path[plen] = '\0';
-    strlcat(path, "/log", sizeof(path));
-    if ((li = parse_logfile(path)) == NULL)
-	exit(1);
-    printf(_("Replaying sudo session: %s"), li->cmd);
+    if ((evlog = iolog_parse_loginfo(iolog_dir_fd, iolog_dir)) == NULL)
+	goto done;
+    printf(_("Replaying sudo session: %s"), evlog->command);
 
     /* Setup terminal if appropriate. */
     if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
 	interactive = false;
-    setup_terminal(li, interactive, resize);
+    setup_terminal(evlog, interactive, resize);
     putchar('\r');
     putchar('\n');
 
     /* Done with parsed log file. */
-    free_log_info(li);
-    li = NULL;
+    eventlog_free(evlog);
+    evlog = NULL;
 
-    /* Replay session corresponding to io_log_files[]. */
-    exitcode = replay_session(max_delay, decimal, interactive, suspend_wait);
+    /* Replay session corresponding to iolog_files[]. */
+    exitcode = replay_session(iolog_dir_fd, iolog_dir, max_delay, decimal,
+	interactive, suspend_wait);
 
     restore_terminal_size();
     sudo_term_restore(ttyfd, true);
 done:
     sudo_debug_exit_int(__func__, __FILE__, __LINE__, sudo_debug_subsys, exitcode);
-    exit(exitcode);
-}
-
-/*
- * Call gzread() or fread() for the I/O log file in question.
- * Return 0 for EOF or -1 on error.
- */
-static ssize_t
-io_log_read(union io_fd ifd, char *buf, size_t nbytes)
-{
-    ssize_t nread;
-    debug_decl(io_log_read, SUDO_DEBUG_UTIL)
-
-    if (nbytes > INT_MAX) {
-	errno = EINVAL;
-	debug_return_ssize_t(-1);
-    }
-#ifdef HAVE_ZLIB_H
-    nread = gzread(ifd.g, buf, nbytes);
-#else
-    nread = (ssize_t)fread(buf, 1, nbytes, ifd.f);
-    if (nread == 0 && ferror(ifd.f))
-	nread = -1;
-#endif
-    debug_return_ssize_t(nread);
-}
-
-static int
-io_log_eof(union io_fd ifd)
-{
-    int ret;
-    debug_decl(io_log_eof, SUDO_DEBUG_UTIL)
-
-#ifdef HAVE_ZLIB_H
-    ret = gzeof(ifd.g);
-#else
-    ret = feof(ifd.f);
-#endif
-    debug_return_int(ret);
-}
-
-static char *
-io_log_gets(union io_fd ifd, char *buf, size_t nbytes)
-{
-    char *str;
-    debug_decl(io_log_gets, SUDO_DEBUG_UTIL)
-
-#ifdef HAVE_ZLIB_H
-    str = gzgets(ifd.g, buf, nbytes);
-#else
-    str = fgets(buf, nbytes, ifd.f);
-#endif
-    debug_return_str(str);
+    return exitcode;
 }
 
 /*
@@ -466,7 +434,7 @@ getsize_cb(int fd, int what, void *v)
 {
     struct getsize_closure *gc = v;
     unsigned char ch = '\0';
-    debug_decl(getsize_cb, SUDO_DEBUG_UTIL)
+    debug_decl(getsize_cb, SUDO_DEBUG_UTIL);
 
     for (;;) {
 	if (gc->cp[0] == '\0') {
@@ -479,7 +447,7 @@ getsize_cb(int fd, int what, void *v)
 	    case -1:
 		if (errno == EAGAIN)
 		    goto another;
-		/* FALLTHROUGH */
+		FALLTHROUGH;
 	    case 0:
 		goto done;
 	    default:
@@ -518,7 +486,7 @@ getsize_cb(int fd, int what, void *v)
 		goto done;
 	    gc->nums[gc->nums_depth] = 0;
 	    gc->state = NUMBER;
-	    /* FALLTHROUGH */
+	    FALLTHROUGH;
 	case NUMBER:
 	    if (!isdigit(ch)) {
 		/* done with number, reparse ch */
@@ -541,7 +509,7 @@ getsize_cb(int fd, int what, void *v)
 
 another:
     if (sudo_ev_add(NULL, gc->ev, &gc->timeout, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 done:
     debug_return;
 }
@@ -551,14 +519,14 @@ done:
  * Get the terminal size using vt100 terminal escapes.
  */
 static bool
-xterm_get_size(int *new_rows, int *new_cols)
+xterm_get_size(int *new_lines, int *new_cols)
 {
     struct sudo_event_base *evbase;
     struct getsize_closure gc;
     const char getsize_request[] = "\0337\033[r\033[999;999H\033[6n";
     const char getsize_response[] = "\033[%d;%dR";
     bool ret = false;
-    debug_decl(xterm_get_size, SUDO_DEBUG_UTIL)
+    debug_decl(xterm_get_size, SUDO_DEBUG_UTIL);
 
     /* request the terminal's size */
     if (write(ttyfd, getsize_request, strlen(getsize_request)) == -1) {
@@ -569,7 +537,7 @@ xterm_get_size(int *new_rows, int *new_cols)
 
     /*
      * Callback info for reading back the size with a 10 second timeout.
-     * We expect two numbers (rows and cols).
+     * We expect two numbers (lines and cols).
      */
     gc.state = INITIAL|READCHAR;
     gc.nums_depth = 0;
@@ -588,13 +556,13 @@ xterm_get_size(int *new_rows, int *new_cols)
 
     /* Read back terminal size response */
     if (sudo_ev_add(evbase, gc.ev, &gc.timeout, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
     sudo_ev_dispatch(evbase);
 
     if (gc.state == GOTSIZE) {
 	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
 	    "terminal size %d x %x", gc.nums[0], gc.nums[1]);
-	*new_rows = gc.nums[0];
+	*new_lines = gc.nums[0];
 	*new_cols = gc.nums[1];
 	ret = true;
     }
@@ -607,21 +575,21 @@ done:
 }
 
 /*
- * Set the size of the text area to rows and cols.
+ * Set the size of the text area to lines and cols.
  * Depending on the terminal implementation, the window itself may
  * or may not shrink to a smaller size.
  */
 static bool
-xterm_set_size(int rows, int cols)
+xterm_set_size(int lines, int cols)
 {
     const char setsize_fmt[] = "\033[8;%d;%dt";
-    int len, new_rows, new_cols;
+    int len, new_lines, new_cols;
     bool ret = false;
     char buf[1024];
-    debug_decl(xterm_set_size, SUDO_DEBUG_UTIL)
+    debug_decl(xterm_set_size, SUDO_DEBUG_UTIL);
 
     /* XXX - save cursor and position restore after resizing */
-    len = snprintf(buf, sizeof(buf), setsize_fmt, rows, cols);
+    len = snprintf(buf, sizeof(buf), setsize_fmt, lines, cols);
     if (len < 0 || len >= ssizeof(buf)) {
 	/* not possible due to size of buf */
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
@@ -634,9 +602,9 @@ xterm_set_size(int rows, int cols)
 	goto done;
     }
     /* XXX - keyboard input will interfere with this */
-    if (!xterm_get_size(&new_rows, &new_cols))
+    if (!xterm_get_size(&new_lines, &new_cols))
 	goto done;
-    if (rows == new_rows && cols == new_cols)
+    if (lines == new_lines && cols == new_cols)
 	ret = true;
 
 done:
@@ -644,10 +612,10 @@ done:
 }
 
 static void
-setup_terminal(struct log_info *li, bool interactive, bool resize)
+setup_terminal(struct eventlog *evlog, bool interactive, bool resize)
 {
     const char *term;
-    debug_decl(check_terminal, SUDO_DEBUG_UTIL)
+    debug_decl(check_terminal, SUDO_DEBUG_UTIL);
 
     fflush(stdout);
 
@@ -656,13 +624,13 @@ setup_terminal(struct log_info *li, bool interactive, bool resize)
 	ttyfd = open(_PATH_TTY, O_RDWR);
 	while (!sudo_term_raw(ttyfd, 1)) {
 	    if (errno != EINTR)
-		sudo_fatal(U_("unable to set tty to raw mode"));
+		sudo_fatal("%s", U_("unable to set tty to raw mode"));
 	    kill(getpid(), SIGTTOU);
 	}
     }
 
     /* Find terminal size if the session has size info. */
-    if (li->rows == 0 && li->cols == 0) {
+    if (evlog->lines == 0 && evlog->columns == 0) {
 	/* no tty size info, hope for the best... */
 	debug_return;
     }
@@ -675,7 +643,7 @@ setup_terminal(struct log_info *li, bool interactive, bool resize)
 	    for (tn = compatible_terms; tn->name != NULL; tn++) {
 		if (strncmp(term, tn->name, tn->len) == 0) {
 		    /* xterm-like terminals can resize themselves. */
-		    if (xterm_get_size(&terminal_rows, &terminal_cols))
+		    if (xterm_get_size(&terminal_lines, &terminal_cols))
 			terminal_can_resize = true;
 		    break;
 		}
@@ -685,20 +653,20 @@ setup_terminal(struct log_info *li, bool interactive, bool resize)
 
     if (!terminal_can_resize) {
 	/* either not xterm or not interactive */
-	sudo_get_ttysize(&terminal_rows, &terminal_cols);
+	sudo_get_ttysize(&terminal_lines, &terminal_cols);
     }
 
-    if (li->rows == terminal_rows && li->cols == terminal_cols) {
+    if (evlog->lines == terminal_lines && evlog->columns == terminal_cols) {
 	/* nothing to change */
 	debug_return;
     }
 
     if (terminal_can_resize) {
 	/* session terminal size is different, try to resize ours */
-	if (xterm_set_size(li->rows, li->cols)) {
+	if (xterm_set_size(evlog->lines, evlog->columns)) {
 	    /* success */
 	    sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
-		"resized terminal to %d x %x", li->rows, li->cols);
+		"resized terminal to %d x %x", evlog->lines, evlog->columns);
 	    terminal_was_resized = true;
 	    debug_return;
 	}
@@ -706,20 +674,20 @@ setup_terminal(struct log_info *li, bool interactive, bool resize)
 	terminal_can_resize = false;
     }
 
-    if (li->rows > terminal_rows || li->cols > terminal_cols) {
+    if (evlog->lines > terminal_lines || evlog->columns > terminal_cols) {
 	fputs(_("Warning: your terminal is too small to properly replay the log.\n"), stdout);
-	printf(_("Log geometry is %d x %d, your terminal's geometry is %d x %d."), li->rows, li->cols, terminal_rows, terminal_cols);
+	printf(_("Log geometry is %d x %d, your terminal's geometry is %d x %d."), evlog->lines, evlog->columns, terminal_lines, terminal_cols);
     }
     debug_return;
 }
 
 static void
-resize_terminal(int rows, int cols)
+resize_terminal(int lines, int cols)
 {
-    debug_decl(resize_terminal, SUDO_DEBUG_UTIL)
+    debug_decl(resize_terminal, SUDO_DEBUG_UTIL);
 
     if (terminal_can_resize) {
-	if (xterm_set_size(rows, cols))
+	if (xterm_set_size(lines, cols))
 	    terminal_was_resized = true;
 	else
 	    terminal_can_resize = false;
@@ -731,7 +699,7 @@ resize_terminal(int rows, int cols)
 static void
 restore_terminal_size(void)
 {
-    debug_decl(restore_terminal, SUDO_DEBUG_UTIL)
+    debug_decl(restore_terminal, SUDO_DEBUG_UTIL);
 
     if (terminal_was_resized) {
 	/* We are still in raw mode, hence the carriage return. */
@@ -740,7 +708,7 @@ restore_terminal_size(void)
 	    stdout);
 	fflush(stdout);
 	(void)getchar();
-	xterm_set_size(terminal_rows, terminal_cols);
+	xterm_set_size(terminal_lines, terminal_cols);
 	putchar('\r');
 	putchar('\n');
     }
@@ -748,45 +716,79 @@ restore_terminal_size(void)
     debug_return;
 }
 
+static bool
+iolog_complete(struct replay_closure *closure)
+{
+    struct stat sb;
+    debug_decl(iolog_complete, SUDO_DEBUG_UTIL);
+
+    if (fstatat(closure->iolog_dir_fd, "timing", &sb, 0) != -1) {
+	if (ISSET(sb.st_mode, S_IWUSR|S_IWGRP|S_IWOTH))
+	    debug_return_bool(false);
+    }
+
+    debug_return_bool(true);
+}
+
 /*
  * Read the next record from the timing file and schedule a delay
  * event with the specified timeout.
+ * In follow mode, ignore EOF and just delay for a short time.
  * Return 0 on success, 1 on EOF and -1 on error.
  */
 static int
-read_timing_record(struct replay_closure *closure)
+get_timing_record(struct replay_closure *closure)
 {
-    struct timespec timeout;
-    char buf[LINE_MAX];
-    debug_decl(read_timing_record, SUDO_DEBUG_UTIL)
+    struct timing_closure *timing = &closure->timing;
+    bool nodelay = false;
+    debug_decl(get_timing_record, SUDO_DEBUG_UTIL);
 
-    /* Read next record from timing file. */
-    if (io_log_gets(io_log_files[IOFD_TIMING].fd, buf, sizeof(buf)) == NULL) {
-	/* EOF or error reading timing file, we are done. */
-	debug_return_int(io_log_eof(io_log_files[IOFD_TIMING].fd) ? 1 : -1);
+    if (follow_mode && timing->event == IO_EVENT_COUNT) {
+	/* In follow mode, we already waited. */
+	nodelay = true;
     }
 
-    /* Parse timing file record. */
-    buf[strcspn(buf, "\n")] = '\0';
-    if (!parse_timing(buf, &timeout, &closure->timing))
-	sudo_fatalx(U_("invalid timing file line: %s"), buf);
+    switch (iolog_read_timing_record(&iolog_files[IOFD_TIMING], timing)) {
+    case -1:
+	/* error */
+	debug_return_int(-1);
+    case 1:
+	/* EOF */
+	if (!follow_mode || iolog_complete(closure)) {
+	    debug_return_int(1);
+	}
+	/* Follow mode, keep reading until done. */
+	iolog_clearerr(&iolog_files[IOFD_TIMING]);
+	timing->delay.tv_sec = 0;
+	timing->delay.tv_nsec = 1000000;
+	timing->iol = NULL;
+	timing->event = IO_EVENT_COUNT;
+	break;
+    default:
+	/* Record number bytes to read. */
+	if (timing->event != IO_EVENT_WINSIZE &&
+		timing->event != IO_EVENT_SUSPEND) {
+	    closure->iobuf.len = 0;
+	    closure->iobuf.off = 0;
+	    closure->iobuf.lastc = '\0';
+	    closure->iobuf.toread = timing->u.nbytes;
+	}
 
-    /* Record number bytes to read. */
-    /* XXX - remove timing->nbytes? */
-    if (closure->timing.event != IO_EVENT_WINSIZE &&
-	closure->timing.event != IO_EVENT_SUSPEND) {
-    	closure->iobuf.len = 0;
-    	closure->iobuf.off = 0;
-    	closure->iobuf.lastc = '\0';
-    	closure->iobuf.toread = closure->timing.u.nbytes;
+	if (nodelay) {
+	    /* Already waited, fire immediately. */
+	    timing->delay.tv_sec = 0;
+	    timing->delay.tv_nsec = 0;
+	} else {
+	    /* Adjust delay using speed factor and max_delay. */
+	    iolog_adjust_delay(&timing->delay, closure->max_delay,
+		speed_factor);
+	}
+	break;
     }
-
-    /* Adjust delay using speed factor and max_delay. */
-    adjust_delay(&timeout, closure->timing.max_delay, speed_factor);
 
     /* Schedule the delay event. */
-    if (sudo_ev_add(closure->evbase, closure->delay_ev, &timeout, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+    if (sudo_ev_add(closure->evbase, closure->delay_ev, &timing->delay, false) == -1)
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     debug_return_int(0);
 }
@@ -798,10 +800,10 @@ read_timing_record(struct replay_closure *closure)
 static void
 next_timing_record(struct replay_closure *closure)
 {
-    debug_decl(next_timing_record, SUDO_DEBUG_UTIL)
+    debug_decl(next_timing_record, SUDO_DEBUG_UTIL);
 
 again:
-    switch (read_timing_record(closure)) {
+    switch (get_timing_record(closure)) {
     case 0:
 	/* success */
 	if (closure->timing.event == IO_EVENT_SUSPEND &&
@@ -827,24 +829,27 @@ fill_iobuf(struct replay_closure *closure)
 {
     const size_t space = sizeof(closure->iobuf.buf) - closure->iobuf.len;
     const struct timing_closure *timing = &closure->timing;
-    debug_decl(fill_iobuf, SUDO_DEBUG_UTIL)
+    const char *errstr;
+    debug_decl(fill_iobuf, SUDO_DEBUG_UTIL);
 
     if (closure->iobuf.toread != 0 && space != 0) {
 	const size_t len =
 	    closure->iobuf.toread < space ? closure->iobuf.toread : space;
-	ssize_t nread = io_log_read(timing->fd,
-	    closure->iobuf.buf + closure->iobuf.off, len);
+	ssize_t nread = iolog_read(timing->iol,
+	    closure->iobuf.buf + closure->iobuf.off, len, &errstr);
 	if (nread <= 0) {
 	    if (nread == 0) {
 		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		    "%s: premature EOF, expected %u bytes",
-		    io_log_files[timing->event].suffix, closure->iobuf.toread);
+		    "%s/%s: premature EOF, expected %u bytes",
+		    closure->iolog_dir, iolog_fd_to_name(timing->event),
+		    closure->iobuf.toread);
 	    } else {
-		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO|SUDO_DEBUG_LINENO,
-		    "%s: read error", io_log_files[timing->event].suffix);
+		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+		    "%s/%s: read error: %s", closure->iolog_dir,
+		    iolog_fd_to_name(timing->event), errstr);
 	    }
-	    sudo_warnx(U_("unable to read %s"),
-		io_log_files[timing->event].suffix);
+	    sudo_warnx(U_("unable to read %s/%s: %s"),
+		closure->iolog_dir, iolog_fd_to_name(timing->event), errstr);
 	    debug_return_bool(false);
 	}
 	closure->iobuf.toread -= nread;
@@ -864,38 +869,38 @@ delay_cb(int fd, int what, void *v)
 {
     struct replay_closure *closure = v;
     struct timing_closure *timing = &closure->timing;
-    debug_decl(delay_cb, SUDO_DEBUG_UTIL)
+    debug_decl(delay_cb, SUDO_DEBUG_UTIL);
 
     switch (timing->event) {
     case IO_EVENT_WINSIZE:
-	resize_terminal(timing->u.winsize.rows, timing->u.winsize.cols);
+	resize_terminal(timing->u.winsize.lines, timing->u.winsize.cols);
 	break;
     case IO_EVENT_STDIN:
-	if (io_log_files[IOFD_STDIN].enabled)
-	    timing->fd = io_log_files[IOFD_STDIN].fd;
+	if (iolog_files[IOFD_STDIN].enabled)
+	    timing->iol = &iolog_files[IOFD_STDIN];
 	break;
     case IO_EVENT_STDOUT:
-	if (io_log_files[IOFD_STDOUT].enabled)
-	    timing->fd = io_log_files[IOFD_STDOUT].fd;
+	if (iolog_files[IOFD_STDOUT].enabled)
+	    timing->iol = &iolog_files[IOFD_STDOUT];
 	break;
     case IO_EVENT_STDERR:
-	if (io_log_files[IOFD_STDERR].enabled)
-	    timing->fd = io_log_files[IOFD_STDERR].fd;
+	if (iolog_files[IOFD_STDERR].enabled)
+	    timing->iol = &iolog_files[IOFD_STDERR];
 	break;
     case IO_EVENT_TTYIN:
-	if (io_log_files[IOFD_TTYIN].enabled)
-	    timing->fd = io_log_files[IOFD_TTYIN].fd;
+	if (iolog_files[IOFD_TTYIN].enabled)
+	    timing->iol = &iolog_files[IOFD_TTYIN];
 	break;
     case IO_EVENT_TTYOUT:
-	if (io_log_files[IOFD_TTYOUT].enabled)
-	    timing->fd = io_log_files[IOFD_TTYOUT].fd;
+	if (iolog_files[IOFD_TTYOUT].enabled)
+	    timing->iol = &iolog_files[IOFD_TTYOUT];
 	break;
     }
 
-    if (timing->fd.v != NULL) {
+    if (timing->iol != NULL) {
 	/* If the stream is open, enable the write event. */
 	if (sudo_ev_add(closure->evbase, closure->output_ev, NULL, false) == -1)
-	    sudo_fatal(U_("unable to add event to queue"));
+	    sudo_fatal("%s", U_("unable to add event to queue"));
     } else {
 	/* Not replaying, get the next timing record and continue. */
 	next_timing_record(closure);
@@ -910,6 +915,8 @@ replay_closure_free(struct replay_closure *closure)
     /*
      * Free events and event base, then the closure itself.
      */
+    if (closure->iolog_dir_fd != -1)
+	close(closure->iolog_dir_fd);
     sudo_ev_free(closure->delay_ev);
     sudo_ev_free(closure->keyboard_ev);
     sudo_ev_free(closure->output_ev);
@@ -926,7 +933,7 @@ static void
 signal_cb(int signo, int what, void *v)
 {
     struct replay_closure *closure = v;
-    debug_decl(signal_cb, SUDO_DEBUG_UTIL)
+    debug_decl(signal_cb, SUDO_DEBUG_UTIL);
 
     switch (signo) {
     case SIGHUP:
@@ -949,18 +956,21 @@ signal_cb(int signo, int what, void *v)
 }
 
 static struct replay_closure *
-replay_closure_alloc(struct timespec *max_delay, const char *decimal,
-    bool interactive, bool suspend_wait)
+replay_closure_alloc(int iolog_dir_fd, const char *iolog_dir,
+    struct timespec *max_delay, const char *decimal, bool interactive,
+    bool suspend_wait)
 {
     struct replay_closure *closure;
-    debug_decl(replay_closure_alloc, SUDO_DEBUG_UTIL)
+    debug_decl(replay_closure_alloc, SUDO_DEBUG_UTIL);
 
     if ((closure = calloc(1, sizeof(*closure))) == NULL)
 	debug_return_ptr(NULL);
 
+    closure->iolog_dir_fd = iolog_dir_fd;
+    closure->iolog_dir = iolog_dir;
     closure->interactive = interactive;
     closure->suspend_wait = suspend_wait;
-    closure->timing.max_delay = max_delay;
+    closure->max_delay = max_delay;
     closure->timing.decimal = decimal;
 
     /*
@@ -980,7 +990,7 @@ replay_closure_alloc(struct timespec *max_delay, const char *decimal,
 	if (closure->keyboard_ev == NULL)
 	    goto bad;
 	if (sudo_ev_add(closure->evbase, closure->keyboard_ev, NULL, false) == -1)
-	    sudo_fatal(U_("unable to add event to queue"));
+	    sudo_fatal("%s", U_("unable to add event to queue"));
     }
     closure->output_ev = sudo_ev_alloc(interactive ? ttyfd : STDOUT_FILENO,
 	SUDO_EV_WRITE, write_output, closure);
@@ -995,35 +1005,35 @@ replay_closure_alloc(struct timespec *max_delay, const char *decimal,
     if (closure->sighup_ev == NULL)
 	goto bad;
     if (sudo_ev_add(closure->evbase, closure->sighup_ev, NULL, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     closure->sigint_ev = sudo_ev_alloc(SIGINT, SUDO_EV_SIGNAL, signal_cb,
 	closure);
     if (closure->sigint_ev == NULL)
 	goto bad;
     if (sudo_ev_add(closure->evbase, closure->sigint_ev, NULL, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     closure->sigquit_ev = sudo_ev_alloc(SIGQUIT, SUDO_EV_SIGNAL, signal_cb,
 	closure);
     if (closure->sigquit_ev == NULL)
 	goto bad;
     if (sudo_ev_add(closure->evbase, closure->sigquit_ev, NULL, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     closure->sigterm_ev = sudo_ev_alloc(SIGTERM, SUDO_EV_SIGNAL, signal_cb,
 	closure);
     if (closure->sigterm_ev == NULL)
 	goto bad;
     if (sudo_ev_add(closure->evbase, closure->sigterm_ev, NULL, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     closure->sigtstp_ev = sudo_ev_alloc(SIGTSTP, SUDO_EV_SIGNAL, signal_cb,
 	closure);
     if (closure->sigtstp_ev == NULL)
 	goto bad;
     if (sudo_ev_add(closure->evbase, closure->sigtstp_ev, NULL, false) == -1)
-	sudo_fatal(U_("unable to add event to queue"));
+	sudo_fatal("%s", U_("unable to add event to queue"));
 
     debug_return_ptr(closure);
 bad:
@@ -1032,17 +1042,18 @@ bad:
 }
 
 static int
-replay_session(struct timespec *max_delay, const char *decimal,
-    bool interactive, bool suspend_wait)
+replay_session(int iolog_dir_fd, const char *iolog_dir,
+    struct timespec *max_delay, const char *decimal, bool interactive,
+    bool suspend_wait)
 {
     struct replay_closure *closure;
     int ret = 0;
-    debug_decl(replay_session, SUDO_DEBUG_UTIL)
+    debug_decl(replay_session, SUDO_DEBUG_UTIL);
 
     /* Allocate the delay closure and read the first timing record. */
-    closure = replay_closure_alloc(max_delay, decimal, interactive,
-	suspend_wait);
-    if (read_timing_record(closure) != 0) {
+    closure = replay_closure_alloc(iolog_dir_fd, iolog_dir, max_delay, decimal,
+	interactive, suspend_wait);
+    if (get_timing_record(closure) != 0) {
 	ret = 1;
 	goto done;
     }
@@ -1058,28 +1069,6 @@ done:
     debug_return_int(ret);
 }
 
-static int
-open_io_fd(char *path, int len, struct io_log_file *iol)
-{
-    debug_decl(open_io_fd, SUDO_DEBUG_UTIL)
-
-    if (!iol->enabled)
-	debug_return_int(0);
-
-    path[len] = '\0';
-    strlcat(path, iol->suffix, PATH_MAX);
-#ifdef HAVE_ZLIB_H
-    iol->fd.g = gzopen(path, "r");
-#else
-    iol->fd.f = fopen(path, "r");
-#endif
-    if (iol->fd.v == NULL) {
-	iol->enabled = false;
-	debug_return_int(-1);
-    }
-    debug_return_int(0);
-}
-
 /*
  * Write the I/O buffer.
  */
@@ -1093,7 +1082,7 @@ write_output(int fd, int what, void *v)
     struct iovec iov[2];
     bool added_cr = false;
     size_t nbytes, nwritten;
-    debug_decl(write_output, SUDO_DEBUG_UTIL)
+    debug_decl(write_output, SUDO_DEBUG_UTIL);
 
     /* Refill iobuf if there is more to read and buf is empty. */
     if (!fill_iobuf(closure)) {
@@ -1155,7 +1144,7 @@ write_output(int fd, int what, void *v)
 
     if (iobuf->off == iobuf->len) {
 	/* Write complete, go to next timing entry if possible. */
-	switch (read_timing_record(closure)) {
+	switch (get_timing_record(closure)) {
 	case 0:
 	    /* success */
 	    break;
@@ -1171,7 +1160,7 @@ write_output(int fd, int what, void *v)
     } else {
 	/* Reschedule event to write remainder. */
 	if (sudo_ev_add(NULL, closure->output_ev, NULL, false) == -1)
-	    sudo_fatal(U_("unable to add event to queue"));
+	    sudo_fatal("%s", U_("unable to add event to queue"));
     }
     debug_return;
 }
@@ -1185,7 +1174,7 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
     bool or = false, not = false;
     struct search_node *sn;
     char type, **av;
-    debug_decl(parse_expr, SUDO_DEBUG_UTIL)
+    debug_decl(parse_expr, SUDO_DEBUG_UTIL);
 
     for (av = argv; *av != NULL; av++) {
 	switch (av[0][0]) {
@@ -1223,6 +1212,11 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
 		goto bad;
 	    type = ST_RUNASGROUP;
 	    break;
+	case 'h': /* host */
+	    if (strncmp(*av, "host", strlen(*av)) != 0)
+		goto bad;
+	    type = ST_HOST;
+	    break;
 	case 'r': /* runas user */
 	    if (strncmp(*av, "runas", strlen(*av)) != 0)
 		goto bad;
@@ -1252,7 +1246,7 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
 	    if (av[0][1] != '\0')
 		goto bad;
 	    if (!sub_expr)
-		sudo_fatalx(U_("unmatched ')' in expression"));
+		sudo_fatalx("%s", U_("unmatched ')' in expression"));
 	    debug_return_int(av - argv + 1);
 	default:
 	bad:
@@ -1276,8 +1270,9 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
 		if (regcomp(&sn->u.cmdre, *av, REG_EXTENDED|REG_NOSUB) != 0)
 		    sudo_fatalx(U_("invalid regular expression: %s"), *av);
 	    } else if (type == ST_TODATE || type == ST_FROMDATE) {
-		sn->u.tstamp = get_date(*av);
-		if (sn->u.tstamp == -1)
+		sn->u.tstamp.tv_sec = get_date(*av);
+		sn->u.tstamp.tv_nsec = 0;
+		if (sn->u.tstamp.tv_sec == -1)
 		    sudo_fatalx(U_("could not parse date \"%s\""), *av);
 	    } else {
 		sn->u.ptr = *av;
@@ -1287,46 +1282,54 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
 	STAILQ_INSERT_TAIL(head, sn, entries);
     }
     if (sub_expr)
-	sudo_fatalx(U_("unmatched '(' in expression"));
+	sudo_fatalx("%s", U_("unmatched '(' in expression"));
     if (or)
-	sudo_fatalx(U_("illegal trailing \"or\""));
+	sudo_fatalx("%s", U_("illegal trailing \"or\""));
     if (not)
-	sudo_fatalx(U_("illegal trailing \"!\""));
+	sudo_fatalx("%s", U_("illegal trailing \"!\""));
 
     debug_return_int(av - argv);
 }
 
 static bool
-match_expr(struct search_node_list *head, struct log_info *log, bool last_match)
+match_expr(struct search_node_list *head, struct eventlog *evlog, bool last_match)
 {
     struct search_node *sn;
     bool res = false, matched = last_match;
     int rc;
-    debug_decl(match_expr, SUDO_DEBUG_UTIL)
+    debug_decl(match_expr, SUDO_DEBUG_UTIL);
 
     STAILQ_FOREACH(sn, head, entries) {
 	switch (sn->type) {
 	case ST_EXPR:
-	    res = match_expr(&sn->u.expr, log, matched);
+	    res = match_expr(&sn->u.expr, evlog, matched);
 	    break;
 	case ST_CWD:
-	    res = strcmp(sn->u.cwd, log->cwd) == 0;
+	    if (evlog->cwd != NULL)
+		res = strcmp(sn->u.cwd, evlog->cwd) == 0;
+	    break;
+	case ST_HOST:
+	    if (evlog->submithost != NULL)
+		res = strcmp(sn->u.host, evlog->submithost) == 0;
 	    break;
 	case ST_TTY:
-	    res = strcmp(sn->u.tty, log->tty) == 0;
+	    if (evlog->ttyname != NULL)
+		res = strcmp(sn->u.tty, evlog->ttyname) == 0;
 	    break;
 	case ST_RUNASGROUP:
-	    if (log->runas_group != NULL)
-		res = strcmp(sn->u.runas_group, log->runas_group) == 0;
+	    if (evlog->rungroup != NULL)
+		res = strcmp(sn->u.runas_group, evlog->rungroup) == 0;
 	    break;
 	case ST_RUNASUSER:
-	    res = strcmp(sn->u.runas_user, log->runas_user) == 0;
+	    if (evlog->runuser != NULL)
+		res = strcmp(sn->u.runas_user, evlog->runuser) == 0;
 	    break;
 	case ST_USER:
-	    res = strcmp(sn->u.user, log->user) == 0;
+	    if (evlog->submituser != NULL)
+		res = strcmp(sn->u.user, evlog->submituser) == 0;
 	    break;
 	case ST_PATTERN:
-	    rc = regexec(&sn->u.cmdre, log->cmd, 0, NULL, 0);
+	    rc = regexec(&sn->u.cmdre, evlog->command, 0, NULL, 0);
 	    if (rc && rc != REG_NOMATCH) {
 		char buf[BUFSIZ];
 		regerror(rc, &sn->u.cmdre, buf, sizeof(buf));
@@ -1335,10 +1338,10 @@ match_expr(struct search_node_list *head, struct log_info *log, bool last_match)
 	    res = rc == REG_NOMATCH ? 0 : 1;
 	    break;
 	case ST_FROMDATE:
-	    res = log->tstamp >= sn->u.tstamp;
+	    res = sudo_timespeccmp(&evlog->submit_time, &sn->u.tstamp, >=);
 	    break;
 	case ST_TODATE:
-	    res = log->tstamp <= sn->u.tstamp;
+	    res = sudo_timespeccmp(&evlog->submit_time, &sn->u.tstamp, <=);
 	    break;
 	default:
 	    sudo_fatalx(U_("unknown search type %d"), sn->type);
@@ -1353,23 +1356,23 @@ match_expr(struct search_node_list *head, struct log_info *log, bool last_match)
 }
 
 static int
-list_session(char *logfile, regex_t *re, const char *user, const char *tty)
+list_session(char *log_dir, regex_t *re, const char *user, const char *tty)
 {
     char idbuf[7], *idstr, *cp;
+    struct eventlog *evlog = NULL;
     const char *timestr;
-    struct log_info *li;
     int ret = -1;
-    debug_decl(list_session, SUDO_DEBUG_UTIL)
+    debug_decl(list_session, SUDO_DEBUG_UTIL);
 
-    if ((li = parse_logfile(logfile)) == NULL)
+    if ((evlog = iolog_parse_loginfo(-1, log_dir)) == NULL)
 	goto done;
 
     /* Match on search expression if there is one. */
-    if (!STAILQ_EMPTY(&search_expr) && !match_expr(&search_expr, li, true))
+    if (!STAILQ_EMPTY(&search_expr) && !match_expr(&search_expr, evlog, true))
 	goto done;
 
-    /* Convert from /var/log/sudo-sessions/00/00/01/log to 000001 */
-    cp = logfile + strlen(session_dir) + 1;
+    /* Convert from /var/log/sudo-sessions/00/00/01 to 000001 */
+    cp = log_dir + strlen(session_dir) + 1;
     if (IS_IDLOG(cp)) {
 	idbuf[0] = cp[0];
 	idbuf[1] = cp[1];
@@ -1380,23 +1383,24 @@ list_session(char *logfile, regex_t *re, const char *user, const char *tty)
 	idbuf[6] = '\0';
 	idstr = idbuf;
     } else {
-	/* Not an id, just use the iolog_file portion. */
-	cp[strlen(cp) - 4] = '\0';
+	/* Not an id, use as-is. */
 	idstr = cp;
     }
-    /* XXX - print rows + cols? */
-    timestr = get_timestr(li->tstamp, 1);
+    /* XXX - print lines + cols? */
+    timestr = get_timestr(evlog->submit_time.tv_sec, 1);
     printf("%s : %s : TTY=%s ; CWD=%s ; USER=%s ; ",
 	timestr ? timestr : "invalid date",
-	li->user, li->tty, li->cwd, li->runas_user);
-    if (li->runas_group)
-	printf("GROUP=%s ; ", li->runas_group);
-    printf("TSID=%s ; COMMAND=%s\n", idstr, li->cmd);
+	evlog->submituser, evlog->ttyname, evlog->cwd, evlog->runuser);
+    if (evlog->rungroup)
+	printf("GROUP=%s ; ", evlog->rungroup);
+    if (evlog->submithost)
+	printf("HOST=%s ; ", evlog->submithost);
+    printf("TSID=%s ; COMMAND=%s\n", idstr, evlog->command);
 
     ret = 0;
 
 done:
-    free_log_info(li);
+    eventlog_free(evlog);
     debug_return_int(ret);
 }
 
@@ -1424,7 +1428,7 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
 #else
     const bool checked_type = false;
 #endif
-    debug_decl(find_sessions, SUDO_DEBUG_UTIL)
+    debug_decl(find_sessions, SUDO_DEBUG_UTIL);
 
     d = opendir(dir);
     if (d == NULL)
@@ -1485,9 +1489,10 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
 
 	    /* Check for dir with a log file. */
 	    if (lstat(pathbuf, &sb) == 0 && S_ISREG(sb.st_mode)) {
+		pathbuf[sdlen + len - 4] = '\0';
 		list_session(pathbuf, re, user, tty);
 	    } else {
-		/* Strip off "/log" and recurse if a dir. */
+		/* Strip off "/log" and recurse if a non-log dir. */
 		pathbuf[sdlen + len - 4] = '\0';
 		if (checked_type ||
 		    (lstat(pathbuf, &sb) == 0 && S_ISDIR(sb.st_mode)))
@@ -1506,7 +1511,7 @@ list_sessions(int argc, char **argv, const char *pattern, const char *user,
     const char *tty)
 {
     regex_t rebuf, *re = NULL;
-    debug_decl(list_sessions, SUDO_DEBUG_UTIL)
+    debug_decl(list_sessions, SUDO_DEBUG_UTIL);
 
     /* Parse search expression if present */
     parse_expr(&search_expr, argv, false);
@@ -1533,7 +1538,7 @@ read_keyboard(int fd, int what, void *v)
     struct timespec ts;
     ssize_t nread;
     char ch;
-    debug_decl(read_keyboard, SUDO_DEBUG_UTIL)
+    debug_decl(read_keyboard, SUDO_DEBUG_UTIL);
 
     nread = read(fd, &ch, 1);
     switch (nread) {
@@ -1559,8 +1564,7 @@ read_keyboard(int fd, int what, void *v)
 	    break;
 	case '<':
 	    speed_factor /= 2;
-            sudo_ev_get_timeleft(closure->delay_ev, &ts);
-            if (sudo_timespecisset(&ts)) {
+	    if (sudo_ev_pending(closure->delay_ev, SUDO_EV_TIMEOUT, &ts)) {
 		/* Double remaining timeout. */
 		ts.tv_sec *= 2;
 		ts.tv_nsec *= 2;
@@ -1576,8 +1580,7 @@ read_keyboard(int fd, int what, void *v)
 	    break;
 	case '>':
 	    speed_factor *= 2;
-            sudo_ev_get_timeleft(closure->delay_ev, &ts);
-            if (sudo_timespecisset(&ts)) {
+	    if (sudo_ev_pending(closure->delay_ev, SUDO_EV_TIMEOUT, &ts)) {
 		/* Halve remaining timeout. */
 		if (ts.tv_sec & 1)
 		    ts.tv_nsec += 500000000;
@@ -1614,7 +1617,7 @@ usage(int fatal)
 	_("usage: %s [-h] [-d dir] -l [search expression]\n"),
 	getprogname());
     if (fatal)
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 static void
@@ -1633,7 +1636,7 @@ help(void)
 	"  -S, --suspend-wait     wait while the command was suspended\n"
 	"  -s, --speed=num        speed up or slow down output\n"
 	"  -V, --version          display version information and exit"));
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 /*

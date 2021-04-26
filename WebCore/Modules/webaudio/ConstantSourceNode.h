@@ -43,7 +43,6 @@ public:
     
 private:
     void process(size_t framesToProcess) final;
-    void reset() final { };
 
     ConstantSourceNode(BaseAudioContext&, float);
     
@@ -58,7 +57,7 @@ private:
     Ref<AudioParam> m_offset;
     
     // Stores sample-accurate values calculated.
-    AudioFloatArray m_sampleAccurateValues { AudioNode::ProcessingSizeInFrames };
+    AudioFloatArray m_sampleAccurateValues;
 };
 
 } // namespace WebCore

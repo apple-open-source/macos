@@ -50,7 +50,7 @@ NSString* _uuidstring;
 
 	XCTAssertNil(error, "Could not make directory at %@", _testHomeDirectory);
 
-    SetCustomHomeURLString((__bridge CFStringRef)_testHomeDirectory);
+    SecSetCustomHomeURLString((__bridge CFStringRef)_testHomeDirectory);
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         securityd_init(NULL);
@@ -66,7 +66,7 @@ NSString* _uuidstring;
 }
 
 + (void)tearDown {
-    SetCustomHomeURL(NULL);
+    SecSetCustomHomeURL(NULL);
     SecKeychainDbReset(NULL);
     resetCheckV12DevEnabled();
 }

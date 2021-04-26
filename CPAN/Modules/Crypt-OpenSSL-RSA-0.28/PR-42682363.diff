@@ -16,7 +16,7 @@
      },
      'OBJECT' => 'RSA.o',
 -    'LIBS'    => ($^O eq 'MSWin32') ? ['-lssl32 -leay32'] : ['-lssl -lcrypto'],
-+    'LIBS'    => ($^O eq 'MSWin32') ? ['-lssl32 -leay32'] : ['-lssl -lcrypto -L'.$OPENSSL_PREFIX.'/lib'],
++    'LIBS'    => ($^O eq 'MSWin32') ? ['-lssl32 -leay32'] : ['-L'.$OPENSSL_PREFIX.'/lib -lssl -lcrypto'],
      'DEFINE'	=> '-DPERL5 -DOPENSSL_NO_KRB5',
      # perl-5.8/gcc-3.2 needs -DPERL5, and redhat9 likes -DOPENSSL_NO_KRB5
      'INC'	=> $include,     # e.g., '-I/usr/include/other'

@@ -384,7 +384,8 @@ extension Container {
             os_log("Not enforcing IDMS list changes", log: tplogDebug, type: .default)
         }
 
-        for mo in (machines) where mo.status == TPMachineIDStatus.disallowed.rawValue {
+        // Remove all disallowed MIDs, unless we continue to trust the peer for some other reason
+        for mo in (machines) where mo.status == TPMachineIDStatus.disallowed.rawValue && !trustedMachineIDs.contains(mo.machineID ?? "") {
             os_log("Dropping knowledge of machineID %{public}@", log: tplogDebug, type: .debug, String(describing: mo.machineID))
             self.containerMO.removeFromMachines(mo)
         }

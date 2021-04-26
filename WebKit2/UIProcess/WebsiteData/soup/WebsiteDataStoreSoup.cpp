@@ -29,6 +29,7 @@
 
 #include "NetworkProcessMessages.h"
 #include "WebCookieManagerProxy.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebProcessPool.h"
 #include "WebsiteDataStoreParameters.h"
 
@@ -38,9 +39,10 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
 {
     auto& networkSessionParameters = parameters.networkSessionParameters;
     networkSessionParameters.persistentCredentialStorageEnabled = m_persistentCredentialStorageEnabled;
+    networkSessionParameters.ignoreTLSErrors = m_ignoreTLSErrors;
+    networkSessionParameters.proxySettings = m_networkProxySettings;
 
-    if (auto* processPool = processPoolForCookieStorageOperations())
-        processPool->supplement<WebCookieManagerProxy>()->getCookiePersistentStorage(m_sessionID, networkSessionParameters.cookiePersistentStoragePath, networkSessionParameters.cookiePersistentStorageType);
+    networkProcess().cookieManager().getCookiePersistentStorage(m_sessionID, networkSessionParameters.cookiePersistentStoragePath, networkSessionParameters.cookiePersistentStorageType);
 }
 
 void WebsiteDataStore::setPersistentCredentialStorageEnabled(bool enabled)
@@ -52,8 +54,22 @@ void WebsiteDataStore::setPersistentCredentialStorageEnabled(bool enabled)
         return;
 
     m_persistentCredentialStorageEnabled = enabled;
-    for (auto& processPool : processPools())
-        processPool->sendToNetworkingProcess(Messages::NetworkProcess::SetPersistentCredentialStorageEnabled(m_sessionID, m_persistentCredentialStorageEnabled));
+    networkProcess().send(Messages::NetworkProcess::SetPersistentCredentialStorageEnabled(m_sessionID, m_persistentCredentialStorageEnabled), 0);
+}
+
+void WebsiteDataStore::setIgnoreTLSErrors(bool ignoreTLSErrors)
+{
+    if (m_ignoreTLSErrors == ignoreTLSErrors)
+        return;
+
+    m_ignoreTLSErrors = ignoreTLSErrors;
+    networkProcess().send(Messages::NetworkProcess::SetIgnoreTLSErrors(m_sessionID, m_ignoreTLSErrors), 0);
+}
+
+void WebsiteDataStore::setNetworkProxySettings(WebCore::SoupNetworkProxySettings&& settings)
+{
+    m_networkProxySettings = WTFMove(settings);
+    networkProcess().send(Messages::NetworkProcess::SetNetworkProxySettings(m_sessionID, m_networkProxySettings), 0);
 }
 
 } // namespace WebKit

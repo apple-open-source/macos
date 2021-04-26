@@ -49,6 +49,7 @@
 #include "ValidationMessage.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
+#include <wtf/SetForScope.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -253,11 +254,11 @@ void HTMLFormControlElement::didAttachRenderers()
         auto frameView = makeRefPtr(document().view());
         if (frameView && frameView->layoutContext().isInLayout()) {
             frameView->queuePostLayoutCallback([element] {
-                element->focus();
+                element->focus(SelectionRestorationMode::PlaceCaretAtStart);
             });
         } else {
             Style::queuePostResolutionCallback([element] {
-                element->focus();
+                element->focus(SelectionRestorationMode::PlaceCaretAtStart);
             });
         }
     }
@@ -409,12 +410,18 @@ bool HTMLFormControlElement::matchesInvalidPseudoClass() const
     return willValidate() && !isValidFormControlElement();
 }
 
+void HTMLFormControlElement::endDelayingUpdateValidity()
+{
+    ASSERT(m_delayedUpdateValidityCount);
+    if (!--m_delayedUpdateValidityCount)
+        updateValidity();
+}
+
 bool HTMLFormControlElement::computeWillValidate() const
 {
     if (m_dataListAncestorState == Unknown) {
 #if ENABLE(DATALIST_ELEMENT)
-        m_dataListAncestorState = ancestorsOfType<HTMLDataListElement>(*this).first()
-            ? InsideDataList : NotInsideDataList;
+        m_dataListAncestorState = (document().hasDataListElements() && ancestorsOfType<HTMLDataListElement>(*this).first()) ? InsideDataList : NotInsideDataList;
 #else
         m_dataListAncestorState = NotInsideDataList;
 #endif
@@ -496,6 +503,11 @@ bool HTMLFormControlElement::checkValidity(Vector<RefPtr<HTMLFormControlElement>
     return false;
 }
 
+bool HTMLFormControlElement::isFocusingWithValidationMessage() const
+{
+    return m_isFocusingWithValidationMessage;
+}
+
 bool HTMLFormControlElement::isShowingValidationMessage() const
 {
     return m_validationMessage && m_validationMessage->isVisible();
@@ -529,6 +541,8 @@ bool HTMLFormControlElement::reportValidity()
 
 void HTMLFormControlElement::focusAndShowValidationMessage()
 {
+    SetForScope<bool> isFocusingWithValidationMessageScope(m_isFocusingWithValidationMessage, true);
+
     // Calling focus() will scroll the element into view.
     focus();
 
@@ -568,6 +582,9 @@ void HTMLFormControlElement::didChangeForm()
 
 void HTMLFormControlElement::updateValidity()
 {
+    if (m_delayedUpdateValidityCount)
+        return;
+
     bool willValidate = this->willValidate();
     bool wasValid = m_isValid;
 

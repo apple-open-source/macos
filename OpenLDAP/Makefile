@@ -65,6 +65,7 @@ else
 endif
 
 apple_port:
+	/usr/bin/codesign --force --sign - --entitlements ${SRCROOT}/AppleExtras/slapd-entitlements.plist ${DSTROOT}/${Install_Dir}/usr/libexec/slapd
 	cp ${OBJROOT}/servers/slapd/slapd ${SYMROOT}/slapd
 	dsymutil ${SYMROOT}/slapd
 	for client in `ls ${OBJROOT}/clients/tools/`; do \

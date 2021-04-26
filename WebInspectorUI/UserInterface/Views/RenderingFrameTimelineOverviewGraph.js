@@ -102,7 +102,9 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
 
     layout()
     {
-        if (!this.visible)
+        super.layout();
+
+        if (this.hidden)
             return;
 
         if (!this._renderingFrameTimeline.records.length)
@@ -260,6 +262,9 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
         var newSelectedRecord = this._renderingFrameTimeline.records[frameIndex];
         if (newSelectedRecord[WI.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol])
             return;
+
+        // Ensure that the container "click" listener added by `WI.TimelineOverview` isn't called.
+        event.__timelineRecordClickEventHandled = true;
 
         if (this.selectedRecord === newSelectedRecord)
             return;

@@ -29,6 +29,7 @@
 #include <CoreFoundation/CFString.h>
 #include "trust/trustd/SecOCSPCache.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
+#include "trust/trustd/trustdFileLocations.h"
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
@@ -40,7 +41,6 @@
 #include <asl.h>
 #include "utilities/SecCFWrappers.h"
 #include "utilities/SecDb.h"
-#include "utilities/SecFileLocations.h"
 #include "utilities/iOSforOSX.h"
 #include <os/lock.h>
 
@@ -182,15 +182,7 @@ errOut:
 
 CFStringRef SecOCSPCacheCopyPath(void) {
     CFStringRef ocspRelPath = kSecOCSPCacheFileName;
-#if TARGET_OS_IPHONE
-    CFURLRef ocspURL = SecCopyURLForFileInKeychainDirectory(ocspRelPath);
-    if (!ocspURL) {
-        ocspURL = SecCopyURLForFileInUserCacheDirectory(ocspRelPath);
-    }
-#else
-    /* macOS caches should be in user cache dir */
-    CFURLRef ocspURL = SecCopyURLForFileInUserCacheDirectory(ocspRelPath);
-#endif
+    CFURLRef ocspURL = SecCopyURLForFileInPrivateUserTrustdDirectory(ocspRelPath);
     CFStringRef ocspPath = NULL;
     if (ocspURL) {
         ocspPath = CFURLCopyFileSystemPath(ocspURL, kCFURLPOSIXPathStyle);

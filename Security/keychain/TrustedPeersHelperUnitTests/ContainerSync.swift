@@ -357,6 +357,7 @@ extension Container {
     func trustStatusSync(test: XCTestCase) -> (TrustedPeersHelperEgoPeerStatus, Error?) {
         let expectation = XCTestExpectation(description: "trustStatus replied")
         var retEgoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                           egoPeerMachineID: nil,
                                                            status: .unknown,
                                                            viablePeerCountsByModelID: [:],
                                                            peerCountsByMachineID: [:],

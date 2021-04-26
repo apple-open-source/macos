@@ -61,6 +61,15 @@ enum {
 };
 
 /*!
+    @enum Private operations for AuthorizationHandlePreloginOverride
+*/
+enum {
+    kAuthorizationOverrideOperationSet,
+    kAuthorizationOverrideOperationReset,
+    kAuthorizationOverrideOperationQuery
+};
+
+/*!
     @function AuthorizationCreateWithAuditToken
     @abstract Create a AuthorizationRef for the process that sent the mach message
         represented by the audit token. Requires root.
@@ -273,13 +282,38 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalFormInternal(const Authorizat
 
 /*!
     @function AuthorizationCopyPreloginUserDatabase
-    Returns CFArrayRef with user database from Prelogin volume
+    Fills output with a CFArrayRef with user database from Prelogin volume
 
     @param volumeUuid Optional uuid of the volume for which user database will be returned. If not set, users from all volumes are returned.
     @param flags Specifies subset of data required in the output
-    @param output Output array of dictionaries- each dictionary with details for each user
+    @param output Output array of dictionaries - each dictionary with details for each user
 */
 OSStatus AuthorizationCopyPreloginUserDatabase(const char * _Nullable const volumeUuid, const UInt32 flags, CFArrayRef _Nonnull * _Nonnull output);
+
+/*!
+    @function AuthorizationCopyPreloginPreferencesValue
+    Fills output with a CFTypeRef of a value of the item
+ 
+    @param volumeUuid Specifies uuid of the volume for which preferences are stored
+    @param username If NULL, global pref value is queried, otherwise user-specific preferences are queried
+    @param domain preference domain like "com.apple.tokenlogin"
+    @param item specifies name of the item to be returned
+    @param output Output CFTypeRef with the value of the desired preference
+*/
+OSStatus AuthorizationCopyPreloginPreferencesValue(const char * _Nonnull const volumeUuid, const char * _Nullable const username, const char * _Nonnull const domain, const char * _Nullable const item, CFTypeRef _Nonnull * _Nonnull output);
+
+/*!
+    @function AuthorizationHandlePreloginOverride
+    Handles FVUnlock Smartcard Enforcement
+ 
+    @param volumeUuid Specifies uuid of the volume for which the operation will be executed
+    @param operation Specifies required operation:
+        kAuthorizationOverrideOperationSet - temporarily disable SC enforcement
+        kAuthorizationOverrideOperationReset - turn off temporary SC enforcement
+        kAuthorizationOverrideOperationQuery - query current status
+    @param result If operation was to query current status, true will be set if SC enforcement is temporarily disabled or false if not
+*/
+OSStatus AuthorizationHandlePreloginOverride(const char * _Nonnull const volumeUuid, const char operation, Boolean * _Nullable result);
 
 #if defined(__cplusplus)
 }

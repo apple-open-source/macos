@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2010-2015, 2017-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2010-2015, 2017-2020 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -17,9 +17,13 @@
 #
 
 srcdir = @srcdir@
-devdir = @devdir@
-top_builddir = @top_builddir@
+abs_srcdir = @abs_srcdir@
 top_srcdir = @top_srcdir@
+abs_top_srcdir = @abs_top_srcdir@
+top_builddir = @top_builddir@
+abs_top_builddir = @abs_top_builddir@
+devdir = @devdir@
+scriptdir = $(top_srcdir)/scripts
 
 # Installation paths for package building
 prefix = @prefix@
@@ -49,8 +53,13 @@ sudoers_gid = @SUDOERS_GID@
 sudoers_mode = @SUDOERS_MODE@
 shlib_mode = @SHLIB_MODE@
 
-SUBDIRS = lib/util @ZLIB_SRC@ plugins/group_file plugins/sudoers \
-	  plugins/system_group src include doc examples
+# Version of python detected by configure (major.minor)
+python_version = @PYTHON_VERSION@
+
+SUBDIRS = lib/util @ZLIB_SRC@ lib/eventlog lib/iolog @LOGSRV_SRC@ \
+	  @LOGSRVD_SRC@ plugins/audit_json plugins/group_file \
+	  plugins/sample_approval plugins/sudoers plugins/system_group \
+	  @PYTHON_PLUGIN_SRC@ src include doc examples
 
 SAMPLES = plugins/sample
 
@@ -85,14 +94,14 @@ XGETTEXT_OPTS = -F -k_ -kN_ -kU_ --copyright-holder="Todd C. Miller" \
 		--flag sudo_lbuf_append_quoted:3:c-format --foreign-user
 
 # Default cppcheck options when run from the top-level Makefile
-CPPCHECK_OPTS = -q --force --enable=warning,performance,portability --suppress=constStatement --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
+CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
 
 # Default splint options when run from the top-level Makefile
 SPLINT_OPTS = -D__restrict= -checks
 
 # Default PVS-studio options when run from the top-level Makefile
 PVS_CFG = $(top_builddir)/PVS-Studio.cfg
-PVS_IGNORE = 'V707,V011,V002,V536'
+PVS_IGNORE = 'V707,V011,V002,V536,V568'
 PVS_LOG_OPTS = -a 'GA:1,2' -e -t errorfile -d $(PVS_IGNORE)
 
 all: config.status
@@ -106,6 +115,18 @@ check pre-install: config.status
 	    (cd $$d && exec $(MAKE) $@) && continue; \
 	    exit $$?; \
 	done
+
+uncrustify.files: Makefile
+	grep '\.[ch]$$' $(top_srcdir)/MANIFEST | egrep -v '(/zlib/|/(arc4random|arc4random_uniform|chacha_private|charclass|fnmatch|getaddrinfo|getcwd|getdate|getentropy|getopt|getopt_long|glob|gram|inet_ntop|inet_pton|log_server.pb-c|mktemp|pw_dup|reallocarray|mktemp_test|protobuf-c|snprintf|stdbool|strlcat|strlcpy|sudo_queue|toke)\.[ch]$$)'  > uncrustify.files
+
+reformat: uncrustify.files
+	( cd $(top_srcdir) && uncrustify -c etc/uncrustify.cfg --replace --no-backup -F $(top_builddir)/uncrustify.files )
+
+check-format: uncrustify.files
+	( cd $(top_srcdir) && uncrustify -c etc/uncrustify.cfg --check -F $(top_builddir)/uncrustify.files )
+
+spell:
+	( cd $(top_srcdir) && codespell -I etc/codespell.ignore -x etc/codespell.exclude `egrep -v -f etc/codespell.skip MANIFEST` )
 
 cppcheck: config.status
 	rval=0; \
@@ -187,30 +208,38 @@ siglist.c signame.c:
 	cd lib/util && exec $(MAKE) $@
 
 depend: siglist.c signame.c
-	$(top_srcdir)/mkdep.pl --builddir=`pwd` --srcdir=$(top_srcdir) \
-	    lib/util/Makefile.in lib/zlib/Makefile.in \
+	$(scriptdir)/mkdep.pl \
+	    --srcdir=$(abs_top_srcdir) --builddir=$(abs_top_builddir) \
+	    lib/util/Makefile.in lib/zlib/Makefile.in lib/eventlog/Makefile.in \
+	    lib/iolog/Makefile.in lib/logsrv/Makefile.in logsrvd/Makefile.in \
 	    plugins/group_file/Makefile.in plugins/sample/Makefile.in \
 	    plugins/sudoers/Makefile.in plugins/system_group/Makefile.in \
+	    plugins/python/Makefile.in \
 	    src/Makefile.in && \
 	$(top_builddir)/config.status --file $(top_builddir)/lib/util/Makefile \
+	    --file $(top_builddir)/lib/zlib/Makefile \
+	    --file $(top_builddir)/lib/eventlog/Makefile \
+	    --file $(top_builddir)/lib/iolog/Makefile \
+	    --file $(top_builddir)/lib/logsrv/Makefile \
+	    --file $(top_builddir)/logsrvd/Makefile \
 	    --file $(top_builddir)/plugins/sample/Makefile \
 	    --file $(top_builddir)/plugins/group_file/Makefile \
 	    --file $(top_builddir)/plugins/sudoers/Makefile \
 	    --file $(top_builddir)/plugins/system_group/Makefile \
-	    --file $(top_builddir)/src/Makefile \
-	    --file $(top_builddir)/lib/zlib/Makefile
+	    --file $(top_builddir)/plugins/python/Makefile \
+	    --file $(top_builddir)/src/Makefile
 
 ChangeLog:
-	if test -d $(srcdir)/.hg && cd $(srcdir); then \
-	    if hg log --style=changelog -r "sort(branch(.) or follow(), -date)" > $@.tmp; then \
-		mv -f $@.tmp $@; \
+	if test -d $(srcdir)/.hg; then \
+	    if hg log -R $(srcdir) --style=changelog -r "sort(branch(.) or follow(), -date)" > $@.tmp; then \
+		mv -f $@.tmp $(srcdir)/$@; \
 	    else \
 		rm -f $@.tmp; \
 	    fi; \
-	elif test -d $(srcdir)/.git && cd $(srcdir); then \
-	    $(top_srcdir)/log2cl.pl -b master > $@; \
+	elif test -d $(srcdir)/.git; then \
+	    $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $(srcdir)/$@; \
 	else \
-	    echo "ChangeLog data not available" > $@; \
+	    echo "ChangeLog data not available" > $(srcdir)/$@; \
 	fi
 
 config.status:
@@ -238,16 +267,16 @@ update-pot:
 		echo "Updating $$pot"; \
 		domain=`basename $$pot .pot`; \
 		case "$$domain" in \
-		    sudo) tmpfiles=; cfiles="src/*c lib/*/*c";; \
+		    sudo) tmpfiles=; cfiles="src/*.c lib/util/*.c";; \
 		    sudoers) \
 			echo "gettext \"syntax error\"" > confstr.sh; \
-			$(SED) -n 's/^.*--with-passprompt=\(.*\)$$/gettext \"\1\"/p' mkpkg | sort -u >> confstr.sh; \
+			$(SED) -n 's/^.*--with-passprompt=\(.*\)$$/gettext \"\1\"/p' $(scriptdir)/mkpkg | sort -u >> confstr.sh; \
 			$(SED) -n -e 's/^badpass_message="/gettext "/p' \
 			    -e 's/^passprompt="/gettext "/p' \
 			    -e 's/^mailsub="/gettext "/p' configure.ac \
 			    >> confstr.sh; \
 			tmpfiles=confstr.sh; \
-			cfiles="plugins/sudoers/*.c plugins/sudoers/auth/*.c";; \
+			cfiles="lib/eventlog/*.c lib/iolog/*.c logsrvd/*.c plugins/sudoers/*.c plugins/sudoers/auth/*.c";; \
 		    *) echo unknown domain $$domain; continue;; \
 		esac; \
 		$(XGETTEXT) $(XGETTEXT_OPTS) -d$$domain $$cfiles $$tmpfiles -o $$pot.tmp; \
@@ -313,7 +342,7 @@ install-nls:
 		for lang in $$SUDO_LINGUAS; do \
 		    test -s $$podir/$$lang.mo || continue; \
 		    echo $(ECHO_N) " $$lang$(ECHO_C)"; \
-		    $(SHELL) $(top_srcdir)/mkinstalldirs $(DESTDIR)$(localedir)/$$lang/LC_MESSAGES; \
+		    $(SHELL) $(scriptdir)/mkinstalldirs $(DESTDIR)$(localedir)/$$lang/LC_MESSAGES; \
 		    if test -n "$(LOCALEDIR_SUFFIX)"; then \
 			if test ! -d $(DESTDIR)$(localedir)/$$lang$(LOCALEDIR_SUFFIX); then \
 			    ln -s $$lang $(DESTDIR)$(localedir)/$$lang$(LOCALEDIR_SUFFIX); \
@@ -325,7 +354,10 @@ install-nls:
 	    done; \
 	fi
 
-check-dist: update-pot compile-po
+mkdefaults:
+	cd plugins/sudoers && exec $(MAKE) DEVEL=1 ./def_data.c ./def_data.h
+
+check-dist: update-pot compile-po mkdefaults
 	@if test -d $(srcdir)/.hg && cd $(srcdir); then \
 	    if test `hg stat -am | wc -l` -ne 0; then \
 		echo "Uncommitted changes" 1>&2; \
@@ -344,36 +376,37 @@ force-dist: ChangeLog $(srcdir)/MANIFEST
 	gzip -9f ../$(PACKAGE_TARNAME)-$(VERSION).tar && \
 	ls -l ../$(PACKAGE_TARNAME)-$(VERSION).tar.gz
 
-package: $(srcdir)/sudo.pp
-	DESTDIR=`cd $(top_builddir) && pwd`/destdir; rm -rf $$DESTDIR; \
+package: @PPFILES@
+	DESTDIR=$(abs_top_builddir)/destdir; rm -rf $$DESTDIR; \
 	$(MAKE) install INSTALL_OWNER= DESTDIR=$$DESTDIR && \
-	$(SHELL) $(srcdir)/pp $(PPFLAGS) \
-	    --destdir=$$DESTDIR \
-	    $(srcdir)/sudo.pp \
-	    prefix=$(prefix) \
-	    bindir=$(bindir) \
-	    sbindir=$(sbindir) \
-	    libexecdir=$(libexecdir) \
-	    includedir=$(includedir) \
-	    vardir=$(vardir) \
-	    rundir=$(rundir) \
-	    mandir=$(mandir) \
-	    localedir=$(localedir) \
-	    docdir=$(docdir) \
-	    exampledir=$(exampledir) \
-	    sysconfdir=$(sysconfdir) \
-	    sudoersdir=$(sudoersdir) \
-	    sudoers_uid=$(sudoers_uid) \
-	    sudoers_gid=$(sudoers_gid) \
-	    sudoers_mode=$(sudoers_mode) \
-	    shlib_mode=$(shlib_mode) \
-	    version=$(VERSION) $(PPVARS)
+	for p in @PPFILES@; do \
+	    $(SHELL) $(scriptdir)/pp $(PPFLAGS) --destdir=$$DESTDIR $$p \
+		prefix=$(prefix) \
+		bindir=$(bindir) \
+		sbindir=$(sbindir) \
+		libexecdir=$(libexecdir) \
+		includedir=$(includedir) \
+		vardir=$(vardir) \
+		rundir=$(rundir) \
+		mandir=$(mandir) \
+		localedir=$(localedir) \
+		docdir=$(docdir) \
+		exampledir=$(exampledir) \
+		sysconfdir=$(sysconfdir) \
+		sudoersdir=$(sudoersdir) \
+		sudoers_uid=$(sudoers_uid) \
+		sudoers_gid=$(sudoers_gid) \
+		sudoers_mode=$(sudoers_mode) \
+		shlib_mode=$(shlib_mode) \
+		python_version=$(python_version) \
+		version=$(VERSION) $(PPVARS); \
+	    done
 
 clean: config.status
 	for d in $(SUBDIRS) $(SAMPLES); do \
 	    (cd $$d && exec $(MAKE) $@); \
 	done
-	-rm -rf cov-int cov-int.tgz
+	-rm -rf cov-int cov-int.tgz uncrustify.files
 
 mostlyclean: clean
 
@@ -381,8 +414,9 @@ distclean: config.status
 	for d in $(SUBDIRS) $(SAMPLES); do \
 	    (cd $$d && exec $(MAKE) $@); \
 	done
-	-rm -rf autom4te.cache config.cache config.h config.log config.status \
-	    init.d/*.sh init.d/sudo.conf libtool Makefile pathnames.h stamp-*
+	-rm -rf autom4te.cache ChangeLog config.cache config.h config.log \
+	    config.status etc/init.d/*.sh etc/init.d/sudo.conf libtool \
+	    Makefile pathnames.h stamp-*
 
 cleandir: distclean
 
@@ -401,4 +435,4 @@ sandwich:
 	    echo "What?  Make it yourself!"; \
 	fi
 
-.PHONY: ChangeLog me a sandwhich
+.PHONY: ChangeLog me a sandwhich check-format reformat

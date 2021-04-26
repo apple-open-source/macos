@@ -755,7 +755,9 @@
     [self.keychainZone addToZone: ckr2];
 
     // We expect a delete operation with the "higher" UUID.
-    [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
+    [self expectCKDeleteItemRecords:1
+                             zoneID:self.keychainZoneID
+         expectedOperationGroupName:@"incoming-queue-response"];
 
     // Trigger a notification (with hilariously fake data)
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
@@ -1150,7 +1152,6 @@
     uint64_t n = OSSwapHostToLittleConstInt64([future_number_field unsignedLongValue]);
     authenticatedData[@"future_number_field"] = [NSData dataWithBytes:&n length:sizeof(n)];
 
-
     cipheritem.encitem = [CKKSItemEncrypter encryptDictionary:item key:itemkey.aessivkey authenticatedData:authenticatedData error:&error];
     XCTAssertNil(error, "no error encrypting object");
     XCTAssertNotNil(cipheritem.encitem, "Recieved ciphertext");
@@ -1398,6 +1399,11 @@
     }
 
     OCMVerifyAllWithDelay(self.mockDatabase, 40);
+
+    [self measureBlock:^{
+        CKKSScanLocalItemsOperation* scan = [self.keychainView scanLocalItems:@"test-speed"];
+        [scan waitUntilFinished];
+    }];
 }
 
 - (void)testUploadInitialKeyHierarchy {
@@ -1568,6 +1574,31 @@
     XCTAssertNil(keysetOp.error, "Should be no error fetching a keyset");
     XCTAssertNotNil(keysetOp.keyset, "Should have a keyset");
     XCTAssertNotNil(keysetOp.keyset.tlk, "Should have a TLK");
+}
+
+- (void)testProvideKeysetWhileActivelyLosingTrust {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
+
+    [self.keychainView.stateMachine testPauseStateMachineAfterEntering:SecCKKSZoneKeyStateLoseTrust];
+
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoseTrust] wait:20*NSEC_PER_SEC], @"Key state should become 'lose-trust'");
+    XCTAssertTrue([self.keychainView.stateMachine isPaused], @"State machine should be in a test pause");
+
+    CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keysetOp = [self.keychainView findKeySet:NO];
+
+    [self.keychainView.stateMachine testReleaseStateMachinePause:SecCKKSZoneKeyStateLoseTrust];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], @"Key state should become 'waitfortrust'");
+
+    [keysetOp timeout:20*NSEC_PER_SEC];
+    [keysetOp waitUntilFinished];
+
+    XCTAssertNil(keysetOp.error, "Should be no error fetching a keyset");
+    XCTAssertNotNil(keysetOp.keyset, "Should have a keyset");
+    XCTAssertNil(keysetOp.keyset.tlk, "Should not have a TLK while without trust (and without receiving the tlk bits)");
 }
 
 - (void)testUploadInitialKeyHierarchyAfterLockedStart {
@@ -1764,13 +1795,23 @@
     [self waitForCKModifications];
 
     // We expect a single class C record to be uploaded.
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self expectCKModifyItemRecords:1
+                     deletedRecords:0
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]
+         expectedOperationGroupName:@"keychain-api-use"];
 
     [self addGenericPassword: @"data" account: @"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // now, expect a single class A record to be uploaded
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
+    [self expectCKModifyItemRecords:1
+                     deletedRecords:0
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:[self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]
+         expectedOperationGroupName:@"keychain-api-use"];
 
     XCTAssertEqual(errSecSuccess, SecItemAdd((__bridge CFDictionaryRef)@{
                                                                          (id)kSecClass : (id)kSecClassGenericPassword,
@@ -2167,9 +2208,10 @@
     [self findGenericPassword:@"classCItem" expecting:errSecSuccess];
     [self findGenericPassword:@"classAItem" expecting:errSecItemNotFound];
 
+    NSOperation* results = [self.keychainView resultsOfNextProcessIncomingQueueOperation];
     self.aksLockState = false;
     [self.lockStateTracker recheck];
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [results waitUntilFinished];
 
     [self findGenericPassword:@"classCItem" expecting:errSecSuccess];
     [self findGenericPassword:@"classAItem" expecting:errSecSuccess];
@@ -3720,11 +3762,12 @@
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReadyPendingUnlock] wait:20*NSEC_PER_SEC], "Key state should have returned to readypendingunlock");
 
+    NSOperation* results = [self.keychainView resultsOfNextProcessIncomingQueueOperation];
     self.aksLockState = false;
     [self.lockStateTracker recheck];
 
     // And now it does
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [results waitUntilFinished];
     [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
     [self findGenericPassword:accountWillExist expecting:errSecSuccess];
 
@@ -4798,8 +4841,12 @@
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS entered waitfortrust");
 
     // Okay! Upon sign in, this item should be uploaded
-    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
-                          checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self expectCKModifyItemRecords:1
+                     deletedRecords:0
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]
+         expectedOperationGroupName:@"restart-setup"];
 
     [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     self.mockSOSAdapter.circleStatus = kSOSCCInCircle;

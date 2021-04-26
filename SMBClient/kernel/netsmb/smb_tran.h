@@ -46,41 +46,43 @@
 /*
  * Transport parameters
  */
-#define	SMBTP_SNDSZ	1		/* R  - int */
-#define	SMBTP_RCVSZ	2		/* R  - int */
-#define	SMBTP_TIMEOUT	3		/* RW - struct timespec */
-#define	SMBTP_SELECTID	4		/* RW - (void *) */
-#define SMBTP_UPCALL	5		/* RW - (* void)(void *) */
-#define SMBTP_QOS		6		/* RW - uint32_t */
+#define	SMBTP_SNDSZ     1   /* R  - int */
+#define	SMBTP_RCVSZ     2   /* R  - int */
+#define	SMBTP_TIMEOUT   3   /* RW - struct timespec */
+#define	SMBTP_SELECTID  4   /* RW - (void *) */
+#define SMBTP_UPCALL    5   /* RW - (* void)(void *) */
+#define SMBTP_QOS       6   /* RW - uint32_t */
+#define SMBTP_IP_ADDR   7   /* R  - struct sockaddr_storage */
+#define SMBTP_BOUND_IF  8   /* W  - uint32_t */
 
 struct smb_tran_ops;
 
 struct smb_tran_desc {
 	sa_family_t	tr_type;
-	int	(*tr_create)(struct smb_session *sessionp);							/* smb_nbst_create */
-	int	(*tr_done)(struct smb_session *sessionp);								/* smb_nbst_done */
-	int	(*tr_bind)(struct smb_session *sessionp, struct sockaddr *sap);		/* smb_nbst_bind */
-	int	(*tr_connect)(struct smb_session *sessionp, struct sockaddr *sap);	/* smb_nbst_connect */
-	int	(*tr_disconnect)(struct smb_session *sessionp);						/* smb_nbst_disconnect */
-	int	(*tr_send)(struct smb_session *sessionp, mbuf_t m0);					/* smb_nbst_send */
-	int	(*tr_recv)(struct smb_session *sessionp, mbuf_t *mpp);				/* smb_nbst_recv */
-	void (*tr_timo)(struct smb_session *sessionp);							/* smb_nbst_timo */
-	int	(*tr_getparam)(struct smb_session *sessionp, int param, void *data);	/* smb_nbst_getparam */
-	int	(*tr_setparam)(struct smb_session *sessionp, int param, void *data);	/* smb_nbst_setparam */
-	int	(*tr_fatal)(struct smb_session *sessionp, int error);					/* smb_nbst_fatal */
+	int	 (*tr_create)(struct smbiod *iod);                          /* smb_nbst_create */
+	int	 (*tr_done)(struct smbiod *iod);                            /* smb_nbst_done */
+	int	 (*tr_bind)(struct smbiod *iod, struct sockaddr *sap);      /* smb_nbst_bind */
+	int	 (*tr_connect)(struct smbiod *iod, struct sockaddr *sap);   /* smb_nbst_connect */
+	int	 (*tr_disconnect)(struct smbiod *iod);                      /* smb_nbst_disconnect */
+	int	 (*tr_send)(struct smbiod *iod, mbuf_t m0);                 /* smb_nbst_send */
+	int	 (*tr_recv)(struct smbiod *iod, mbuf_t *mpp);               /* smb_nbst_recv */
+	void (*tr_timo)(struct smbiod *iod);                            /* smb_nbst_timo */
+	int	 (*tr_getparam)(struct smbiod *iod, int param, void *data); /* smb_nbst_getparam */
+	int	 (*tr_setparam)(struct smbiod *iod, int param, void *data); /* smb_nbst_setparam */
+	int	 (*tr_fatal)(struct smbiod *iod, int error);                /* smb_nbst_fatal */
 	LIST_ENTRY(smb_tran_desc)	tr_link;
 };
 
-#define SMB_TRAN_CREATE(sessionp)		(sessionp)->session_tdesc->tr_create(sessionp)
-#define SMB_TRAN_DONE(sessionp)		(sessionp)->session_tdesc->tr_done(sessionp)
-#define	SMB_TRAN_BIND(sessionp,sap)		(sessionp)->session_tdesc->tr_bind(sessionp,sap)
-#define	SMB_TRAN_CONNECT(sessionp,sap)	(sessionp)->session_tdesc->tr_connect(sessionp,sap)
-#define	SMB_TRAN_DISCONNECT(sessionp)	(sessionp)->session_tdesc->tr_disconnect(sessionp)
-#define	SMB_TRAN_SEND(sessionp,m0)		(sessionp)->session_tdesc->tr_send(sessionp,m0)
-#define	SMB_TRAN_RECV(sessionp,m)		(sessionp)->session_tdesc->tr_recv(sessionp,m)
-#define	SMB_TRAN_TIMO(sessionp)		(sessionp)->session_tdesc->tr_timo(sessionp)
-#define	SMB_TRAN_GETPARAM(sessionp,par,data)	(sessionp)->session_tdesc->tr_getparam(sessionp, par, data)
-#define	SMB_TRAN_SETPARAM(sessionp,par,data)	(sessionp)->session_tdesc->tr_setparam(sessionp, par, data)
-#define	SMB_TRAN_FATAL(sessionp, error)	(sessionp)->session_tdesc->tr_fatal(sessionp, error)
+#define SMB_TRAN_CREATE(iod)            (iod)->iod_tdesc->tr_create(iod)
+#define SMB_TRAN_DONE(iod)              (iod)->iod_tdesc->tr_done(iod)
+#define	SMB_TRAN_BIND(iod,sap)          (iod)->iod_tdesc->tr_bind(iod,sap)
+#define	SMB_TRAN_CONNECT(iod,sap)       (iod)->iod_tdesc->tr_connect(iod,sap)
+#define	SMB_TRAN_DISCONNECT(iod)        (iod)->iod_tdesc->tr_disconnect(iod)
+#define	SMB_TRAN_SEND(iod,m0)           (iod)->iod_tdesc->tr_send(iod,m0)
+#define	SMB_TRAN_RECV(iod,m)            (iod)->iod_tdesc->tr_recv(iod,m)
+#define	SMB_TRAN_TIMO(iod)              (iod)->iod_tdesc->tr_timo(iod)
+#define	SMB_TRAN_GETPARAM(iod,par,data) (iod)->iod_tdesc->tr_getparam(iod, par, data)
+#define	SMB_TRAN_SETPARAM(iod,par,data) (iod)->iod_tdesc->tr_setparam(iod, par, data)
+#define	SMB_TRAN_FATAL(iod, error)      (iod)->iod_tdesc->tr_fatal(iod, error)
 
 #endif /* _NETSMB_SMB_TRAN_H_ */

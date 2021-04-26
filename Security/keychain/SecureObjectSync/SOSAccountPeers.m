@@ -217,3 +217,27 @@ CFBooleanRef SOSAccountPeersHaveViewsEnabled(SOSAccount* account, CFArrayRef vie
     return result;
 }
 
+bool SOSAccountRemoveV0Clients(SOSAccount *account, CFErrorRef *error) {
+    CFErrorRef localError = NULL;
+    
+    CFArrayRef v0Peers = SOSAccountCopyViewUnaware(account, &localError);
+    if (error && localError) {
+        CFTransferRetained(*error, localError);
+    }
+    
+    if (v0Peers == NULL || CFArrayGetCount(v0Peers) == 0) {
+        CFReleaseNull(localError);
+        CFReleaseNull(v0Peers);
+        return true;
+    }
+    
+    bool result = SOSAccountRemovePeersFromCircle(account, v0Peers, &localError);
+    if (error && localError) {
+        CFTransferRetained(*error, localError);
+    }
+    
+    CFReleaseNull(localError);
+    CFReleaseNull(v0Peers);
+
+    return result;
+}

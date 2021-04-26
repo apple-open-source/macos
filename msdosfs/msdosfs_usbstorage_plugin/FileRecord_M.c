@@ -125,11 +125,13 @@ FILERECORD_AllocateRecord(NodeRecord_s** ppvNode, FileSystemRecord_s *psFSRecord
         pthread_mutexattr_t sAttr;
         pthread_mutexattr_init(&sAttr);
         pthread_mutexattr_settype(&sAttr, PTHREAD_MUTEX_ERRORCHECK);
-        pthread_mutex_init(&(*ppvNode)->sRecordData.sUnAlignedWriteLck, &sAttr);
         
-        for (int iCond = 0; iCond < NUM_OF_COND; iCond++) {
-            pthread_cond_init( &(*ppvNode)->sRecordData.sCondTable[iCond].sCond, NULL );
-            (*ppvNode)->sRecordData.sCondTable[iCond].uSectorNum = 0;
+        if (eRecordID == RECORD_IDENTIFIER_FILE) {
+            pthread_mutex_init(&(*ppvNode)->sExtraData.sFileData.sUnAlignedWriteLck, &sAttr);
+            for (int iCond = 0; iCond < NUM_OF_COND; iCond++) {
+                pthread_cond_init( &(*ppvNode)->sExtraData.sFileData.sCondTable[iCond].sCond, NULL );
+                (*ppvNode)->sExtraData.sFileData.sCondTable[iCond].uSectorNum = 0;
+            }
         }
         
         if (eRecordID != RECORD_IDENTIFIER_ROOT) {
@@ -197,7 +199,16 @@ exit_with_error:
 
 void FILERECORD_FreeRecord(NodeRecord_s* psNode)
 {
+wait_for_write_conter:
+    while (psNode->sExtraData.sFileData.uWriteCounter != 0) {
+        usleep(100);
+    }
+
     MultiReadSingleWrite_LockWrite( &psNode->sRecordData.sRecordLck );
+    if (psNode->sExtraData.sFileData.uWriteCounter != 0) {
+        MultiReadSingleWrite_FreeWrite( &psNode->sRecordData.sRecordLck );
+        goto wait_for_write_conter;
+    }
     FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(psNode, 0, true);
     MultiReadSingleWrite_FreeWrite( &psNode->sRecordData.sRecordLck );
 
@@ -216,10 +227,12 @@ void FILERECORD_FreeRecord(NodeRecord_s* psNode)
     //Deinit locks
     DIROPS_DereferenceDirEntrlyLockListEntry(psNode, false);
     MultiReadSingleWrite_DeInit(&psNode->sRecordData.sRecordLck);
-    pthread_mutex_destroy(&psNode->sRecordData.sUnAlignedWriteLck);
     
-    for (int iCond = 0; iCond < NUM_OF_COND; iCond++) {
-        pthread_cond_destroy( &psNode->sRecordData.sCondTable[iCond].sCond);
+    if (psNode->sRecordData.eRecordID == RECORD_IDENTIFIER_FILE) {
+        pthread_mutex_destroy(&psNode->sExtraData.sFileData.sUnAlignedWriteLck);
+        for (int iCond = 0; iCond < NUM_OF_COND; iCond++) {
+            pthread_cond_destroy( &psNode->sExtraData.sFileData.sCondTable[iCond].sCond);
+        }
     }
     
     // Invalidate magic

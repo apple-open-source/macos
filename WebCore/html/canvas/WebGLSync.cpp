@@ -58,7 +58,7 @@ WebGLSync::WebGLSync(WebGLRenderingContextBase& ctx)
     setObject(-1);
 }
 
-void WebGLSync::deleteObjectImpl(const AbstractLocker&, GraphicsContextGLOpenGL* context3d, PlatformGLObject object)
+void WebGLSync::deleteObjectImpl(const AbstractLocker&, GraphicsContextGL* context3d, PlatformGLObject object)
 {
     UNUSED_PARAM(object);
     context3d->deleteSync(m_sync);
@@ -71,7 +71,7 @@ void WebGLSync::updateCache(WebGLRenderingContextBase& context)
         return;
 
     m_allowCacheUpdate = false;
-    context.graphicsContextGL()->getSynciv(m_sync, GraphicsContextGL::SYNC_STATUS, sizeof(m_syncStatus), &m_syncStatus);
+    m_syncStatus = context.graphicsContextGL()->getSynci(m_sync, GraphicsContextGL::SYNC_STATUS);
     if (m_syncStatus == GraphicsContextGL::UNSIGNALED)
         scheduleAllowCacheUpdate(context);
 }

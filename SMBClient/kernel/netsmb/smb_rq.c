@@ -172,6 +172,7 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
 		goto done;
 	
 	rqp->sr_context = context;
+    rqp->sr_iod = rqp->sr_session->session_iod;
     
 	/*
 	 * We need to get the mid for this request. 
@@ -267,6 +268,12 @@ smb_rq_done(struct smb_rq *rqp)
 	struct mbchain *mbp; 
     struct mdchain *mdp;
 	
+    if (rqp->sr_flags & SMBR_ENQUEUED) {
+        /* Should never happen but let us know if it does */
+        SMBERROR("DANGER: rqp is still queued??? sr_flags 0x%x, sr_extflags 0x%x, cmd %d",
+                 rqp->sr_flags, rqp->sr_extflags, rqp->sr_command);
+    }
+
     smb_rq_getrequest(rqp, &mbp);
     smb_rq_getreply(rqp, &mdp);
 
@@ -282,6 +289,9 @@ smb_rq_done(struct smb_rq *rqp)
             rqp->sr_rspcreditsgranted = rqp->sr_creditcharge;
             smb2_rq_credit_increment(rqp);
         }
+        smb_iod_rel(rqp->sr_iod, rqp, __FUNCTION__);
+
+        rqp->sr_iod = NULL;
     }
     
     if (rqp->sr_share) {
@@ -325,9 +335,11 @@ smb_rq_reply(struct smb_rq *rqp)
         }
 		error = smb_iod_waitrq(rqp);
 	}
-	if (error)
-		goto done;		
     
+    if (error) {
+        goto done;
+    }
+
     smb_rq_getreply(rqp, &mdp);
     
     if (rqp->sr_extflags & SMB2_RESPONSE) {
@@ -454,9 +466,10 @@ smb_rq_simple_timed(struct smb_rq *rqp, int timo)
 
 	rqp->sr_timo = timo;	/* in seconds */
 	rqp->sr_state = SMBRQ_NOTSENT;
-	error = smb_iod_rq_enqueue(rqp);		
-	if (! error)
-		error = smb_rq_reply(rqp);
+	error = smb_iod_rq_enqueue(rqp);
+    if (! error) {
+        error = smb_rq_reply(rqp);
+    }
 	return (error);
 }
 

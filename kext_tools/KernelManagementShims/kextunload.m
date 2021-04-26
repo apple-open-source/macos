@@ -6,6 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <IOKit/kext/OSKextPrivate.h>
 #import "../kextunload_main.h"
 #import "ShimHelpers.h"
 
@@ -25,6 +26,11 @@ void shimKextunloadArgsToKMUtilAndRun(KextunloadArgs *toolArgs)
 		for (i = 0; i < count; i++) {
 			char *kextID = (char *)CFArrayGetValueAtIndex(toolArgs->kextBundleIDs, i);
 			CFStringRef kextIDRef = CFStringCreateWithCString(kCFAllocatorDefault, kextID, kCFStringEncodingUTF8);
+			if (!kextIDRef) {
+				OSKextLogStringError(NULL);
+				exitCode = EX_OSERR;
+				goto finish;
+			}
 			addArguments(@[@"-b", (__bridge NSString *)kextIDRef]);
 			SAFE_RELEASE_NULL(kextIDRef);
 		}
@@ -40,6 +46,11 @@ void shimKextunloadArgsToKMUtilAndRun(KextunloadArgs *toolArgs)
 		for (i = 0; i < count; i++) {
 			char *kextClass = (char *)CFArrayGetValueAtIndex(toolArgs->kextClassNames, i);
 			CFStringRef kextClassRef = CFStringCreateWithCString(kCFAllocatorDefault, kextClass, kCFStringEncodingUTF8);
+			if (!kextClassRef) {
+				OSKextLogStringError(NULL);
+				exitCode = EX_OSERR;
+				goto finish;
+			}
 			addArguments(@[@"--class-name", (__bridge NSString *)kextClassRef]);
 			SAFE_RELEASE_NULL(kextClassRef);
 		}
@@ -48,7 +59,9 @@ void shimKextunloadArgsToKMUtilAndRun(KextunloadArgs *toolArgs)
 	if (toolArgs->unloadPersonalities) {
 		addArgument(@"--personalities-only");
 	}
-
-	runWithShimmedArguments();
+finish:
+	if (exitCode == EX_OK) {
+		runWithShimmedArguments();
+	}
 	exit(exitCode);
 }

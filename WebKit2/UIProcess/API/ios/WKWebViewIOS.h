@@ -25,6 +25,8 @@
 
 #import "WKWebViewInternal.h"
 
+@class UIScrollEvent;
+
 #if PLATFORM(IOS_FAMILY)
 
 @interface WKWebView (WKViewInternalIOS)
@@ -67,7 +69,7 @@
 - (double)_contentZoomScale;
 
 - (double)_targetContentZoomScaleForRect:(const WebCore::FloatRect&)targetRect currentScale:(double)currentScale fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale;
-- (void)_zoomToFocusRect:(const WebCore::FloatRect&)focusedElementRect selectionRect:(const WebCore::FloatRect&)selectionRectInDocumentCoordinates insideFixed:(BOOL)insideFixed fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
+- (void)_zoomToFocusRect:(const WebCore::FloatRect&)focusedElementRect selectionRect:(const WebCore::FloatRect&)selectionRectInDocumentCoordinates fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
 - (BOOL)_zoomToRect:(WebCore::FloatRect)targetRect withOrigin:(WebCore::FloatPoint)origin fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale minimumScrollDistance:(float)minimumScrollDistance;
 - (void)_zoomOutWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
 - (void)_zoomToInitialScaleWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
@@ -125,21 +127,24 @@
 - (WebCore::FloatSize)activeViewLayoutSize:(const CGRect&)bounds;
 - (void)_updateScrollViewInsetAdjustmentBehavior;
 
+- (BOOL)_effectiveAppearanceIsDark;
+- (BOOL)_effectiveUserInterfaceLevelIsElevated;
+
+#if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
+- (void)_scrollView:(UIScrollView *)scrollView asynchronouslyHandleScrollEvent:(UIScrollEvent *)scrollEvent completion:(void (^)(BOOL handled))completion;
+#endif
+
 @property (nonatomic, readonly) WKPasswordView *_passwordView;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
 @property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
 
 @property (nonatomic, readonly) BOOL _isBackground;
 @property (nonatomic, readonly) BOOL _allowsDoubleTapGestures;
-@property (nonatomic, readonly) BOOL _stylusTapGestureShouldCreateEditableImage;
 @property (nonatomic, readonly) BOOL _haveSetObscuredInsets;
 @property (nonatomic, readonly) UIEdgeInsets _computedObscuredInset;
 @property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
 @property (nonatomic, readonly, getter=_isRetainingActiveFocusedState) BOOL _retainingActiveFocusedState;
 @property (nonatomic, readonly) int32_t _deviceOrientation;
-
-- (BOOL)_effectiveAppearanceIsDark;
-- (BOOL)_effectiveUserInterfaceLevelIsElevated;
 
 @end
 

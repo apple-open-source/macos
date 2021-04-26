@@ -35,11 +35,7 @@
 #include "XCTest_FunctionDefinitions.h"
 
 // kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
-#if TARGET_OS_OSX
-#define kMinTimeDeltaForBattRead           (4*60*60)  // 4hrs
-#else
 #define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
-#endif
 
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 
@@ -97,6 +93,7 @@ __private_extern__ void sendAdapterDetails(xpc_object_t remoteConnection, xpc_ob
 
 #if TARGET_OS_OSX
 __private_extern__ void getBatteryHealthPersistentData(xpc_object_t remoteConnection, xpc_object_t msg);
+__private_extern__ void setPermFaultStatus(xpc_object_t remoteConnection, xpc_object_t msg);
 #endif
 
 /* getActivePSType
@@ -160,6 +157,7 @@ __private_extern__ CFDictionaryRef batteryTimeRemaining_copyIOPMPowerSourceDicti
 // Get current UI SOC (battery percent)
 __private_extern__ int batteryTimeRemaining_getPercentRemaining(void);
 __private_extern__ CFStringRef batteryTimeRemaining_getBatterySerialNumber(void);
+__private_extern__ bool batteryTimeRemaining_isOBCEngaged(void);
 
 #if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
 void setBHUpdateTimeDelta(xpc_object_t remoteConnection, xpc_object_t msg);

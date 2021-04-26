@@ -23,16 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <unistd.h>
+#include <string.h>
 #include <errno.h>
 
 #include "sudo.h"
@@ -136,7 +128,7 @@ register_hook_internal(struct sudo_hook_list *head,
     int (*hook_fn)(), void *closure)
 {
     struct sudo_hook_entry *hook;
-    debug_decl(register_hook_internal, SUDO_DEBUG_HOOKS)
+    debug_decl(register_hook_internal, SUDO_DEBUG_HOOKS);
 
     if ((hook = calloc(1, sizeof(*hook))) == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
@@ -155,7 +147,7 @@ int
 register_hook(struct sudo_hook *hook)
 {
     int ret;
-    debug_decl(register_hook, SUDO_DEBUG_HOOKS)
+    debug_decl(register_hook, SUDO_DEBUG_HOOKS);
 
     if (SUDO_API_VERSION_GET_MAJOR(hook->hook_version) != SUDO_HOOK_VERSION_MAJOR) {
 	/* Major versions must match. */
@@ -196,7 +188,7 @@ deregister_hook_internal(struct sudo_hook_list *head,
     int (*hook_fn)(), void *closure)
 {
     struct sudo_hook_entry *hook, *prev = NULL;
-    debug_decl(deregister_hook_internal, SUDO_DEBUG_HOOKS)
+    debug_decl(deregister_hook_internal, SUDO_DEBUG_HOOKS);
 
     SLIST_FOREACH(hook, head, entries) {
 	if (hook->u.generic_fn == hook_fn && hook->closure == closure) {
@@ -219,7 +211,7 @@ int
 deregister_hook(struct sudo_hook *hook)
 {
     int ret = 0;
-    debug_decl(deregister_hook, SUDO_DEBUG_HOOKS)
+    debug_decl(deregister_hook, SUDO_DEBUG_HOOKS);
 
     if (SUDO_API_VERSION_GET_MAJOR(hook->hook_version) != SUDO_HOOK_VERSION_MAJOR) {
 	/* Major versions must match. */

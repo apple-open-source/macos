@@ -57,9 +57,8 @@
 #include "trust/trustd/SecTrustServer.h"
 #include "keychain/securityd/spi.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
-#if TARGET_OS_IPHONE
 #include "trust/trustd/SecTrustExceptionResetCount.h"
-#endif
+#include "trust/trustd/trustdFileLocations.h"
 
 #if TARGET_OS_OSX
 #include <Security/SecTaskPriv.h>
@@ -161,14 +160,14 @@ static bool SecXPCTrustStoreContains(SecurityClient * __unused client, xpc_objec
     bool result = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
-        CFDataRef digest = SecXPCDictionaryCopyData(event, kSecXPCKeyDigest, error);
-        if (digest) {
+        SecCertificateRef cert = SecXPCDictionaryCopyCertificate(event, kSecXPCKeyCertificate, error);
+        if (cert) {
             bool contains;
-            if (SecTrustStoreContainsCertificateWithDigest(ts, digest, &contains, error)) {
+            if (_SecTrustStoreContainsCertificate(ts, cert, &contains, error)) {
                 xpc_dictionary_set_bool(reply, kSecXPCKeyResult, contains);
                 result = true;
             }
-            CFReleaseNull(digest);
+            CFReleaseNull(cert);
         }
     }
     return result;
@@ -198,11 +197,11 @@ static bool SecXPCTrustStoreRemoveCertificate(SecurityClient * __unused client, 
                                               xpc_object_t reply, CFErrorRef *error) {
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
-        CFDataRef digest = SecXPCDictionaryCopyData(event, kSecXPCKeyDigest, error);
-        if (digest) {
-            bool result = SecTrustStoreRemoveCertificateWithDigest(ts, digest, error);
+        SecCertificateRef cert = SecXPCDictionaryCopyCertificate(event, kSecXPCKeyCertificate, error);
+        if (cert) {
+            bool result = _SecTrustStoreRemoveCertificate(ts, cert, error);
             xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
-            CFReleaseNull(digest);
+            CFReleaseNull(cert);
             return true;
         }
     }
@@ -228,15 +227,15 @@ static bool SecXPCTrustStoreCopyUsageConstraints(SecurityClient * __unused clien
     bool result = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
-        CFDataRef digest = SecXPCDictionaryCopyData(event, kSecXPCKeyDigest, error);
-        if (digest) {
+        SecCertificateRef cert = SecXPCDictionaryCopyCertificate(event, kSecXPCKeyCertificate, error);
+        if (cert) {
             CFArrayRef usageConstraints = NULL;
-            if(_SecTrustStoreCopyUsageConstraints(ts, digest, &usageConstraints, error) && usageConstraints) {
+            if(_SecTrustStoreCopyUsageConstraints(ts, cert, &usageConstraints, error) && usageConstraints) {
                 SecXPCDictionarySetPList(reply, kSecXPCKeyResult, usageConstraints, error);
                 CFReleaseNull(usageConstraints);
                 result = true;
             }
-            CFReleaseNull(digest);
+            CFReleaseNull(cert);
         }
     }
     return result;
@@ -408,7 +407,33 @@ static bool SecXPCTrustStoreCopyCARevocationAdditions(SecurityClient * __unused 
     return false;
 }
 
-#if TARGET_OS_IPHONE
+static bool SecXPCTrustStoreSetTransparentConnectionPins(SecurityClient *client, xpc_object_t event,
+                                                         xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    CFArrayRef pins = NULL;
+    if (!SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error) || !appID) {
+        /* We always want to set the app ID with the additions */
+        appID = SecTaskCopyApplicationIdentifier(client->task);
+    }
+    (void)SecXPCDictionaryCopyArrayOptional(event, kSecTrustAnchorsKey, &pins, error);
+    bool result = _SecTrustStoreSetTransparentConnectionPins(appID, pins, error);
+    xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
+    CFReleaseNull(pins);
+    CFReleaseNull(appID);
+    return false;
+}
+
+static bool SecXPCTrustStoreCopyTransparentConnectionPins(SecurityClient * __unused client, xpc_object_t event,
+                                                          xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    (void)SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error);
+    CFArrayRef pins = _SecTrustStoreCopyTransparentConnectionPins(appID, error);
+    SecXPCDictionarySetPListOptional(reply, kSecTrustAnchorsKey, pins, error);
+    CFReleaseNull(pins);
+    CFReleaseNull(appID);
+    return false;
+}
+
 static bool SecXPCTrustGetExceptionResetCount(SecurityClient * __unused client, xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
     uint64_t exceptionResetCount = SecTrustServerGetExceptionResetCount(error);
     if (error && *error) {
@@ -429,7 +454,6 @@ static bool SecXPCTrustIncrementExceptionResetCount(SecurityClient * __unused cl
     xpc_dictionary_set_bool(reply, kSecXPCKeyResult, status);
     return result;
 }
-#endif
 
 static bool SecXPC_Valid_Update(SecurityClient * __unused client, xpc_object_t __unused event,
                                 xpc_object_t reply, CFErrorRef *error) {
@@ -462,13 +486,13 @@ struct trustd_operations {
     SecXPCServerOperation trust_store_copy_ct_exceptions;
     SecXPCServerOperation ota_secexperiment_get_asset;
     SecXPCServerOperation ota_secexperiment_get_new_asset;
-#if TARGET_OS_IPHONE
     SecXPCServerOperation trust_get_exception_reset_count;
     SecXPCServerOperation trust_increment_exception_reset_count;
-#endif
     SecXPCServerOperation trust_store_set_ca_revocation_additions;
     SecXPCServerOperation trust_store_copy_ca_revocation_additions;
     SecXPCServerOperation valid_update;
+    SecXPCServerOperation trust_store_set_transparent_connection_pins;
+    SecXPCServerOperation trust_store_copy_transparent_connection_pins;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -489,13 +513,13 @@ static struct trustd_operations trustd_ops = {
     .networking_analytics_report = { NULL, SecXPC_Networking_AnalyticsReport },
     .trust_store_set_ct_exceptions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreSetCTExceptions },
     .trust_store_copy_ct_exceptions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyCTExceptions },
-#if TARGET_OS_IPHONE
     .trust_get_exception_reset_count = { NULL, SecXPCTrustGetExceptionResetCount },
     .trust_increment_exception_reset_count = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustIncrementExceptionResetCount },
-#endif
     .trust_store_set_ca_revocation_additions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreSetCARevocationAdditions },
     .trust_store_copy_ca_revocation_additions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyCARevocationAdditions },
     .valid_update = { NULL, SecXPC_Valid_Update },
+    .trust_store_set_transparent_connection_pins = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreSetTransparentConnectionPins },
+    .trust_store_copy_transparent_connection_pins = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyTransparentConnectionPins },
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -649,14 +673,12 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 case kSecXPCOpCopyCTExceptions:
                     server_op = &trustd_ops.trust_store_copy_ct_exceptions;
                     break;
-#if TARGET_OS_IPHONE
                 case sec_trust_get_exception_reset_count_id:
                     server_op = &trustd_ops.trust_get_exception_reset_count;
                     break;
                 case sec_trust_increment_exception_reset_count_id:
                     server_op = &trustd_ops.trust_increment_exception_reset_count;
                     break;
-#endif
                 case kSecXPCOpSetCARevocationAdditions:
                     server_op = &trustd_ops.trust_store_set_ca_revocation_additions;
                     break;
@@ -665,6 +687,12 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     break;
                 case kSecXPCOpValidUpdate:
                     server_op = &trustd_ops.valid_update;
+                    break;
+                case kSecXPCOpSetTransparentConnectionPins:
+                    server_op = &trustd_ops.trust_store_set_transparent_connection_pins;
+                    break;
+                case kSecXPCOpCopyTransparentConnectionPins:
+                    server_op = &trustd_ops.trust_store_copy_transparent_connection_pins;
                     break;
                 default:
                     break;
@@ -803,25 +831,17 @@ int main(int argc, char *argv[])
     }
 
     trustd_sandbox();
+    FixTrustdFilePermissions();
+    /* set up SQLite before some other component has a chance to create a database connection */
+    _SecDbServerSetup();
 
     const char *serviceName = kTrustdXPCServiceName;
     if (argc > 1 && (!strcmp(argv[1], "--agent"))) {
         serviceName = kTrustdAgentXPCServiceName;
     }
 
-    /* set up SQLite before some other component has a chance to create a database connection */
-    _SecDbServerSetup();
-
-    gTrustd = &trustd_spi;
-
-    /* Initialize static content */
-    SecPolicyServerInitialize();    // set up callbacks for policy checks
-    SecRevocationDbInitialize();    // set up revocation database if it doesn't already exist, or needs to be replaced
-    SecPinningDbInitialize();       // set up the pinning database
-#if TARGET_OS_OSX
-    SecTrustLegacySourcesListenForKeychainEvents(); // set up the legacy keychain event listeners (for cache invalidation)
-#endif
-
+    /* migrate files and initialize static content */
+    trustd_init_server();
     /* We're ready now. Go. */
     trustd_xpc_init(serviceName);
     dispatch_main();

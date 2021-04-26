@@ -602,3 +602,46 @@ int ping_host(char *host_name)
     free(h_addr_list);
     return 1;
 }
+
+static int current_dir = -1;
+static char *home_var = NULL;
+
+NSURL *setUpTmpDir(void) {
+    /* Set up TMP directory for trustd's files */
+    int ok = 0;
+    NSError* error = nil;
+    NSString* pid = [NSString stringWithFormat: @"tst-%d", [[NSProcessInfo processInfo] processIdentifier]];
+    NSURL* tmpDirURL = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:pid];
+    ok = (bool)tmpDirURL;
+
+    if (current_dir == -1 && home_var == NULL) {
+        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:tmpDirURL
+                                            withIntermediateDirectories:NO
+                                                             attributes:NULL
+                                                                  error:&error];
+
+        NSURL* libraryURL = [tmpDirURL URLByAppendingPathComponent:@"Library"];
+        NSURL* preferencesURL = [tmpDirURL URLByAppendingPathComponent:@"Preferences"];
+
+        ok =  (ok && (current_dir = open(".", O_RDONLY) >= 0)
+               && (chdir([tmpDirURL fileSystemRepresentation]) >= 0)
+               && (setenv("HOME", [tmpDirURL fileSystemRepresentation], 1) >= 0)
+               && (bool)(home_var = getenv("HOME")));
+
+        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:libraryURL
+                                            withIntermediateDirectories:NO
+                                                             attributes:NULL
+                                                                  error:&error];
+
+        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:preferencesURL
+                                            withIntermediateDirectories:NO
+                                                             attributes:NULL
+                                                                  error:&error];
+    }
+
+    if (ok > 0) {
+        return tmpDirURL;
+    }
+
+    return nil;
+}

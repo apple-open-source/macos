@@ -1,0 +1,15 @@
+diff --git a/config.in b/config.in
+index ff0bf5c..6bf1a61 100644
+--- a/config.in
++++ b/config.in
+@@ -10,8 +10,8 @@
+ 
+ BUILD_BZLIB   = Test
+ 
+-BZLIB_INCLUDE = #./bzlib-src
+-BZLIB_LIB     = #./bzlib-src
++BZLIB_INCLUDE = @SDKROOT@/usr/include
++BZLIB_LIB     = @SDKROOT@/usr/lib
+ BZLIB_BIN     = #./bzlib-src
+ 
+ # end of file config.in

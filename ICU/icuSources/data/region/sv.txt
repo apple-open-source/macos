@@ -145,7 +145,7 @@ sv{
         IL{"Israel"}
         IM{"Isle of Man"}
         IN{"Indien"}
-        IO{"Brittiska territoriet i Indiska oceanen"}
+        IO{"Chagosöarna"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Island"}

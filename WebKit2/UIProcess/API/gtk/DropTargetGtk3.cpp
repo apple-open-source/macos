@@ -56,25 +56,23 @@ DropTarget::DropTarget(GtkWidget* webView)
         static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
     gtk_drag_dest_set_target_list(m_webView, list.get());
 
-    g_signal_connect(m_webView, "drag-motion", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, guint time, gpointer userData) -> gboolean {
+    g_signal_connect_after(m_webView, "drag-motion", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, guint time, gpointer userData) -> gboolean {
         auto& drop = *static_cast<DropTarget*>(userData);
-        if (!drop.m_drop) {
-            drop.m_drop = context;
-            drop.m_position = IntPoint(x, y);
-            drop.accept(time);
+        if (drop.m_drop != context) {
+            drop.accept(context, IntPoint(x, y), time);
         } else if (drop.m_drop == context)
             drop.update({ x, y }, time);
         return TRUE;
     }), this);
 
-    g_signal_connect(m_webView, "drag-leave", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, guint time, gpointer userData) {
+    g_signal_connect_after(m_webView, "drag-leave", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, guint time, gpointer userData) {
         auto& drop = *static_cast<DropTarget*>(userData);
         if (drop.m_drop != context)
             return;
         drop.leave();
     }), this);
 
-    g_signal_connect(m_webView, "drag-drop", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, guint time, gpointer userData) -> gboolean {
+    g_signal_connect_after(m_webView, "drag-drop", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, guint time, gpointer userData) -> gboolean {
         auto& drop = *static_cast<DropTarget*>(userData);
         if (drop.m_drop != context) {
             gtk_drag_finish(context, FALSE, FALSE, time);
@@ -84,7 +82,7 @@ DropTarget::DropTarget(GtkWidget* webView)
         return TRUE;
     }), this);
 
-    g_signal_connect(m_webView, "drag-data-received", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, GtkSelectionData* data, guint info, guint time, gpointer userData) {
+    g_signal_connect_after(m_webView, "drag-data-received", G_CALLBACK(+[](GtkWidget*, GdkDragContext* context, gint x, gint y, GtkSelectionData* data, guint info, guint time, gpointer userData) {
         auto& drop = *static_cast<DropTarget*>(userData);
         if (drop.m_drop != context)
             return;
@@ -97,13 +95,15 @@ DropTarget::~DropTarget()
     g_signal_handlers_disconnect_by_data(m_webView, this);
 }
 
-void DropTarget::accept(unsigned time)
+void DropTarget::accept(GdkDragContext* drop, Optional<WebCore::IntPoint> position, unsigned time)
 {
     if (m_leaveTimer.isActive()) {
         m_leaveTimer.stop();
         leaveTimerFired();
     }
 
+    m_drop = drop;
+    m_position = position;
     m_dataRequestCount = 0;
     m_selectionData = WTF::nullopt;
 
@@ -230,11 +230,8 @@ void DropTarget::didPerformAction()
     auto* page = webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_webView));
     ASSERT(page);
 
-    auto operation = page->currentDragOperation();
-    if (operation == m_operation)
-        return;
+    m_operation = page->currentDragOperation();
 
-    m_operation = operation;
     gdk_drag_status(m_drop.get(), dragOperationToSingleGdkDragAction(m_operation), GDK_CURRENT_TIME);
 }
 
@@ -262,6 +259,10 @@ void DropTarget::leave()
 
 void DropTarget::drop(IntPoint&& position, unsigned time)
 {
+    // If we don't have data at this point, allow the leave timer to fire, ending the drop operation.
+    if (!m_selectionData)
+        return;
+
     if (m_leaveTimer.isActive())
         m_leaveTimer.stop();
 

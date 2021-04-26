@@ -260,7 +260,7 @@ public:
         case SourceParseMode::GetterMode:
         case SourceParseMode::SetterMode:
         case SourceParseMode::MethodMode:
-        case SourceParseMode::InstanceFieldInitializerMode:
+        case SourceParseMode::ClassFieldInitializerMode:
             setIsFunction();
             break;
 
@@ -1712,15 +1712,15 @@ private:
     template <class TreeBuilder> TreeSourceElements parseAsyncFunctionSourceElements(TreeBuilder&, SourceParseMode, bool isArrowFunctionBodyExpression, SourceElementsMode);
     template <class TreeBuilder> TreeSourceElements parseAsyncGeneratorFunctionSourceElements(TreeBuilder&, SourceParseMode, bool isArrowFunctionBodyExpression, SourceElementsMode);
     template <class TreeBuilder> TreeSourceElements parseSingleFunction(TreeBuilder&, Optional<int> functionConstructorParametersEndPosition);
-    template <class TreeBuilder> TreeSourceElements parseInstanceFieldInitializerSourceElements(TreeBuilder&, const Vector<JSTextPosition>&);
+    template <class TreeBuilder> TreeSourceElements parseClassFieldInitializerSourceElements(TreeBuilder&, const Vector<JSTextPosition>&);
     template <class TreeBuilder> TreeStatement parseStatementListItem(TreeBuilder&, const Identifier*& directive, unsigned* directiveLiteralLength);
     template <class TreeBuilder> TreeStatement parseStatement(TreeBuilder&, const Identifier*& directive, unsigned* directiveLiteralLength = nullptr);
     enum class ExportType { Exported, NotExported };
     template <class TreeBuilder> TreeStatement parseClassDeclaration(TreeBuilder&, ExportType = ExportType::NotExported, DeclarationDefaultContext = DeclarationDefaultContext::Standard);
-    template <class TreeBuilder> TreeStatement parseFunctionDeclaration(TreeBuilder&, ExportType = ExportType::NotExported, DeclarationDefaultContext = DeclarationDefaultContext::Standard, Optional<int> functionConstructorParametersEndPosition = WTF::nullopt);
-    template <class TreeBuilder> TreeStatement parseFunctionDeclarationStatement(TreeBuilder&, bool isAsync, bool parentAllowsFunctionDeclarationAsStatement);
+    enum class FunctionDeclarationType { Declaration, Statement };
+    template <class TreeBuilder> TreeStatement parseFunctionDeclaration(TreeBuilder&, FunctionDeclarationType = FunctionDeclarationType::Declaration, ExportType = ExportType::NotExported, DeclarationDefaultContext = DeclarationDefaultContext::Standard, Optional<int> functionConstructorParametersEndPosition = WTF::nullopt);
+    template <class TreeBuilder> TreeStatement parseFunctionDeclarationStatement(TreeBuilder&, bool parentAllowsFunctionDeclarationAsStatement);
     template <class TreeBuilder> TreeStatement parseAsyncFunctionDeclaration(TreeBuilder&, ExportType = ExportType::NotExported, DeclarationDefaultContext = DeclarationDefaultContext::Standard, Optional<int> functionConstructorParametersEndPosition = WTF::nullopt);
-    template <class TreeBuilder> NEVER_INLINE bool maybeParseAsyncFunctionDeclarationStatement(TreeBuilder& context, TreeStatement& result, bool parentAllowsFunctionDeclarationAsStatement);
     template <class TreeBuilder> TreeStatement parseVariableDeclaration(TreeBuilder&, DeclarationType, ExportType = ExportType::NotExported);
     template <class TreeBuilder> TreeStatement parseDoWhileStatement(TreeBuilder&);
     template <class TreeBuilder> TreeStatement parseWhileStatement(TreeBuilder&);
@@ -1760,9 +1760,9 @@ private:
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseAsyncFunctionExpression(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeArguments parseArguments(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseArgument(TreeBuilder&, ArgumentType&);
-    template <class TreeBuilder> TreeProperty parseProperty(TreeBuilder&, bool strict);
+    template <class TreeBuilder> TreeProperty parseProperty(TreeBuilder&);
     template <class TreeBuilder> TreeExpression parsePropertyMethod(TreeBuilder& context, const Identifier* methodName, SourceParseMode);
-    template <class TreeBuilder> TreeProperty parseGetterSetter(TreeBuilder&, bool strict, PropertyNode::Type, unsigned getterOrSetterStartOffset, ConstructorKind, ClassElementTag);
+    template <class TreeBuilder> TreeProperty parseGetterSetter(TreeBuilder&, PropertyNode::Type, unsigned getterOrSetterStartOffset, ConstructorKind, ClassElementTag);
     template <class TreeBuilder> ALWAYS_INLINE TreeFunctionBody parseFunctionBody(TreeBuilder&, SyntaxChecker&, const JSTokenLocation&, int, int functionKeywordStart, int functionNameStart, int parametersStart, ConstructorKind, SuperBinding, FunctionBodyType, unsigned, SourceParseMode);
     template <class TreeBuilder> ALWAYS_INLINE bool parseFormalParameters(TreeBuilder&, TreeFormalParameterList, bool isArrowFunction, bool isMethod, unsigned&);
     enum VarDeclarationListContext { ForLoopContext, VarDeclarationContext };
@@ -1784,7 +1784,7 @@ private:
     template <class TreeBuilder> typename TreeBuilder::ImportSpecifier parseImportClauseItem(TreeBuilder&, ImportSpecifierType);
     template <class TreeBuilder> typename TreeBuilder::ModuleName parseModuleName(TreeBuilder&);
     template <class TreeBuilder> TreeStatement parseImportDeclaration(TreeBuilder&);
-    template <class TreeBuilder> typename TreeBuilder::ExportSpecifier parseExportSpecifier(TreeBuilder& context, Vector<std::pair<const Identifier*, const Identifier*>>& maybeExportedLocalNames, bool& hasKeywordForLocalBindings);
+    template <class TreeBuilder> typename TreeBuilder::ExportSpecifier parseExportSpecifier(TreeBuilder& context, Vector<std::pair<const Identifier*, const Identifier*>>& maybeExportedLocalNames, bool& hasKeywordForLocalBindings, bool& hasReferencedModuleExportNames);
     template <class TreeBuilder> TreeStatement parseExportDeclaration(TreeBuilder&);
 
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression createResolveAndUseVariable(TreeBuilder&, const Identifier*, bool isEval, const JSTextPosition&, const JSTokenLocation&);
@@ -1801,8 +1801,6 @@ private:
 
     template <class TreeBuilder> NEVER_INLINE typename TreeBuilder::TemplateString parseTemplateString(TreeBuilder& context, bool isTemplateHead, typename LexerType::RawStringsBuildMode, bool& elementIsTail);
     template <class TreeBuilder> NEVER_INLINE typename TreeBuilder::TemplateLiteral parseTemplateLiteral(TreeBuilder&, typename LexerType::RawStringsBuildMode);
-
-    template <class TreeBuilder> ALWAYS_INLINE bool shouldCheckPropertyForUnderscoreProtoDuplicate(TreeBuilder&, const TreeProperty&);
 
     template <class TreeBuilder> NEVER_INLINE const char* metaPropertyName(TreeBuilder&, TreeExpression);
 
@@ -2055,7 +2053,7 @@ private:
 
 template <typename LexerType>
 template <class ParsedNode>
-std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const Identifier& calleeName, SourceParseMode parseMode, ParsingContext parsingContext, Optional<int> functionConstructorParametersEndPosition, const VariableEnvironment* variablesUnderTDZ, const Vector<JSTextPosition>* instanceFieldLocations)
+std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const Identifier& calleeName, SourceParseMode parseMode, ParsingContext parsingContext, Optional<int> functionConstructorParametersEndPosition, const VariableEnvironment* parentScopePrivateNames, const Vector<JSTextPosition>* classFieldLocations)
 {
     int errLine;
     String errMsg;
@@ -2070,12 +2068,12 @@ std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const I
     ASSERT(m_source->startColumn() > OrdinalNumber::beforeFirst());
     unsigned startColumn = m_source->startColumn().zeroBasedInt();
 
-    if (isEvalNode<ParsedNode>() && variablesUnderTDZ && variablesUnderTDZ->privateNamesSize()) {
+    if (isEvalNode<ParsedNode>() && parentScopePrivateNames && parentScopePrivateNames->privateNamesSize()) {
         currentScope()->setIsPrivateNameScope();
-        variablesUnderTDZ->copyPrivateNamesTo(currentScope()->lexicalVariables());
+        parentScopePrivateNames->copyPrivateNamesTo(currentScope()->lexicalVariables());
     }
 
-    auto parseResult = parseInner(calleeName, parseMode, parsingContext, functionConstructorParametersEndPosition, instanceFieldLocations);
+    auto parseResult = parseInner(calleeName, parseMode, parsingContext, functionConstructorParametersEndPosition, classFieldLocations);
 
     int lineNumber = m_lexer->lineNumber();
     bool lexError = m_lexer->sawError();
@@ -2131,7 +2129,7 @@ std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const I
             ParserError::SyntaxErrorType errorType = ParserError::SyntaxErrorIrrecoverable;
             if (m_token.m_type == EOFTOK)
                 errorType = ParserError::SyntaxErrorRecoverable;
-            else if (m_token.m_type & UnterminatedErrorTokenFlag) {
+            else if (m_token.m_type & UnterminatedCanBeErrorTokenFlag) {
                 // Treat multiline capable unterminated literals as recoverable.
                 if (m_token.m_type == UNTERMINATED_MULTILINE_COMMENT_ERRORTOK || m_token.m_type == UNTERMINATED_TEMPLATE_LITERAL_ERRORTOK)
                     errorType = ParserError::SyntaxErrorRecoverable;
@@ -2159,8 +2157,8 @@ std::unique_ptr<ParsedNode> parse(
     DerivedContextType derivedContextType = DerivedContextType::None,
     EvalContextType evalContextType = EvalContextType::None,
     DebuggerParseData* debuggerParseData = nullptr,
-    const VariableEnvironment* variablesUnderTDZ = nullptr,
-    const Vector<JSTextPosition>* instanceFieldLocations = nullptr,
+    const VariableEnvironment* parentScopePrivateNames = nullptr,
+    const Vector<JSTextPosition>* classFieldLocations = nullptr,
     bool isInsideOrdinaryFunction = false)
 {
     ASSERT(!source.provider()->source().isNull());
@@ -2172,7 +2170,7 @@ std::unique_ptr<ParsedNode> parse(
     std::unique_ptr<ParsedNode> result;
     if (source.provider()->source().is8Bit()) {
         Parser<Lexer<LChar>> parser(vm, source, builtinMode, strictMode, scriptMode, parseMode, superBinding, defaultConstructorKindForTopLevelFunction, derivedContextType, isEvalNode<ParsedNode>(), evalContextType, debuggerParseData, isInsideOrdinaryFunction);
-        result = parser.parse<ParsedNode>(error, name, parseMode, isEvalNode<ParsedNode>() ? ParsingContext::Eval : ParsingContext::Program, WTF::nullopt, variablesUnderTDZ, instanceFieldLocations);
+        result = parser.parse<ParsedNode>(error, name, parseMode, isEvalNode<ParsedNode>() ? ParsingContext::Eval : ParsingContext::Program, WTF::nullopt, parentScopePrivateNames, classFieldLocations);
         if (positionBeforeLastNewline)
             *positionBeforeLastNewline = parser.positionBeforeLastNewline();
         if (builtinMode == JSParserBuiltinMode::Builtin) {
@@ -2185,7 +2183,7 @@ std::unique_ptr<ParsedNode> parse(
     } else {
         ASSERT_WITH_MESSAGE(defaultConstructorKindForTopLevelFunction == ConstructorKind::None, "BuiltinExecutables's special constructors should always use a 8-bit string");
         Parser<Lexer<UChar>> parser(vm, source, builtinMode, strictMode, scriptMode, parseMode, superBinding, defaultConstructorKindForTopLevelFunction, derivedContextType, isEvalNode<ParsedNode>(), evalContextType, debuggerParseData, isInsideOrdinaryFunction);
-        result = parser.parse<ParsedNode>(error, name, parseMode, isEvalNode<ParsedNode>() ? ParsingContext::Eval : ParsingContext::Program, WTF::nullopt, variablesUnderTDZ, instanceFieldLocations);
+        result = parser.parse<ParsedNode>(error, name, parseMode, isEvalNode<ParsedNode>() ? ParsingContext::Eval : ParsingContext::Program, WTF::nullopt, parentScopePrivateNames, classFieldLocations);
         if (positionBeforeLastNewline)
             *positionBeforeLastNewline = parser.positionBeforeLastNewline();
     }

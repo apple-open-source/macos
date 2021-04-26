@@ -49,17 +49,22 @@ class HostWindow;
 class ImageBuffer;
 #endif
 
+enum class PixelFormat : uint8_t;
+enum class VolatilityState : uint8_t;
+
 class IOSurface final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Format {
-        RGBA,
+        BGRA,
         YUV422,
 #if HAVE(IOSURFACE_RGB10)
         RGB10,
         RGB10A8,
 #endif
     };
+
+    WEBCORE_EXPORT static IOSurface::Format formatForPixelFormat(WebCore::PixelFormat);
     
     class Locker {
     public:
@@ -94,21 +99,22 @@ public:
         uint32_t m_flags;
     };
 
-    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, CGColorSpaceRef, Format = Format::RGBA);
-    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, IntSize contextSize, CGColorSpaceRef, Format = Format::RGBA);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, CGColorSpaceRef, Format = Format::BGRA);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, IntSize contextSize, CGColorSpaceRef, Format = Format::BGRA);
     WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromSendRight(const WTF::MachSendRight&&, CGColorSpaceRef);
     static std::unique_ptr<IOSurface> createFromSurface(IOSurfaceRef, CGColorSpaceRef);
     WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromImage(CGImageRef);
     
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
-    static std::unique_ptr<IOSurface> createFromImageBuffer(std::unique_ptr<ImageBuffer>);
+    static std::unique_ptr<IOSurface> createFromImageBuffer(RefPtr<ImageBuffer>);
 #endif
 
     WEBCORE_EXPORT ~IOSurface();
 
     WEBCORE_EXPORT static void moveToPool(std::unique_ptr<IOSurface>&&);
 
-    static IntSize maximumSize();
+    WEBCORE_EXPORT static IntSize maximumSize();
+    WEBCORE_EXPORT static void setMaximumSize(IntSize);
 
     WEBCORE_EXPORT WTF::MachSendRight createSendRight() const;
 
@@ -124,19 +130,13 @@ public:
     WEBCORE_EXPORT GraphicsContext& ensureGraphicsContext();
     WEBCORE_EXPORT CGContextRef ensurePlatformContext(const HostWindow* = nullptr);
 
-    enum class SurfaceState {
-        Valid,
-        Empty
-    };
-
     // Querying volatility can be expensive, so in cases where the surface is
-    // going to be used immediately, use the return value of setIsVolatile to
+    // going to be used immediately, use the return value of setVolatile to
     // determine whether the data was purged, instead of first calling state() or isVolatile().
-    SurfaceState state() const;
+    VolatilityState state() const;
     bool isVolatile() const;
 
-    // setIsVolatile only has an effect on iOS and OS 10.9 and above.
-    WEBCORE_EXPORT SurfaceState setIsVolatile(bool);
+    WEBCORE_EXPORT VolatilityState setVolatile(bool);
 
     IntSize size() const { return m_size; }
     size_t totalBytes() const { return m_totalBytes; }
@@ -176,6 +176,8 @@ private:
     RetainPtr<CGContextRef> m_cgContext;
 
     RetainPtr<IOSurfaceRef> m_surface;
+
+    static WTF::Optional<IntSize> s_maximumSize;
 };
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const WebCore::IOSurface&);

@@ -121,6 +121,8 @@ private:
     
     LayerFlushController* m_flushController;
     std::unique_ptr<WebCore::RunLoopObserver> m_runLoopObserver;
+    bool m_insideCallback { false };
+    bool m_rescheduledInsideCallback { false };
 };
 
 class LayerFlushController : public RefCounted<LayerFlushController> {
@@ -225,7 +227,6 @@ private:
     BOOL userAgentOverridden;
     
     WebPreferences *preferences;
-    BOOL useSiteSpecificSpoofing;
 #if PLATFORM(IOS_FAMILY)
     NSURL *userStyleSheetLocation;
 #endif

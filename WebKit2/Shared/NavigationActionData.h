@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "WebEvent.h"
-#include <WebCore/AdClickAttribution.h>
+#include "WebMouseEvent.h"
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/SecurityOriginData.h>
 
 namespace IPC {
@@ -62,7 +62,7 @@ struct NavigationActionData {
     WebCore::LockHistory lockHistory { WebCore::LockHistory::No };
     WebCore::LockBackForwardList lockBackForwardList { WebCore::LockBackForwardList::No };
     WTF::String clientRedirectSourceForHistory;
-    Optional<WebCore::AdClickAttribution> adClickAttribution;
+    Optional<WebCore::PrivateClickMeasurement> privateClickMeasurement;
 };
 
 }

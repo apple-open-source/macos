@@ -261,6 +261,8 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case kSecXPCOpSetCARevocationAdditions:
         case kSecXPCOpCopyCARevocationAdditions:
         case kSecXPCOpValidUpdate:
+        case kSecXPCOpSetTransparentConnectionPins:
+        case kSecXPCOpCopyTransparentConnectionPins:
             return true;
         default:
             break;

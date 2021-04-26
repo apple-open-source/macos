@@ -32,10 +32,8 @@
 #include "NetworkSession.h"
 #include "PluginProcessManager.h"
 #include "PluginProcessProxy.h"
-#include "ResourceLoadStatisticsPersistentStorage.h"
 #include "StorageAccessStatus.h"
 #include "WebProcessProxy.h"
-#include "WebResourceLoadStatisticsTelemetry.h"
 #include "WebsiteDataStore.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/DocumentStorageAccess.h>
@@ -75,12 +73,6 @@ ResourceLoadStatisticsMemoryStore::ResourceLoadStatisticsMemoryStore(WebResource
     : ResourceLoadStatisticsStore(store, workQueue, shouldIncludeLocalhost)
 {
     RELEASE_ASSERT(!RunLoop::isMain());
-
-    workQueue.dispatchAfter(5_s, [weakThis = makeWeakPtr(*this)] {
-        if (weakThis)
-            weakThis->calculateAndSubmitTelemetry();
-    });
-
     includeTodayAsOperatingDateIfNecessary();
 }
 
@@ -89,21 +81,6 @@ bool ResourceLoadStatisticsMemoryStore::isEmpty() const
     RELEASE_ASSERT(!RunLoop::isMain());
 
     return m_resourceStatisticsMap.isEmpty();
-}
-
-void ResourceLoadStatisticsMemoryStore::setPersistentStorage(ResourceLoadStatisticsPersistentStorage& persistentStorage)
-{
-    ASSERT(!RunLoop::isMain());
-
-    m_persistentStorage = makeWeakPtr(persistentStorage);
-}
-
-void ResourceLoadStatisticsMemoryStore::calculateAndSubmitTelemetry(NotifyPagesForTesting shouldNotifyPagesForTesting) const
-{
-    ASSERT(!RunLoop::isMain());
-
-    if (parameters().shouldSubmitTelemetry)
-        WebResourceLoadStatisticsTelemetry::calculateAndSubmit(*this, shouldNotifyPagesForTesting);
 }
 
 static void ensureThirdPartyDataForSpecificFirstPartyDomain(Vector<WebResourceLoadStatisticsStore::ThirdPartyDataForSpecificFirstParty>& thirdPartyDataForSpecificFirstPartyDomain, const RegistrableDomain& firstPartyDomain, bool thirdPartyHasStorageAccess)
@@ -237,22 +214,6 @@ void ResourceLoadStatisticsMemoryStore::classifyPrevalentResources()
                 setPrevalentResource(resourceStatistic, newPrevalence);
         }
     }
-}
-
-void ResourceLoadStatisticsMemoryStore::syncStorageIfNeeded()
-{
-    ASSERT(!RunLoop::isMain());
-
-    if (m_persistentStorage)
-        m_persistentStorage->scheduleOrWriteMemoryStore(ResourceLoadStatisticsPersistentStorage::ForceImmediateWrite::No);
-}
-
-void ResourceLoadStatisticsMemoryStore::syncStorageImmediately()
-{
-    ASSERT(!RunLoop::isMain());
-
-    if (m_persistentStorage)
-        m_persistentStorage->scheduleOrWriteMemoryStore(ResourceLoadStatisticsPersistentStorage::ForceImmediateWrite::Yes);
 }
 
 bool ResourceLoadStatisticsMemoryStore::areAllThirdPartyCookiesBlockedUnder(const TopFrameDomain& topFrameDomain)
@@ -824,7 +785,7 @@ void ResourceLoadStatisticsMemoryStore::clear(CompletionHandler<void()>&& comple
     removeAllStorageAccess([callbackAggregator] { });
 
     auto registrableDomainsToBlockAndDeleteCookiesFor = ensurePrevalentResourcesForDebugMode();
-    RegistrableDomainsToBlockCookiesFor domainsToBlock { registrableDomainsToBlockAndDeleteCookiesFor, { }, { } };
+    RegistrableDomainsToBlockCookiesFor domainsToBlock { registrableDomainsToBlockAndDeleteCookiesFor, { }, { }, { }};
     updateCookieBlockingForDomains(domainsToBlock, [callbackAggregator] { });
 }
 
@@ -877,7 +838,7 @@ void ResourceLoadStatisticsMemoryStore::updateCookieBlocking(CompletionHandler<v
         return;
     }
 
-    RegistrableDomainsToBlockCookiesFor domainsToBlock { domainsToBlockAndDeleteCookiesFor, domainsToBlockButKeepCookiesFor, domainsWithUserInteractionAsFirstParty };
+    RegistrableDomainsToBlockCookiesFor domainsToBlock { domainsToBlockAndDeleteCookiesFor, domainsToBlockButKeepCookiesFor, domainsWithUserInteractionAsFirstParty, { } };
 
     if (debugLoggingEnabled() && (!domainsToBlockAndDeleteCookiesFor.isEmpty() || !domainsToBlockButKeepCookiesFor.isEmpty()))
         debugLogDomainsInBatches("Applying cross-site tracking restrictions", domainsToBlock);
@@ -1176,11 +1137,11 @@ bool ResourceLoadStatisticsMemoryStore::hasStatisticsExpired(const ResourceLoadS
     return hasStatisticsExpired(resourceStatistic.mostRecentUserInteractionTime, operatingDatesWindow);
 }
 
-void ResourceLoadStatisticsMemoryStore::insertExpiredStatisticForTesting(const RegistrableDomain& domain, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent)
+void ResourceLoadStatisticsMemoryStore::insertExpiredStatisticForTesting(const RegistrableDomain& domain, unsigned numberOfOperatingDaysPassed, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent)
 {
     // Populate the Operating Dates table with enough days to require pruning.
     double daysAgoInSeconds = 0;
-    for (unsigned i = 1; i <= operatingDatesWindowLong; i++) {
+    for (unsigned i = 1; i <= numberOfOperatingDaysPassed; i++) {
         double daysToSubtract = Seconds::fromHours(24 * i).value();
         daysAgoInSeconds = WallTime::now().secondsSinceEpoch().value() - daysToSubtract;
         auto dateToInsert = OperatingDate::fromWallTime(WallTime::fromRawSeconds(daysAgoInSeconds));

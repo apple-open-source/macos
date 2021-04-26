@@ -28,6 +28,7 @@
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKey.h"
+#import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ckks/CKKSItem.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
@@ -419,7 +420,7 @@
 - (BOOL)tryDecryptWithProperAuthData:(CKKSItem*)ciphertext plaintext:(NSDictionary<NSString*, NSData*>*)plaintext {
     NSDictionary<NSString*, NSData*>* roundtrip;
     NSError *error = nil;
-    roundtrip = [CKKSItemEncrypter decryptItemToDictionary: (CKKSItem*) ciphertext error: &error];
+    roundtrip = [CKKSItemEncrypter decryptItemToDictionary: (CKKSItem*) ciphertext keyCache:nil error: &error];
     XCTAssertNil(error, "No error decrypting roundtrip");
     XCTAssertNotNil(roundtrip, "Received a plaintext");
     XCTAssertEqualObjects(plaintext, roundtrip, "roundtripped dictionary matches input");
@@ -429,7 +430,7 @@
 - (BOOL)tryDecryptWithBrokenAuthData:(CKKSItem *)ciphertext {
     NSDictionary<NSString*, NSData*>* brokenAuthentication;
     NSError *error = nil;
-    brokenAuthentication = [CKKSItemEncrypter decryptItemToDictionary: (CKKSItem*) ciphertext error: &error];
+    brokenAuthentication = [CKKSItemEncrypter decryptItemToDictionary: (CKKSItem*) ciphertext keyCache:nil error: &error];
     XCTAssertNotNil(error, "Error exists decrypting ciphertext with bad authenticated data: %@", error);
     XCTAssertNil(brokenAuthentication, "Did not receive a plaintext if authenticated data was mucked with");
     return error != nil && brokenAuthentication == nil;
@@ -457,6 +458,7 @@
                                                dataDictionary:plaintext
                                              updatingCKKSItem:nil
                                                     parentkey:key
+                                                     keyCache:nil
                                                         error:&error];
     XCTAssertNil(error, "No error encrypting plaintext");
     XCTAssertNotNil(ciphertext, "Received a ciphertext");
@@ -516,8 +518,10 @@
                                                  encver:CKKSItemEncryptionVersionNone];
     XCTAssertNotNil(baseitem, "Constructed CKKSItem");
 
+    CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
+
     // First try versionNone. Should fail, we don't support unencrypted data
-    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem error:&error];
+    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem keyCache:keyCache error:&error];
     XCTAssert(error, "Did not failed to decrypt v0 item");
     XCTAssertNil(output, "Did not failed to decrypt v0 item");
     error = nil;
@@ -525,7 +529,7 @@
 
     // Then try version1. Should take actual decryption path and fail because there's no properly encrypted data.
     baseitem.encver = CKKSItemEncryptionVersion1;
-    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem error:&error];
+    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem keyCache:keyCache error:&error];
     XCTAssertNotNil(error, "Taking v1 codepath without encrypted item fails");
     XCTAssertEqualObjects(error.localizedDescription, @"could not ccsiv_crypt", "Error specifically failure to ccsiv_crypt");
     XCTAssertNil(output, "Did not receive output from failed decryption call");
@@ -534,7 +538,7 @@
 
     // Finally, some unknown version should fail immediately
     baseitem.encver = 100;
-    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem error:&error];
+    output = [CKKSItemEncrypter decryptItemToDictionary:baseitem keyCache:keyCache error:&error];
     XCTAssertNotNil(error);
     NSString *errstr = [NSString stringWithFormat:@"%@", error.localizedDescription];
     NSString *expected = @"Unrecognized encryption version: 100";

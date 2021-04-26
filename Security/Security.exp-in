@@ -544,7 +544,9 @@ _AuthorizationRightRemove
 _AuthorizationRightSet
 _AuthorizationEnableSmartCard
 _AuthorizationCopyPreloginUserDatabase
+_AuthorizationCopyPreloginPreferencesValue
 _AuthorizationCopyRightProperties
+_AuthorizationHandlePreloginOverride
 _SessionCreate
 _SessionGetInfo
 _SessionSetDistinguishedUser
@@ -941,7 +943,6 @@ _SecItemParentCachePurge
 
 _SecItemCopyStoredCertificate
 _SecItemCreateFromAttributeDictionary_osx
-_SecItemDeleteAll
 _SecItemDelete_ios
 _SecItemExport
 _SecItemImport
@@ -1608,6 +1609,8 @@ _SecStaticCodeCheckValidityWithErrors
 _SecStaticCodeSetCallback
 _SecStaticCodeSetValidationConditions
 _SecStaticCodeCancelValidation
+_SecStaticCodeEnableOnlineNotarizationCheck
+_SecStaticCodeValidateResourceWithErrors
 _SecRequirementGetTypeID
 _SecRequirementCreateWithData
 _SecRequirementCreateWithResource
@@ -1821,6 +1824,8 @@ _SecStaticCodeGetTypeID
 _SecStaticCodeSetCallback
 _SecStaticCodeSetValidationConditions
 _SecStaticCodeCancelValidation
+_SecStaticCodeEnableOnlineNotarizationCheck
+_SecStaticCodeValidateResourceWithErrors
 _kSecCFErrorArchitecture
 _kSecCFErrorGuestAttributes
 _kSecCFErrorInfoPlist
@@ -2141,6 +2146,7 @@ _LKAReportKeychainUpgradeOutcome
 _LKAReportKeychainUpgradeOutcomeWithError
 _LKABackupReportStart
 _LKABackupReportEnd
+_LKAForceClose
 
 //
 // Padding
@@ -2172,3 +2178,12 @@ _SecCreateXPCObjectWithCFError
 _SecItemVerifyBackupIntegrity
 
 _SecItemDeleteKeychainItemsForAppClip
+
+//
+// File URL Overriding support
+//
+_SecCopyHomeURL
+_SecCopyBaseFilesURL
+
+_SecSetCustomHomeURL
+_SecSetCustomHomeURLString

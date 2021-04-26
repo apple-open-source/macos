@@ -1254,7 +1254,7 @@ th{
                 E{"ccc"}
                 EBhm{"E h:mm B"}
                 EBhms{"E h:mm:ss B"}
-                EHm{"E HH:mm น."}
+                EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"E d"}
                 Ehm{"E h:mm a"}
@@ -1265,7 +1265,7 @@ th{
                 GyMMMEd{"E d MMM G y"}
                 GyMMMd{"d MMM G y"}
                 H{"HH"}
-                Hm{"HH:mm น."}
+                Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"H นาฬิกา mm นาที ss วินาที v"}
                 Hmv{"H นาฬิกา mm นาที v"}
@@ -1536,12 +1536,12 @@ th{
                     H{"HH–HH"}
                 }
                 Hm{
-                    H{"HH:mm น. – HH:mm น."}
-                    m{"HH:mm น. – HH:mm น."}
+                    H{"HH:mm – HH:mm"}
+                    m{"HH:mm – HH:mm"}
                 }
                 Hmv{
-                    H{"H:mm น. – H:mm น. v"}
-                    m{"H:mm น. – H:mm น. v"}
+                    H{"H:mm – H:mm v"}
+                    m{"H:mm – H:mm v"}
                 }
                 Hv{
                     H{"HH–HH v"}

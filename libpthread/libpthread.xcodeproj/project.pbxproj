@@ -379,6 +379,7 @@
 		6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = imports_internal.h; sourceTree = "<group>"; };
 		6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prototypes_internal.h; sourceTree = "<group>"; };
 		74E594A41613AAF4006C417B /* libpthread_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D2815025314CEB0097326C /* sys_pthread_types.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = sys_pthread_types.modulemap; sourceTree = "<group>"; };
 		9202B2301D1A5B3F00945880 /* introspection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = introspection.h; sourceTree = "<group>"; };
 		9235CA551CA48D010015C92B /* kext_development.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext_development.xcconfig; sourceTree = "<group>"; };
 		9240BF321AA669C4003C99B4 /* wqtrace.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = wqtrace.lua; path = tools/wqtrace.lua; sourceTree = SOURCE_ROOT; };
@@ -580,6 +581,7 @@
 			children = (
 				C9A325FD15B7513700270056 /* pthread */,
 				FC5A372217CEB3D6008C323E /* sys */,
+				84D2815025314CEB0097326C /* sys_pthread_types.modulemap */,
 			);
 			path = include;
 			sourceTree = "<group>";

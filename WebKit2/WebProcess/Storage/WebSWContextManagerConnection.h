@@ -102,7 +102,7 @@ private:
     WebPageProxyIdentifier m_webPageProxyID;
     WebCore::PageIdentifier m_pageID;
 
-    WebCore::SecurityOrigin::StorageBlockingPolicy m_storageBlockingPolicy { WebCore::SecurityOrigin::StorageBlockingPolicy::AllowAllStorage };
+    WebCore::StorageBlockingPolicy m_storageBlockingPolicy { WebCore::StorageBlockingPolicy::AllowAll };
 
     HashSet<std::unique_ptr<ServiceWorkerFrameLoaderClient>> m_loaders;
     HashMap<uint64_t, FindClientByIdentifierCallback> m_findClientByIdentifierRequests;
@@ -110,7 +110,7 @@ private:
     uint64_t m_previousRequestIdentifier { 0 };
     String m_userAgent;
     bool m_isThrottleable { true };
-    RefPtr<WebUserContentController> m_userContentController;
+    Ref<WebUserContentController> m_userContentController;
 };
 
 class ServiceWorkerFrameLoaderClient final : public WebCore::EmptyFrameLoaderClient {

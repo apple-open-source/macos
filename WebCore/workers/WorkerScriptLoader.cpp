@@ -119,16 +119,21 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext& scriptExecut
     if (!request)
         return;
 
-    // Only used for loading worker scripts in classic mode.
-    // FIXME: We should add an option to set credential mode.
-    ASSERT(fetchOptions.mode == FetchOptions::Mode::SameOrigin);
+    // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
+    ASSERT(fetchOptions.mode == FetchOptions::Mode::SameOrigin || (fetchOptions.destination != FetchOptions::Destination::Serviceworker && fetchOptions.destination != FetchOptions::Destination::Worker));
 
     ThreadableLoaderOptions options { WTFMove(fetchOptions) };
+    // FIXME: We should add an option to set credential mode.
     options.credentials = FetchOptions::Credentials::SameOrigin;
     options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
     options.contentSecurityPolicyEnforcement = contentSecurityPolicyEnforcement;
     if (fetchOptions.destination == FetchOptions::Destination::Serviceworker)
         options.certificateInfoPolicy = CertificateInfoPolicy::IncludeCertificateInfo;
+
+    // FIXME: We should drop the sameOriginDataURLFlag flag and implement the latest Fetch specification.
+    if (fetchOptions.destination != FetchOptions::Destination::Worker)
+        options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
+
     // A service worker job can be executed from a worker context or a document context.
     options.serviceWorkersMode = serviceWorkerMode;
 #if ENABLE(SERVICE_WORKER)

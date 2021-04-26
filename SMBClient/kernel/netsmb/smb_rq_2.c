@@ -36,7 +36,7 @@
 
 static int smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, 
                                  u_char cmd, uint32_t *rq_len, int rq_flags, 
-                                 vfs_context_t context);
+                                 vfs_context_t context, struct smbiod *iod);
 static int smb2_rq_new(struct smb_rq *rqp);
 
 
@@ -67,7 +67,7 @@ smb2_rq_align8(struct smb_rq *rqp)
  */
 int 
 smb2_rq_alloc(struct smb_connobj *obj, u_char cmd, uint32_t *rq_len,
-              vfs_context_t context, struct smb_rq **rqpp)
+              vfs_context_t context, struct smbiod *iod, struct smb_rq **rqpp)
 {
 	struct smb_rq *rqp;
 	int error;
@@ -79,7 +79,7 @@ smb2_rq_alloc(struct smb_connobj *obj, u_char cmd, uint32_t *rq_len,
 	if (rqp == NULL)
 		return ENOMEM;
     
-	error = smb2_rq_init_internal(rqp, obj, cmd, rq_len, SMBR_ALLOCED, context);
+	error = smb2_rq_init_internal(rqp, obj, cmd, rq_len, SMBR_ALLOCED, context, iod);
 	if (!error) {
 		/* On error, smb2_rq_init_internal will free the rqp */
 		*rqpp = rqp;
@@ -182,7 +182,7 @@ smb2_rq_credit_check(struct smb_rq *rqp, uint32_t len)
     }
     
     /* How many credits do we have? */
-    curr_credits = OSAddAtomic(0, &rqp->sr_session->session_credits_granted);
+    curr_credits = OSAddAtomic(0, &rqp->sr_iod->iod_credits_granted);
     
     if (curr_credits <= kCREDIT_LOW_WATER) {
         /* 
@@ -220,11 +220,12 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
     int32_t curr_credits;
     int16_t credit_charge;
     struct timespec ts;
-    int ret;
+    int ret = 0;
     int error = 0;
     struct smb_session *sessionp;
     uint32_t sleep_cnt, i;
     uint64_t message_id_diff = 0;
+    struct smbiod *iod = rqp->sr_iod;
     
 	if (rqp == NULL) {
         SMBERROR("rqp is NULL\n");
@@ -237,11 +238,11 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
     }
 
     SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_START,
-                   /* channelID */ 0, 0, 0, 0, 0);
+                   iod->iod_id, 0, 0, 0, 0);
 
     sessionp = rqp->sr_session;
 
-    SMBC_CREDIT_LOCK(sessionp);
+    SMBC_CREDIT_LOCK(iod);
 
     switch (rqp->sr_command) {
         case SMB2_NEGOTIATE:
@@ -254,9 +255,9 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             rqp->sr_creditsrequested = 0;
             
             /* Reset starting credits to be 0 in case of reconnect */
-            sessionp->session_credits_granted = 0;
-            sessionp->session_credits_ss_granted = 0;
-            sessionp->session_credits_max = 0;
+            rqp->sr_iod->iod_credits_granted = 0;
+            rqp->sr_iod->iod_credits_ss_granted = 0;
+            rqp->sr_iod->iod_credits_max = 0;
             
             goto out;
             
@@ -293,8 +294,8 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
                  * connection. This is not allowed. Need to find the code path
                  * that got to here and fix it.
                  */
-                SMBERROR("SMB 2/3 not allowed on SMB 1 connection. cmd = %x\n",
-                         rqp->sr_command);
+                SMBERROR("id %u SMB 2/3 not allowed on SMB 1 connection. cmd = %x\n",
+                         iod->iod_id, rqp->sr_command);
                 error = ERPCMISMATCH;
                 goto out;
             }
@@ -318,22 +319,21 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
      * 2) (curr message ID) - (oldest pending message ID) > current credits
      */
  	for (;;) {
-        curr_credits = OSAddAtomic(0, &sessionp->session_credits_granted);
-
+        curr_credits = OSAddAtomic(0, &rqp->sr_iod->iod_credits_granted);
         if (curr_credits >= kCREDIT_MIN_AMT) {
-            if (sessionp->session_req_pending == 0) {
+            if (rqp->sr_iod->iod_req_pending == 0) {
                 /* Have enough credits and no pending reqs, so go send it */
                 break;
             }
         
             /* Have a pending request, see if send window is open */
-            if (sessionp->session_message_id > sessionp->session_oldest_message_id) {
-                message_id_diff = sessionp->session_message_id - sessionp->session_oldest_message_id;
+            if (iod->iod_message_id > iod->iod_oldest_message_id) {
+                message_id_diff = iod->iod_message_id - iod->iod_oldest_message_id;
             }
             else {
                 /* Must have wrapped around */
-                message_id_diff = UINT64_MAX - sessionp->session_oldest_message_id;
-                message_id_diff += sessionp->session_message_id;
+                message_id_diff = UINT64_MAX - iod->iod_oldest_message_id;
+                message_id_diff += iod->iod_message_id;
             }
             
             if (message_id_diff <= (uint64_t) curr_credits) {
@@ -362,15 +362,22 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             goto out;
         }
 
+        /* If the channel is going away, just return immediately */
+        if (iod->iod_flags & SMBIOD_SHUTDOWN) {  // TBD: This may not be the appropriate handling. Need to re-enque on a valid iod
+            SMBDEBUG("id %u channel is shutting down", iod->iod_id);
+            error = ENXIO;
+            goto out;
+        }
+
         /* Block until we get more credits */
-        SMBDEBUG("Wait for credits curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d\n",
-                 curr_credits, sessionp->session_credits_max,
-                 sessionp->session_message_id, sessionp->session_oldest_message_id,
-                 sessionp->session_credits_wait);
-                
+        SMBDEBUG("id %d Wait for credits curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d iod_credits_granted %d\n",
+                 iod->iod_id, curr_credits, iod->iod_credits_max,
+                 iod->iod_message_id, iod->iod_oldest_message_id,
+                 iod->iod_credits_wait, iod->iod_credits_granted);
+
         SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE,
-                       /* channelID */ 0, 0xabc001,
-                       sessionp->session_message_id, sessionp->session_oldest_message_id, 0);
+                       iod->iod_id, 0xabc001,
+                       iod->iod_message_id, iod->iod_oldest_message_id, 0);
 
         /* Only wait a max of 60 seconds waiting for credits */
         sleep_cnt = 60;
@@ -379,15 +386,15 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         
         for (i = 1; i <= sleep_cnt; i++) {
             /* Indicate that we are sleeping by incrementing wait counter */
-            OSAddAtomic(1, &sessionp->session_credits_wait);
+            OSAddAtomic(1, &iod->iod_credits_wait);
             
-            ret = msleep(&sessionp->session_credits_wait, SMBC_CREDIT_LOCKPTR(sessionp),
+            ret = msleep(&iod->iod_credits_wait, SMBC_CREDIT_LOCKPTR(iod),
                          PWAIT, "session-credits-wait", &ts);
             
             if (ret == EWOULDBLOCK) {
                 /* Timed out, so decrement wait counter */
-                if (sessionp->session_credits_wait) {
-                    OSAddAtomic(-1, &sessionp->session_credits_wait);
+                if (iod->iod_credits_wait) {
+                    OSAddAtomic(-1, &iod->iod_credits_wait);
                 }
 
                 /* If the share is going away, just return immediately */
@@ -399,7 +406,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
                 }
                 
                 /* If have credits, go and check to see if we can send now */
-                curr_credits = OSAddAtomic(0, &sessionp->session_credits_granted);
+                curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
                 if (curr_credits > 0) {
                     ret = 0;
                     break;
@@ -421,23 +428,29 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
              * Something really went wrong here. We should not have to wait
              * this long to get any credits. Force a reconnect.
              */
-            curr_credits = OSAddAtomic(0, &sessionp->session_credits_granted);
-            SMBERROR("Timed out waiting for credits curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d\n",
-            curr_credits, sessionp->session_credits_max,
-            sessionp->session_message_id, sessionp->session_oldest_message_id,
-            sessionp->session_credits_wait);
+            curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
+            SMBERROR("id %u Timed out waiting for credits curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d\n",
+                     iod->iod_id,
+                     curr_credits, iod->iod_credits_max,
+                     iod->iod_message_id, iod->iod_oldest_message_id,
+                     iod->iod_credits_wait);
             
             SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE,
-                           /* channelID */ 0, 0xabc002,
-                           sessionp->session_message_id, sessionp->session_oldest_message_id, 0);
+                           iod->iod_id, 0xabc002,
+                           iod->iod_message_id, iod->iod_oldest_message_id, 0);
 
             /* Reconnect requests will need the credit lock so free it */
-            SMBC_CREDIT_UNLOCK(sessionp);
+            SMBC_CREDIT_UNLOCK(iod);
 
-            (void) smb_session_force_reconnect(sessionp);
+            /*
+             * Force this particular iod to reconnect to try to get crediting
+             * back in sync with the server. It will either fail over or if
+             * its the last channel, then it will do a reconnect.
+             */
+            (void) smb_session_force_reconnect(iod);
             
             /* Reconnect is done now, reacquire credit lock and try again */
-            SMBC_CREDIT_LOCK(sessionp);
+            SMBC_CREDIT_LOCK(iod);
         }
 	}
    
@@ -449,17 +462,17 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
     credit_charge = rqp->sr_creditcharge;
 
     /* Decrement number of credits we have left */
-    OSAddAtomic(-(credit_charge), &sessionp->session_credits_granted);
+    OSAddAtomic(-(credit_charge), &iod->iod_credits_granted);
     
     /* Message IDs are set right before the request is sent */
     
     /* 
      * Check to see if need to request more credits.
      */
-    curr_credits = OSAddAtomic(0, &sessionp->session_credits_granted);
+    curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
 
     SMB_LOG_KTRACE(SMB_DBG_CURR_CREDITS | DBG_FUNC_NONE,
-                   /* channelID */ 0, curr_credits, 0, 0, 0);
+                   iod->iod_id, curr_credits, 0, 0, 0);
 
     if (curr_credits < kCREDIT_MAX_AMT) {
         /*
@@ -479,10 +492,10 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
     }
 
 out:
-    SMBC_CREDIT_UNLOCK(sessionp);
+    SMBC_CREDIT_UNLOCK(iod);
 
     SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_END,
-                   /* channelID */ 0, error, 0, 0, 0);
+                   iod->iod_id, error, 0, 0, 0);
     return error;
 }
 
@@ -507,6 +520,12 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
     }
     sessionp = rqp->sr_session;
     
+    struct smbiod *iod = rqp->sr_iod;
+    if (iod == NULL) {
+        SMBERROR("rqp->sr_iod is NULL in %lld \n", rqp->sr_messageid);
+        return (ENOMEM);
+    }
+
     if (rqp->sr_rspcreditsgranted == 0) {
         /* Nothing to do */
         return (0);
@@ -527,9 +546,9 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
              * Once we are ready to start tracking credits then we will set
              * this number as our starting number of credits.
              */
-            SMBC_CREDIT_LOCK(sessionp);
-            OSAddAtomic(rqp->sr_rspcreditsgranted, &sessionp->session_credits_ss_granted);
-            SMBC_CREDIT_UNLOCK(sessionp);
+            SMBC_CREDIT_LOCK(iod);
+            OSAddAtomic(rqp->sr_rspcreditsgranted, &iod->iod_credits_ss_granted);
+            SMBC_CREDIT_UNLOCK(iod);
             return (0);
             
         case SMB2_TREE_CONNECT:
@@ -541,9 +560,9 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
                  * Note that in reconnect crediting does not start up until
                  * after the tree connects are done.
                  */
-                SMBC_CREDIT_LOCK(sessionp);
-                OSAddAtomic(rqp->sr_rspcreditsgranted, &sessionp->session_credits_ss_granted);
-                SMBC_CREDIT_UNLOCK(sessionp);
+                SMBC_CREDIT_LOCK(iod);
+                OSAddAtomic(rqp->sr_rspcreditsgranted, &iod->iod_credits_ss_granted);
+                SMBC_CREDIT_UNLOCK(iod);
                 return (0);
             }
 
@@ -573,31 +592,32 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
             break;
     }
 
-    SMBC_CREDIT_LOCK(sessionp);
+    SMBC_CREDIT_LOCK(iod);
 
-    OSAddAtomic(rqp->sr_rspcreditsgranted, &sessionp->session_credits_granted);
+    OSAddAtomic(rqp->sr_rspcreditsgranted, &iod->iod_credits_granted);
 
     /* Keep track of max number of credits that server has granted us */
-    curr_credits = OSAddAtomic(0, &sessionp->session_credits_granted);
+    curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
 
     SMB_LOG_KTRACE(SMB_DBG_CURR_CREDITS | DBG_FUNC_NONE,
-                   /* channelID */ 0, curr_credits, 0, 0, 0);
+                   iod->iod_id, curr_credits, 0, 0, 0);
 
-    if ((sessionp->session_credits_max < (uint32_t) curr_credits) &&
+    if ((iod->iod_credits_max < (uint32_t) curr_credits) &&
         (curr_credits < kCREDIT_MAX_AMT)) {
-        sessionp->session_credits_max = curr_credits;
+        
+        iod->iod_credits_max = curr_credits;
         
         SMB_LOG_KTRACE(SMB_DBG_MAX_CREDITS | DBG_FUNC_NONE,
-                       /* channelID */ 0, curr_credits, 0, 0, 0);
+                       iod->iod_id, curr_credits, 0, 0, 0);
     }
     
 	/* Wake up any requests waiting for more credits */
-    if (sessionp->session_credits_wait) {
-        OSAddAtomic(-1, &sessionp->session_credits_wait);
-        wakeup(&sessionp->session_credits_wait);
+    if (iod->iod_credits_wait) {
+        OSAddAtomic(-1, &iod->iod_credits_wait);
+        wakeup(&iod->iod_credits_wait);
 	}
     
-    SMBC_CREDIT_UNLOCK(sessionp);
+    SMBC_CREDIT_UNLOCK(iod);
 
     return 0;
 }
@@ -632,38 +652,38 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
  * compound request, we need to start with at least > 3 credits.
  */
 void
-smb2_rq_credit_start(struct smb_session *sessionp, uint16_t credits)
+smb2_rq_credit_start(struct smbiod *iod, uint16_t credits)
 {
-    DBG_ASSERT(sessionp != NULL);
+    DBG_ASSERT(iod != NULL);
     
-    SMBC_CREDIT_LOCK(sessionp);
+    SMBC_CREDIT_LOCK(iod);
     
     if (credits == 0) {
         /*
          * Set our starting number of credits to the number granted to us from
          * the Session Setup Responses.
          */
-        OSAddAtomic(sessionp->session_credits_ss_granted, &sessionp->session_credits_granted);
+        OSAddAtomic(iod->iod_credits_ss_granted, &iod->iod_credits_granted);
     }
     else {
         /* Set to passed in value. Should be due to failed reconnect */
-        OSAddAtomic(credits, &sessionp->session_credits_granted);
+        OSAddAtomic(credits, &iod->iod_credits_granted);
     }
     
     /* Set max credits to same value */
-    sessionp->session_credits_max = sessionp->session_credits_granted;
+    iod->iod_credits_max = iod->iod_credits_granted;
     
     /* Clear out oldest message ID to open send window */
-    sessionp->session_req_pending = 0;
-    sessionp->session_oldest_message_id = 0;
+    iod->iod_req_pending = 0;
+    iod->iod_oldest_message_id = 0;
 
 	/* Wake up any requests waiting for more credits */
-    if (sessionp->session_credits_wait) {
-        OSAddAtomic(-1, &sessionp->session_credits_wait);
-        wakeup(&sessionp->session_credits_wait);
+    if (iod->iod_credits_wait) { 
+        OSAddAtomic(-1, &iod->iod_credits_wait);
+        wakeup(&iod->iod_credits_wait);
 	}
 
-    SMBC_CREDIT_UNLOCK(sessionp);
+    SMBC_CREDIT_UNLOCK(iod);
 }
 
 /*
@@ -672,7 +692,7 @@ smb2_rq_credit_start(struct smb_session *sessionp, uint16_t credits)
  */
 static int 
 smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd, 
-                      uint32_t *rq_len, int rq_flags, vfs_context_t context)
+                      uint32_t *rq_len, int rq_flags, vfs_context_t context, struct smbiod *iod)
 {
 	int error;
 	
@@ -700,6 +720,7 @@ smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
     rqp->sr_rqsessionid = rqp->sr_session->session_session_id;
     
 	rqp->sr_context = context;
+    rqp->sr_iod = iod;
 	rqp->sr_extflags |= SMB2_REQUEST;
     
     /* 
@@ -720,14 +741,14 @@ smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
     
     switch (rqp->sr_command) {
         case SMB2_NEGOTIATE:
-        case SMB2_SESSION_SETUP:
+            rqp->sr_rqsessionid = 0;
             break;
-            
+
+        case SMB2_SESSION_SETUP:
         case SMB2_LOGOFF:
         case SMB2_ECHO:
         case SMB2_CANCEL:
         case SMB2_TREE_CONNECT:
-            /* these cmds always have tree id of 0 */
             break;
             
         default:
@@ -742,6 +763,7 @@ smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
     error = smb2_rq_new(rqp);
 done:
 	if (error) {
+        rqp->sr_iod = NULL; // smb2_rq_init_internal() should not rel iod
 		smb_rq_done(rqp);
 	}
 	return (error);
@@ -760,7 +782,7 @@ smb2_rq_length(struct smb_rq *rqp)
 }
 
 /*
- * Set Message ID in the request and increment session_message_id by the number
+ * Set Message ID in the request and increment iod_message_id by the number
  * of credits used in the request.
  */
 int
@@ -779,14 +801,14 @@ smb2_rq_message_id_increment(struct smb_rq *rqp)
 		return ENOMEM;
     }
     
-    SMBC_CREDIT_LOCK(rqp->sr_session);
+    SMBC_CREDIT_LOCK(rqp->sr_iod);
     
     if (rqp->sr_command == SMB2_NEGOTIATE) {
         /* 
          * Negotiate is a special case where credit charge is 0.
          * Increment message_id by 1.
          */
-        message_id = OSAddAtomic64(1, (int64_t*) &rqp->sr_session->session_message_id);
+        message_id = OSAddAtomic64(1, (int64_t*) &rqp->sr_iod->iod_message_id);
         rqp->sr_messageid = message_id;
         *rqp->sr_messageidp = htoleq(rqp->sr_messageid);
         
@@ -800,7 +822,7 @@ smb2_rq_message_id_increment(struct smb_rq *rqp)
          * Increment message_id by same amount as the credit charge 
          */
         message_id = OSAddAtomic64(rqp->sr_creditcharge,
-                                   (int64_t*) &rqp->sr_session->session_message_id);
+                                   (int64_t*) &rqp->sr_iod->iod_message_id);
         rqp->sr_messageid = message_id;
         *rqp->sr_messageidp = htoleq(rqp->sr_messageid);
         
@@ -809,7 +831,7 @@ smb2_rq_message_id_increment(struct smb_rq *rqp)
         while (tmp_rqp != NULL) {
             /* Increment message_id by same amount as the credit charge */
             message_id = OSAddAtomic64(tmp_rqp->sr_creditcharge,
-                                       (int64_t*) &tmp_rqp->sr_session->session_message_id);
+                                       (int64_t*) &tmp_rqp->sr_iod->iod_message_id);
             tmp_rqp->sr_messageid = message_id;
             *tmp_rqp->sr_messageidp = htoleq(tmp_rqp->sr_messageid);
             
@@ -822,13 +844,13 @@ smb2_rq_message_id_increment(struct smb_rq *rqp)
          * Increment message_id by same amount as the credit charge 
          */
         message_id = OSAddAtomic64(rqp->sr_creditcharge,
-                                   (int64_t*) &rqp->sr_session->session_message_id);
+                                   (int64_t*) &rqp->sr_iod->iod_message_id);
         rqp->sr_messageid = message_id;
         *rqp->sr_messageidp = htoleq(rqp->sr_messageid);
     }
 
 out:
-    SMBC_CREDIT_UNLOCK(rqp->sr_session);
+    SMBC_CREDIT_UNLOCK(rqp->sr_iod);
     
     return 0;
 }
@@ -965,7 +987,7 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
         /* Get pointer to response data */
         smb_rq_getreply(rqp, mdp);
     }
-	
+
     /*
      * Hold on to a copy of the mdchain before we touch it,
      * since we will need to verify the signature
@@ -1101,6 +1123,15 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
                 encryption_on = 1;
             }
         }
+        if ((rqp->sr_iod) && (rqp->sr_iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+            // Check if it is time to switch to Channel.SigningKey
+            // For alternate channel, all messages prior to "session-setup-response with status SUCCESS"
+            // are signed by the main-channel keys, while the "session-setup-response with status SUCCESS"
+            // message and onward are signed with the alternate-channel key
+            if ((command == SMB2_SESSION_SETUP) && (rqp->sr_ntstatus == STATUS_SUCCESS)) {
+                rqp->sr_iod->iod_flags |= SMBIOD_USE_CHANNEL_KEYS;
+            }
+        }
     }
     
     /* If it's signed and encryption is off, then verify the signature */
@@ -1122,26 +1153,90 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     
     switch (rqp->sr_ntstatus) {
         case STATUS_INSUFFICIENT_RESOURCES:
-            SMBWARNING("STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n",
-                       rqp->sr_cmd);
+            SMBWARNING("id %u: STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n",
+                       (rqp->sr_iod)?(rqp->sr_iod->iod_id):(-1), rqp->sr_cmd);
             break;
             
         case STATUS_NETWORK_SESSION_EXPIRED:
         case STATUS_USER_SESSION_DELETED:
-            if (rqp->sr_context == rqp->sr_session->session_iod->iod_context) {
-                /*
-                 * Its a reconnect command so dont recurse into reconnect
-                 * again.  Just fail reconnect.
-                 */
-                SMBWARNING("Session Expired or Deleted: while reconnecting cmd %x. Disconnecting.\n",
-                         rqp->sr_cmd);
-                rperror = ENETRESET;
+            /*
+             * This error check is for the situation where a share is mounted
+             * for a while and the server has expired the session. All requests
+             * will get these errors until we do a reconnect which essentially
+             * logs us back in.
+             *
+             * With multichannel, all channels will be getting
+             * these errors and we need to fail them all over until we get to
+             * just one main channel and have that channel do a reconnect.
+             *
+             * <71930272> Check to see if its an alt channel or if its the main
+             * channel (which could be doing the reconnect).
+             *      1. If its an alt channel, force reconnect.
+             *          a. If the session is established, the channel will try
+             *             to fail over in the reconnect code.
+             *          b. If in trials (context is iod_context), then just
+             *             return so we dont deadlock against ourselves.
+             *      2. If its the main channel and a reconnect request, return
+             *         an error so we dont recurse into the reconnect code
+             *         again. Use special error code to cause the share to be
+             *         unmounted since reconnect has obviously failed.
+             *      3. If its the main channel and not a reconnect request, try
+             *         to force reconnect. Main will either fail over or if
+             *         its the last channel, it will start reconnect.
+             */
+            if (rqp->sr_iod == NULL) {
+                /* Should be impossible and make static analyzer happy */
+                SMBERROR("rqp->sr_iod is null??? cmd 0x%x", rqp->sr_cmd);
+                break;
+            }
+
+            if (rqp->sr_iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+                /* Its an alt channel, is it in trials? */
+                if (rqp->sr_context == rqp->sr_iod->iod_context) {
+                    /*
+                     * Alt channel is in trials so dont try to force reconnect
+                     * to avoid a deadlock. The iod cant process an iod event of
+                     * force reconnect if the iod is currently busy right here
+                     * waiting for the sync iod event to finish.
+                     */
+                    SMBWARNING("id %u Session Expired or Deleted on Alt Channel while in trials cmd 0x%x. Disconnecting.\n",
+                               rqp->sr_iod->iod_id, rqp->sr_cmd);
+                    /* Leave rperror code unchanged */
+                }
+                else {
+                    /*
+                     * Its established alt channel, force it to reconnect/fail
+                     * over
+                     */
+                    SMBWARNING("id %u Session Expired or Deleted on Alt Channel while attempting cmd 0x%x. Reconnecting.\n",
+                               rqp->sr_iod->iod_id, rqp->sr_cmd);
+                    (void) smb_session_force_reconnect(rqp->sr_iod);
+                    /* Leave rperror code unchanged */
+                }
             }
             else {
-                SMBWARNING("Session Expired or Deleted: while attempting cmd %x. Reconnecting.\n",
-                         rqp->sr_cmd);
-                
-               (void) smb_session_force_reconnect(rqp->sr_session);
+                /* Its the main channel, is it in reconnect? */
+                if (rqp->sr_context == rqp->sr_session->session_iod->iod_context) {
+                    /*
+                     * Its a reconnect command so dont recurse into reconnect
+                     * again. Just fail reconnect and unmount this share.
+                     */
+                    SMBWARNING("id %u Session Expired or Deleted on Main Channel while reconnecting cmd 0x%x. Disconnecting.\n",
+                               rqp->sr_iod->iod_id, rqp->sr_cmd);
+                    /* Set rperror code to unmount this share */
+                    rperror = ENETRESET;
+                }
+                else {
+                    /*
+                     * Either single channel, or last channel remaining, try
+                     * to do a reconnect
+                     */
+                    SMBWARNING("id %u Session Expired or Deleted on Main Channel while attempting cmd 0x%x. Reconnecting.\n",
+                               rqp->sr_iod->iod_id, rqp->sr_cmd);
+
+                   (void) smb_session_force_reconnect(rqp->sr_iod);
+                    /* Leave rperror code unchanged */
+                }
             }
             break;
             

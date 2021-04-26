@@ -24,7 +24,6 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     InitializeWebProcess(struct WebKit::WebProcessCreationParameters processCreationParameters)
     SetWebsiteDataStoreParameters(struct WebKit::WebProcessDataStoreParameters parameters)
 
-    # Create a new page.
     CreateWebPage(WebCore::PageIdentifier newPageID, struct WebKit::WebPageCreationParameters pageCreationParameters)
 
     PrewarmGlobally();
@@ -52,12 +51,12 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     UserPreferredLanguagesChanged()
     FullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
 
-    # Plug-ins.
-    DidAddPlugInAutoStartOriginHash(uint32_t hash, WallTime expirationTime)
-    ResetPlugInAutoStartOriginHashes(HashMap<uint32_t,WallTime> hashes)
-    SetPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy policy, String host, String bundleIdentifier, String versionString)
-    ResetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>> pluginLoadClientPolicies)
-    ClearPluginClientPolicies()
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) && PLATFORM(IOS)
+    SetHasMouseDevice(bool hasMouseDevice)
+#endif
+
+    SetHasStylusDevice(bool hasStylusDevice)
+
     RefreshPlugins()
 
     void StartMemorySampler(WebKit::SandboxExtension::Handle sampleLogFileHandle, String sampleLogFilePath, double interval);
@@ -121,6 +120,10 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     DisplayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    UserInterfaceIdiomDidChange(bool isPadOrMac)
+#endif
+
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     BacklightLevelDidChange(float backlightLevel)
 #endif
@@ -130,7 +133,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
 #if PLATFORM(COCOA)
     SetMediaMIMETypes(Vector<String> types)
 #if ENABLE(REMOTE_INSPECTOR)
-    EnableRemoteWebInspector(WebKit::SandboxExtension::Handle handle);
+    EnableRemoteWebInspector();
 #endif
 #endif
 
@@ -159,6 +162,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     SeedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain firstPartyDomain, WebCore::RegistrableDomain thirdPartyDomain, bool shouldScheduleNotification) -> () Async
     SetThirdPartyCookieBlockingMode(enum:uint8_t WebCore::ThirdPartyCookieBlockingMode blockingMode) -> () Async
     SetDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain> domains)
+    SetDomainsWithCrossPageStorageAccess(HashMap<WebCore::RegistrableDomain, WebCore::RegistrableDomain> domains) -> () Async
     SendResourceLoadStatisticsDataImmediately() -> () Async
 #endif
 

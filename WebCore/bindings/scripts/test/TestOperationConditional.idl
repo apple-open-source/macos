@@ -31,7 +31,8 @@
 
 [
     Conditional=ConditionDerived,
+    Exposed=TestGlobalObject
 ] interface TestOperationConditional {
 };
 
-TestOperationConditional implements TestOperationBase;
+TestOperationConditional includes TestOperationBase;

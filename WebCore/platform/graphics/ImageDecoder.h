@@ -30,7 +30,7 @@
 #include "ImageTypes.h"
 #include "IntPoint.h"
 #include "IntSize.h"
-#include "NativeImage.h"
+#include "PlatformImage.h"
 #include <wtf/Optional.h>
 #include <wtf/Seconds.h>
 #include <wtf/text/WTFString.h>
@@ -50,6 +50,12 @@ public:
         Image,
         Video,
     };
+
+    struct FrameMetadata {
+        ImageOrientation orientation;
+        Optional<IntSize> densityCorrectedSize;
+    };
+
     static bool supportsMediaType(MediaType);
 
     virtual size_t bytesDecodedToDetermineProperties() const = 0;
@@ -66,14 +72,14 @@ public:
 
     virtual IntSize frameSizeAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const = 0;
     virtual bool frameIsCompleteAtIndex(size_t) const = 0;
-    virtual ImageOrientation frameOrientationAtIndex(size_t) const = 0;
+    virtual FrameMetadata frameMetadataAtIndex(size_t) const = 0;
 
     virtual Seconds frameDurationAtIndex(size_t) const = 0;
     virtual bool frameHasAlphaAtIndex(size_t) const = 0;
     virtual bool frameAllowSubsamplingAtIndex(size_t) const = 0;
     virtual unsigned frameBytesAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const = 0;
 
-    virtual NativeImagePtr createFrameImageAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = DecodingOptions(DecodingMode::Synchronous)) = 0;
+    virtual PlatformImagePtr createFrameImageAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = DecodingOptions(DecodingMode::Synchronous)) = 0;
 
     virtual void setExpectedContentSize(long long) { }
     virtual void setData(SharedBuffer&, bool allDataReceived) = 0;

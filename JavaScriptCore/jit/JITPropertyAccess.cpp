@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #include "JITInlines.h"
 #include "JSLexicalEnvironment.h"
 #include "LinkBuffer.h"
+#include "PrivateFieldPutKind.h"
 #include "SlowPathCall.h"
 #include "StructureStubInfo.h"
 #include <wtf/ScopedLambda.h>
@@ -63,16 +64,18 @@ void JIT::emit_op_get_by_val(const Instruction* currentInstruction)
         emitJumpSlowCaseIfNotJSCell(regT0, base);
         emitArrayProfilingSiteWithCell(regT0, regT2, profile);
 
+        JSValueRegs resultRegs = JSValueRegs(regT0);
+
         JITGetByValGenerator gen(
             m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
-            JSValueRegs(regT0), JSValueRegs(regT1), JSValueRegs(regT0));
+            JSValueRegs(regT0), JSValueRegs(regT1), resultRegs);
         if (isOperandConstantInt(property))
             gen.stubInfo()->propertyIsInt32 = true;
         gen.generateFastPath(*this);
         addSlowCase(gen.slowPathJump());
         m_getByVals.append(gen);
 
-        emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+        emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
         emitPutVirtualRegister(dst);
     }
 
@@ -109,14 +112,16 @@ void JIT::emit_op_get_private_name(const Instruction* currentInstruction)
 
     emitJumpSlowCaseIfNotJSCell(regT0, base);
 
+    JSValueRegs resultRegs = JSValueRegs(regT0);
+
     JITGetByValGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetPrivateName,
-        RegisterSet::stubUnavailableRegisters(), JSValueRegs(baseGPR), JSValueRegs(propertyGPR), JSValueRegs(regT0));
+        RegisterSet::stubUnavailableRegisters(), JSValueRegs(baseGPR), JSValueRegs(propertyGPR), resultRegs);
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
     m_getByVals.append(gen);
 
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
     emitPutVirtualRegister(dst);
 }
 
@@ -316,7 +321,7 @@ JITPutByIdGenerator JIT::emitPutByValWithCachedId(Op bytecode, PutKind putKind, 
 
     JITPutByIdGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(), propertyName,
-        JSValueRegs(regT0), JSValueRegs(regT1), regT2, ecmaMode(bytecode), putKind, privateFieldAccessKind(bytecode));
+        JSValueRegs(regT0), JSValueRegs(regT1), regT2, ecmaMode(bytecode), putKind);
     gen.generateFastPath(*this);
     // IC can write new Structure without write-barrier if a base is cell.
     // FIXME: Use UnconditionalWriteBarrier in Baseline effectively to reduce code size.
@@ -346,7 +351,7 @@ void JIT::emitSlow_op_put_by_val(const Instruction* currentInstruction, Vector<S
         base = bytecode.m_base;
         property = bytecode.m_property;
         value = bytecode.m_value;
-        ecmaMode = JIT::ecmaMode(bytecode);
+        ecmaMode = bytecode.m_ecmaMode;
     };
 
     if (isDirect)
@@ -363,6 +368,49 @@ void JIT::emitSlow_op_put_by_val(const Instruction* currentInstruction, Vector<S
     emitGetVirtualRegister(property, regT1);
     emitGetVirtualRegister(value, regT2);
     Call call = callOperation(isDirect ? operationDirectPutByValOptimize : operationPutByValOptimize, TrustedImmPtr(m_codeBlock->globalObject()), regT0, regT1, regT2, byValInfo, TrustedImm32(ecmaMode.value()));
+
+    m_byValCompilationInfo[m_byValInstructionIndex].slowPathTarget = slowPath;
+    m_byValCompilationInfo[m_byValInstructionIndex].returnAddress = call;
+    m_byValInstructionIndex++;
+}
+
+void JIT::emit_op_put_private_name(const Instruction* currentInstruction)
+{
+    auto bytecode = currentInstruction->as<OpPutPrivateName>();
+    VirtualRegister base = bytecode.m_base;
+    VirtualRegister property = bytecode.m_property;
+    ByValInfo* byValInfo = m_codeBlock->addByValInfo(m_bytecodeIndex);
+
+    emitGetVirtualRegister(base, regT0);
+    emitGetVirtualRegister(property, regT1);
+
+    emitJumpSlowCaseIfNotJSCell(regT0, base);
+
+    PatchableJump fastPathJmp = patchableJump();
+    addSlowCase(fastPathJmp);
+    
+    Label done = label();
+    
+    m_byValCompilationInfo.append(ByValCompilationInfo(byValInfo, m_bytecodeIndex, fastPathJmp, done, done));
+}
+
+void JIT::emitSlow_op_put_private_name(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+{
+    auto bytecode = currentInstruction->as<OpPutPrivateName>();
+    ByValInfo* byValInfo = m_byValCompilationInfo[m_byValInstructionIndex].byValInfo;
+    PrivateFieldPutKind putKind = bytecode.m_putKind;
+
+    linkAllSlowCases(iter);
+    Label slowPath = label();
+
+    GPRReg baseGPR = regT0;
+    GPRReg propertyGPR = regT1;
+    GPRReg valueGPR = regT2;
+
+    emitGetVirtualRegister(bytecode.m_base, baseGPR);
+    emitGetVirtualRegister(bytecode.m_property, propertyGPR);
+    emitGetVirtualRegister(bytecode.m_value, valueGPR);
+    Call call = callOperation(operationPutPrivateNameOptimize, TrustedImmPtr(m_codeBlock->globalObject()), baseGPR, propertyGPR, valueGPR, byValInfo, TrustedImm32(putKind.value()));
 
     m_byValCompilationInfo[m_byValInstructionIndex].slowPathTarget = slowPath;
     m_byValCompilationInfo[m_byValInstructionIndex].returnAddress = call;
@@ -526,14 +574,16 @@ void JIT::emit_op_try_get_by_id(const Instruction* currentInstruction)
 
     emitJumpSlowCaseIfNotJSCell(regT0, baseVReg);
 
+    JSValueRegs resultRegs = JSValueRegs(regT0);
+
     JITGetByIdGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
-        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), JSValueRegs(regT0), AccessType::TryGetById);
+        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), resultRegs, AccessType::TryGetById);
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
     m_getByIds.append(gen);
     
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
     emitPutVirtualRegister(resultVReg);
 }
 
@@ -565,14 +615,16 @@ void JIT::emit_op_get_by_id_direct(const Instruction* currentInstruction)
 
     emitJumpSlowCaseIfNotJSCell(regT0, baseVReg);
 
+    JSValueRegs resultRegs = JSValueRegs(regT0);
+
     JITGetByIdGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
-        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), JSValueRegs(regT0), AccessType::GetByIdDirect);
+        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), resultRegs, AccessType::GetByIdDirect);
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
     m_getByIds.append(gen);
 
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
     emitPutVirtualRegister(resultVReg);
 }
 
@@ -611,14 +663,16 @@ void JIT::emit_op_get_by_id(const Instruction* currentInstruction)
         notArrayLengthMode.link(this);
     }
 
+    JSValueRegs resultRegs = JSValueRegs(regT0);
+
     JITGetByIdGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
-        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), JSValueRegs(regT0), AccessType::GetById);
+        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), resultRegs, AccessType::GetById);
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
     m_getByIds.append(gen);
 
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
     emitPutVirtualRegister(resultVReg);
 }
 
@@ -635,14 +689,16 @@ void JIT::emit_op_get_by_id_with_this(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(regT0, baseVReg);
     emitJumpSlowCaseIfNotJSCell(regT1, thisVReg);
 
+    JSValueRegs resultRegs = JSValueRegs(regT0);
+
     JITGetByIdWithThisGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
-        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), JSValueRegs(regT0), JSValueRegs(regT0), JSValueRegs(regT1));
+        CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident), resultRegs, JSValueRegs(regT0), JSValueRegs(regT1));
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
     m_getByIdsWithThis.append(gen);
 
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), resultRegs);
     emitPutVirtualRegister(resultVReg);
 }
 
@@ -700,7 +756,7 @@ void JIT::emit_op_put_by_id(const Instruction* currentInstruction)
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_codeBlock, *ident),
         JSValueRegs(regT0), JSValueRegs(regT1), regT2, ecmaMode(bytecode),
-        direct ? Direct : NotDirect, privateFieldAccessKind(bytecode));
+        direct ? PutKind::Direct : PutKind::NotDirect);
     
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
@@ -1027,7 +1083,7 @@ void JIT::emit_op_get_from_scope(const Instruction* currentInstruction)
         break;
     }
     emitPutVirtualRegister(dst);
-    emitValueProfilingSite(metadata);
+    emitValueProfilingSite(metadata, regT0);
 }
 
 void JIT::emitSlow_op_get_from_scope(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1208,7 +1264,7 @@ void JIT::emit_op_get_from_arguments(const Instruction* currentInstruction)
     
     emitGetVirtualRegister(arguments, regT0);
     load64(Address(regT0, DirectArguments::storageOffset() + index * sizeof(WriteBarrier<Unknown>)), regT0);
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
+    emitValueProfilingSite(bytecode.metadata(m_codeBlock), regT0);
     emitPutVirtualRegister(dst);
 }
 
@@ -1274,7 +1330,7 @@ void JIT::emit_op_get_internal_field(const Instruction* currentInstruction)
     emitGetVirtualRegister(base, regT1);
     loadPtr(Address(regT1, JSInternalFieldObjectImpl<>::offsetOfInternalField(index)), regT0);
 
-    emitValueProfilingSite(metadata);
+    emitValueProfilingSite(metadata, regT0);
     emitPutVirtualRegister(dst);
 }
 
@@ -1358,7 +1414,7 @@ JITPutByIdGenerator JIT::emitPutByValWithCachedId(Op bytecode, PutKind putKind, 
 
     JITPutByIdGenerator gen(
         m_codeBlock, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(), propertyName,
-        JSValueRegs::payloadOnly(regT0), JSValueRegs(regT3, regT2), regT1, ecmaMode(bytecode), putKind, privateFieldAccessKind(bytecode));
+        JSValueRegs::payloadOnly(regT0), JSValueRegs(regT3, regT2), regT1, ecmaMode(bytecode), putKind);
     gen.generateFastPath(*this);
     doneCases.append(jump());
 
@@ -1376,6 +1432,12 @@ JITPutByIdGenerator JIT::emitPutByValWithCachedId(Op bytecode, PutKind putKind, 
 }
 
 #endif // USE(JSVALUE64)
+
+JITPutByIdGenerator JIT::emitPutPrivateNameWithCachedId(OpPutPrivateName bytecode, CacheableIdentifier propertyName, JumpList& doneCases, JumpList& slowCases)
+{
+    auto putKind = bytecode.m_putKind.isDefine() ? PutKind::DirectPrivateFieldDefine : PutKind::DirectPrivateFieldSet;
+    return emitPutByValWithCachedId(bytecode, putKind, propertyName, doneCases, slowCases);
+}
 
 void JIT::emitWriteBarrier(VirtualRegister owner, WriteBarrierMode mode)
 {
@@ -1443,33 +1505,69 @@ void JIT::privateCompilePutByVal(const ConcurrentJSLocker&, ByValInfo* byValInfo
     patchBuffer.link(slowCases, byValInfo->slowPathTarget);
     patchBuffer.link(done, byValInfo->doneTarget);
     if (needsLinkForWriteBarrier) {
-        ASSERT(removeCodePtrTag(m_calls.last().callee.executableAddress()) == removeCodePtrTag(operationWriteBarrierSlowPath));
-        patchBuffer.link(m_calls.last().from, m_calls.last().callee);
+        ASSERT(removeCodePtrTag(m_farCalls.last().callee.executableAddress()) == removeCodePtrTag(operationWriteBarrierSlowPath));
+        patchBuffer.link(m_farCalls.last().from, m_farCalls.last().callee);
     }
     
     bool isDirect = currentInstruction->opcodeID() == op_put_by_val_direct;
     if (!isDirect) {
         byValInfo->stubRoutine = FINALIZE_CODE_FOR_STUB(
             m_codeBlock, patchBuffer, JITStubRoutinePtrTag,
-            "Baseline put_by_val stub for %s, return point %p", toCString(*m_codeBlock).data(), returnAddress.value());
+            "Baseline put_by_val stub for %s, return point %p", toCString(*m_codeBlock).data(), returnAddress.untaggedValue());
         
     } else {
         byValInfo->stubRoutine = FINALIZE_CODE_FOR_STUB(
             m_codeBlock, patchBuffer, JITStubRoutinePtrTag,
-            "Baseline put_by_val_direct stub for %s, return point %p", toCString(*m_codeBlock).data(), returnAddress.value());
+            "Baseline put_by_val_direct stub for %s, return point %p", toCString(*m_codeBlock).data(), returnAddress.untaggedValue());
     }
     MacroAssembler::repatchJump(byValInfo->badTypeJump, CodeLocationLabel<JITStubRoutinePtrTag>(byValInfo->stubRoutine->code().code()));
-    MacroAssembler::repatchCall(CodeLocationCall<NoPtrTag>(MacroAssemblerCodePtr<NoPtrTag>(returnAddress)), FunctionPtr<OperationPtrTag>(isDirect ? operationDirectPutByValGeneric : operationPutByValGeneric));
+    MacroAssembler::repatchCall(CodeLocationCall<ReturnAddressPtrTag>(MacroAssemblerCodePtr<ReturnAddressPtrTag>(returnAddress)), FunctionPtr<OperationPtrTag>(isDirect ? operationDirectPutByValGeneric : operationPutByValGeneric));
 }
 // This function is only consumed from another translation unit (JITOperations.cpp),
 // so we list off the two expected specializations in advance.
 template void JIT::privateCompilePutByVal<OpPutByVal>(const ConcurrentJSLocker&, ByValInfo*, ReturnAddressPtr, JITArrayMode);
 template void JIT::privateCompilePutByVal<OpPutByValDirect>(const ConcurrentJSLocker&, ByValInfo*, ReturnAddressPtr, JITArrayMode);
 
+void JIT::privateCompilePutPrivateNameWithCachedId(ByValInfo* byValInfo, ReturnAddressPtr returnAddress, CacheableIdentifier propertyName)
+{
+    const Instruction* currentInstruction = m_codeBlock->instructions().at(byValInfo->bytecodeIndex).ptr();
+    auto bytecode = currentInstruction->as<OpPutPrivateName>();
+
+    JumpList doneCases;
+    JumpList slowCases;
+
+    JITPutByIdGenerator gen = emitPutPrivateNameWithCachedId(bytecode, propertyName, doneCases, slowCases);
+
+    ConcurrentJSLocker locker(m_codeBlock->m_lock);
+    LinkBuffer patchBuffer(*this, m_codeBlock);
+    patchBuffer.link(slowCases, byValInfo->slowPathTarget);
+    patchBuffer.link(doneCases, byValInfo->doneTarget);
+    if (!m_exceptionChecks.empty())
+        patchBuffer.link(m_exceptionChecks, byValInfo->exceptionHandler);
+
+    for (const auto& callSite : m_nearCalls) {
+        if (callSite.callee)
+            patchBuffer.link(callSite.from, callSite.callee);
+    }
+    for (const auto& callSite : m_farCalls) {
+        if (callSite.callee)
+            patchBuffer.link(callSite.from, callSite.callee);
+    }
+    gen.finalize(patchBuffer, patchBuffer);
+
+    byValInfo->stubRoutine = FINALIZE_CODE_FOR_STUB(
+        m_codeBlock, patchBuffer, JITStubRoutinePtrTag,
+        "Baseline put_private_name with cached property name '%s' stub for %s, return point %p", propertyName.uid()->utf8().data(), toCString(*m_codeBlock).data(), returnAddress.untaggedValue());
+    byValInfo->stubInfo = gen.stubInfo();
+
+    MacroAssembler::repatchJump(byValInfo->notIndexJump, CodeLocationLabel<JITStubRoutinePtrTag>(byValInfo->stubRoutine->code().code()));
+    MacroAssembler::repatchCall(CodeLocationCall<ReturnAddressPtrTag>(MacroAssemblerCodePtr<ReturnAddressPtrTag>(returnAddress)), FunctionPtr<OperationPtrTag>(operationPutPrivateNameGeneric));
+}
+
 template<typename Op>
 void JIT::privateCompilePutByValWithCachedId(ByValInfo* byValInfo, ReturnAddressPtr returnAddress, PutKind putKind, CacheableIdentifier propertyName)
 {
-    ASSERT((putKind == Direct && Op::opcodeID == op_put_by_val_direct) || (putKind == NotDirect && Op::opcodeID == op_put_by_val));
+    ASSERT((putKind == PutKind::Direct && Op::opcodeID == op_put_by_val_direct) || (putKind == PutKind::NotDirect && Op::opcodeID == op_put_by_val));
     const Instruction* currentInstruction = m_codeBlock->instructions().at(byValInfo->bytecodeIndex).ptr();
     auto bytecode = currentInstruction->as<Op>();
 
@@ -1485,7 +1583,11 @@ void JIT::privateCompilePutByValWithCachedId(ByValInfo* byValInfo, ReturnAddress
     if (!m_exceptionChecks.empty())
         patchBuffer.link(m_exceptionChecks, byValInfo->exceptionHandler);
 
-    for (const auto& callSite : m_calls) {
+    for (const auto& callSite : m_nearCalls) {
+        if (callSite.callee)
+            patchBuffer.link(callSite.from, callSite.callee);
+    }
+    for (const auto& callSite : m_farCalls) {
         if (callSite.callee)
             patchBuffer.link(callSite.from, callSite.callee);
     }
@@ -1493,11 +1595,11 @@ void JIT::privateCompilePutByValWithCachedId(ByValInfo* byValInfo, ReturnAddress
 
     byValInfo->stubRoutine = FINALIZE_CODE_FOR_STUB(
         m_codeBlock, patchBuffer, JITStubRoutinePtrTag,
-        "Baseline put_by_val%s with cached property name '%s' stub for %s, return point %p", (putKind == Direct) ? "_direct" : "", propertyName.uid()->utf8().data(), toCString(*m_codeBlock).data(), returnAddress.value());
+        "Baseline put_by_val%s with cached property name '%s' stub for %s, return point %p", (putKind == PutKind::Direct) ? "_direct" : "", propertyName.uid()->utf8().data(), toCString(*m_codeBlock).data(), returnAddress.untaggedValue());
     byValInfo->stubInfo = gen.stubInfo();
 
     MacroAssembler::repatchJump(byValInfo->notIndexJump, CodeLocationLabel<JITStubRoutinePtrTag>(byValInfo->stubRoutine->code().code()));
-    MacroAssembler::repatchCall(CodeLocationCall<NoPtrTag>(MacroAssemblerCodePtr<NoPtrTag>(returnAddress)), FunctionPtr<OperationPtrTag>(putKind == Direct ? operationDirectPutByValGeneric : operationPutByValGeneric));
+    MacroAssembler::repatchCall(CodeLocationCall<ReturnAddressPtrTag>(MacroAssemblerCodePtr<ReturnAddressPtrTag>(returnAddress)), FunctionPtr<OperationPtrTag>(putKind == PutKind::Direct ? operationDirectPutByValGeneric : operationPutByValGeneric));
 }
 // This function is only consumed from another translation unit (JITOperations.cpp),
 // so we list off the two expected specializations in advance.

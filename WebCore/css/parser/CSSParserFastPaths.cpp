@@ -414,28 +414,28 @@ static Optional<SRGBA<uint8_t>> finishParsingHexColor(uint32_t value, unsigned l
     switch (length) {
     case 3:
         // #abc converts to #aabbcc
-        // FIXME: Replace conversion to Packed::ARGB with simpler bit math to construct
+        // FIXME: Replace conversion to PackedColor::ARGB with simpler bit math to construct
         // the SRGBA<uint8_t> directly.
-        return asSRGBA(Packed::ARGB {
+        return asSRGBA(PackedColor::ARGB {
                0xFF000000
             | (value & 0xF00) << 12 | (value & 0xF00) << 8
             | (value & 0xF0) << 8 | (value & 0xF0) << 4
             | (value & 0xF) << 4 | (value & 0xF) });
     case 4:
         // #abcd converts to ddaabbcc since alpha bytes are the high bytes.
-        // FIXME: Replace conversion to Packed::ARGB with simpler bit math to construct
+        // FIXME: Replace conversion to PackedColor::ARGB with simpler bit math to construct
         // the SRGBA<uint8_t> directly.
-        return asSRGBA(Packed::ARGB {
+        return asSRGBA(PackedColor::ARGB {
               (value & 0xF) << 28 | (value & 0xF) << 24
             | (value & 0xF000) << 8 | (value & 0xF000) << 4
             | (value & 0xF00) << 4 | (value & 0xF00)
             | (value & 0xF0) | (value & 0xF0) >> 4 });
     case 6:
-        // FIXME: Replace conversion to Packed::ARGB with simpler bit math to construct
+        // FIXME: Replace conversion to PackedColor::ARGB with simpler bit math to construct
         // the SRGBA<uint8_t> directly.
-        return asSRGBA(Packed::ARGB { 0xFF000000 | value });
+        return asSRGBA(PackedColor::ARGB { 0xFF000000 | value });
     case 8:
-        return asSRGBA(Packed::RGBA { value });
+        return asSRGBA(PackedColor::RGBA { value });
     }
     return WTF::nullopt;
 }
@@ -539,7 +539,7 @@ static Optional<SRGBA<uint8_t>> finishParsingNamedColor(char* buffer, unsigned l
     auto namedColor = findColor(buffer, length);
     if (!namedColor)
         return WTF::nullopt;
-    return asSRGBA(Packed::ARGB { namedColor->ARGBValue });
+    return asSRGBA(PackedColor::ARGB { namedColor->ARGBValue });
 }
 
 template<typename CharacterType> static Optional<SRGBA<uint8_t>> parseNamedColorInternal(const CharacterType* characters, unsigned length)
@@ -669,6 +669,8 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return (valueID >= CSSValueDisc && valueID <= CSSValueKatakanaIroha) || valueID == CSSValueNone;
     case CSSPropertyMaskType:
         return valueID == CSSValueLuminance || valueID == CSSValueAlpha;
+    case CSSPropertyMathStyle:
+        return valueID == CSSValueNormal || valueID == CSSValueCompact;
     case CSSPropertyObjectFit:
         return valueID == CSSValueFill || valueID == CSSValueContain || valueID == CSSValueCover || valueID == CSSValueNone || valueID == CSSValueScaleDown;
     case CSSPropertyOutlineStyle: // (<border-style> except hidden) | auto
@@ -683,6 +685,11 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return valueID == CSSValueVisible || valueID == CSSValueHidden || valueID == CSSValueScroll || valueID == CSSValueAuto || valueID == CSSValueOverlay;
     case CSSPropertyOverflowY: // visible | hidden | scroll | auto | overlay | -webkit-paged-x | -webkit-paged-y (overlay is a synonym for auto)
         return valueID == CSSValueVisible || valueID == CSSValueHidden || valueID == CSSValueScroll || valueID == CSSValueAuto || valueID == CSSValueOverlay || valueID == CSSValueWebkitPagedX || valueID == CSSValueWebkitPagedY;
+    case CSSPropertyOverscrollBehaviorX:
+    case CSSPropertyOverscrollBehaviorY:
+        if (!context.overscrollBehaviorEnabled)
+            return false;
+        return valueID == CSSValueAuto || valueID == CSSValueContain || valueID == CSSValueNone;
     case CSSPropertyBreakAfter:
     case CSSPropertyBreakBefore:
         return valueID == CSSValueAuto || valueID == CSSValueAvoid || valueID == CSSValueAvoidPage || valueID == CSSValuePage || valueID == CSSValueLeft || valueID == CSSValueRight || valueID == CSSValueRecto || valueID == CSSValueVerso || valueID == CSSValueAvoidColumn || valueID == CSSValueColumn;
@@ -938,6 +945,8 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyOverflowWrap:
     case CSSPropertyOverflowX:
     case CSSPropertyOverflowY:
+    case CSSPropertyOverscrollBehaviorX:
+    case CSSPropertyOverscrollBehaviorY:
     case CSSPropertyPointerEvents:
     case CSSPropertyPosition:
     case CSSPropertyResize:
@@ -1051,6 +1060,17 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
 #if ENABLE(VARIATION_FONTS)
     case CSSPropertyFontOpticalSizing:
 #endif
+    case CSSPropertyMathStyle:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool CSSParserFastPaths::isPartialKeywordPropertyID(CSSPropertyID propertyId)
+{
+    switch (propertyId) {
+    case CSSPropertyListStyleType:
         return true;
     default:
         return false;

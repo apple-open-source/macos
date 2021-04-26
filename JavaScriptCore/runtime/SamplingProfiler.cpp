@@ -590,7 +590,7 @@ void SamplingProfiler::processUnverifiedStackTraces(const AbstractLocker&)
                 // This might also be false for various reasons (known and unknown), even though
                 // it's super unlikely. One reason that this can be false is when we throw from a DFG frame,
                 // and we end up having to unwind past an EntryFrame, we will end up executing
-                // inside the LLInt's handleUncaughtException. So we just protect against this
+                // inside the LLInt's llint_handle_ucaught_exception. So we just protect against this
                 // by ignoring it.
                 BytecodeIndex bytecodeIndex = BytecodeIndex(0);
                 if (topCodeBlock->jitType() == JITType::InterpreterThunk || topCodeBlock->jitType() == JITType::BaselineJIT) {
@@ -1023,15 +1023,23 @@ void SamplingProfiler::reportTopFunctions(PrintStream& out)
         processUnverifiedStackTraces(locker);
     }
 
-
+    size_t totalSamples = 0;
     HashMap<String, size_t> functionCounts;
     for (StackTrace& stackTrace : m_stackTraces) {
         if (!stackTrace.frames.size())
             continue;
 
         StackFrame& frame = stackTrace.frames.first();
-        String frameDescription = makeString(frame.displayName(m_vm), ':', frame.sourceID());
+        String hash = ""_s;
+        if (frame.semanticLocation.hasCodeBlockHash()) {
+            StringPrintStream stream;
+            frame.semanticLocation.codeBlockHash.dump(stream);
+            hash = stream.toString();
+        } else
+            hash = "<nil>"_s;
+        String frameDescription = makeString(frame.displayName(m_vm), '#', hash, ':', frame.sourceID());
         functionCounts.add(frameDescription, 0).iterator->value++;
+        totalSamples++;
     }
 
     auto takeMax = [&] () -> std::pair<String, size_t> {
@@ -1049,14 +1057,14 @@ void SamplingProfiler::reportTopFunctions(PrintStream& out)
     };
 
     if (Options::samplingProfilerTopFunctionsCount()) {
-        out.print("\n\nSampling rate: ", m_timingInterval.microseconds(), " microseconds\n");
-        out.print("Top functions as <numSamples  'functionName:sourceID'>\n");
+        out.println("\n\nSampling rate: ", m_timingInterval.microseconds(), " microseconds. Total samples: ", totalSamples);
+        out.println("Top functions as <numSamples  'functionName#hash:sourceID'>");
         for (size_t i = 0; i < Options::samplingProfilerTopFunctionsCount(); i++) {
             auto pair = takeMax();
             if (pair.first.isEmpty())
                 break;
             out.printf("%6zu ", pair.second);
-            out.print("   '", pair.first, "'\n");
+            out.println("   '", pair.first, "'");
         }
     }
 }
@@ -1076,6 +1084,7 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
         processUnverifiedStackTraces(locker);
     }
 
+    size_t totalSamples = 0;
     HashMap<String, size_t> bytecodeCounts;
     for (StackTrace& stackTrace : m_stackTraces) {
         if (!stackTrace.frames.size())
@@ -1112,6 +1121,7 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
                 machineLocation->second->inferredName().data(), descriptionForLocation(machineLocation->first, WTF::nullopt));
         }
         bytecodeCounts.add(frameDescription, 0).iterator->value++;
+        totalSamples++;
     }
 
     auto takeMax = [&] () -> std::pair<String, size_t> {
@@ -1129,27 +1139,22 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
     };
 
     if (Options::samplingProfilerTopBytecodesCount()) {
-        out.print("\n\nSampling rate: ", m_timingInterval.microseconds(), " microseconds\n");
-        out.print("Hottest bytecodes as <numSamples   'functionName#hash:JITType:bytecodeIndex'>\n");
+        out.println("\n\nSampling rate: ", m_timingInterval.microseconds(), " microseconds. Total samples: ", totalSamples);
+        out.println("Hottest bytecodes as <numSamples   'functionName#hash:JITType:bytecodeIndex'>");
         for (size_t i = 0; i < Options::samplingProfilerTopBytecodesCount(); i++) {
             auto pair = takeMax();
             if (pair.first.isEmpty())
                 break;
             out.printf("%6zu ", pair.second);
-            out.print("   '", pair.first, "'\n");
+            out.println("   '", pair.first, "'");
         }
     }
 }
 
-#if OS(DARWIN)
-mach_port_t SamplingProfiler::machThread()
+Thread* SamplingProfiler::thread() const
 {
-    if (!m_thread)
-        return MACH_PORT_NULL;
-
-    return m_thread->machThread();
+    return m_thread.get();
 }
-#endif
 
 } // namespace JSC
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +47,9 @@ int smb2io_close_file(void *smbctx, SMBFID fid);
 int smb2io_get_dfs_referral(struct smb_ctx *smbctx, CFStringRef dfs_referral_str,
                             uint16_t max_referral_level,
                             CFMutableDictionaryRef *out_referral_dict);
+int smb2io_ioctl(struct smb_ctx *smbctx, SMBFID fid, uint32_t ioctl_ctl_code,
+                 const uint8_t *sndData, size_t sndDataLen,
+                 uint8_t *rcvdData, size_t *rcvDataLen);
 int smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
                      struct open_inparms *inparms, 
                      struct open_outparm_ex *outparms, SMBFID *fid);

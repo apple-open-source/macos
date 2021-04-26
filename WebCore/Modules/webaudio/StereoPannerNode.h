@@ -51,7 +51,8 @@ private:
     
     // AudioNode
     void process(size_t framesToProcess) final;
-    void reset() final { };
+    void processOnlyAudioParams(size_t framesToProcess) final;
+    bool requiresTailProcessing() const final { return false; }
 
     ExceptionOr<void> setChannelCount(unsigned) final;
     ExceptionOr<void> setChannelCountMode(ChannelCountMode) final;
@@ -60,7 +61,7 @@ private:
     double latencyTime() const final { return 0; }
     
     Ref<AudioParam> m_pan;
-    AudioFloatArray m_sampleAccurateValues { AudioNode::ProcessingSizeInFrames };
+    AudioFloatArray m_sampleAccurateValues;
 };
 
 } // namespace WebCore

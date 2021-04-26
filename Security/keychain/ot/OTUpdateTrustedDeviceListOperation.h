@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                     listUpdatesState:(OctagonState*)stateIfListUpdates
+            authenticationErrorState:(OctagonState*)stateIfNotAuthenticated
                           errorState:(OctagonState*)errorState
                            retryFlag:(OctagonFlag* _Nullable)retryFlag;
 

@@ -204,7 +204,7 @@ op_shift(oparg_T *oap, int curs_top, int amount)
 	msg_attr_keep((char *)IObuff, 0, TRUE);
     }
 
-    if (!cmdmod.lockmarks)
+    if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// Set "'[" and "']" marks.
 	curbuf->b_op_start = oap->start;
@@ -481,6 +481,7 @@ block_insert(
     int		count = 0;	// extra spaces to replace a cut TAB
     int		spaces = 0;	// non-zero if cutting a TAB
     colnr_T	offset;		// pointer along new line
+    colnr_T	startcol;	// column where insert starts
     unsigned	s_len;		// STRLEN(s)
     char_u	*newp, *oldp;	// new, old lines
     linenr_T	lnum;		// loop var
@@ -553,9 +554,10 @@ block_insert(
 
 	// insert pre-padding
 	vim_memset(newp + offset, ' ', (size_t)spaces);
+	startcol = offset + spaces;
 
 	// copy the new text
-	mch_memmove(newp + offset + spaces, s, (size_t)s_len);
+	mch_memmove(newp + startcol, s, (size_t)s_len);
 	offset += s_len;
 
 	if (spaces && !bdp->is_short)
@@ -573,6 +575,10 @@ block_insert(
 	STRMOVE(newp + offset, oldp);
 
 	ml_replace(lnum, newp, FALSE);
+
+	if (b_insert)
+	    // correct any text properties
+	    inserted_bytes(lnum, startcol, s_len);
 
 	if (lnum == oap->end.lnum)
 	{
@@ -938,7 +944,7 @@ op_delete(oparg_T *oap)
     msgmore(curbuf->b_ml.ml_line_count - old_lcount);
 
 setmarks:
-    if (!cmdmod.lockmarks)
+    if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	if (oap->block_mode)
 	{
@@ -1211,7 +1217,7 @@ op_replace(oparg_T *oap, int c)
     check_cursor();
     changed_lines(oap->start.lnum, oap->start.col, oap->end.lnum + 1, 0L);
 
-    if (!cmdmod.lockmarks)
+    if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// Set "'[" and "']" marks.
 	curbuf->b_op_start = oap->start;
@@ -1324,7 +1330,7 @@ op_tilde(oparg_T *oap)
 	// No change: need to remove the Visual selection
 	redraw_curbuf_later(INVERTED);
 
-    if (!cmdmod.lockmarks)
+    if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// Set '[ and '] marks.
 	curbuf->b_op_start = oap->start;
@@ -1617,7 +1623,7 @@ op_insert(oparg_T *oap, long count1)
 	if (pre_textlen >= 0
 		     && (ins_len = (long)STRLEN(firstline) - pre_textlen) > 0)
 	{
-	    ins_text = vim_strnsave(firstline, (int)ins_len);
+	    ins_text = vim_strnsave(firstline, ins_len);
 	    if (ins_text != NULL)
 	    {
 		// block handled here
@@ -1937,7 +1943,7 @@ do_join(
 #ifdef FEAT_PROP_POPUP
 	propcount += count_props((linenr_T) (curwin->w_cursor.lnum + t), t > 0);
 #endif
-	if (t == 0 && setmark && !cmdmod.lockmarks)
+	if (t == 0 && setmark && (cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
 	{
 	    // Set the '[ mark.
 	    curwin->w_buffer->b_op_start.lnum = curwin->w_cursor.lnum;
@@ -1968,7 +1974,10 @@ do_join(
 		    && (!has_format_option(FO_MBYTE_JOIN)
 			|| (mb_ptr2char(curr) < 0x100 && endcurr1 < 0x100))
 		    && (!has_format_option(FO_MBYTE_JOIN2)
-			|| mb_ptr2char(curr) < 0x100 || endcurr1 < 0x100)
+			|| (mb_ptr2char(curr) < 0x100
+			    && !(enc_utf8 && utf_eat_space(endcurr1)))
+			|| (endcurr1 < 0x100
+			    && !(enc_utf8 && utf_eat_space(mb_ptr2char(curr)))))
 	       )
 	    {
 		// don't add a space if the line is ending in a space
@@ -2078,9 +2087,9 @@ do_join(
 	currsize = (int)STRLEN(curr);
     }
 
-    ml_replace_len(curwin->w_cursor.lnum, newp, newp_len, TRUE, FALSE);
+    ml_replace_len(curwin->w_cursor.lnum, newp, (colnr_T)newp_len, TRUE, FALSE);
 
-    if (setmark && !cmdmod.lockmarks)
+    if (setmark && (cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// Set the '] mark.
 	curwin->w_buffer->b_op_end.lnum = curwin->w_cursor.lnum;
@@ -2397,7 +2406,7 @@ op_addsub(
 
 	// Set '[ mark if something changed. Keep the last end
 	// position from do_addsub().
-	if (change_cnt > 0 && !cmdmod.lockmarks)
+	if (change_cnt > 0 && (cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
 	    curbuf->b_op_start = startpos;
 
 	if (change_cnt > p_report)
@@ -2429,10 +2438,11 @@ do_addsub(
     char_u	*ptr;
     int		c;
     int		todel;
-    int		dohex;
-    int		dooct;
-    int		dobin;
-    int		doalp;
+    int		do_hex;
+    int		do_oct;
+    int		do_bin;
+    int		do_alpha;
+    int		do_unsigned;
     int		firstdigit;
     int		subtract;
     int		negative = FALSE;
@@ -2443,17 +2453,25 @@ do_addsub(
     int		maxlen = 0;
     pos_T	startpos;
     pos_T	endpos;
+    colnr_T	save_coladd = 0;
 
-    dohex = (vim_strchr(curbuf->b_p_nf, 'x') != NULL);	// "heX"
-    dooct = (vim_strchr(curbuf->b_p_nf, 'o') != NULL);	// "Octal"
-    dobin = (vim_strchr(curbuf->b_p_nf, 'b') != NULL);	// "Bin"
-    doalp = (vim_strchr(curbuf->b_p_nf, 'p') != NULL);	// "alPha"
+    do_hex = (vim_strchr(curbuf->b_p_nf, 'x') != NULL);	// "heX"
+    do_oct = (vim_strchr(curbuf->b_p_nf, 'o') != NULL);	// "Octal"
+    do_bin = (vim_strchr(curbuf->b_p_nf, 'b') != NULL);	// "Bin"
+    do_alpha = (vim_strchr(curbuf->b_p_nf, 'p') != NULL);	// "alPha"
+    do_unsigned = (vim_strchr(curbuf->b_p_nf, 'u') != NULL);	// "Unsigned"
+
+    if (virtual_active())
+    {
+	save_coladd = pos->coladd;
+	pos->coladd = 0;
+    }
 
     curwin->w_cursor = *pos;
     ptr = ml_get(pos->lnum);
     col = pos->col;
 
-    if (*ptr == NUL)
+    if (*ptr == NUL || col + !!save_coladd >= (int)STRLEN(ptr))
 	goto theend;
 
     /*
@@ -2461,7 +2479,7 @@ do_addsub(
      */
     if (!VIsual_active)
     {
-	if (dobin)
+	if (do_bin)
 	    while (col > 0 && vim_isbdigit(ptr[col]))
 	    {
 		--col;
@@ -2469,7 +2487,7 @@ do_addsub(
 		    col -= (*mb_head_off)(ptr, ptr + col);
 	    }
 
-	if (dohex)
+	if (do_hex)
 	    while (col > 0 && vim_isxdigit(ptr[col]))
 	    {
 		--col;
@@ -2477,8 +2495,8 @@ do_addsub(
 		    col -= (*mb_head_off)(ptr, ptr + col);
 	    }
 
-	if (       dobin
-		&& dohex
+	if (       do_bin
+		&& do_hex
 		&& ! ((col > 0
 		    && (ptr[col] == 'X'
 			|| ptr[col] == 'x')
@@ -2500,7 +2518,7 @@ do_addsub(
 	    }
 	}
 
-	if ((       dohex
+	if ((       do_hex
 		&& col > 0
 		&& (ptr[col] == 'X'
 		    || ptr[col] == 'x')
@@ -2508,7 +2526,7 @@ do_addsub(
 		&& (!has_mbyte ||
 		    !(*mb_head_off)(ptr, ptr + col - 1))
 		&& vim_isxdigit(ptr[col + 1])) ||
-	    (       dobin
+	    (       do_bin
 		&& col > 0
 		&& (ptr[col] == 'B'
 		    || ptr[col] == 'b')
@@ -2531,12 +2549,12 @@ do_addsub(
 
 	    while (ptr[col] != NUL
 		    && !vim_isdigit(ptr[col])
-		    && !(doalp && ASCII_ISALPHA(ptr[col])))
+		    && !(do_alpha && ASCII_ISALPHA(ptr[col])))
 		col += mb_ptr2len(ptr + col);
 
 	    while (col > 0
 		    && vim_isdigit(ptr[col - 1])
-		    && !(doalp && ASCII_ISALPHA(ptr[col])))
+		    && !(do_alpha && ASCII_ISALPHA(ptr[col])))
 	    {
 		--col;
 		if (has_mbyte)
@@ -2549,7 +2567,7 @@ do_addsub(
     {
 	while (ptr[col] != NUL && length > 0
 		&& !vim_isdigit(ptr[col])
-		&& !(doalp && ASCII_ISALPHA(ptr[col])))
+		&& !(do_alpha && ASCII_ISALPHA(ptr[col])))
 	{
 	    int mb_len = mb_ptr2len(ptr + col);
 
@@ -2561,7 +2579,8 @@ do_addsub(
 	    goto theend;
 
 	if (col > pos->col && ptr[col - 1] == '-'
-		&& (!has_mbyte || !(*mb_head_off)(ptr, ptr + col - 1)))
+		&& (!has_mbyte || !(*mb_head_off)(ptr, ptr + col - 1))
+		&& !do_unsigned)
 	{
 	    negative = TRUE;
 	    was_positive = FALSE;
@@ -2572,13 +2591,13 @@ do_addsub(
      * If a number was found, and saving for undo works, replace the number.
      */
     firstdigit = ptr[col];
-    if (!VIM_ISDIGIT(firstdigit) && !(doalp && ASCII_ISALPHA(firstdigit)))
+    if (!VIM_ISDIGIT(firstdigit) && !(do_alpha && ASCII_ISALPHA(firstdigit)))
     {
 	beep_flush();
 	goto theend;
     }
 
-    if (doalp && ASCII_ISALPHA(firstdigit))
+    if (do_alpha && ASCII_ISALPHA(firstdigit))
     {
 	// decrement or increment alphabetic character
 	if (op_type == OP_NR_SUB)
@@ -2624,10 +2643,14 @@ do_addsub(
     }
     else
     {
+	pos_T	save_pos;
+	int	i;
+
 	if (col > 0 && ptr[col - 1] == '-'
 		&& (!has_mbyte ||
 		    !(*mb_head_off)(ptr, ptr + col - 1))
-		&& !visual)
+		&& !visual
+		&& !do_unsigned)
 	{
 	    // negative number
 	    --col;
@@ -2640,9 +2663,9 @@ do_addsub(
 		    : length);
 
 	vim_str2nr(ptr + col, &pre, &length,
-		0 + (dobin ? STR2NR_BIN : 0)
-		    + (dooct ? STR2NR_OCT : 0)
-		    + (dohex ? STR2NR_HEX : 0),
+		0 + (do_bin ? STR2NR_BIN : 0)
+		    + (do_oct ? STR2NR_OCT : 0)
+		    + (do_hex ? STR2NR_HEX : 0),
 		NULL, &n, maxlen, FALSE);
 
 	// ignore leading '-' for hex and octal and bin numbers
@@ -2688,6 +2711,17 @@ do_addsub(
 		negative = FALSE;
 	}
 
+	if (do_unsigned && negative)
+	{
+	    if (subtract)
+		// sticking at zero.
+		n = (uvarnumber_T)0;
+	    else
+		// sticking at 2^64 - 1.
+		n = (uvarnumber_T)(-1);
+	    negative = FALSE;
+	}
+
 	if (visual && !was_positive && !negative && col > 0)
 	{
 	    // need to remove the '-'
@@ -2710,7 +2744,9 @@ do_addsub(
 	 */
 	if (c == '-')
 	    --length;
-	while (todel-- > 0)
+
+	save_pos = curwin->w_cursor;
+	for (i = 0; i < todel; ++i)
 	{
 	    if (c < 0x100 && isalpha(c))
 	    {
@@ -2719,10 +2755,10 @@ do_addsub(
 		else
 		    hexupper = FALSE;
 	    }
-	    // del_char() will mark line needing displaying
-	    (void)del_char(FALSE);
+	    inc_cursor();
 	    c = gchar_cursor();
 	}
+	curwin->w_cursor = save_pos;
 
 	/*
 	 * Prepare the leading characters in buf1[].
@@ -2752,7 +2788,6 @@ do_addsub(
 	 */
 	if (pre == 'b' || pre == 'B')
 	{
-	    int i;
 	    int bit = 0;
 	    int bits = sizeof(uvarnumber_T) * 8;
 
@@ -2781,19 +2816,44 @@ do_addsub(
 	 * Don't do this when
 	 * the result may look like an octal number.
 	 */
-	if (firstdigit == '0' && !(dooct && pre == 0))
+	if (firstdigit == '0' && !(do_oct && pre == 0))
 	    while (length-- > 0)
 		*ptr++ = '0';
 	*ptr = NUL;
+
 	STRCAT(buf1, buf2);
+
+	// Insert just after the first character to be removed, so that any
+	// text properties will be adjusted.  Then delete the old number
+	// afterwards.
+	save_pos = curwin->w_cursor;
+	if (todel > 0)
+	    inc_cursor();
 	ins_str(buf1);		// insert the new number
 	vim_free(buf1);
+
+	// del_char() will also mark line needing displaying
+	if (todel > 0)
+	{
+	    int bytes_after = (int)STRLEN(ml_get_curline())
+							- curwin->w_cursor.col;
+
+	    // Delete the one character before the insert.
+	    curwin->w_cursor = save_pos;
+	    (void)del_char(FALSE);
+	    curwin->w_cursor.col = (colnr_T)(STRLEN(ml_get_curline())
+								- bytes_after);
+	    --todel;
+	}
+	while (todel-- > 0)
+	    (void)del_char(FALSE);
+
 	endpos = curwin->w_cursor;
 	if (did_change && curwin->w_cursor.col)
 	    --curwin->w_cursor.col;
     }
 
-    if (did_change && !cmdmod.lockmarks)
+    if (did_change && (cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// set the '[ and '] marks
 	curbuf->b_op_start = startpos;
@@ -2807,6 +2867,8 @@ theend:
 	curwin->w_cursor = save_cursor;
     else if (did_change)
 	curwin->w_set_curswant = TRUE;
+    else if (virtual_active())
+	curwin->w_cursor.coladd = save_coladd;
 
     return did_change;
 }
@@ -3240,7 +3302,7 @@ op_function(oparg_T *oap UNUSED)
 	(void)call_func_retnr(p_opfunc, 1, argv);
 
 	virtual_op = save_virtual_op;
-	if (cmdmod.lockmarks)
+	if (cmdmod.cmod_flags & CMOD_LOCKMARKS)
 	{
 	    curbuf->b_op_start = orig_start;
 	    curbuf->b_op_end = orig_end;
@@ -3404,8 +3466,9 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 	if ((redo_yank || oap->op_type != OP_YANK)
 		&& ((!VIsual_active || oap->motion_force)
 		    // Also redo Operator-pending Visual mode mappings
-		    || (VIsual_active && cap->cmdchar == ':'
-						 && oap->op_type != OP_COLON))
+		    || (VIsual_active
+			  && (cap->cmdchar == ':' || cap->cmdchar == K_COMMAND)
+						  && oap->op_type != OP_COLON))
 		&& cap->cmdchar != 'D'
 #ifdef FEAT_FOLDING
 		&& oap->op_type != OP_FOLD
@@ -3429,7 +3492,7 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 		    AppendToRedobuffLit(cap->searchbuf, -1);
 		AppendToRedobuff(NL_STR);
 	    }
-	    else if (cap->cmdchar == ':')
+	    else if (cap->cmdchar == ':' || cap->cmdchar == K_COMMAND)
 	    {
 		// do_cmdline() has stored the first typed line in
 		// "repeat_cmdline".  When several lines are typed repeating
@@ -3627,7 +3690,7 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 			    get_op_char(oap->op_type),
 			    get_extra_op_char(oap->op_type),
 			    oap->motion_force, cap->cmdchar, cap->nchar);
-		else if (cap->cmdchar != ':')
+		else if (cap->cmdchar != ':' && cap->cmdchar != K_COMMAND)
 		{
 		    int nchar = oap->op_type == OP_REPLACE ? cap->nchar : NUL;
 
@@ -3809,9 +3872,10 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 	    else
 	    {
 		(void)op_delete(oap);
-		if (oap->motion_type == MLINE && has_format_option(FO_AUTO))
-		    u_save_cursor();	    // cursor line wasn't saved yet
-		auto_format(FALSE, TRUE);
+		// save cursor line for undo if it wasn't saved yet
+		if (oap->motion_type == MLINE && has_format_option(FO_AUTO)
+						      && u_save_cursor() == OK)
+		    auto_format(FALSE, TRUE);
 	    }
 	    break;
 

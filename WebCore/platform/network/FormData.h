@@ -192,7 +192,7 @@ public:
 
     WEBCORE_EXPORT static Ref<FormData> create();
     WEBCORE_EXPORT static Ref<FormData> create(const void*, size_t);
-    static Ref<FormData> create(const CString&);
+    WEBCORE_EXPORT static Ref<FormData> create(const CString&);
     static Ref<FormData> create(Vector<char>&&);
     static Ref<FormData> create(const Vector<char>&);
     static Ref<FormData> create(const Vector<uint8_t>&);
@@ -221,6 +221,7 @@ public:
     // Resolve all blob references so we only have file and data.
     // If the FormData has no blob references to resolve, this is returned.
     WEBCORE_EXPORT Ref<FormData> resolveBlobReferences(BlobRegistryImpl* = nullptr);
+    bool containsBlobElement() const;
 
     WEBCORE_EXPORT FormDataForUpload prepareForUpload();
 

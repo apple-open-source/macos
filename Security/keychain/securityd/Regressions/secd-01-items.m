@@ -140,14 +140,13 @@ int secd_01_items(int argc, char *const *argv)
 
     /* Reset keybag and custom $HOME */
     SecItemServerResetKeychainKeybag();
-    SetCustomHomePath(NULL);
-    SecKeychainDbReset(NULL);
-
+    secd_test_teardown_delete_temp_keychain("secd_01_items");
     
     CFReleaseNull(pwdata);
     CFReleaseNull(eighty);
     CFReleaseSafe(item);
     CFReleaseSafe(query);
+
 
 	return 0;
 }

@@ -32,6 +32,10 @@
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
 #include "AudioUtilities.h"
+#include "AudioWorklet.h"
+#include "AudioWorkletGlobalScope.h"
+#include "AudioWorkletMessagingProxy.h"
+#include "AudioWorkletThread.h"
 #include "DenormalDisabler.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -39,15 +43,11 @@ namespace WebCore {
     
 WTF_MAKE_ISO_ALLOCATED_IMPL(AudioDestinationNode);
 
-AudioDestinationNode::AudioDestinationNode(BaseAudioContext& context)
-    : AudioNode(context)
-    , m_currentSampleFrame(0)
-    , m_isSilent(true)
-    , m_isEffectivelyPlayingAudio(false)
-    , m_muted(false)
+AudioDestinationNode::AudioDestinationNode(BaseAudioContext& context, float sampleRate)
+    : AudioNode(context, NodeTypeDestination)
+    , m_sampleRate(sampleRate)
 {
-    setNodeType(NodeTypeDestination);
-    addInput(makeUnique<AudioNodeInput>(this));
+    addInput();
 }
 
 AudioDestinationNode::~AudioDestinationNode()
@@ -80,6 +80,12 @@ void AudioDestinationNode::render(AudioBus*, AudioBus* destinationBus, size_t nu
     // Let the context take care of any business at the start of each render quantum.
     context().handlePreRenderTasks(outputPosition);
 
+    RefPtr<AudioWorkletGlobalScope> workletGlobalScope;
+    if (auto* audioWorkletProxy = context().audioWorklet().proxy())
+        workletGlobalScope = audioWorkletProxy->workletThread().globalScope();
+    if (workletGlobalScope)
+        workletGlobalScope->handlePreRenderTasks();
+
     // This will cause the node(s) connected to us to process, which in turn will pull on their input(s),
     // all the way backwards through the rendering graph.
     AudioBus* renderedBus = input(0)->pull(destinationBus, numberOfFrames);
@@ -99,6 +105,9 @@ void AudioDestinationNode::render(AudioBus*, AudioBus* destinationBus, size_t nu
     
     // Advance current sample-frame.
     m_currentSampleFrame += numberOfFrames;
+
+    if (workletGlobalScope)
+        workletGlobalScope->handlePostRenderTasks(m_currentSampleFrame);
 
     setIsSilent(destinationBus->isSilent());
 

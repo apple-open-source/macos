@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: dev@subversion.apache.org\n"
-"POT-Creation-Date: 2019-07-19 10:42+0000\n"
+"POT-Creation-Date: 2021-02-04 12:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1497,7 +1497,7 @@ msgstr ""
 #: ../libsvn_client/add.c:908 ../libsvn_client/changelist.c:65
 #: ../libsvn_client/changelist.c:104 ../libsvn_client/deprecated.c:3098
 #: ../libsvn_client/export.c:1392 ../libsvn_client/import.c:861
-#: ../libsvn_client/patch.c:3745 ../libsvn_client/relocate.c:155
+#: ../libsvn_client/patch.c:3748 ../libsvn_client/relocate.c:155
 #: ../libsvn_client/resolved.c:120 ../libsvn_client/revert.c:149
 #: ../libsvn_client/shelve.c:196 ../libsvn_client/status.c:368
 #: ../libsvn_client/switch.c:471 ../libsvn_client/update.c:749
@@ -3593,7 +3593,7 @@ msgstr ""
 msgid "Path '%s' is not a directory"
 msgstr ""
 
-#: ../libsvn_client/copy.c:1131 ../libsvn_client/merge.c:10252
+#: ../libsvn_client/copy.c:1131 ../libsvn_client/merge.c:10276
 #: ../svnlook/svnlook.c:1411
 #, c-format
 msgid "Path '%s' does not exist"
@@ -3750,8 +3750,8 @@ msgstr ""
 msgid "Cannot display: file marked as a binary type.%s"
 msgstr ""
 
-#: ../libsvn_client/diff.c:1471 ../libsvn_client/merge.c:7301
-#: ../libsvn_client/merge.c:10654
+#: ../libsvn_client/diff.c:1471 ../libsvn_client/merge.c:7320
+#: ../libsvn_client/merge.c:10678
 msgid "Not all required revisions are specified"
 msgstr ""
 
@@ -3918,8 +3918,8 @@ msgstr ""
 msgid "New entry name required when importing a file"
 msgstr ""
 
-#: ../libsvn_client/import.c:787 ../libsvn_client/patch.c:3752
-#: ../libsvn_client/patch.c:3764 ../libsvn_wc/delete.c:93
+#: ../libsvn_client/import.c:787 ../libsvn_client/patch.c:3755
+#: ../libsvn_client/patch.c:3767 ../libsvn_wc/delete.c:93
 #: ../libsvn_wc/lock.c:121 ../libsvn_wc/wc_db_wcroot.c:78
 #, c-format
 msgid "'%s' does not exist"
@@ -4005,28 +4005,28 @@ msgstr ""
 #. xgettext: the '.working', '.merge-left.r%ld' and
 #. '.merge-right.r%ld' strings are used to tag onto a file
 #. name in case of a merge conflict
-#: ../libsvn_client/merge.c:2111
+#: ../libsvn_client/merge.c:2130
 #, c-format
 msgid ".working%s%s"
 msgstr ""
 
-#: ../libsvn_client/merge.c:2114
+#: ../libsvn_client/merge.c:2133
 #, c-format
 msgid ".merge-left.r%ld%s%s"
 msgstr ""
 
-#: ../libsvn_client/merge.c:2118
+#: ../libsvn_client/merge.c:2137
 #, c-format
 msgid ".merge-right.r%ld%s%s"
 msgstr ""
 
-#: ../libsvn_client/merge.c:4816
+#: ../libsvn_client/merge.c:4835
 msgid ""
 "Cannot reverse-merge a range from a path's own future history; try updating "
 "first"
 msgstr ""
 
-#: ../libsvn_client/merge.c:5537
+#: ../libsvn_client/merge.c:5556
 #, c-format
 msgid ""
 "One or more conflicts were produced while merging r%ld:%ld into\n"
@@ -4035,87 +4035,87 @@ msgid ""
 "unmerged revisions"
 msgstr ""
 
-#: ../libsvn_client/merge.c:6353
+#: ../libsvn_client/merge.c:6372
 #, c-format
 msgid "Invalid mergeinfo detected on '%s', merge tracking not possible"
 msgstr ""
 
-#: ../libsvn_client/merge.c:6504
+#: ../libsvn_client/merge.c:6523
 msgid ""
 "Merge tracking not allowed with missing subtrees; try restoring these items "
 "first:\n"
 msgstr ""
 
-#: ../libsvn_client/merge.c:7505
+#: ../libsvn_client/merge.c:7524
 #, c-format
 msgid ""
 "Invalid mergeinfo detected on merge target '%s', merge tracking not possible"
 msgstr ""
 
-#: ../libsvn_client/merge.c:9823
+#: ../libsvn_client/merge.c:9847
 msgid "Use of two URLs is not compatible with mergeinfo modification"
 msgstr ""
 
-#: ../libsvn_client/merge.c:9830 ../libsvn_client/merge.c:10166
+#: ../libsvn_client/merge.c:9854 ../libsvn_client/merge.c:10190
 msgid ""
 "Merge from foreign repository is not compatible with mergeinfo modification"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10259 ../libsvn_client/merge.c:10402
+#: ../libsvn_client/merge.c:10283 ../libsvn_client/merge.c:10426
 #, c-format
 msgid "Merge target '%s' does not exist in the working copy"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10282
+#: ../libsvn_client/merge.c:10306
 msgid "Cannot determine revision of working copy"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10288
+#: ../libsvn_client/merge.c:10312
 #, c-format
 msgid ""
 "Cannot merge into mixed-revision working copy [%ld:%ld]; try updating first"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10303
+#: ../libsvn_client/merge.c:10327
 msgid "Cannot merge into a working copy with a switched subtree"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10319
+#: ../libsvn_client/merge.c:10343
 msgid "Cannot merge into a working copy that has local modifications"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10339 ../svn/merge-cmd.c:56
+#: ../libsvn_client/merge.c:10363 ../svn/merge-cmd.c:56
 #, c-format
 msgid ""
 "Invalid merge source '%s'; a working copy path can only be used with a "
 "repository revision (a number, a date, or head)"
 msgstr ""
 
-#: ../libsvn_client/merge.c:10657 ../svn/merge-cmd.c:123
+#: ../libsvn_client/merge.c:10681 ../svn/merge-cmd.c:123
 msgid "Merge sources must both be either paths or URLs"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11427 ../libsvn_client/merge.c:11589
-#: ../libsvn_client/merge.c:12507
+#: ../libsvn_client/merge.c:11451 ../libsvn_client/merge.c:11613
+#: ../libsvn_client/merge.c:12531
 #, c-format
 msgid "'%s@%ld' must be ancestrally related to '%s@%ld'"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11539
+#: ../libsvn_client/merge.c:11563
 #, c-format
 msgid ""
 "Neither the reintegrate source nor target can be the root of the repository"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11549
+#: ../libsvn_client/merge.c:11573
 msgid "Reintegrate merge not possible"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11619
+#: ../libsvn_client/merge.c:11643
 msgid "    Missing ranges: "
 msgstr ""
 
-#: ../libsvn_client/merge.c:11622
+#: ../libsvn_client/merge.c:11646
 #, c-format
 msgid ""
 "Reintegrate can only be used if revisions %ld through %ld were previously "
@@ -4123,37 +4123,37 @@ msgid ""
 "%s"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11681
+#: ../libsvn_client/merge.c:11705
 #, c-format
 msgid ""
 "Can't reintegrate into '%s' because it is locally added and therefore not "
 "related to the merge source"
 msgstr ""
 
-#: ../libsvn_client/merge.c:11969
+#: ../libsvn_client/merge.c:11993
 msgid "Cannot merge automatically while ignoring mergeinfo"
 msgstr ""
 
-#: ../libsvn_client/merge.c:12637
+#: ../libsvn_client/merge.c:12661
 #, c-format
 msgid ""
 "Can't perform automatic merge into '%s' because it is locally added and "
 "therefore not related to the merge source"
 msgstr ""
 
-#: ../libsvn_client/merge.c:12736
+#: ../libsvn_client/merge.c:12760
 msgid ""
 "The required merge is reintegrate-like, and the record-only option cannot be "
 "used with this kind of merge"
 msgstr ""
 
-#: ../libsvn_client/merge.c:12742
+#: ../libsvn_client/merge.c:12766
 msgid ""
 "The required merge is reintegrate-like, and the depth option cannot be used "
 "with this kind of merge"
 msgstr ""
 
-#: ../libsvn_client/merge.c:12748
+#: ../libsvn_client/merge.c:12772
 msgid ""
 "The required merge is reintegrate-like, and the force_delete option cannot "
 "be used with this kind of merge"
@@ -4285,17 +4285,17 @@ msgstr ""
 msgid "Cannot strip %u components from '%s'"
 msgstr ""
 
-#: ../libsvn_client/patch.c:1296 ../libsvn_client/patch.c:1342
+#: ../libsvn_client/patch.c:1299 ../libsvn_client/patch.c:1345
 #, c-format
 msgid ""
 "Invalid patch: specifies contradicting mode changes and %s changes (for '%s')"
 msgstr ""
 
-#: ../libsvn_client/patch.c:3741
+#: ../libsvn_client/patch.c:3744
 msgid "strip count must be positive"
 msgstr ""
 
-#: ../libsvn_client/patch.c:3757 ../libsvn_fs_base/tree.c:4112
+#: ../libsvn_client/patch.c:3760 ../libsvn_fs_base/tree.c:4112
 #: ../libsvn_fs_base/tree.c:4117 ../libsvn_fs_fs/tree.c:3270
 #: ../libsvn_fs_fs/tree.c:3276 ../libsvn_fs_x/tree.c:2188
 #: ../libsvn_fs_x/tree.c:2194 ../libsvn_ra/compat.c:677
@@ -4304,7 +4304,7 @@ msgstr ""
 msgid "'%s' is not a file"
 msgstr ""
 
-#: ../libsvn_client/patch.c:3769 ../libsvn_wc/util.c:59
+#: ../libsvn_client/patch.c:3772 ../libsvn_wc/util.c:59
 #, c-format
 msgid "'%s' is not a directory"
 msgstr ""
@@ -6595,14 +6595,11 @@ msgstr ""
 #: ../libsvn_fs_fs/verify.c:682
 #, c-format
 msgid ""
-"p2l index entry for revision r%ld at offset %s contains invalid item type %d"
+"p2l index entry for revision r%ld at offset %s contains invalid item type %u"
 msgstr ""
 
 #: ../libsvn_fs_fs/verify.c:696
-#, c-format
-msgid ""
-"p2l index entry for changes in revision r%ld is item %ld of type %d at "
-"offset %s"
+msgid "p2l index entry for changes in revision r%ld is item %"
 msgstr ""
 
 #: ../libsvn_fs_util/fs-util.c:164
@@ -10022,7 +10019,7 @@ msgstr ""
 
 #: ../libsvn_subr/version.c:146
 msgid ""
-"Copyright (C) 2019 The Apache Software Foundation.\n"
+"Copyright (C) 2021 The Apache Software Foundation.\n"
 "This software consists of contributions made by many people;\n"
 "see the NOTICE file for more information.\n"
 "Subversion is open source software, see http://subversion.apache.org/\n"

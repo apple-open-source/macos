@@ -1,3 +1,5 @@
+/* generated file, do not edit */
+
 static struct def_values def_data_lecture[] = {
     { "never", never },
     { "once", once },
@@ -33,6 +35,12 @@ static struct def_values def_data_timestamp_type[] = {
     { "ppid", ppid },
     { "tty", tty },
     { "kernel", kernel },
+    { NULL, 0 },
+};
+
+static struct def_values def_data_log_format[] = {
+    { "sudo", sudo },
+    { "json", json },
     { NULL, 0 },
 };
 
@@ -263,7 +271,7 @@ struct sudo_defs_types sudo_defs_table[] = {
 	def_data_verifypw,
     }, {
 	"noexec", T_FLAG,
-	N_("Preload the dummy exec functions contained in the sudo_noexec library"),
+	N_("Preload the sudo_noexec library which replaces the exec functions"),
 	NULL,
     }, {
 	"ignore_local_sudoers", T_FLAG,
@@ -275,7 +283,7 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"closefrom_override", T_FLAG,
-	N_("If set, users may override the value of `closefrom' with the -C option"),
+	N_("If set, users may override the value of \"closefrom\" with the -C option"),
 	NULL,
     }, {
 	"setenv", T_FLAG,
@@ -287,7 +295,7 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"env_check", T_LIST|T_BOOL,
-	N_("Environment variables to check for sanity:"),
+	N_("Environment variables to check for safety:"),
 	NULL,
     }, {
 	"env_delete", T_LIST|T_BOOL,
@@ -402,8 +410,8 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Perform PAM account validation management"),
 	NULL,
     }, {
-	"maxseq", T_UINT,
-	N_("Maximum I/O log sequence number: %u"),
+	"maxseq", T_STR,
+	N_("Maximum I/O log sequence number: %s"),
 	NULL,
     }, {
 	"use_netgroups", T_FLAG,
@@ -506,12 +514,64 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Log when a command is denied by sudoers"),
 	NULL,
     }, {
+	"log_servers", T_LIST|T_BOOL,
+	N_("Sudo log server(s) to connect to with optional port"),
+	NULL,
+    }, {
+	"log_server_timeout", T_TIMEOUT|T_BOOL,
+	N_("Sudo log server timeout in seconds: %u"),
+	NULL,
+    }, {
+	"log_server_keepalive", T_FLAG,
+	N_("Enable SO_KEEPALIVE socket option on the socket connected to the logserver"),
+	NULL,
+    }, {
+	"log_server_cabundle", T_STR|T_BOOL|T_PATH,
+	N_("Path to the audit server's CA bundle file: %s"),
+	NULL,
+    }, {
+	"log_server_peer_cert", T_STR|T_BOOL|T_PATH,
+	N_("Path to the sudoers certificate file: %s"),
+	NULL,
+    }, {
+	"log_server_peer_key", T_STR|T_BOOL|T_PATH,
+	N_("Path to the sudoers private key file: %s"),
+	NULL,
+    }, {
+	"log_server_verify", T_FLAG,
+	N_("Verify that the log server's certificate is valid"),
+	NULL,
+    }, {
 	"runas_allow_unknown_id", T_FLAG,
 	N_("Allow the use of unknown runas user and/or group ID"),
 	NULL,
     }, {
 	"runas_check_shell", T_FLAG,
 	N_("Only permit running commands as a user with a valid shell"),
+	NULL,
+    }, {
+	"pam_ruser", T_FLAG,
+	N_("Set the pam remote user to the user running sudo"),
+	NULL,
+    }, {
+	"pam_rhost", T_FLAG,
+	N_("Set the pam remote host to the local host name"),
+	NULL,
+    }, {
+	"runcwd", T_STR|T_BOOL|T_CHPATH,
+	N_("Working directory to change to before executing the command: %s"),
+	NULL,
+    }, {
+	"runchroot", T_STR|T_BOOL|T_CHPATH,
+	N_("Root directory to change to before executing the command: %s"),
+	NULL,
+    }, {
+	"log_format", T_TUPLE,
+	N_("The format of logs to produce: %s"),
+	def_data_log_format,
+    }, {
+	"selinux", T_FLAG,
+	N_("Enable SELinux RBAC support"),
 	NULL,
     }, {
 	NULL, 0, NULL

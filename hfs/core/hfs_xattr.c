@@ -98,6 +98,91 @@ static int  has_overflow_extents(HFSPlusForkData *forkdata);
 
 static int  count_extent_blocks(int maxblks, HFSPlusExtentRecord extents);
 
+#if NEW_XATTR
+
+/*
+ * Iterator over set bits within an xattr free fext bitmap.
+ *
+ * See xbm_make_iter() for details on creation.
+ */
+typedef struct {
+	const uint64_t *bitmap;
+	size_t i;
+	size_t len;
+} xbm_iter_t;
+
+// xattr IO subsystem assertion
+#define xattr_assert(cond) if(!(cond)) do { \
+	panic("xattr_assert() failed: %s",#cond); \
+} while(0)
+
+#define xattr_infomsg(...) // errmsg(__VA_ARGS__)
+
+/*
+ * Purely for documentation purposes, simulate C++ const_cast<>() in the C
+ * language.
+ * This makes it quite obvious that the `const' part of a cast is being removed
+ * to workaround an api that accepts a non-const pointer but otherwise has no
+ * reason to modify its value.
+ * E.g.
+ *
+ * ancient_sum(a, count)
+ * int *a; int count;
+ * {
+ *   int s;
+ *   s = 0;
+ *   while (count--) {
+ *     s = s + a[i];
+ *   }
+ *   return s;
+ * }
+ *
+ * int modern_sum(const int *a, int count) {
+ *   return ancient_sum(const_cast(int *, a), count);
+ * }
+ */
+#define const_cast(type, expr) ((type)(expr))
+
+static uint64_t fext2cluster(const HFSPlusExtentDescriptor *fext, uint32_t fs_bsize);
+static bool cluster_off_in_fext(uint64_t off, const HFSPlusExtentDescriptor *fext,
+		uint32_t fs_bsize);
+
+static bool fext2cluster_check(const HFSPlusExtentDescriptor *fext, uint32_t fs_bsize,
+		uint64_t *out);
+static uint32_t xattr_cluster_scale(uint32_t fs_bsize);
+
+// xattr fext thread local storage routines
+static const HFSPlusExtentDescriptor **_Nullable xattr_fext_alloc(
+		xattr_io_info_t *info) __attribute__((warn_unused_result));
+static void xattr_fext_free(xattr_io_info_t *info,
+		const HFSPlusExtentDescriptor **xfext);
+static void xattr_fext_set(xattr_io_info_t *info,
+		const HFSPlusExtentDescriptor **xfext, const HFSPlusExtentDescriptor *fext);
+static void xattr_fext_clear(xattr_io_info_t *info,
+		const HFSPlusExtentDescriptor **xfext);
+
+static size_t xattr_fext_index(const xattr_io_info_t *info,
+		const HFSPlusExtentDescriptor **xfext);
+
+// xattr fext free bitmap routines, namespace `xbm_'
+static bool xbm_find_free(const xattr_io_info_t *info, size_t *out);
+static void xbm_set_used(xattr_io_info_t *info, size_t i);
+static void xbm_clear_used(xattr_io_info_t *info, size_t i);
+
+static bool xbm_valid_index(const xattr_io_info_t *info, int64_t i);
+static size_t xbm_size(const xattr_io_info_t *info);
+
+// bitmap iterator functions
+static xbm_iter_t xbm_make_iter(const uint64_t *bitmap, size_t len);
+static bool xbm_iter_next(xbm_iter_t *ier);
+static size_t xbm_iter_peek(const xbm_iter_t *ier);
+
+// bitmap_ wrappers under namespace bm_
+static bool bm_find(const uint64_t *bm,
+		size_t from, size_t len, bool value, size_t *out);
+static bool bm_valid_index(int64_t i, size_t len);
+#endif
+
 #if NAMEDSTREAMS
 /*
  * Obtain the vnode for a stream.
@@ -1080,12 +1165,6 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 	
 	/* If it won't fit inline then use extent-based attributes. */
 	if (attrsize > hfsmp->hfs_max_inline_attrsize) {
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
-		printf("hfs_setxattr: non-inline attributes are not supported\n");
-		//NOTE: ENOTSUP will fool XNU into thinking we need AppleDouble files...
-		result = EPERM;
-		goto exit;
-#else
 		int blkcnt;
 		int extentblks;
 		u_int32_t *keystartblk;
@@ -1186,7 +1265,6 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 			extentblks = count_extent_blocks(blkcnt, recp->overflowExtents.extents);
 			blkcnt -= extentblks;
 		}
-#endif //(TARGET_OS_OSX && TARGET_CPU_ARM64)
 	} else { /* Inline data */ 
 		if (exists) {
 			result = remove_attribute_records(hfsmp, iterator);
@@ -2379,11 +2457,675 @@ int init_attrdata_vnode(struct hfsmount *hfsmp)
 				 &cat_fork, &vp, &newvnode_flags);
 	if (result == 0) {
 		hfsmp->hfs_attrdata_vp = vp;
+#if NEW_XATTR
+		vnode_setnoreadahead(hfsmp->hfs_attrdata_vp);
+#endif
 		hfs_unlock(VTOC(vp));
 	}
 	return (result);
 }
 
+/* The following code (inside NEW_XATTR) was ported from apfs. */
+#if NEW_XATTR
+/*
+ * This is the same as fext2cluster_check(), but overflow is asserted against.
+ *
+ * This is useful for places which hold the invariant that `fext' is already
+ * representable when translated but additionally want to assert that that is
+ * the case.
+ */
+static uint64_t
+fext2cluster(const HFSPlusExtentDescriptor *fext, uint32_t fs_bsize)
+{
+	uint64_t off;
+	const bool ok = fext2cluster_check(fext, fs_bsize, &off);
+	xattr_assert(ok);
+	return off;
+}
+
+/*
+ * Translate `fext' to a cluster layer virtual offset, set via `out', that is
+ * suitable for IO to the single xattr vnode.
+ *
+ * For any particular file extent, this will map to a unique logical offset
+ * that may be used to key into the ubc. The returned value has the property
+ * such that file extents on adjacent physical blocks will always be mapped to
+ * different page sized multiples. Internally, this just multiplies by the
+ * larger of the pagesize and the blocksize (see xattr_cluster_scale() for the
+ * derivation). For further details on the importance of this in the overall
+ * scheme of xattr IO, see uio_set_fext().
+ *
+ * This return trues if `fext' is representable in cluster layer virtual
+ * offset. It may return false for corrupted file extents:
+ * - extents that likely extend beyond the size of the underlying drive
+ *
+ * The second point should not happen under normal circumstances even for large
+ * drives. Large drives (by the logic in hfs_newfs()) are automatically
+ * formatted to use large block sizes: drives sized >= 16TB use 16kiB fs
+ * blocksize, at which point the virtual offset computed is equal to the device
+ * offset (even on a 16kiB pagesize system).
+ * So as long as a drive does not exceed 2^63 bytes in capacity (which is the
+ * precision of `off_t'), the internal multiplication should not overflow.
+ */
+static bool
+fext2cluster_check(const HFSPlusExtentDescriptor *fext, uint32_t fs_bsize,
+		uint64_t *out)
+{
+	const uint64_t pbn = fext->startBlock;
+	
+	// xattrs has invalid start block
+	if (!pbn) {
+		return false;
+	}
+
+	// scale pbn
+	uint64_t off;
+	if (__builtin_mul_overflow(pbn, xattr_cluster_scale(fs_bsize), &off)) {
+		return false;
+	}
+
+	*out = off;
+
+	// the whole fext should be in range
+	if (__builtin_add_overflow(off, fext->blockCount * fs_bsize, &off)) {
+		return false;
+	}
+
+	// don't exceed signed 64bit precision
+	if (off > INT64_MAX) {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Return the scale factor for translating xattr physical block numbers into
+ * a logical offset into the single xattr vnode's ubc.
+ *
+ * Translated blocks have two key requirements:
+ * - They must not overlap.
+ *   Otherwise two different blocks' contents will collide.
+ * - They must not fall within the same page.
+ *   Otherwise reading a whole page may pull in multiple xattr's blocks, but
+ *   only decrypt with one of the xattr's keys.
+ *
+ * A table of all possible configurations:
+ *   pagesize, fs blocksize, scale
+ *   4k, 4k, 4k
+ *   4k, 8k, 8k
+ *   ...
+ *   4k, 64k, 64k
+ *   16k, 4k, 16k
+ *   16k, 8k, 16k
+ *   16k, 16k, 16k
+ *   16k, 32k, 32k
+ *   16k, 64k, 64k
+ *
+ * This may be expressed as
+ *   scale = max(pagesize, fs blocksize)
+ */
+static uint32_t
+xattr_cluster_scale(uint32_t fs_bsize)
+{
+	return MAX(PAGE_SIZE, fs_bsize);
+}
+
+/*
+ * See off_in_range().
+ */
+static bool
+off_in_range2(uint64_t off, uint64_t start, uint64_t len)
+{
+	return (start <= off) && (off < (start + len));
+}
+
+/*
+ * Return true if `off' returned from fext2cluster() was produced from
+ * `fext'.
+ */
+static bool
+cluster_off_in_fext(uint64_t off, const HFSPlusExtentDescriptor *fext,
+		uint32_t fs_bsize)
+{
+	return off_in_range2(off, fext2cluster(fext, fs_bsize), fext->blockCount * fs_bsize);
+}
+
+/*
+ * Allocate space to save a file extent reference for xattr IO.
+ *
+ * This provides a mechanism to communicate file extents from top level, stream
+ * based xattr IO functions down into lower level IO functions
+ * (_blockmap() and _strategy()).
+ *
+ * This doesn't really return a file extent, it returns a reference into
+ * `info->xattr_fexts' which may be pointed to a file extent reference.
+ * Alternatively this could just return an integral index index, but then we'd
+ * need some way to signal failure.
+ *
+ * Note: the returned reference cannot be assigned directly; it must be set
+ * via xattr_fext_set() to correctly synchronize with a racing call to
+ * xattr_fext_find().
+ *
+ * This call will not block; it will return NULL if no free spaces are
+ * available. On success, follow with a call to xattr_fext_free().
+ *
+ * In terms of the implementation, this is a basic zone allocator for thread
+ * local storage in disguise. it supports only one file extent to be
+ * set by up to 64 threads.
+ * For further details, see the documentation for each field above the
+ * definition of `xattr_io_info_t'.
+ */
+static const HFSPlusExtentDescriptor **
+xattr_fext_alloc(xattr_io_info_t *info)
+{
+	const HFSPlusExtentDescriptor **ret;
+	size_t i;
+
+	// search for the first free bit
+	lck_spin_lock(&info->lock);
+	if (!xbm_find_free(info, &i)) {
+		// no free fexts
+		ret = NULL;
+		goto fail;
+	}
+
+	// mark that position as allocated
+	xbm_set_used(info, i);
+	ret = &info->xattr_fexts[i];
+	xattr_assert(!*ret);
+
+fail:
+	lck_spin_unlock(&info->lock);
+	return ret;
+}
+
+/*
+ * Free the memory associated with an xattr fext referenced return from
+ * xattr_fext_alloc().
+ * This simply amounts to clearing the bit within `info->free_bm' that
+ * corresponds to `xfext'. While not strictly neccessary, we also clear out the
+ * xattr fext itself to hold the invariant that a clear bit within the free
+ * bitmap has a corresponding NULL fext reference.
+ */
+static void
+xattr_fext_free(xattr_io_info_t *info, const HFSPlusExtentDescriptor **xfext)
+{
+	lck_spin_lock(&info->lock);
+	const size_t i = xattr_fext_index(info, xfext);
+	xbm_clear_used(info, i);
+	info->xattr_fexts[i] = NULL;
+	lck_spin_unlock(&info->lock);
+}
+
+/*
+ * Given an allocated xattr fext from xattr_fext_alloc() assign it to reference
+ * `fext'. A copy of this fext may be returned by a subsequent call to
+ * xattr_fext_find().
+ *
+ * This may be called multiple times for the same value of `xfext'.
+ * `fext' will be borrowed until a subsequent call to xattr_fext_set() for a
+ * different file extent or xattr_fext_free() for `xfext'. It must have
+ * lifetime that spans at least as long from when it's first set to when it's
+ * cleared either by xattr_fext_free() or xattr_fext_clear().
+ *
+ * Note: `fext' may be introspected by other threads via xattr_fext_find()
+ * (and in terms of getxattr(), two threads may use each other's file extents
+ * if they race to read the same xattr).
+ */
+static void
+xattr_fext_set(xattr_io_info_t *info, const HFSPlusExtentDescriptor **xfext,
+		const HFSPlusExtentDescriptor *fext)
+{
+	xattr_assert(xbm_valid_index(info, xattr_fext_index(info, xfext)));
+	lck_spin_lock(&info->lock);
+	*xfext = fext;
+	lck_spin_unlock(&info->lock);
+}
+
+/*
+ * Given a cluster layer virtual offset, attempt to look up a file extent set
+ * via a previous call to xattr_fext_set().
+ *
+ * If such a fext is found, its value is copied to `out' and true is returned.
+ * Note: `out' should reference wired memory: it will be stored to while a spin
+ * lock is held; accesses must not fault.
+ *
+ * off_out will contain the "unvirtualized" offset
+ */
+bool
+hfs_xattr_fext_find(xattr_io_info_t *info, uint32_t fs_bsize, uint64_t off,
+				HFSPlusExtentDescriptor *out, uint64_t *off_out)
+{
+	bool found = false;
+	lck_spin_lock(&info->lock);
+
+	// search through all in-use fexts
+	xbm_iter_t iter = xbm_make_iter(info->free_bm, xbm_size(info));
+	while(xbm_iter_next(&iter)) {
+		const HFSPlusExtentDescriptor *fext = info->xattr_fexts[xbm_iter_peek(&iter)];
+		if (!fext || !cluster_off_in_fext(off, fext, fs_bsize)) {
+			continue;
+		}
+		// `off' intersects; return `fext'
+		*out = *fext;
+		found = true;
+		break;
+	}
+
+	lck_spin_unlock(&info->lock);
+
+	if (found) {
+		*off_out = ((uint64_t)out->startBlock * fs_bsize) + off - fext2cluster(out, fs_bsize);
+	}
+
+	return found;
+}
+
+/*
+ * Given an allocated xattr fext, clear its reference to any `fext' passed to a
+ * previous call to xattr_fext_set().
+ *
+ * This will end the lifetime of such a fext and prevent xattr_fext_find() from
+ * taking a reference to it. From here, its backing memory can be deallocated.
+ *
+ * Unlike xattr_fext_free(), `xfext' will remain allocated and it may passed to
+ * xattr_fext_set() again.
+ */
+static void
+xattr_fext_clear(xattr_io_info_t *info, const HFSPlusExtentDescriptor **xfext)
+{
+	xattr_assert(xbm_valid_index(info, xattr_fext_index(info, xfext)));
+	lck_spin_lock(&info->lock);
+	*xfext = NULL;
+	lck_spin_unlock(&info->lock);
+}
+
+/*
+ * For an xattr file extent, `xfext', returned from a previous call to
+ * xattr_fext_alloc(), return its index within `info->xattr_fexts'.
+ */
+static size_t
+xattr_fext_index(const xattr_io_info_t *info, const HFSPlusExtentDescriptor **xfext)
+{
+	xattr_assert((info->xattr_fexts <= xfext) &&
+			(xfext < &info->xattr_fexts[xbm_size(info)]));
+	return ((uintptr_t)xfext - (uintptr_t)info->xattr_fexts) / sizeof(*xfext);
+}
+
+static void
+bitmap_set_range(uint64_t *bm, int64_t index, int64_t count)
+{
+	int dstshift0, dstshift1;
+	uint64_t dstmask0, dstmask1;
+	int64_t bmi;
+
+	dstshift0 = index % 64;
+	dstshift1 = 64 - (index % 64);
+	dstmask0 = ~0ULL << (index % 64);
+	dstmask1 = (dstshift1 == 64) ? 0ULL : (~0ULL >> (64 - (index % 64)));
+
+	bmi = index / 64;
+	while (count >= 64) {
+		bm[bmi] = (bm[bmi] & ~dstmask0) | ((~0ULL << dstshift0) & dstmask0);
+		if (dstmask1)
+			bm[bmi + 1] = (bm[bmi + 1] & ~dstmask1) | ((~0ULL >> dstshift1) & dstmask1);
+		bmi++;
+		count -= 64;
+	}
+	if (count) {
+		// adjust dstmask to cover just the bits remaining
+		dstmask0 = ((1ULL << count) - 1) << (index % 64);
+		dstmask1 = (dstshift1 == 64) ? 0ULL : (((1ULL << count) - 1) >> (64 - (index % 64)));
+		bm[bmi] = (bm[bmi] & ~dstmask0) | ((~0ULL << dstshift0) & dstmask0);
+		if ((count > (64 - dstshift0)) && dstmask1)
+			bm[bmi + 1] = (bm[bmi + 1] & ~dstmask1) | ((~0ULL >> dstshift1) & dstmask1);
+	}
+}
+
+static void
+bitmap_clear_range(uint64_t *bm, int64_t index, int64_t count)
+{
+	int dstshift0, dstshift1;
+	uint64_t dstmask0, dstmask1;
+	int64_t bmi;
+
+	dstshift0 = index % 64;
+	dstshift1 = 64 - (index % 64);
+	dstmask0 = ~0ULL << (index % 64);
+	dstmask1 = (dstshift1 == 64) ? 0ULL : (~0ULL >> (64 - (index % 64)));
+
+	bmi = index / 64;
+	while (count >= 64) {
+		bm[bmi] = (bm[bmi] & ~dstmask0) | ((0ULL << dstshift0) & dstmask0);
+		if (dstmask1)
+			bm[bmi + 1] = (bm[bmi + 1] & ~dstmask1) | ((0ULL >> dstshift1) & dstmask1);
+		bmi++;
+		count -= 64;
+	}
+	if (count) {
+		// adjust dstmask to cover just the bits remaining
+		dstmask0 = ((1ULL << count) - 1) << (index % 64);
+		dstmask1 = (dstshift1 == 64) ? 0ULL : (((1ULL << count) - 1) >> (64 - (index % 64)));
+		bm[bmi] = (bm[bmi] & ~dstmask0) | ((0ULL << dstshift0) & dstmask0);
+		if ((count > (64 - dstshift0)) && dstmask1)
+			bm[bmi + 1] = (bm[bmi + 1] & ~dstmask1) | ((0ULL >> dstshift1) & dstmask1);
+	}
+}
+
+static int
+ctzll(uint64_t val)
+{
+	return (val == 0) ? 64 : __builtin_ctzll(val);
+}
+
+// search forwards through range and return index of first "bit" (0 or 1) encountered
+static int
+bitmap_range_find_first(int bit, const uint64_t *bm, int64_t index, int64_t count, int64_t *clear_index)
+{
+	int64_t bmi, check_count;
+	uint64_t val;
+	int pos;
+
+	bmi = index / 64;
+	while (count > 0) {
+		check_count = 64 - (index % 64);
+		if (check_count > count)
+			check_count = count;
+		val = bm[bmi] >> (index % 64);
+		if (!bit)
+			val = ~val;
+		pos = ctzll(val);
+		if (pos < check_count) {
+			*clear_index = index + pos;
+			return 1;
+		}
+		index += check_count;
+		count -= check_count;
+		bmi++;
+	}
+	return 0;
+}
+
+/*
+ * Search for the first free (clear) bit within `info's free xattr fext bitmap.
+ * Return false if no bits are clear.
+ * If some bit is found, its index is set to `*out' and true is returned.
+ */
+static bool
+xbm_find_free(const xattr_io_info_t *info, size_t *out)
+{
+	return bm_find(info->free_bm, 0, xbm_size(info), false, out);
+}
+
+/*
+ * Set the bit at index `i' within `info's underlying free xattr fext bitmap.
+ *
+ * info->lock must be held.
+ * It only makes sense to operate on one bit at a time, so this wraps
+ * bitmap_set_range().
+ */
+static void
+xbm_set_used(xattr_io_info_t *info, size_t i)
+{
+	xattr_assert(xbm_valid_index(info, i));
+	bitmap_set_range(info->free_bm, i, 1);
+}
+
+/*
+ * Clear the bit at index `i' within `info's underlying free xattr fext bitmap.
+ * This is the opposite of xbm_set_used().
+ */
+static void
+xbm_clear_used(xattr_io_info_t *info, size_t i)
+{
+	xattr_assert(xbm_valid_index(info, i));
+	bitmap_clear_range(info->free_bm, i, 1);
+}
+
+/*
+ * Return whether the given bitmap index is a valid index into `info's free
+ * bitmap.
+ */
+static bool
+xbm_valid_index(const xattr_io_info_t *info, int64_t i)
+{
+	return bm_valid_index(i, xbm_size(info));
+}
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof(A[0]))
+#endif
+
+/*
+ * Return the total number of *bits* in `info's free xattr fext bitmap.
+ */
+static size_t
+xbm_size(const xattr_io_info_t *info)
+{
+	// one bit per xattr fext
+	return ARRAY_SIZE(info->xattr_fexts);
+}
+
+/*
+ * Factory for an iterator over all the set (true value) bits in `bitmap'.
+ * `len' is the length in *bits* of `bitmap'.
+ *
+ * The iterator is created in an uninitialized state, a call to xbm_iter_next()
+ * is required to find the first set bit (this is different than
+ * make_fext_iterator()). As a consequence of this, an iterator may iterate
+ * zero times if no bits within `bitmap' are set. After each successful call to
+ * xbm_iter_next(), xbm_iter_peek() will return the zero-based index of each
+ * set bit.
+ *
+ * The intended use is along the lines of:
+ * uint64_t *bm = ...; // a bitmap 123 bits (two uint64_ts) long
+ * xbm_iterator_t iter = xbm_make_iter(bm, 123);
+ * while(xbm_iter_next(&iter)) {
+ *   size_t i = xbm_iter_peek(&iter);
+ *   printf("index %lu is set\n", i);
+ * }
+ *
+ * In terms of the iterator internals, we hold the invariant that a valid
+ * iterator always has `i' in [0, len). A valid iterator is one for which
+ * xbm_iter_peek() will return an index in range of `bitmap'. To bootstrap the
+ * first iteration, `i' is set to SIZE_MAX; further details are in
+ * xbm_iter_next().
+ */
+static xbm_iter_t
+xbm_make_iter(const uint64_t *bitmap, size_t len)
+{
+	xattr_assert(len);
+	return (xbm_iter_t) {
+		.bitmap = bitmap,
+		.i = SIZE_MAX, // This will overflow-to-zero on the first call to xbm_iter_next()
+		.len = len
+	};
+}
+
+/*
+ * Advance `iter' to internally reference the next set bit within the bitmap.
+ * If there are no more set bits, this returns false.
+ *
+ * On success, the index of the next set bit can be retrieved by
+ * xbm_iter_peek().
+ *
+ * Internally, this searches for the first bit set at bit index >= iter->i+1.
+ * For a new iterator, the value of `i' is initialized to SIZE_MAX so `i'+1
+ * will unsigned integer overflow (which is well defined) to zero.
+ */
+static bool
+xbm_iter_next(xbm_iter_t *iter)
+{
+	size_t i;
+	// find the next set bit > `i'
+	const bool found = bm_find(iter->bitmap, iter->i + 1, iter->len, true, &i);
+
+	// if no bit is found, invalidate the iterator by setting i=len
+	iter->i = found ? i : iter->len;
+	return found;
+}
+
+/*
+ * Return the index a the set bit after a successful call to xbm_iter_next().
+ */
+static size_t
+xbm_iter_peek(const xbm_iter_t *iter)
+{
+	xattr_assert(iter->i < iter->len);
+	return iter->i;
+}
+
+/*
+ * Search for the first bit with `value' within bitmap `bm' >= bit index `from'
+ * for at most `len' *bits*. Whether such a bit exists is returned and if
+ * that's the case, its bit index is written via `out'.
+ *
+ * This is just a fancy wrapper around bitmap_range_find_first().
+ */
+static bool
+bm_find(const uint64_t *bm, size_t from, size_t len, bool value, size_t *out)
+{
+	xattr_assert(bm_valid_index(from, len));
+
+	// search for `value' in [from, len)
+	int64_t i;
+	if (!bitmap_range_find_first(value,
+				const_cast(uint64_t *, bm), from, len, &i)) {
+		return false;
+	}
+
+	// some bit found; check the returned index is valid
+	xattr_assert(bm_valid_index(i, len));
+	*out = (size_t)i;
+	return true;
+}
+
+/*
+ * Return true if `i' is a valid index into a bit of `len' bits.
+ *
+ * The underlying bitmap_ routines operate on `int64_t' indices. This is
+ * mainly to safely convert to `size_t'.
+ */
+static bool
+bm_valid_index(int64_t i, size_t len)
+{
+	return (i >= 0) && ((uint64_t)i < len);
+}
+
+/*
+ * Virtualize `uio' offset to target xattr `fext' before a call to
+ * cluster_xattr().
+ *
+ * The computation of the IO offset is somewhat subtle. The reason for this
+ * fact largely has to do with how exactly the single xattr vnode
+ * (hfsmp->hfs_attrdata_vp) caches data for multiple xattrs. First,
+ * some discussion on the motivation for the single xattr vnode design. At the
+ * top level, xattr apis are quite different from normal file data apis. Some
+ * key properties are:
+ * - xattr IO apis do no support editing or random reads
+ * - xattrs may not be mmapped
+ * - any one file may have an arbitrary number of xattrs
+ * To contrast with a normal file, each file has a corresponding vnode which in
+ * turn has its own private ubc. The only way in which xattrs are actually like
+ * files is that they the have the same size limits and in
+ * terms of their implementation, they use the same on-disk structures.
+ * The result of this is that it is too high overhead to have one vnode per
+ * xattr, but to instead to maintain a disk block-type cache for xattr data.
+ * This cache is implemented as the ubc of a virtual file known as the single
+ * xattr vnode. Reads and writes are serviced by the cluster layer. The cluster
+ * layer operates in units of the vm pagesize. On a system for which
+ * pagesize > fs blocksize, then the naïve approach of using an identity
+ * mapping between ubc logical offset and device offset poses a challenge.
+ * Consider the following scenario:
+ * - 16k vm pagesize
+ * - 4k fs blocksize
+ *
+ * On disk, we have two xattrs that reside on adjacent blocks:
+ *       xattr A        xattr B
+ *          [aaaa|aaaa|bbbb|bbbb]
+ *      pbn 4    5    6    7    8
+ *
+ * Suppose we want to just read xattr A -- pbn 4 and 5 -- the cluster layer can
+ * issue just an 8k IO, but it will store it in memory as a whole page, so we
+ * would result in
+ *
+ *       xattr A        xattr B
+ * in memory:
+ *          [aaaa|aaaa|0000|0000]
+ *
+ * on disk:
+ *          [aaaa|aaaa|bbbb|bbbb]
+ *      pbn 4    5    6    7    8
+ *
+ * A subsequent read for pbn 6 or 7, as a part of xattr B, will find the page
+ * already cached in the ubc and erroneously return zeros.
+ * Instead, we could have the cluster layer issue the full 16k IO, but then we
+ * run into encryption issues on per-file (really per-xattr) key volumes
+ *
+ *       xattr A        xattr B
+ * in memory:
+ *          [aaaa|aaaa|O!#W|JF%R]
+ *
+ * on disk:
+ *          [asdf|ghjk|ZXCV|BNM,]  encrypted
+ *          [aaaa|aaaa|bbbb|bbbb]  unencrypted
+ *      pbn 4    5    6    7    8
+ *
+ * In this case, the issue is that we have the crypto state available to read
+ * xattr A, but we do not have the crypto state for xattr B, so we would
+ * incorrectly decrypt pbn 6, 7 in the same IO.
+ *
+ * The solution to this is to use a scaled mapping between ubc logical offset
+ * and device offset. In this case, we use
+ *   logical offset = physical block number * pagesize
+ * and result looks like
+ *
+ *       xattr A        xattr B
+ * in memory:
+ *          [aaaa|aaaa|0000|0000] ... [bbbb|bbbb|0000|0000]
+ *          64k                       96k
+ *
+ * on disk:
+ *          [asdf|ghjk|ZXCV|BNM,]  encrypted
+ *          [aaaa|aaaa|bbbb|bbbb]  unencrypted
+ *      pbn 4    5    6    7    8
+ *
+ * In memory, xattr A occupies the virtual range of [64k, 96k), but its
+ * contents are representable in the first 8k out of [64k, 80k). Note that the
+ * mapping here is not per block but rather per xattr file extent. The contents
+ * tracked by an individual file extent are logically contiguous in memory. In
+ * the example above, xattr A has one file extent spanning [0, 8k). Suppose it
+ * instead had two file extents -- [0, 4k) at pbn 4 and [4k, 8k) at pbn 5 --
+ * the above diagram would instead look like
+ * in memory:
+ *          [aaaa|0000|0000|0000][aaaa|0000|0000|0000]
+ *          64k                  80k
+ * on disk:
+ *          [aaaa|aaaa]            unencrypted
+ *      pbn 4    5
+ *
+ * This scaled mapping approach guarantees that xattrs are always on different
+ * pages from other xattrs, but it comes at an increased memory cost for
+ * non-page multiple sized xattrs.
+ * --
+ *
+ * If `fext' is not representable as a virtual offset (e.g. its phys_block_num
+ * is corrupt), this function returns false.
+ */
+static bool
+uio_set_fext(uio_t uio, const HFSPlusExtentDescriptor *fext, uint32_t fs_bsize)
+{
+	uint64_t off;
+	if (!fext2cluster_check(fext, fs_bsize, &off)) {
+		// `fext' is out of range
+		return false;
+	}
+
+	uio_setoffset(uio, off);
+	return true;
+}
+#endif  // NEW_XATTR
 /*
  * Read an extent based attribute.
  */
@@ -2391,6 +3133,7 @@ static int
 read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtentDescriptor *extents)
 {
 	vnode_t evp = hfsmp->hfs_attrdata_vp;
+	off_t filesize;
 	int bufsize;
 	int64_t iosize;
 	int attrsize;
@@ -2403,7 +3146,16 @@ read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtent
 	bufsize = (int)uio_resid(uio);
 	attrsize = (int)datasize;
 	blksize = (int)hfsmp->blockSize;
+	filesize = VTOF(evp)->ff_size;
 
+#if NEW_XATTR
+	// allocate an xattr fext for tls through the cluster layer
+	const HFSPlusExtentDescriptor **xattr_fext;
+	if (!(xattr_fext = xattr_fext_alloc(&hfsmp->hfs_xattr_io))) {
+		result = ENOMEM;
+		goto exit;
+	}
+#endif
 	/*
 	 * Read the attribute data one extent at a time.
 	 * For the typical case there is only one extent.
@@ -2413,9 +3165,28 @@ read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtent
 		iosize = MIN(iosize, attrsize);
 		iosize = MIN(iosize, bufsize);
 		uio_setresid(uio, iosize);
-		uio_setoffset(uio, (u_int64_t)extents[i].startBlock * (u_int64_t)blksize);
+#if NEW_XATTR
+		// virtualize the IO offset to target this fext
+		if (!uio_set_fext(uio, &extents[i], blksize)) {
+			// `fext' is corrupted
+			result = EILSEQ;
+			break;
+		}
 
-		result = cluster_read(evp, uio, VTOF(evp)->ff_size, IO_SYNC | IO_UNIT);
+		// stage the next xattr fext for IO
+		xattr_fext_set(&hfsmp->hfs_xattr_io, xattr_fext, &extents[i]);
+
+		// Set filesize to end of data read to prevent cluster read-ahead
+		filesize = uio_offset(uio) + iosize;
+#else
+		uio_setoffset(uio, (u_int64_t)extents[i].startBlock * (u_int64_t)blksize);
+#endif
+		result = cluster_read(evp, uio, filesize, IO_SYNC | IO_UNIT);
+
+#if NEW_XATTR
+		// post IO, unstage this xattr fext
+		xattr_fext_clear(&hfsmp->hfs_xattr_io, xattr_fext);
+#endif
 
 #if HFS_XATTR_VERBOSE
 		printf("hfs: read_attr_data: cr iosize %lld [%d, %d] (%d)\n",
@@ -2429,6 +3200,11 @@ read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtent
 	uio_setresid(uio, bufsize);
 	uio_setoffset(uio, datasize);
 
+#if NEW_XATTR
+	xattr_fext_free(&hfsmp->hfs_xattr_io, xattr_fext);
+
+exit:
+#endif
 	hfs_unlock_truncate(VTOC(evp), HFS_LOCK_DEFAULT);
 	return (result);
 }
@@ -2436,7 +3212,7 @@ read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtent
 /*
  * Write an extent based attribute.
  */
-__unused static int
+static int
 write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtentDescriptor *extents)
 {
 	vnode_t evp = hfsmp->hfs_attrdata_vp;
@@ -2455,6 +3231,15 @@ write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExten
 	blksize = (int) hfsmp->blockSize;
 	filesize = VTOF(evp)->ff_size;
 
+#if NEW_XATTR
+	// allocate an xattr fext for tls through the cluster layer
+	const HFSPlusExtentDescriptor **xattr_fext;
+	if (!(xattr_fext = xattr_fext_alloc(&hfsmp->hfs_xattr_io))) {
+		result = ENOMEM;
+		goto exit;
+	}
+#endif
+
 	/*
 	 * Write the attribute data one extent at a time.
 	 */
@@ -2463,10 +3248,29 @@ write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExten
 		iosize = MIN(iosize, attrsize);
 		iosize = MIN(iosize, bufsize);
 		uio_setresid(uio, iosize);
-		uio_setoffset(uio, (u_int64_t)extents[i].startBlock * (u_int64_t)blksize);
+#if NEW_XATTR
+		// virtualize the IO offset to target this fext
+		if (!uio_set_fext(uio, &extents[i], blksize)) {
+			// `fext' is corrupted
+			result = EILSEQ;
+			break;
+		}
 
+		// stage the next xattr fext for IO
+		xattr_fext_set(&hfsmp->hfs_xattr_io, xattr_fext, &extents[i]);
+
+		filesize = uio_offset(uio) + iosize;
+#else
+		uio_setoffset(uio, (u_int64_t)extents[i].startBlock * (u_int64_t)blksize);
+#endif
 		result = cluster_write(evp, uio, filesize, filesize, filesize,
 		                       (off_t) 0, IO_SYNC | IO_UNIT);
+
+#if NEW_XATTR
+		// post IO, unstage this xattr fext
+		xattr_fext_clear(&hfsmp->hfs_xattr_io, xattr_fext);
+#endif
+
 #if HFS_XATTR_VERBOSE
 		printf("hfs: write_attr_data: cw iosize %lld [%d, %d] (%d)\n",
 			iosize, extents[i].startBlock, extents[i].blockCount, result);
@@ -2479,6 +3283,11 @@ write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExten
 	uio_setresid(uio, bufsize);
 	uio_setoffset(uio, datasize);
 
+#if NEW_XATTR
+	xattr_fext_free(&hfsmp->hfs_xattr_io, xattr_fext);
+
+exit:
+#endif
 	hfs_unlock_truncate(VTOC(evp), HFS_LOCK_DEFAULT);
 	return (result);
 }
@@ -2486,7 +3295,7 @@ write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExten
 /*
  * Allocate blocks for an extent based attribute.
  */
-__unused static int
+static int
 alloc_attr_blks(struct hfsmount *hfsmp, size_t attrsize, size_t extentbufsize, HFSPlusExtentDescriptor *extents, int *blocks)
 {
 	int blkcnt;

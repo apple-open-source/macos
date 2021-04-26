@@ -30,12 +30,15 @@
 #import <WebKit/WKContentRuleListStore.h>
 #import <WebKit/WKContentWorld.h>
 #import <WebKit/WKContextMenuElementInfo.h>
+#import <WebKit/WKDownload.h>
+#import <WebKit/WKDownloadDelegate.h>
 #import <WebKit/WKError.h>
 #import <WebKit/WKFindConfiguration.h>
 #import <WebKit/WKFindResult.h>
 #import <WebKit/WKFoundation.h>
 #import <WebKit/WKFrameInfo.h>
 #import <WebKit/WKHTTPCookieStore.h>
+#import <WebKit/WKMediaPlaybackState.h>
 #import <WebKit/WKNavigation.h>
 #import <WebKit/WKNavigationAction.h>
 #import <WebKit/WKNavigationDelegate.h>

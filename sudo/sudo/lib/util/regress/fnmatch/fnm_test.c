@@ -6,26 +6,19 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-
-#include "sudo_compat.h"
-#include "sudo_util.h"
-
+#include <string.h>
 #ifdef HAVE_FNMATCH
 # include <fnmatch.h>
 #else
 # include "compat/fnmatch.h"
 #endif
 
-__dso_public int main(int argc, char *argv[]);
+#include "sudo_compat.h"
+#include "sudo_util.h"
+
+sudo_dso_public int main(int argc, char *argv[]);
 
 int
 main(int argc, char *argv[])
@@ -39,7 +32,7 @@ main(int argc, char *argv[])
 	if (argc > 1) {
 		if ((fp = fopen(argv[1], "r")) == NULL) {
 			perror(argv[1]);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 	}
 

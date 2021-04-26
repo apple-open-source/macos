@@ -19,13 +19,13 @@
 
 #pragma once
 
-#if ENABLE(WEBXR)
+#if ENABLE(WEBXR) && USE(OPENXR)
 #include "PlatformXR.h"
 
 #include <wtf/HashMap.h>
 
-#if USE_OPENXR
 #include <openxr/openxr.h>
+#include <wtf/WorkQueue.h>
 
 namespace PlatformXR {
 
@@ -43,8 +43,10 @@ namespace PlatformXR {
 // the XRSystem is basically the entry point for the WebXR API available via the Navigator object.
 class OpenXRDevice final : public Device {
 public:
-    OpenXRDevice(XrSystemId, XrInstance);
+    OpenXRDevice(XrSystemId, XrInstance, WorkQueue&, CompletionHandler<void()>&&);
+    ~OpenXRDevice();
     XrSystemId xrSystemId() const { return m_systemId; }
+
 private:
     void collectSupportedSessionModes();
     void collectConfigurationViews();
@@ -53,6 +55,11 @@ private:
 
     WebCore::IntSize recommendedResolution(SessionMode) final;
 
+    void initializeTrackingAndRendering(SessionMode) final;
+    void shutDownTrackingAndRendering() final;
+
+    void resetSession();
+
     using ViewConfigurationPropertiesMap = HashMap<XrViewConfigurationType, XrViewConfigurationProperties, IntHash<XrViewConfigurationType>, WTF::StrongEnumHashTraits<XrViewConfigurationType>>;
     ViewConfigurationPropertiesMap m_viewConfigurationProperties;
     using ViewConfigurationViewsMap = HashMap<XrViewConfigurationType, Vector<XrViewConfigurationView>, IntHash<XrViewConfigurationType>, WTF::StrongEnumHashTraits<XrViewConfigurationType>>;
@@ -60,10 +67,13 @@ private:
 
     XrSystemId m_systemId;
     XrInstance m_instance;
-    XrSession m_session;
+    XrSession m_session { XR_NULL_HANDLE };
+
+    WorkQueue& m_queue;
+
+    XrViewConfigurationType m_currentViewConfigurationType;
 };
 
 } // namespace PlatformXR
 
-#endif // USE_OPENXR
-#endif // ENABLE(WEBXR)
+#endif // ENABLE(WEBXR) && USE(OPENXR)

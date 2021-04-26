@@ -29,6 +29,7 @@
 #if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
 
 #include "Connection.h"
+#include "GPUConnectionToWebProcess.h"
 #include "SharedRingBufferStorage.h"
 #include <WebCore/CARingBuffer.h>
 #include <WebCore/ImageTransferSessionVT.h>
@@ -55,16 +56,11 @@ RemoteMediaRecorder::RemoteMediaRecorder(GPUConnectionToWebProcess& gpuConnectio
     , m_writer(WTFMove(writer))
 {
     if (recordAudio)
-        m_ringBuffer = makeUnique<CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(nullptr));
+        m_ringBuffer = makeUnique<CARingBuffer>();
 }
 
 RemoteMediaRecorder::~RemoteMediaRecorder()
 {
-}
-
-SharedRingBufferStorage& RemoteMediaRecorder::storage()
-{
-    return static_cast<SharedRingBufferStorage&>(m_ringBuffer->storage());
 }
 
 void RemoteMediaRecorder::audioSamplesStorageChanged(const SharedMemory::IPCHandle& ipcHandle, const WebCore::CAAudioStreamDescription& description, uint64_t numberOfFrames)
@@ -73,28 +69,15 @@ void RemoteMediaRecorder::audioSamplesStorageChanged(const SharedMemory::IPCHand
 
     m_description = description;
 
-    if (ipcHandle.handle.isNull()) {
-        m_ringBuffer->deallocate();
-        storage().setReadOnly(false);
-        storage().setStorage(nullptr);
-        return;
-    }
-
-    auto memory = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    storage().setStorage(WTFMove(memory));
-    storage().setReadOnly(true);
-
-    m_ringBuffer->allocate(m_description, numberOfFrames);
+    m_ringBuffer = makeUnique<CARingBuffer>(makeUniqueRef<ReadOnlySharedRingBufferStorage>(ipcHandle.handle), description, numberOfFrames);
     m_audioBufferList = makeUnique<WebAudioBufferList>(m_description);
 }
 
-void RemoteMediaRecorder::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame)
+void RemoteMediaRecorder::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames)
 {
     MESSAGE_CHECK(m_ringBuffer);
     MESSAGE_CHECK(m_audioBufferList);
     MESSAGE_CHECK(WebAudioBufferList::isSupportedDescription(m_description, numberOfFrames));
-
-    m_ringBuffer->setCurrentFrameBounds(startFrame, endFrame);
 
     m_audioBufferList->setSampleCount(numberOfFrames);
     m_ringBuffer->fetch(m_audioBufferList->list(), numberOfFrames, time.timeValue());
@@ -121,17 +104,29 @@ void RemoteMediaRecorder::videoSampleAvailable(WebCore::RemoteVideoSample&& remo
     m_writer->appendVideoSampleBuffer(*sampleBuffer);
 }
 
-void RemoteMediaRecorder::fetchData(CompletionHandler<void(IPC::DataReference&&)>&& completionHandler)
+void RemoteMediaRecorder::fetchData(CompletionHandler<void(IPC::DataReference&&, double)>&& completionHandler)
 {
-    m_writer->fetchData([completionHandler = WTFMove(completionHandler)](auto&& data) mutable {
+    m_writer->fetchData([completionHandler = WTFMove(completionHandler)](auto&& data, auto timeCode) mutable {
         auto* pointer = reinterpret_cast<const uint8_t*>(data ? data->data() : nullptr);
-        completionHandler(IPC::DataReference { pointer, data ? data->size() : 0 });
+        completionHandler(IPC::DataReference { pointer, data ? data->size() : 0 }, timeCode);
     });
 }
 
 void RemoteMediaRecorder::stopRecording()
 {
     m_writer->stopRecording();
+}
+
+void RemoteMediaRecorder::pause(CompletionHandler<void()>&& completionHandler)
+{
+    m_writer->pause();
+    completionHandler();
+}
+
+void RemoteMediaRecorder::resume(CompletionHandler<void()>&& completionHandler)
+{
+    m_writer->resume();
+    completionHandler();
 }
 
 }

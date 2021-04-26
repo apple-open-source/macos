@@ -80,7 +80,7 @@
 
 - (NSRect)_candidateRect
 {
-    return _page->editorState().postLayoutData().focusedElementRect;
+    return _page->editorState().postLayoutData().selectionBoundingRect;
 }
 
 - (void)viewDidChangeEffectiveAppearance
@@ -101,6 +101,15 @@
 - (void)_setFooterBannerHeight:(int)height
 {
     _page->setFooterBannerHeightForTesting(height);
+}
+
+- (NSSet<NSView *> *)_pdfHUDs
+{
+#if ENABLE(UI_PROCESS_PDF_HUD)
+    return _impl->pdfHUDs();
+#else
+    return nil;
+#endif
 }
 
 - (NSMenu *)_activeMenu

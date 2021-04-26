@@ -35,6 +35,7 @@ extern CKKSFlag* const CKKSFlagFetchRequested;
 extern CKKSFlag* const CKKSFlagFetchComplete;
 
 extern CKKSFlag* const CKKSFlagKeyStateProcessRequested;
+extern CKKSFlag* const CKKSFlagKeySetRequested;
 
 extern CKKSFlag* const CKKSFlagProcessIncomingQueue;
 extern CKKSFlag* const CKKSFlagProcessOutgoingQueue;

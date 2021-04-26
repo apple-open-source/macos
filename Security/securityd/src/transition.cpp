@@ -49,8 +49,10 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/casts.h>
 #include <Security/AuthorizationTagsPriv.h>
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #include <AssertMacros.h>
 #include <security_utilities/errors.h>
+#include <security_utilities/mach++.h>
 #include <Security/SecEntitlements.h>
 
 #include <CoreFoundation/CFNumber.h>
@@ -236,29 +238,37 @@ static void checkPathLength(char const *str) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
 
-kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo info, const char *identity)
+kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskToken, ClientSetupInfo info, const char *identity)
 {
+	mach_port_t taskPort = MACH_PORT_NULL;
 	BEGIN_IPCN
     secinfo("SecServer", "request entry: setup");
+	kern_return_t kr = task_identity_token_get_task_port(taskToken, TASK_FLAVOR_CONTROL, &taskPort);
+	MachPlusPlus::check(kr);
 	Server::active().setupConnection(Server::connectNewProcess, replyPort,
 		taskPort, auditToken, &info);
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setup(%s) failed rcode=%d", identity ? identity : "<NULL>", *rcode);
 	mach_port_deallocate(mach_task_self(), taskPort);
+	mach_port_deallocate(mach_task_self(), taskToken);
 	return KERN_SUCCESS;
 }
 
 
-kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
+kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskToken)
 {
+	mach_port_t taskPort = MACH_PORT_NULL;
     secinfo("SecServer", "request entry: setupThread");
 	BEGIN_IPCN
+	kern_return_t kr = task_identity_token_get_task_port(taskToken, TASK_FLAVOR_CONTROL, &taskPort);
+	MachPlusPlus::check(kr);
 	Server::active().setupConnection(Server::connectNewThread, replyPort, taskPort, auditToken);
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setupThread failed rcode=%d", *rcode);
 	mach_port_deallocate(mach_task_self(), taskPort);
+	mach_port_deallocate(mach_task_self(), taskToken);
 	return KERN_SUCCESS;
 }
 
@@ -729,14 +739,14 @@ static void check_stash_entitlement(Process & proc)
     bool entitled = false;
 
     status = proc.copySigningInfo(kSecCSRequirementInformation, &code_info);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
 
     if (CFDictionaryGetValueIfPresent(code_info, kSecCodeInfoEntitlementsDict, &value)) {
         if (CFGetTypeID(value) == CFDictionaryGetTypeID()) {
             entitlements = (CFDictionaryRef)value;
         }
     }
-    require(entitlements != NULL, done);
+    __Require(entitlements != NULL, done);
 
     if (CFDictionaryGetValueIfPresent(entitlements, kSecEntitlementPrivateStash, &value)) {
         if (CFGetTypeID(value) && CFBooleanGetTypeID()) {

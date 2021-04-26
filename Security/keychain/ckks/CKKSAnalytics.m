@@ -47,6 +47,10 @@ NSString* const CKKSAnalyticsLastUnlock = @"lastUnlock";
 NSString* const CKKSAnalyticsLastKeystateReady = @"lastKSR";
 NSString* const CKKSAnalyticsLastInCircle = @"lastInCircle";
 
+NSString* const CKKSAnalyticsNumberOfSyncItems = @"numItems";
+NSString* const CKKSAnalyticsNumberOfTLKShares = @"numTLKShares";
+NSString* const CKKSAnalyticsNumberOfSyncKeys = @"numSyncKeys";
+
 NSString* const OctagonAnalyticsStateMachineState = @"OASMState";
 NSString* const OctagonAnalyticIcloudAccountState = @"OAiC";
 NSString* const OctagonAnalyticCDPBitStatus = @"OACDPStatus";
@@ -74,6 +78,10 @@ NSString* const OctagonAnalyticsBottledTLKUniqueViewCount = @"OABottledTLKUnique
 NSString* const OctagonAnalyticsHaveMachineID = @"OAMIDPresent";
 NSString* const OctagonAnalyticsMIDOnMemoizedList = @"OAMIDOnList";
 NSString* const OctagonAnalyticsPeersWithMID = @"OAPeersWithMID";
+NSString* const OctagonAnalyticsEgoMIDMatchesCurrentMID = @"OAMIDMatchesCurrentMID";
+
+NSString* const OctagonAnalyticsTotalPeers = @"OAnPeers";
+NSString* const OctagonAnalyticsTotalViablePeers = @"OAnViablePeers";
 
 NSString* const CKKSAnalyticsLastCKKSPush = @"lastCKKSPush";
 NSString* const CKKSAnalyticsLastOctagonPush = @"lastOctagonPush";

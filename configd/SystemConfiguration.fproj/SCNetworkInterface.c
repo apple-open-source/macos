@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1170,6 +1170,10 @@ __SCNetworkInterfaceOrder(SCNetworkInterfaceRef interface)
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 	int				order;
 
+	if (isA_SCNetworkInterface(interface) == NULL) {
+		// arbitrarily large number
+		return INT_MAX;
+	}
 	order = interfacePrivate->sort_order << 1;
 	if (!interfacePrivate->builtin) {
 		order |= 0x1;	// push non-builtin after built-in

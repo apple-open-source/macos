@@ -949,6 +949,8 @@ kcm_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     }
     ret = krb5_kcm_call(context, request, NULL, NULL);
 
+    (void)kcm_close(context, from);
+
     krb5_storage_free(request);
     return ret;
 }

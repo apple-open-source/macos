@@ -30,6 +30,7 @@
 
 #import "AccessibilityRenderObject.h"
 #import "EventNames.h"
+#import "FrameView.h"
 #import "HTMLInputElement.h"
 #import "RenderObject.h"
 #import "WAKView.h"
@@ -44,6 +45,28 @@ void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType)
 
 void AccessibilityObject::detachFromParent()
 {
+}
+
+FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
+{
+    auto* frameView = documentFrameView();
+    WAKView *documentView = frameView ? frameView->documentView() : nullptr;
+    if (documentView) {
+        CGPoint point = CGPointMake(rect.x(), rect.y());
+        CGSize size = CGSizeMake(rect.size().width(), rect.size().height());
+        CGRect cgRect = CGRectMake(point.x, point.y, size.width, size.height);
+
+        cgRect = [documentView convertRect:cgRect toView:nil];
+
+        // we need the web document view to give us our final screen coordinates
+        // because that can take account of the scroller
+        id webDocument = [wrapper() _accessibilityWebDocumentView];
+        if (webDocument)
+            cgRect = [webDocument convertRect:cgRect toView:nil];
+        return cgRect;
+    }
+
+    return convertFrameToSpace(rect, space);
 }
 
 // On iOS, we don't have to return the value in the title. We can return the actual title, given the API.

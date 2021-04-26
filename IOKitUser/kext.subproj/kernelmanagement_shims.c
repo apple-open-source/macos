@@ -33,20 +33,28 @@
 #include "OSKext.h"
 #include "OSKextPrivate.h"
 
-/* Avoid creating dependency cycles, since KernelManagement -> Foundaation -> ... -> IOKitUser */
+/* Avoid creating dependency cycles, since KernelManagement -> Foundation -> ... -> IOKitUser */
 SOFT_LINK_OPTIONAL_FRAMEWORK(Frameworks, KernelManagement);
+
 SOFT_LINK_FUNCTION(KernelManagement, KMLoadExtensionsWithPaths, SOFT_KMLoadExtensionsWithPaths,
                    OSReturn,
-                   (CFArrayRef paths),
-                   (paths));
+                   (CFArrayRef paths, CFArrayRef dependencyAndFolderPaths),
+                   (paths, dependencyAndFolderPaths));
+
+SOFT_LINK_FUNCTION(KernelManagement, KMLoadExtensionsWithIdentifiers, SOFT_KMLoadExtensionsWithIdentifiers,
+                   OSReturn,
+                   (CFArrayRef identifiers, CFArrayRef dependencyAndFolderPaths),
+                   (identifiers, dependencyAndFolderPaths));
+
+SOFT_LINK_FUNCTION(KernelManagement, KMUnloadExtensionsWithIdentifiers, SOFT_KMUnloadExtensionsWithIdentifiers,
+                   OSReturn,
+                   (CFArrayRef identifiers),
+                   (identifiers));
+
 SOFT_LINK_FUNCTION(KernelManagement, KMExtensionPathForBundleIdentifier, SOFT_KMExtensionPathForBundleIdentifier,
                    CFStringRef,
                    (CFStringRef identifier),
                    (identifier));
-SOFT_LINK_FUNCTION(KernelManagement, KMLoadExtensionsWithIdentifiers, SOFT_KMLoadExtensionsWithIdentifiers,
-                   OSReturn,
-                   (CFArrayRef identifiers),
-                   (identifiers));
 
 bool shimmingEnabled()
 {
@@ -74,7 +82,7 @@ CFStringRef kernelmanagement_path_for_bundle_id(CFStringRef identifier)
 	return result;
 }
 
-OSReturn kernelmanagement_load_kext_url(CFURLRef url)
+OSReturn kernelmanagement_load_kext_url(CFURLRef url, CFArrayRef dependencyKextAndFolderPaths)
 {
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
     if (!path) {
@@ -87,13 +95,13 @@ OSReturn kernelmanagement_load_kext_url(CFURLRef url)
         return kOSReturnError;
     }
 
-    OSReturn result = SOFT_KMLoadExtensionsWithPaths(paths);
+    OSReturn result = SOFT_KMLoadExtensionsWithPaths(paths, dependencyKextAndFolderPaths);
 
     CFRelease(paths);
     return result;
 }
 
-OSReturn kernelmanagement_load_kext_identifier(CFStringRef identifier)
+OSReturn kernelmanagement_load_kext_identifier(CFStringRef identifier, CFArrayRef dependencyKextAndFolderPaths)
 {
     const void *identifiersArray[] = { (void *)identifier };
     CFArrayRef identifiers = CFArrayCreate(kCFAllocatorDefault, (const void **)&identifiersArray, 1, &kCFTypeArrayCallBacks);
@@ -101,7 +109,21 @@ OSReturn kernelmanagement_load_kext_identifier(CFStringRef identifier)
         return kOSReturnError;
     }
 
-    OSReturn result = SOFT_KMLoadExtensionsWithIdentifiers(identifiers);
+    OSReturn result = SOFT_KMLoadExtensionsWithIdentifiers(identifiers, dependencyKextAndFolderPaths);
+
+    CFRelease(identifiers);
+    return result;
+}
+
+OSReturn kernelmanagement_unload_kext_identifier(CFStringRef identifier)
+{
+    const void *identifiersArray[] = { (void *)identifier };
+    CFArrayRef identifiers = CFArrayCreate(kCFAllocatorDefault, (const void **)&identifiersArray, 1, &kCFTypeArrayCallBacks);
+    if (!identifiers) {
+        return kOSReturnError;
+    }
+
+    OSReturn result = SOFT_KMUnloadExtensionsWithIdentifiers(identifiers);
 
     CFRelease(identifiers);
     return result;

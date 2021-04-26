@@ -181,7 +181,7 @@ WKFrameHandleRef WKBundleFrameCreateFrameHandle(WKBundleFrameRef bundleFrameRef)
 void WKBundlePageClickMenuItem(WKBundlePageRef pageRef, WKContextMenuItemRef item)
 {
 #if ENABLE(CONTEXT_MENUS)
-    WebKit::toImpl(pageRef)->contextMenu()->itemSelected(WebKit::toImpl(item)->data());
+    WebKit::toImpl(pageRef)->contextMenu().itemSelected(WebKit::toImpl(item)->data());
 #else
     UNUSED_PARAM(pageRef);
     UNUSED_PARAM(item);
@@ -206,9 +206,9 @@ static Ref<API::Array> contextMenuItems(const WebKit::WebContextMenu& contextMen
 WKArrayRef WKBundlePageCopyContextMenuItems(WKBundlePageRef pageRef)
 {
 #if ENABLE(CONTEXT_MENUS)
-    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenu();
+    auto& contextMenu = WebKit::toImpl(pageRef)->contextMenu();
 
-    return WebKit::toAPI(&contextMenuItems(*contextMenu).leakRef());
+    return WebKit::toAPI(&contextMenuItems(contextMenu).leakRef());
 #else
     UNUSED_PARAM(pageRef);
     return nullptr;
@@ -295,7 +295,7 @@ void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
 
 bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef pageRef)
 {
-#if ENABLE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (!pageRef)
         return false;
 
@@ -313,7 +313,7 @@ bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef pageRef)
     if (!axObjectCache)
         return false;
 
-    return axObjectCache->canUseSecondaryAXThread();
+    return axObjectCache->usedOnAXThread();
 #else
     UNUSED_PARAM(pageRef);
     return false;

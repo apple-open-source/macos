@@ -39,6 +39,7 @@
 #include "LineClampValue.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
+#include "ScrollTypes.h"
 #include "TextFlags.h"
 #include "ThemeTypes.h"
 #include "TouchAction.h"
@@ -586,9 +587,6 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         break;
     case SearchFieldCancelButtonPart:
         m_value.valueID = CSSValueSearchfieldCancelButton;
-        break;
-    case SnapshottedPluginOverlayPart:
-        m_value.valueID = CSSValueSnapshottedPluginOverlay;
         break;
     case TextFieldPart:
         m_value.valueID = CSSValueTextfield;
@@ -1924,6 +1922,10 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ListStyleType e)
     case ListStyleType::Square:
         m_value.valueID = CSSValueSquare;
         break;
+    case ListStyleType::String:
+        ASSERT_NOT_REACHED();
+        m_value.valueID = CSSValueInvalid;
+        break;
     case ListStyleType::Telugu:
         m_value.valueID = CSSValueTelugu;
         break;
@@ -2203,6 +2205,42 @@ template<> inline CSSPrimitiveValue::operator Overflow() const
 
     ASSERT_NOT_REACHED();
     return Overflow::Visible;
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(OverscrollBehavior behavior)
+    : CSSValue(PrimitiveClass)
+{
+    setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
+    switch (behavior) {
+    case OverscrollBehavior::Contain:
+        m_value.valueID = CSSValueContain;
+        break;
+    case OverscrollBehavior::None:
+        m_value.valueID = CSSValueNone;
+        break;
+    case OverscrollBehavior::Auto:
+        m_value.valueID = CSSValueAuto;
+        break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator OverscrollBehavior() const
+{
+    ASSERT(isValueID());
+
+    switch (m_value.valueID) {
+    case CSSValueContain:
+        return OverscrollBehavior::Contain;
+    case CSSValueNone:
+        return OverscrollBehavior::None;
+    case CSSValueAuto:
+        return OverscrollBehavior::Auto;
+    default:
+        break;
+    }
+
+    ASSERT_NOT_REACHED();
+    return OverscrollBehavior::Auto;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(BreakBetween e)
@@ -3193,16 +3231,16 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(WritingMode e)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
     switch (e) {
-    case TopToBottomWritingMode:
+    case WritingMode::TopToBottom:
         m_value.valueID = CSSValueHorizontalTb;
         break;
-    case RightToLeftWritingMode:
+    case WritingMode::RightToLeft:
         m_value.valueID = CSSValueVerticalRl;
         break;
-    case LeftToRightWritingMode:
+    case WritingMode::LeftToRight:
         m_value.valueID = CSSValueVerticalLr;
         break;
-    case BottomToTopWritingMode:
+    case WritingMode::BottomToTop:
         m_value.valueID = CSSValueHorizontalBt;
         break;
     }
@@ -3218,21 +3256,21 @@ template<> inline CSSPrimitiveValue::operator WritingMode() const
     case CSSValueLrTb:
     case CSSValueRl:
     case CSSValueRlTb:
-        return TopToBottomWritingMode;
+        return WritingMode::TopToBottom;
     case CSSValueVerticalRl:
     case CSSValueTb:
     case CSSValueTbRl:
-        return RightToLeftWritingMode;
+        return WritingMode::RightToLeft;
     case CSSValueVerticalLr:
-        return LeftToRightWritingMode;
+        return WritingMode::LeftToRight;
     case CSSValueHorizontalBt:
-        return BottomToTopWritingMode;
+        return WritingMode::BottomToTop;
     default:
         break;
     }
 
     ASSERT_NOT_REACHED();
-    return TopToBottomWritingMode;
+    return WritingMode::TopToBottom;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextCombine e)
@@ -5753,6 +5791,38 @@ template<> inline CSSPrimitiveValue::operator FontLoadingBehavior() const
     }
     ASSERT_NOT_REACHED();
     return FontLoadingBehavior::Auto;
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(MathStyle mathStyle)
+    : CSSValue(PrimitiveClass)
+{
+    setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
+    switch (mathStyle) {
+    case MathStyle::Normal:
+        m_value.valueID = CSSValueNormal;
+        break;
+    case MathStyle::Compact:
+        m_value.valueID = CSSValueCompact;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator MathStyle() const
+{
+    ASSERT(isValueID());
+    switch (m_value.valueID) {
+    case CSSValueNormal:
+        return MathStyle::Normal;
+    case CSSValueCompact:
+        return MathStyle::Compact;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED();
+    return MathStyle::Normal;
 }
 
 }

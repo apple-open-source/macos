@@ -2428,6 +2428,7 @@
 		97999D301AE84C7600E8B10F /* lskq.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = lskq.1; path = lskq.tproj/lskq.1; sourceTree = "<group>"; };
 		97999D311AE84C7600E8B10F /* lskq.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = lskq.c; path = lskq.tproj/lskq.c; sourceTree = "<group>"; };
 		A7C0927020EC491E0068148E /* passwd.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = passwd.entitlements; sourceTree = "<group>"; };
+		AD5BBC612551B27F007F6508 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		ADA9007717679A8C00161ADF /* purge */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = purge; sourceTree = BUILT_PRODUCTS_DIR; };
 		ADA900791767A02700161ADF /* purge.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = purge.8; sourceTree = "<group>"; };
 		ADA9007A1767A02700161ADF /* purge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = purge.c; sourceTree = "<group>"; };
@@ -3604,6 +3605,7 @@
 		BA4FD2791372FAFA0025925C /* nvram.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				AD5BBC612551B27F007F6508 /* entitlements.plist */,
 				BA4FD27B1372FAFA0025925C /* nvram.8 */,
 				BA4FD27C1372FAFA0025925C /* nvram.c */,
 			);
@@ -7377,6 +7379,7 @@
 		1873300218CBD4A700275344 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = nvram.tproj/entitlements.plist;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = nvram;
@@ -8331,6 +8334,7 @@
 		BAE589A4137836A00049DD3B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = nvram.tproj/entitlements.plist;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = nvram;

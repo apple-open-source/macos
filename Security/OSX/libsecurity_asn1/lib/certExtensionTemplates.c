@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006,2008,2010-2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2006,2008,2010-2012,2020 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -310,12 +310,12 @@ const SecAsn1Template kSecAsn1PolicyMappingsTemplate[] = {
 const SecAsn1Template kSecAsn1PolicyConstraintsTemplate[] = {
     { SEC_ASN1_SEQUENCE,
 	  0, NULL, sizeof(NSS_PolicyConstraints) },
-	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
-	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 0,
-	  offsetof(NSS_PolicyConstraints,requireExplicitPolicy) },
-	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
-	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 1,
-	  offsetof(NSS_PolicyConstraints,inhibitPolicyMapping) },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC | 0,
+	  offsetof(NSS_PolicyConstraints,requireExplicitPolicy),
+	  kSecAsn1IntegerTemplate },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC | 1,
+	  offsetof(NSS_PolicyConstraints,inhibitPolicyMapping),
+	  kSecAsn1IntegerTemplate },
 	{ 0 }
 };
 

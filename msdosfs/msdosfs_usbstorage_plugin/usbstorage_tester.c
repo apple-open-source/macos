@@ -1196,6 +1196,64 @@ exit:
 }
 #endif
 
+static int
+test5_compareClonedFiles(UVFSFileNode fromFolder, char* name, UVFSFileNode toFolder)
+{
+    int iError = 0;
+    UVFSFileNode orgFile;
+    UVFSFileNode clonedFile;
+    iError = Lookup(fromFolder, &orgFile, name);
+    if (iError) {
+        printf("failed to lookup orgFile- %s\n", name);
+        return iError;
+    }
+    iError = Lookup(toFolder, &clonedFile, name);
+    if (iError) {
+        printf("failed to lookup orgFile- %s\n", name);
+        return iError;
+    }
+
+    UVFSFileAttributes sOrgAttrs;
+    iError = MSDOS_fsOps.fsops_getattr(orgFile, &sOrgAttrs);
+    if (iError) {
+        printf("failed to get Attr for orgFile- %s\n", name);
+        return iError;
+    }
+
+    void* orgFileBuffer = malloc(sOrgAttrs.fa_size);
+    void* clonedFileBuffer = malloc(sOrgAttrs.fa_size);
+    if (orgFileBuffer == NULL || clonedFileBuffer == NULL) {
+        return ENOMEM;
+    }
+
+    size_t uActuallyRead;
+    iError =  ReadToBuffer(orgFile, 0, &uActuallyRead, orgFileBuffer, sOrgAttrs.fa_size);
+    CloseFile(orgFile);
+    if (iError)  {
+        printf("failed to read for orgFile- %s\n", name);
+        return iError;
+    }
+    iError =  ReadToBuffer(clonedFile, 0, &uActuallyRead, clonedFileBuffer, sOrgAttrs.fa_size);
+    CloseFile(clonedFile);
+    if (iError)  {
+        printf("failed to read for clonedFile- %s\n", name);
+        return iError;
+    }
+
+    for ( uint32_t uIdx=0; uIdx < sOrgAttrs.fa_size/16; uIdx++)
+    {
+        if ( ((int64_t*)orgFileBuffer)[uIdx] != ((int64_t*)clonedFileBuffer)[uIdx] )
+        {
+            printf("Failed in comare read to write. Index [%d]\n",uIdx);
+            iError = 1;
+            break;
+        }
+    }
+    free(orgFileBuffer);
+    free(clonedFileBuffer);
+    return iError;
+}
+
 static void*
 test5_cloneFilesInDir(void *arg)
 {
@@ -1963,7 +2021,7 @@ int main( int argc, const char * argv[] )
             
             pthread_create( &g_psTest5_Threads[uIdx], NULL, (void*)test5_cloneFilesInDir, (void*)&g_sTest5_ThreadInput[uIdx]);
         }
-        
+
         for ( uint32_t uIdx=0; uIdx<TEST_5_THREAD_COUNT; uIdx++ )
         {
             pthread_join( g_psTest5_Threads[uIdx], (void*) &g_piTest5_Results[uIdx] );
@@ -1974,24 +2032,29 @@ int main( int argc, const char * argv[] )
                 printf("Thread [%d] Failed in Test 5 with error [%d]\n",uIdx,err);
             }
         }
-        
+
         printf("Test 5 finished with error [%d]\n",err);
         if (err) break;
-        
+
         // Clean everything
         for(uint64_t k=0; k < TEST_5_NUM_OF_FILES; k++) {
             char pcName[100] = {0};
             sprintf(pcName, TEST_5_FILE_NAME, k);
+            err =  test5_compareClonedFiles(fromDirNode, pcName, toDirNode);
+            if (err) {
+                printf("compare failed for %s\n",pcName);
+                break;
+            }
 
             RemoveFile(toDirNode, pcName);
             RemoveFile(fromDirNode, pcName);
         }
-        
+
         CloseFile(toDirNode);
         CloseFile(fromDirNode);
         RemoveFolder(RootNode, "toDir");
         RemoveFolder(RootNode, "fromDir");
-        
+
         // ----------------------------------------------------------------------------------
         // Test6: 1 thread reading a directory, 6 threads doing ops on files from this directory
         // ----------------------------------------------------------------------------------
@@ -2161,7 +2224,6 @@ int main( int argc, const char * argv[] )
         err =  Rename(RootNode, NULL, "D1", RootNode, NULL, "D2");
         printf("Rename D1 to D2 err [%d]\n",err);
         if (err) break;
-
 
         // ---------------------------------- Link ----------------------------------------
 

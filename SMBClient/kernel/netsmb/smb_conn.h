@@ -43,6 +43,7 @@
 
 #ifdef _KERNEL
 #include <gssd/gssd_mach_types.h>
+#include <libkern/crypto/sha2.h>
 #else
 #include <Kernel/gssd/gssd_mach_types.h>
 #endif
@@ -71,7 +72,7 @@
  * Remember that session_flags and ss_flags are defined to be co_flags,
  * so those flags can never reuse this value. 
  */
-#define SMBO_GONE		0x80000000
+#define SMBO_GONE       0x80000000
 
 /*
  * access modes
@@ -114,10 +115,11 @@
 #define SMBV_SMB2                   0x00001000		/* Using some version of SMB 2 or 3 */
 #define SMBV_SMB2002                0x00002000		/* Using SMB 2.002 */
 #define SMBV_SMB21                  0x00004000		/* Using SMB 2.1 */
-#define SMBV_SMB302                 0x00008000		/* Using SMB 3.02 */
+#define SMBV_SMB302                 0x00008000      /* Using SMB 3.0.2 */
 #define SMBV_SERVER_MODE_MASK       0x0000ff00		/* This nible is reserved for special server types */
 
 #define SMBV_NETWORK_SID            0x00010000		/* The user's sid has been set on the session */
+#define SMBV_SMB311                 0x00020000      /* Using SMB 3.1.1 */
 #define	SMBV_AUTH_DONE              0x00080000		/* Security compeleted successfully */
 #define SMBV_PRIV_GUEST_ACCESS      0x00100000		/* Guest access is private */
 #define SMBV_KERBEROS_ACCESS        0x00200000		/* This session is using Kerberos */
@@ -129,6 +131,8 @@
 #define SMBV_USER_LAND_MASK         0x07f00000		/* items that are changable by the user */
 #define SMBV_SFS_ACCESS             0x08000000		/* Server is using simple file sharing. All access is forced to guest This is a kernel only flag */
 #define SMBV_MULTICHANNEL_ON        0x10000000      /* Multichannel is enabled for this session */
+#define SMBV_MC_PREFER_WIRED        0x20000000      /* Prefer wired NICs in multichannel */
+#define SMBV_DISABLE_311            0x40000000      /* Disable SMB v3.1.1 mainly pre auth integrity checking */
 #define	SMBV_GONE                   SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
 /*
@@ -156,6 +160,7 @@
 #define SMBV_MNT_HIGH_FIDELITY          0x00100000  /* High Fidelity session */
 #define SMBV_MNT_DATACACHE_OFF          0x00200000  /* Disable data caching */
 #define SMBV_MNT_MDATACACHE_OFF         0x00400000  /* Disable meta data caching */
+#define SMBV_MNT_SNAPSHOT               0x00800000  /* Snapshot mount */
 
 #define SMBV_HAS_GUEST_ACCESS(sessionp)		(((sessionp)->session_flags & (SMBV_GUEST_ACCESS | SMBV_SFS_ACCESS)) != 0)
 #define SMBV_HAS_ANONYMOUS_ACCESS(sessionp)	(((sessionp)->session_flags & (SMBV_ANONYMOUS_ACCESS | SMBV_SFS_ACCESS)) != 0)
@@ -164,9 +169,9 @@
  * True if dialect is SMB 2.1 or later (i.e., SMB 2.1, SMB 3.0, SMB 3.1, SMB 3.02, ...)
  * Important: Remember to update this when adding new dialects.
  */
-#define SMBV_SMB21_OR_LATER(sessionp) (((sessionp)->session_flags & (SMBV_SMB21 | SMBV_SMB30 | SMBV_SMB302)) != 0)
+#define SMBV_SMB21_OR_LATER(sessionp) (((sessionp)->session_flags & (SMBV_SMB21 | SMBV_SMB30 | SMBV_SMB302 | SMBV_SMB311)) != 0)
 
-#define SMBV_SMB3_OR_LATER(sessionp) (((sessionp)->session_flags & (SMBV_SMB30 | SMBV_SMB302)) != 0)
+#define SMBV_SMB3_OR_LATER(sessionp) (((sessionp)->session_flags & (SMBV_SMB30 | SMBV_SMB302 | SMBV_SMB311)) != 0)
 
 #define kSMB_64K 65536      /* For the QueryDir and QueryInfo limits */
 #define kSMB_63K 65534      /* <14281932> Max Net App can handle in IOCTL */
@@ -180,6 +185,8 @@
 #define SMBS_CONNECTED		0x0004
 #define SMBS_GOING_AWAY		0x0008
 #define	SMBS_GONE			SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
+
+#define kClientIfBlacklistMaxLen 32 /* max len of client interface blacklist */
 
 /*
  * Negotiated protocol parameters
@@ -228,7 +235,23 @@ enum smb_fs_types {
 	SMB_FS_MAC_OS_X = 6			/* Mac OS X Server, SMB 2/3 or greater */
 };
 
-#ifdef _KERNEL
+
+#define SMBIOD_SHUTDOWN             0x0001
+#define SMBIOD_RUNNING              0x0002
+#define SMBIOD_RECONNECT            0x0004
+#define SMBIOD_START_RECONNECT      0x0008
+#define SMBIOD_SESSION_NOTRESP      0x0010
+#define SMBIOD_READ_THREAD_RUNNING  0x0020
+#define SMBIOD_READ_THREAD_STOP     0x0040
+#define SMBIOD_READ_THREAD_ERROR    0x0080  // The read-thread can not read from socket. Reconnect is required.
+#define SMBIOD_ALTERNATE_CHANNEL    0x0100
+#define SMBIOD_USE_CHANNEL_KEYS     0x0200  // Alternate channel messages are signed with the main-channel
+                                            // until a successful session-setup is obtained, the the alt-ch
+                                            // keys there after.
+#define SMBIOD_INACTIVE_CHANNEL     0x0800 // The channel is connected but does not pass data.
+#define SMBIOD_ABORT_CONNECT        0x1000 // Stop iod from trying to establish connection
+
+#if defined(_KERNEL) || defined(MC_TESTER)
 
 #include <sys/lock.h>
 #include <netsmb/smb_subr.h>
@@ -291,32 +314,37 @@ for((var) = SMBLIST_FIRST(head, var);                  \
  * Data structure to access gssd for the use of SPNEGO/Kerberos
  */
 struct smb_gss {
-	mach_port_t	gss_mp;			/* Mach port to gssd */
-	au_asid_t	gss_asid;		/* Audit session id to find gss_mp */
-	gssd_nametype	gss_target_nt;		/* Service's principal's name type */
-	uint32_t	gss_spn_len;		/* Service's principal's length */
-	uint8_t *	gss_spn;		/* Service's principal name */
-	gssd_nametype	gss_client_nt;		/* Client's principal's name type */
-	uint32_t	gss_cpn_len;		/* Client's principal's length */
-	uint8_t *	gss_cpn;		/* Client's principal name */
-	char *		gss_cpn_display;	/* String representation of client principal */
-	uint32_t	gss_tokenlen;		/* Gss token length */
-	uint8_t *	gss_token;		/* Gss token */
-	uint64_t	gss_ctx;		/* GSS opaque context handle */
-	uint64_t	gss_cred;		/* GSS opaque cred handle */
-	uint32_t	gss_rflags;		/* Flags returned from gssd */
-	uint32_t	gss_major;		/* GSS major error code */
-	uint32_t	gss_minor;		/* GSS minor (mech) error code */
-	uint32_t	gss_smb_error;		/* Last error returned by smb SetUpAndX */
+	au_asid_t     gss_asid;        /* Audit session id to find gss_mp */
+	gssd_nametype gss_target_nt;   /* Service's principal's name type */
+	uint32_t      gss_spn_len;     /* Service's principal's length */
+	uint8_t *     gss_spn;         /* Service's principal name */
+	gssd_nametype gss_client_nt;   /* Client's principal's name type */
+	uint32_t      gss_cpn_len;     /* Client's principal's length */
+	uint8_t *     gss_cpn;         /* Client's principal name */
+	char *        gss_cpn_display; /* String representation of client principal */
+	uint32_t      gss_tokenlen;    /* Gss token length */
+	uint8_t *     gss_token;       /* Gss token */
+	uint64_t      gss_ctx;         /* GSS opaque context handle */
+	uint64_t      gss_cred;        /* GSS opaque cred handle */
+	uint32_t      gss_rflags;      /* Flags returned from gssd */
+	uint32_t      gss_major;       /* GSS major error code */
+	uint32_t      gss_minor;       /* GSS minor (mech) error code */
+	uint32_t      gss_smb_error;   /* Last error returned by smb SetUpAndX */
 };
 
 struct session_network_interface_info {
     lck_mtx_t interface_table_lck;
-
+    uint32_t pause_trials; 
     uint32_t client_nic_count;
     struct interface_info_list client_nic_info_list; /* list of the client's available NICs */
     uint32_t server_nic_count;
     struct interface_info_list server_nic_info_list; /* list of the server's available NICs */
+
+    uint32_t max_channels;
+    uint32_t max_rss_channels;
+    uint32_t *client_if_blacklist;
+    uint32_t client_if_blacklist_len;
+    uint32_t prefer_wired;
 
     /*
      * Table of all possible connections represent the state of every
@@ -324,11 +352,15 @@ struct session_network_interface_info {
      * The size of the table is (client_nic_count * server_nic_count).
      * In case of a successful connection will note the functionality of the connection.
      */
-    uint64_t current_max_con_speed;  /* the max existing connection speed */
     struct connection_info_list session_con_list;    /* list of all possible connection - use next */
-    uint8_t active_on_trial_connections;             /* record for the amount of open trial connections */
+    uint32_t active_on_trial_connections;            /* record for the amount of open trial connections */
     struct connection_info_list successful_con_list; /* list of all successful connection - use success_next */
 };
+
+/* Maintain a list of iod threads per session */
+TAILQ_HEAD(iod_tailq_head, smbiod);
+// iod_tailq_flags:
+#define SMB_IOD_TAILQ_SESSION_IS_SHUTTING_DOWN 1
 
 /*
  * Session to a server.
@@ -347,26 +379,29 @@ struct session_network_interface_info {
 #define	SMBC_ST_LOCK(sessionp)	lck_mtx_lock(&(sessionp)->session_stlock)
 #define	SMBC_ST_UNLOCK(sessionp)	lck_mtx_unlock(&(sessionp)->session_stlock)
 
-/*
- * This lock protects session_credits_ fields
- */
-#define SMBC_CREDIT_LOCKPTR(sessionp)  (&(sessionp)->session_credits_lock)
-#define	SMBC_CREDIT_LOCK(sessionp)	lck_mtx_lock(&(sessionp)->session_credits_lock)
-#define	SMBC_CREDIT_UNLOCK(sessionp)	lck_mtx_unlock(&(sessionp)->session_credits_lock)
-
 /* SMB3 Signing/Encrypt Key Length */
 #define SMB3_KEY_LEN 16
 
 /* Max number of SMB Dialects we currently support */
-#define SMB3_MAX_DIALECTS 4
+#define SMB3_MAX_DIALECTS 5
 
 struct smb_session {
 	struct smb_connobj	obj;
 	char				*session_srvname;		/* The server name used for tree connect, also used for logging */
 	char				*session_localname;
 	char				ipv4v6DotName[45+1];    /* max IPv6 presentation len */
-	struct sockaddr		*session_saddr;			/* server addr */
-	struct sockaddr		*session_laddr;			/* local addr, if any, only used for port 139 */
+    
+    /*
+     * <72239144> session_saddr is the server addr used on initial connection
+     * (ie the first main channel). Its used for checking to see if we have an
+     * existing session to the server. For multichannel, all channels will
+     * report this address for checking for existing sessions.
+     *
+     * Note: Someday, reconnect should use a non bound socket and attempt the
+     * reconnect to this address.
+     */
+    struct sockaddr     *session_saddr;
+    
 	char				*session_username;
 	char				*session_pass;			/* password for usl case */
 	char				*session_domain;		/* workgroup/primary domain */
@@ -377,8 +412,6 @@ struct smb_session {
 	u_short				session_smbuid;			/* unique session id assigned by server */
 	u_char				session_hflags;			/* or'ed with flags in the smb header */
 	u_short				session_hflags2;		/* or'ed with flags in the smb header */
-	void				*session_tdata;			/* transport control block */
-	struct smb_tran_desc *session_tdesc;
 	int					session_chlen;			/* actual challenge length */
 	u_char				session_ch[SMB_MAXCHALLENGELEN];
 	uint16_t			session_mid;			/* multiplex id */
@@ -391,14 +424,6 @@ struct smb_session {
     uint16_t            session_last_credit_charge;
     uint16_t            session_last_command;
 #endif
-	uint64_t            session_message_id;      /* SMB 2/3 request message id */
-	uint32_t            session_credits_granted; /* SMB 2/3 credits granted */
-	uint32_t            session_credits_ss_granted; /* SMB 2/3 credits granted from session setup replies */
-	uint32_t            session_credits_max;     /* SMB 2/3 max amount of credits server has granted us */
-	int32_t             session_credits_wait;    /* SMB 2/3 credit wait */
-    uint32_t            session_req_pending;     /* SMB 2/3 set if there is a pending request */
-    uint64_t            session_oldest_message_id; /* SMB 2/3 oldest pending request message id */
-	lck_mtx_t			session_credits_lock;
 	uint64_t            session_session_id;      /* SMB 2/3 session id */
 	uint64_t            session_prev_session_id; /* SMB 2/3 prev sessID for reconnect */
 	uint64_t            session_misc_flags;      /* SMB 2/3 misc flags */
@@ -406,7 +431,8 @@ struct smb_session {
 	uint32_t			session_txmax;           /* max tx/rx packet size */
 	uint32_t			session_rxmax;           /* max readx data size */
 	uint32_t			session_wxmax;           /* max writex data size */
-	struct smbiod		*session_iod;
+	struct smbiod		*session_iod;            /* main iod */
+    struct smbiod       *round_robin_iod;        /* last iod used to transfer io */
 	lck_mtx_t			session_stlock;
 	uint32_t			session_seqno;           /* my next sequence number */
 	uint8_t				*session_mackey;         /* MAC key */
@@ -433,7 +459,8 @@ struct smb_session {
     /* A 128-bit key used for encrypting messages sent by the client */
     uint8_t             session_smb3_encrypt_key[SMB3_KEY_LEN];
     uint32_t            session_smb3_encrypt_key_len;
-    
+    uint16_t            session_smb3_encrypt_ciper;
+
     /* SMB 3 decryption key (Session.DecryptionKey) */
     /* A 128-bit key used for decrypting messages received from the server. */
     uint8_t             session_smb3_decrypt_key[SMB3_KEY_LEN];
@@ -443,21 +470,18 @@ struct smb_session {
     uint64_t            session_smb3_nonce_high;
     uint64_t            session_smb3_nonce_low;
     
-	uint32_t			reconnect_wait_time;	/* Amount of time to wait while reconnecting */
+	uint32_t			reconnect_wait_time;     /* Amount of time to wait while reconnecting */
 	uint32_t			*connect_flag;
 	char				*NativeOS;
 	char				*NativeLANManager;
     
     /* Save the negotiate parameter for Validate Negotiate */
     uint32_t            neg_capabilities;
-    uuid_t              session_client_guid;    /* SMB 2/3 client Guid for Neg req */
+    uuid_t              session_client_guid;     /* SMB 2/3 client Guid for Neg req */
     uint16_t            neg_security_mode;
     uint16_t            neg_dialect_count;
-    uint16_t            neg_dialects[8];        /* Space for 8 dialects */
+    uint16_t            neg_dialects[8];         /* Space for 8 dialects */
     
-	uint32_t			negotiate_tokenlen;	/* negotiate token length */
-	uint8_t				*negotiate_token;	/* negotiate token */
-	struct smb_gss		session_gss;				/* Parameters for gssd */
 	ntsid_t				session_ntwrk_sid;
 	void				*throttle_info;
 	uint64_t            session_server_caps;     /* SMB 2/3 server capabilities */
@@ -469,13 +493,40 @@ struct smb_session {
 	uint32_t			session_dur_hndl_v2_default_timeout;
 	uint32_t			session_dur_hndl_v2_desired_timeout;
 	u_int32_t			session_TCP_QoS;
-
+    
     /* For SMB 3 sealing */
     char                *decrypt_bufferp;
     u_int32_t           decrypt_buf_len;
 
-    /* For MC support */
+    /* For SMB MultiChannel */
+    lck_mtx_t           iod_tailq_lock;
+    uint32_t            iod_tailq_flags;
+    struct iod_tailq_head iod_tailq_head;         // A TailQ of all iod threads (connections) associated to the seession
+    mach_port_t         gss_mp;                     // Mach port to gssd
+    /* total number of bytes transmitted by this session on gone channels */
+    uint64_t            session_gone_iod_total_tx_bytes;
+    /* total number of bytes received by this session on gone channels */
+    uint64_t            session_gone_iod_total_rx_bytes;
+    uint32_t            session_reconnect_count;    // The number of times this session has gone through reconnect
+    struct timespec     session_setup_time;         // The local time at which the session has been established
+    struct timespec     session_reconnect_time;     // The last time a reconnect took place
+    lck_mtx_t           failover_lock;              // sync failovers
+
     struct session_network_interface_info session_interface_table;
+
+    /* Lease break */
+    lck_mtx_t           session_lease_lock;         // session_lease_list
+    struct smb_lease_head session_lease_list;       // list of lease breaks to be handle
+    int                 session_lease_work_flag;
+    int                 session_lease_flags;
+    lck_mtx_t           session_lease_flagslock;
+
+    /* For querying for server network interface changes */
+    struct timeval      session_query_net_recheck_time;
+
+    /* Snapshot info */
+    char                snapshot_time[32] __attribute((aligned(8)));
+    time_t              snapshot_local_time;
 };
 
 #define session_maxmux	session_sopt.sv_maxmux
@@ -484,6 +535,12 @@ struct smb_session {
 #define SMB_UNICODE_STRINGS(sessionp)	((sessionp)->session_hflags2 & SMB_FLAGS2_UNICODE)
 #define SESSION_CAPS(a) ((a)->session_sopt.sv_caps)
 #define UNIX_SERVER(a) (SESSION_CAPS(a) & SMB_CAP_UNIX)
+
+#define SMB_SESSION_LEASE_THREAD_RUNNING 0x001
+#define SMB_SESSION_LEASE_THREAD_STOP    0x002
+
+/* time to wait between query network interface in multichannel mode  */
+#define SMB_SESSION_QUERY_NET_IF_TIMEOUT_SEC 600
 
 /*
  * smb_share structure describes connection to the given SMB share (tree).
@@ -558,6 +615,8 @@ int smb_sm_tcon(struct smb_session *sessionp, struct smbioc_share *sspec,
 uint32_t smb_session_caps(struct smb_session *sessionp);
 void parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, 
 									uint16_t bc);
+void smb_sm_lock_session_list(void);
+void smb_sm_unlock_session_list(void);
 
 /*
  * session level functions
@@ -573,6 +632,7 @@ void smb_session_unlock(struct smb_session *sessionp);
 int smb_session_reconnect_ref(struct smb_session *sessionp, vfs_context_t context);
 void smb_session_reconnect_rel(struct smb_session *sessionp);
 const char * smb_session_getpass(struct smb_session *sessionp);
+int  smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct session_con_entry *con_entry_p);
 
 /*
  * share level functions
@@ -586,7 +646,7 @@ const char * smb_share_getpass(struct smb_share *share);
  */
 int  smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
                         int inReconnect, int onlySMB1, vfs_context_t context);
-int  smb_smb_ssnsetup(struct smb_session *sessionp, int inReconnect, vfs_context_t context);
+int  smb_smb_ssnsetup(struct smbiod *iod, int inReconnect, vfs_context_t context);
 int  smb_smb_ssnclose(struct smb_session *sessionp, vfs_context_t context);
 int  smb_smb_treeconnect(struct smb_share *share, vfs_context_t context);
 int  smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
@@ -639,9 +699,17 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
 #define SMB_IOD_FLAGSLOCK(iod)          lck_mtx_lock(&((iod)->iod_flagslock))
 #define SMB_IOD_FLAGSUNLOCK(iod)        lck_mtx_unlock(&((iod)->iod_flagslock))
 
-#define SMB_IOD_LEASELOCKPTR(iod)  (&((iod)->iod_lease_lock))
-#define SMB_IOD_LEASELOCK(iod)     lck_mtx_lock(&((iod)->iod_lease_lock))
-#define SMB_IOD_LEASEUNLOCK(iod)   lck_mtx_unlock(&((iod)->iod_lease_lock))
+#define SMB_SESSION_LEASE_FLAGSLOCKPTR(sessionp)    \
+    (&((sessionp)->session_lease_flagslock))
+#define SMB_SESSION_LEASE_FLAGSLOCK(sessionp)       \
+    lck_mtx_lock(&((sessionp)->session_lease_flagslock))
+#define SMB_SESSION_LEASE_FLAGSUNLOCK(sessionp)     \
+    lck_mtx_unlock(&((sessionp)->session_lease_flagslock))
+
+#define SMB_SESSION_LEASELOCK(sessionp)     \
+    lck_mtx_lock(&((sessionp)->session_lease_lock))
+#define SMB_SESSION_LEASEUNLOCK(sessionp)   \
+    lck_mtx_unlock(&((sessionp)->session_lease_lock))
 
 #define smb_iod_wakeup(iod)     wakeup(&(iod)->iod_flags)
 
@@ -657,16 +725,18 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
 #define SMBIOD_EV_SHUTDOWN         0x0002
 #define SMBIOD_EV_FORCE_RECONNECT  0x0003
 #define SMBIOD_EV_DISCONNECT       0x0004
-/* 0x0005 available for use */
+#define SMBIOD_EV_FAILOVER         0x0005
 #define SMBIOD_EV_NEGOTIATE        0x0006
 #define SMBIOD_EV_SSNSETUP         0x0007
 #define SMBIOD_EV_QUERY_IF_INFO    0x0008 // Query server for its available interfaces
 #define SMBIOD_EV_ANALYZE_CON      0x0009 // Examime local & remote IF tables and determine if additional connections are required
 #define SMBIOD_EV_ESTABLISH_ALT_CH 0x000a // Connect, Negotiate and Setup an alternate connection
+#define SMBIOD_EV_PROCLAIM_MAIN    0x000b // Force iod to become the main iod
 
 #define SMBIOD_EV_MASK            0x00ff
 #define SMBIOD_EV_SYNC            0x0100
 #define SMBIOD_EV_PROCESSING      0x0200
+
 
 struct smbiod_event {
 	int	ev_type;
@@ -674,15 +744,6 @@ struct smbiod_event {
 	void *	ev_ident;
 	STAILQ_ENTRY(smbiod_event)	ev_link;
 };
-
-#define SMBIOD_SHUTDOWN         0x0001
-#define SMBIOD_RUNNING          0x0002
-#define SMBIOD_RECONNECT        0x0004
-#define SMBIOD_START_RECONNECT  0x0008
-#define SMBIOD_SESSION_NOTRESP  0x0010
-#define SMBIOD_LEASE_THREAD_RUNNING 0x0020
-#define SMBIOD_READ_THREAD_RUNNING 0x0040
-#define SMBIOD_READ_THREAD_STOP 0x0080
 
 struct lease_rq {
 	TAILQ_ENTRY(lease_rq) link;
@@ -692,41 +753,91 @@ struct lease_rq {
 	uint64_t lease_key_low;
 	uint32_t curr_lease_state;
 	uint32_t new_lease_state;
+    struct smbiod *received_iod;
+    int need_close_dir;
 };
+
+struct conn_params {
+    struct session_con_entry  *con_entry;
+    uint64_t client_if_idx;                     // IF index of the client NIC
+    struct sock_addr_entry    *selected_saddr;  // The currently selected server IP address
+};
+
+
+// This lock protects session_credits_ fields
+#define SMBC_CREDIT_LOCKPTR(iod)  (&(iod)->iod_credits_lock)
+#define SMBC_CREDIT_LOCK(iod)     lck_mtx_lock(&(iod)->iod_credits_lock)
+#define SMBC_CREDIT_UNLOCK(iod)   lck_mtx_unlock(&(iod)->iod_credits_lock)
 
 struct smbiod {
     int                 iod_id;
     int                 iod_flags;
     enum smbiod_state   iod_state;
-    lck_mtx_t           iod_flagslock;  /* iod_flags */
+    lck_mtx_t           iod_flagslock;        /* iod_flags */
     /* number of active outstanding requests (keep it signed!) */
-    int64_t             iod_muxcnt;
+    int32_t             iod_muxcnt;
     /* number of active outstanding async requests (keep it signed!) */
     int32_t             iod_asynccnt;	
     struct timespec     iod_sleeptimespec;
     struct smb_session *iod_session;
-    lck_mtx_t           iod_rqlock;     /* iod_rqlist, iod_muxwant */
-    struct smb_rqhead   iod_rqlist;     /* list of outstanding requests */
+    lck_mtx_t           iod_rqlock;           /* iod_rqlist, iod_muxwant */
+    struct smb_rqhead   iod_rqlist;           /* list of outstanding requests */
     int                 iod_muxwant;
     vfs_context_t       iod_context;
-    lck_mtx_t           iod_evlock;     /* iod_evlist */
+    lck_mtx_t           iod_evlock;           /* iod_evlist */
     STAILQ_HEAD(,smbiod_event) iod_evlist;
     struct timespec     iod_lastrqsent;
     struct timespec     iod_lastrecv;
-    int                 iod_workflag;   /* should be protected with lock */
-    struct timespec     reconnectStartTime; /* Time when the reconnect was started */
-	lck_mtx_t           iod_lease_lock;     /* iod_rqlist, iod_muxwant */
-	struct smb_lease_head iod_lease_list;     /* list of lease breaks to be handled */
-	int					iod_lease_work_flag;
+    int                 iod_workflag;         /* should be protected with lock */
+    struct timespec     reconnectStartTime;   /* Time when the reconnect was started */
+    
+    /* MultiChannel Support */
+    TAILQ_ENTRY(smbiod) tailq;                  /* list of iods per session */
+    struct sockaddr     *iod_saddr;             /* server addr */
+    struct sockaddr     *iod_laddr;             /* local addr, if any, only used for port 139 */
+    void                *iod_tdata;             /* transport control block */
+    uint32_t            iod_ref_cnt;            /* counts references to this iod, protected by iod_tailq_lock */
+    struct smb_tran_desc *iod_tdesc;            /* transport functions */
+    struct smb_gss      iod_gss;                /* Parameters for gssd */
+    uint64_t            iod_message_id;         /* SMB 2/3 request message id */
+    uint32_t            negotiate_tokenlen;     /* negotiate token length */
+    uint8_t             *negotiate_token;       /* negotiate token */
+    uint32_t            iod_credits_granted;    /* SMB 2/3 credits granted */
+    uint32_t            iod_credits_ss_granted; /* SMB 2/3 credits granted from session setup replies */
+    uint32_t            iod_credits_max;        /* SMB 2/3 max amount of credits server has granted us */
+    int32_t             iod_credits_wait;       /* SMB 2/3 credit wait */
+    uint32_t            iod_req_pending;        /* SMB 2/3 set if there is a pending request */
+    uint64_t            iod_oldest_message_id;  /* SMB 2/3 oldest pending request message id */
+    lck_mtx_t           iod_credits_lock;
+
+    /* Alternate channels have their own signing key */
+    uint8_t             *iod_mackey;            /* MAC key */
+    uint32_t            iod_mackeylen;          /* length of MAC key */
+    uint8_t             iod_smb3_signing_key[SMB3_KEY_LEN]; /* Channel.SigningKey */
+    uint32_t            iod_smb3_signing_key_len;
+
+    /* SMB 3.1.1 PreAuthIntegrity fields */
+    uint8_t             iod_pre_auth_int_salt[32]; /* Random number */
+    uint8_t             iod_pre_auth_int_hash_neg[SHA512_DIGEST_LENGTH] __attribute__((aligned(4)));
+    uint8_t             iod_pre_auth_int_hash[SHA512_DIGEST_LENGTH] __attribute__((aligned(4)));
+
+    struct conn_params  iod_conn_entry;
+    uint64_t            iod_total_tx_bytes;     /* The total number of bytes transmitted by this iod */
+    uint64_t            iod_total_rx_bytes;     /* The total number of bytes received by this iod */
+    struct timespec     iod_session_setup_time;
+    
+    /* Saved last session setup reply */
+    uint8_t             *iod_sess_setup_reply;  /* Used for pre auth and alt channels */
+    size_t              iod_sess_setup_reply_len;
 };
 
-int  smb_iod_nb_intr(struct smb_session *sessionp);
+int  smb_iod_nb_intr(struct smbiod *iod);
 int  smb_iod_init(void);
 int  smb_iod_done(void);
-int smb_session_force_reconnect(struct smb_session *sessionp);
+int smb_session_force_reconnect(struct smbiod *iod);
 void smb_session_reset(struct smb_session *sessionp);
-int  smb_iod_create(struct smb_session *sessionp);
-int  smb_iod_destroy(struct smbiod *iod);
+int  smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp);
+int  smb_iod_destroy(struct smbiod *iod, bool selfclean);
 void smb_iod_lease_enqueue(struct smbiod *iod,
 						   uint16_t server_epoch, uint32_t flags,
 						   uint64_t lease_key_hi, uint64_t lease_key_low,
@@ -736,8 +847,27 @@ int  smb_iod_rq_enqueue(struct smb_rq *rqp);
 int  smb_iod_waitrq(struct smb_rq *rqp);
 int  smb_iod_removerq(struct smb_rq *rqp);
 void smb_iod_errorout_share_request(struct smb_share *share, int error);
-int smb_iod_get_qos(struct smb_session *sessionp, void *data);
-int smb_iod_set_qos(struct smb_session *sessionp, void *data);
+int smb_iod_get_qos(struct smbiod *iod, void *data);
+int smb_iod_set_qos(struct smbiod *iod, void *data);
+int smb_iod_get_main_iod(struct smb_session *sessionp, struct smbiod **iodpp,
+                         const char *function);
+int smb_iod_get_any_iod(struct smb_session *sessionp, struct smbiod **iodpp,
+                        const char *function);
+int smb_iod_get_non_main_iod(struct smb_session *sessionp,
+                             struct smbiod **iodpp, const char *function, int force_inactive);
+int smb_iod_ref(struct smbiod *iod, const char *function);
+int smb_iod_rel(struct smbiod *iod, struct smb_rq *rqp, const char *function);
+bool smb2_extract_ip_and_len(struct sockaddr *addr, void **addrp, uint32_t *addr_lenp);
+int  smb2_sockaddr_to_str(struct sockaddr *sockaddrp, char *str, uint32_t max_str_len);
+void smb2_spd_to_txt(uint64_t spd, char *str, uint32_t str_len);
+uint32_t smb2_get_port_from_sockaddr(struct sockaddr *);
+int  smb2_set_port_in_sockaddr(struct sockaddr *addr, uint32_t port);
+int  smb2_create_server_addr(struct smbiod *iod);
+int  smb2_find_valid_ip_family(struct smbiod *iod);
+int smb_request_iod_disconnect_and_shutdown(struct smbiod *iod);
+int smb_iod_inactive(struct smbiod *iod);
+int smb_iod_active(struct smbiod *iod);
+int smb_iod_establish_alt_ch(struct smbiod *iod);
 
 extern lck_grp_attr_t *co_grp_attr;
 extern lck_grp_t *co_lck_group;

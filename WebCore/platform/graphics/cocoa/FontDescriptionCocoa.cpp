@@ -31,8 +31,6 @@
 
 namespace WebCore {
 
-#if USE(PLATFORM_SYSTEM_FALLBACK_LIST)
-
 template<typename T, typename U, std::size_t size, std::size_t... indices> std::array<T, size> convertArray(U (&array)[size], std::index_sequence<indices...>)
 {
     return { { array[indices]... } };
@@ -80,9 +78,16 @@ static inline Optional<SystemFontKind> matchSystemFontUse(const AtomString& stri
         kCTUIFontTextStyleTitle0,
         kCTUIFontTextStyleTitle4,
     };
-    
-    static auto strings { makeNeverDestroyed(convertArray<AtomString>(styles)) };
-    if (std::find(strings.get().begin(), strings.get().end(), string) != strings.get().end())
+
+    auto compareAsPointer = [](const AtomString& lhs, const AtomString& rhs) {
+        return lhs.impl() < rhs.impl();
+    };
+    static auto strings = makeNeverDestroyed([&compareAsPointer] {
+        auto result = convertArray<AtomString>(styles);
+        std::sort(result.begin(), result.end(), compareAsPointer);
+        return result;
+    }());
+    if (std::binary_search(strings.get().begin(), strings.get().end(), string, compareAsPointer))
         return SystemFontKind::TextStyle;
 
     return WTF::nullopt;
@@ -95,7 +100,7 @@ static inline Vector<RetainPtr<CTFontDescriptorRef>> systemFontCascadeList(const
 
 unsigned FontCascadeDescription::effectiveFamilyCount() const
 {
-    // FIXME: Move all the other system font keywords from platformFontWithFamilySpecialCase() to here.
+    // FIXME: Move all the other system font keywords from fontWithFamilySpecialCase() to here.
     unsigned result = 0;
     for (unsigned i = 0; i < familyCount(); ++i) {
         const auto& cssFamily = familyAt(i);
@@ -109,10 +114,9 @@ unsigned FontCascadeDescription::effectiveFamilyCount() const
 
 FontFamilySpecification FontCascadeDescription::effectiveFamilyAt(unsigned index) const
 {
-    // The special cases in this function need to match the behavior in FontCacheIOS.mm and FontCacheMac.mm. On systems
-    // where USE(PLATFORM_SYSTEM_FALLBACK_LIST) is set to true, this code is used for regular (element style) lookups,
-    // and the code in FontDescriptionCocoa.cpp is used when src:local(special-cased-name) is specified inside an
-    // @font-face block.
+    // The special cases in this function need to match the behavior in FontCacheCoreText.cpp. This code
+    // is used for regular (element style) lookups, and the code in FontDescriptionCocoa.cpp is used when
+    // src:local(special-cased-name) is specified inside an @font-face block.
     // FIXME: Currently, an @font-face block corresponds to a single item in the font-family: fallback list, which
     // means that "src:local(system-ui)" can't follow the Core Text cascade list (the way it does for regular lookups).
     // These two behaviors should be unified, which would hopefully allow us to delete this duplicate code.
@@ -132,8 +136,6 @@ FontFamilySpecification FontCascadeDescription::effectiveFamilyAt(unsigned index
     ASSERT_NOT_REACHED();
     return nullAtom();
 }
-
-#endif // USE(PLATFORM_SYSTEM_FALLBACK_LIST)
 
 AtomString FontDescription::platformResolveGenericFamily(UScriptCode script, const AtomString& locale, const AtomString& familyName)
 {

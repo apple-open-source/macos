@@ -297,6 +297,11 @@ CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount*
 
 bool SOSAccountEvaluateKeysAndCircle(SOSAccountTransaction *txn, CFErrorRef *block_error);
 
+//
+// MARK: Remove V0 Peers
+bool SOSAccountRemoveV0Clients(SOSAccount *account, CFErrorRef *error);
+
+
 __END_DECLS
 
 #endif /* !_SOSACCOUNT_H_ */

@@ -1133,21 +1133,13 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
-        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertResetAndBecomeTrustedInDefaultContext()
 
-        let clique: OTClique
-        do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
-            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
-        } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
-            throw error
-        }
-
+        // Join with another peer, so that the depart will work
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         let leaveExpectation = self.expectation(description: "rpcLeaveClique returns")
         self.cuttlefishContext.rpcLeaveClique { leaveError in

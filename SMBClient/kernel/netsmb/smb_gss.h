@@ -34,17 +34,19 @@
 #define GSS_S_CONTINUE_NEEDED 1
 #endif
 
-#define SMB_USE_GSS(vp) (IPC_PORT_VALID((vp)->session_gss.gss_mp))
+#define SMB_USE_GSS(vp) (IPC_PORT_VALID((vp)->gss_mp))
 #define SMB_GSS_CONTINUE_NEEDED(p) ((p)->gss_major == GSS_S_CONTINUE_NEEDED)
 #define SMB_GSS_ERROR(p) ((p)->gss_major != GSS_S_COMPLETE && \
 	(p)->gss_major != GSS_S_CONTINUE_NEEDED)
 #define SMB_GSS_COMPLETE(p) ((p)->gss_major == GSS_S_COMPLETE)
-int smb_gss_negotiate(struct smb_session *sessionp, vfs_context_t context);
-int smb_gss_ssnsetup(struct smb_session *sessionp, vfs_context_t context);
+int  smb_gss_alt_ch_session_setup(struct smbiod *iod);
+int  smb_gss_negotiate(struct smbiod *iod, vfs_context_t context);
+int  smb_gss_ssnsetup(struct smbiod *iod, vfs_context_t context);
 void smb_gss_destroy(struct smb_gss *gp);
 
-void smb_gss_ref_cred(struct smb_session *sessionp);
-void smb_gss_rel_cred(struct smb_session *sessionp);
+void smb_gss_ref_cred(struct smbiod *iod);
+void smb_gss_rel_cred(struct smbiod *iod);
+int  smb_gss_dup(struct smb_gss *parent_gp, struct smb_gss *new_gp);
 
 #ifdef SMB_DEBUG
 //#define DEBUG_TURN_OFF_EXT_SEC 1

@@ -140,7 +140,7 @@ bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granula
         multiplier = -multiplier;
 
     step = adjustScrollStepForFixedContent(step, orientation, granularity);
-    return scrollAnimator().scroll(orientation, granularity, step, multiplier);
+    return scrollAnimator().scroll(orientation, granularity, step, multiplier, ScrollAnimator::ScrollBehavior::DoDirectionalSnapping);
 }
 
 void ScrollableArea::scrollToOffsetWithAnimation(const FloatPoint& offset, ScrollClamping)
@@ -203,7 +203,7 @@ void ScrollableArea::scrollPositionChanged(const ScrollPosition& position)
         scrollAnimator().notifyContentAreaScrolled(scrollPosition() - oldPosition);
 }
 
-bool ScrollableArea::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
+bool ScrollableArea::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEvent, Optional<WheelScrollGestureState>)
 {
     if (!isScrollableOrRubberbandable())
         return false;
@@ -368,18 +368,27 @@ void ScrollableArea::setScrollbarOverlayStyle(ScrollbarOverlayStyle overlayStyle
 {
     m_scrollbarOverlayStyle = overlayStyle;
 
-    if (horizontalScrollbar()) {
-        ScrollbarTheme::theme().updateScrollbarOverlayStyle(*horizontalScrollbar());
-        horizontalScrollbar()->invalidate();
-        if (ScrollAnimator* scrollAnimator = existingScrollAnimator())
-            scrollAnimator->invalidateScrollbarPartLayers(horizontalScrollbar());
+    if (auto* scrollbar = horizontalScrollbar())
+        ScrollbarTheme::theme().updateScrollbarOverlayStyle(*scrollbar);
+
+    if (auto* scrollbar = verticalScrollbar())
+        ScrollbarTheme::theme().updateScrollbarOverlayStyle(*scrollbar);
+
+    invalidateScrollbars();
+}
+
+void ScrollableArea::invalidateScrollbars()
+{
+    if (auto* scrollbar = horizontalScrollbar()) {
+        scrollbar->invalidate();
+        if (auto* scrollAnimator = existingScrollAnimator())
+            scrollAnimator->invalidateScrollbarPartLayers(scrollbar);
     }
-    
-    if (verticalScrollbar()) {
-        ScrollbarTheme::theme().updateScrollbarOverlayStyle(*verticalScrollbar());
-        verticalScrollbar()->invalidate();
-        if (ScrollAnimator* scrollAnimator = existingScrollAnimator())
-            scrollAnimator->invalidateScrollbarPartLayers(verticalScrollbar());
+
+    if (auto* scrollbar = verticalScrollbar()) {
+        scrollbar->invalidate();
+        if (auto* scrollAnimator = existingScrollAnimator())
+            scrollAnimator->invalidateScrollbarPartLayers(scrollbar);
     }
 }
 
@@ -441,6 +450,18 @@ bool ScrollableArea::hasLayerForVerticalScrollbar() const
 bool ScrollableArea::hasLayerForScrollCorner() const
 {
     return layerForScrollCorner();
+}
+
+bool ScrollableArea::allowsHorizontalScrolling() const
+{
+    auto* horizontalScrollbar = this->horizontalScrollbar();
+    return horizontalScrollbar && horizontalScrollbar->enabled();
+}
+
+bool ScrollableArea::allowsVerticalScrolling() const
+{
+    auto* verticalScrollbar = this->verticalScrollbar();
+    return verticalScrollbar && verticalScrollbar->enabled();
 }
 
 String ScrollableArea::horizontalScrollbarStateForTesting() const
@@ -519,6 +540,12 @@ void ScrollableArea::setHorizontalSnapOffsetRanges(const Vector<ScrollOffsetRang
 void ScrollableArea::setVerticalSnapOffsetRanges(const Vector<ScrollOffsetRange<LayoutUnit>>& verticalRanges)
 {
     ensureSnapOffsetsInfo().verticalSnapOffsetRanges = verticalRanges;
+}
+
+void ScrollableArea::clearSnapOffsets()
+{
+    clearHorizontalSnapOffsets();
+    clearVerticalSnapOffsets();
 }
 
 void ScrollableArea::clearHorizontalSnapOffsets()
@@ -602,34 +629,59 @@ void ScrollableArea::updateScrollSnapState()
 }
 #endif
 
-
-void ScrollableArea::serviceScrollAnimations()
+bool ScrollableArea::isPinnedForScrollDeltaOnAxis(float scrollDelta, ScrollEventAxis axis) const
 {
-    if (ScrollAnimator* scrollAnimator = existingScrollAnimator())
-        scrollAnimator->serviceScrollAnimations();
-}
+    auto scrollPosition = this->scrollPosition();
+    switch (axis) {
+    case ScrollEventAxis::Vertical:
+        if (!allowsVerticalScrolling())
+            return true;
 
-bool ScrollableArea::isPinnedInBothDirections(const IntSize& scrollDelta) const
-{
-    return isPinnedHorizontallyInDirection(scrollDelta.width()) && isPinnedVerticallyInDirection(scrollDelta.height());
-}
+        if (scrollDelta < 0) // top
+            return scrollPosition.y() <= minimumScrollPosition().y();
 
-bool ScrollableArea::isPinnedHorizontallyInDirection(int horizontalScrollDelta) const
-{
-    if (horizontalScrollDelta < 0 && isHorizontalScrollerPinnedToMinimumPosition())
-        return true;
-    if (horizontalScrollDelta > 0 && isHorizontalScrollerPinnedToMaximumPosition())
-        return true;
+        if (scrollDelta > 0) // bottom
+            return scrollPosition.y() >= maximumScrollPosition().y();
+
+        break;
+    case ScrollEventAxis::Horizontal:
+        if (!allowsHorizontalScrolling())
+            return true;
+
+        if (scrollDelta < 0) // left
+            return scrollPosition.x() <= minimumScrollPosition().x();
+
+        if (scrollDelta > 0) // right
+            return scrollPosition.x() >= maximumScrollPosition().x();
+
+        break;
+    }
+
     return false;
 }
 
-bool ScrollableArea::isPinnedVerticallyInDirection(int verticalScrollDelta) const
+bool ScrollableArea::isPinnedForScrollDelta(const FloatSize& scrollDelta) const
 {
-    if (verticalScrollDelta < 0 && isVerticalScrollerPinnedToMinimumPosition())
-        return true;
-    if (verticalScrollDelta > 0 && isVerticalScrollerPinnedToMaximumPosition())
-        return true;
-    return false;
+    return (!scrollDelta.width() || isPinnedForScrollDeltaOnAxis(scrollDelta.width(), ScrollEventAxis::Horizontal))
+        && (!scrollDelta.height() || isPinnedForScrollDeltaOnAxis(scrollDelta.height(), ScrollEventAxis::Vertical));
+}
+
+RectEdges<bool> ScrollableArea::edgePinnedState() const
+{
+    auto scrollPosition = this->scrollPosition();
+    auto minScrollPosition = minimumScrollPosition();
+    auto maxScrollPosition = maximumScrollPosition();
+
+    bool horizontallyUnscrollable = !allowsHorizontalScrolling();
+    bool verticallyUnscrollable = !allowsVerticalScrolling();
+
+    // Top, right, bottom, left.
+    return {
+        verticallyUnscrollable || scrollPosition.y() <= minScrollPosition.y(),
+        horizontallyUnscrollable || scrollPosition.x() >= maxScrollPosition.x(),
+        verticallyUnscrollable || scrollPosition.y() >= maxScrollPosition.y(),
+        horizontallyUnscrollable || scrollPosition.x() <= minScrollPosition.x()
+    };
 }
 
 int ScrollableArea::horizontalScrollbarIntrusion() const

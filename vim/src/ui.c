@@ -523,8 +523,14 @@ ui_char_avail(void)
  * cancel the delay if a key is hit.
  */
     void
-ui_delay(long msec, int ignoreinput)
+ui_delay(long msec_arg, int ignoreinput)
 {
+    long msec = msec_arg;
+
+#ifdef FEAT_EVAL
+    if (ui_delay_for_testing > 0)
+	msec = ui_delay_for_testing;
+#endif
 #ifdef FEAT_JOB_CHANNEL
     ch_log(NULL, "ui_delay(%ld)", msec);
 #endif
@@ -533,7 +539,7 @@ ui_delay(long msec, int ignoreinput)
 	gui_wait_for_chars(msec, typebuf.tb_change_cnt);
     else
 #endif
-	mch_delay(msec, ignoreinput);
+	mch_delay(msec, ignoreinput ? MCH_DELAY_IGNOREINPUT : 0);
 }
 
 /*
@@ -942,6 +948,13 @@ fill_input_buf(int exit_on_error UNUSED)
 	len = vms_read((char *)inbuf + inbufcount, readlen);
 #  else
 	len = read(read_cmd_fd, (char *)inbuf + inbufcount, readlen);
+#  endif
+#  ifdef FEAT_JOB_CHANNEL
+	if (len > 0)
+	{
+	    inbuf[inbufcount + len] = NUL;
+	    ch_log(NULL, "raw key input: \"%s\"", inbuf + inbufcount);
+	}
 #  endif
 
 	if (len > 0 || got_int)

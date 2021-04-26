@@ -76,7 +76,7 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, tcprcvbuf, CTLFLAG_RW, &smb_tcprcvbuf, 0, "");
 
 static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep, 
 					  struct timespec *wait_time);
-static int  smb_nbst_disconnect(struct smb_session *sessionp);
+static int  smb_nbst_disconnect(struct smbiod *iod);
 
 static int
 nb_setsockopt_int(socket_t so, int level, int name, int val)
@@ -150,6 +150,17 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv, (int)sizeof(tv));
     if (error) {
 		goto bad;
+	}
+
+    if (nbp->nbp_flags & NBF_BOUND_IF) {
+        if (to->sa_family == AF_INET6) {
+            error = sock_setsockopt(so, IPPROTO_IPV6, IPV6_BOUND_IF, &nbp->nbp_if_idx, sizeof(nbp->nbp_if_idx));
+        } else {
+            error = sock_setsockopt(so, IPPROTO_IP, IP_BOUND_IF, &nbp->nbp_if_idx, sizeof(nbp->nbp_if_idx));
+        }
+        if (error) {
+            goto bad;
+        }
     }
 
     /*
@@ -262,14 +273,26 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 	while ((error = sock_connectwait(so, &tv)) == EINPROGRESS) {
-		if ((error = smb_iod_nb_intr(nbp->nbp_session)))
+		if ((error = smb_iod_nb_intr(nbp->nbp_iod)))
 			break;
+
+        if (nbp->nbp_iod->iod_flags & SMBIOD_SHUTDOWN){
+            error = EINTR;
+            break;
+        }
+        
+        /* <71930272> check if new connection trial was aborted */
+        if (nbp->nbp_iod->iod_flags & SMBIOD_ABORT_CONNECT){
+            error = EINTR;
+            break;
+        }
+
 	}
-	if (!error)
-		return (0);
-    
+    if (!error)
+        return (0);
+
 bad:
-	smb_nbst_disconnect(nbp->nbp_session);
+	smb_nbst_disconnect(nbp->nbp_iod);
 	return (error);
 }
 
@@ -333,12 +356,12 @@ nbssn_rq_request(struct nbpcb *nbp)
 		md_get_uint16(mdp, &port);
 		sin.sin_port = port;
 		nbp->nbp_state = NBST_RETARGET;
-		smb_nbst_disconnect(nbp->nbp_session);
+		smb_nbst_disconnect(nbp->nbp_iod);
 		error = tcp_connect(nbp, (struct sockaddr *)&sin);
 		if (!error)
 			error = nbssn_rq_request(nbp);
 		if (error) {
-			smb_nbst_disconnect(nbp->nbp_session);
+			smb_nbst_disconnect(nbp->nbp_iod);
 			break;
 		}
 	} while(0);
@@ -382,7 +405,9 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
              * means the other side has closed their side of the connection.
              */
             if ((recvdlen == 0) && resid) {
-                SMBERROR("Server closed their side of the connection.\n");
+                SMBERROR("id %d flags 0x%x Server closed their side of the connection.\n",
+                         (nbp->nbp_iod) ? nbp->nbp_iod->iod_id : -1,
+                         (nbp->nbp_iod) ? nbp->nbp_iod->iod_flags : -1);
                 nbp->nbp_state = NBST_CLOSED;
                 error = EPIPE;
                 return error;
@@ -681,7 +706,7 @@ out:
  * SMB transport interface
  */
 static int
-smb_nbst_create(struct smb_session *sessionp)
+smb_nbst_create(struct smbiod *iod)
 {
 	struct nbpcb *nbp;
 
@@ -689,41 +714,41 @@ smb_nbst_create(struct smb_session *sessionp)
 	bzero(nbp, sizeof *nbp);
 	nbp->nbp_timo.tv_sec = SMB_NBTIMO;
 	nbp->nbp_state = NBST_CLOSED;
-	nbp->nbp_session = sessionp;
+	nbp->nbp_iod = iod;
 	nbp->nbp_sndbuf = smb_tcpsndbuf;
 	nbp->nbp_rcvbuf = smb_tcprcvbuf;
 	lck_mtx_init(&nbp->nbp_lock, nbp_lck_group, nbp_lck_attr);
-	sessionp->session_tdata = nbp;
+	iod->iod_tdata = nbp;
 	return (0);
 }
 
 static int
-smb_nbst_done(struct smb_session *sessionp)
+smb_nbst_done(struct smbiod *iod)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 
 	if (nbp == NULL)
 		return (ENOTCONN);
-	smb_nbst_disconnect(sessionp);
+	smb_nbst_disconnect(iod);
 	if (nbp->nbp_laddr)
 		SMB_FREE(nbp->nbp_laddr, M_SONAME);
 	if (nbp->nbp_paddr)
 		SMB_FREE(nbp->nbp_paddr, M_SONAME);
 	/* The session_tdata is no longer valid */
-	sessionp->session_tdata = NULL;
+	iod->iod_tdata = NULL;
 	lck_mtx_destroy(&nbp->nbp_lock, nbp_lck_group);
 	SMB_FREE(nbp, M_NBDATA);
 	return (0);
 }
 
 static int
-smb_nbst_bind(struct smb_session *sessionp, struct sockaddr *sap)
+smb_nbst_bind(struct smbiod *iod, struct sockaddr *sap)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	struct sockaddr_nb *snb;
 	int error, slen;
 
-	DBG_ASSERT(sessionp->session_tdata != NULL);
+	DBG_ASSERT(iod->iod_tdata != NULL);
 	NBDEBUG("\n");
 	error = EINVAL;
 	do {
@@ -753,14 +778,14 @@ smb_nbst_bind(struct smb_session *sessionp, struct sockaddr *sap)
 }
 
 static int
-smb_nbst_connect(struct smb_session *sessionp, struct sockaddr *sap)
+smb_nbst_connect(struct smbiod *iod, struct sockaddr *sap)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	struct sockaddr *so;
 	struct timespec ts1, ts2;
 	int error, slen;
 
-	NBDEBUG("\n");
+	NBDEBUG("id %u\n", iod->iod_id);
 	if (nbp == NULL)
 		return (EINVAL);
 
@@ -794,7 +819,6 @@ smb_nbst_connect(struct smb_session *sessionp, struct sockaddr *sap)
 	 * timeouts are simply too short.
 	 */
 	nanouptime(&ts1);
-
 	error = tcp_connect(nbp, so);
     if (error) {
 		return (error);
@@ -818,15 +842,30 @@ smb_nbst_connect(struct smb_session *sessionp, struct sockaddr *sap)
 		nbp->nbp_flags |= NBF_NETBIOS;
 		error = nbssn_rq_request(nbp);
 		if (error)
-			smb_nbst_disconnect(sessionp);
+			smb_nbst_disconnect(iod);
 	}
+    
+    if (!error) {
+        memset(&nbp->nbp_sock_addr, 0, sizeof(nbp->nbp_sock_addr));
+        error = sock_getsockname(nbp->nbp_tso, (struct sockaddr*)&nbp->nbp_sock_addr, sizeof(nbp->nbp_sock_addr));
+        if (error) {
+            SMBERROR("sock_getsockname of IP_BOUND_IF returned %d.\n", error);
+            goto exit;
+        }
+#ifdef SMB_DEBUG
+        char str[128];
+        smb2_sockaddr_to_str((struct sockaddr*)&nbp->nbp_sock_addr, str, sizeof(str)); 
+        SMBDEBUG("id %d, sockname: %s.\n", iod->iod_id, str);
+#endif
+    }
+exit:
 	return (error);
 }
 
 static int
-smb_nbst_disconnect(struct smb_session *sessionp)
+smb_nbst_disconnect(struct smbiod *iod)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	socket_t so;
 
     if ((nbp == NULL) || !(nbp->nbp_flags & NBF_CONNECTED)) {
@@ -848,9 +887,9 @@ smb_nbst_disconnect(struct smb_session *sessionp)
 }
 
 static int
-smb_nbst_send(struct smb_session *sessionp, mbuf_t m0)
+smb_nbst_send(struct smbiod *iod, mbuf_t m0)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	int error;
 
 	/* Should never happen, but just in case */
@@ -872,9 +911,9 @@ abort:
 }
 
 static int
-smb_nbst_recv(struct smb_session *sessionp, mbuf_t *mpp)
+smb_nbst_recv(struct smbiod *iod, mbuf_t *mpp)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	uint8_t rpcode, *hp;
 	int error, rplen;
 
@@ -893,7 +932,7 @@ smb_nbst_recv(struct smb_session *sessionp, mbuf_t *mpp)
     if (!error) {
         hp = mbuf_data(*mpp);
         if (*hp == 0xfd) {
-            error = smb3_msg_decrypt(sessionp, mpp);
+            error = smb3_msg_decrypt(iod->iod_session, mpp);
         }
     }
     
@@ -905,16 +944,16 @@ smb_nbst_recv(struct smb_session *sessionp, mbuf_t *mpp)
 }
 
 static void
-smb_nbst_timo(struct smb_session *sessionp)
+smb_nbst_timo(struct smbiod *iod)
 {
-	#pragma unused(sessionp)
+	#pragma unused(iod)
 	return;
 }
 
 static int
-smb_nbst_getparam(struct smb_session *sessionp, int param, void *data)
+smb_nbst_getparam(struct smbiod *iod, int param, void *data)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 
 	/* Should never happen, but just in case */
 	if (nbp == NULL) {
@@ -940,6 +979,9 @@ smb_nbst_getparam(struct smb_session *sessionp, int param, void *data)
 		case SMBTP_QOS:
 			*(uint32_t*)data = nbp->nbp_qos;
 			break;
+        case SMBTP_IP_ADDR:
+            memcpy(data, &nbp->nbp_sock_addr, sizeof(nbp->nbp_sock_addr));
+            break;
 	    default:
 			return (EINVAL);
 	}
@@ -947,9 +989,9 @@ smb_nbst_getparam(struct smb_session *sessionp, int param, void *data)
 }
 
 static int
-smb_nbst_setparam(struct smb_session *sessionp, int param, void *data)
+smb_nbst_setparam(struct smbiod *iod, int param, void *data)
 {
-	struct nbpcb *nbp = sessionp->session_tdata;
+	struct nbpcb *nbp = iod->iod_tdata;
 	uint32_t option = 0;
 	int error = 0;
 
@@ -957,7 +999,7 @@ smb_nbst_setparam(struct smb_session *sessionp, int param, void *data)
 	if (nbp == NULL) {
 		return (ENOTCONN);
 	}
-	
+    
 	switch (param) {
 	    case SMBTP_SELECTID:
 			nbp->nbp_selectid = data;
@@ -975,6 +1017,10 @@ smb_nbst_setparam(struct smb_session *sessionp, int param, void *data)
 				nbp->nbp_qos = option;
 			}
 			break;
+        case SMBTP_BOUND_IF:
+            nbp->nbp_if_idx = *(uint32_t*)data;
+            nbp->nbp_flags |= NBF_BOUND_IF;
+            break;
 	    default:
 			return (EINVAL);
 	}
@@ -985,7 +1031,7 @@ smb_nbst_setparam(struct smb_session *sessionp, int param, void *data)
  * Check for fatal errors
  */
 static int
-smb_nbst_fatal(struct smb_session *sessionp, int error)
+smb_nbst_fatal(struct smbiod *iod, int error)
 {
 	struct nbpcb *nbp;
 
@@ -999,8 +1045,8 @@ smb_nbst_fatal(struct smb_session *sessionp, int error)
 		case EADDRNOTAVAIL:
 		return 1;
 	}
-	DBG_ASSERT(sessionp);
-	nbp = sessionp->session_tdata;
+	DBG_ASSERT(iod);
+	nbp = iod->iod_tdata;
 	if ((nbp == NULL) || (nbp->nbp_tso == NULL) || (! sock_isconnected(nbp->nbp_tso)))
 			return 1;
 	
@@ -1008,12 +1054,17 @@ smb_nbst_fatal(struct smb_session *sessionp, int error)
 }
 
 struct smb_tran_desc smb_tran_nbtcp_desc = {
-	SMBT_NBTCP,
-	smb_nbst_create, smb_nbst_done,
-	smb_nbst_bind, smb_nbst_connect, smb_nbst_disconnect,
-	smb_nbst_send, smb_nbst_recv,
-	smb_nbst_timo,
-	smb_nbst_getparam, smb_nbst_setparam,
-	smb_nbst_fatal,
-	{NULL, NULL}
+    .tr_type       = SMBT_NBTCP,
+    .tr_create     = smb_nbst_create,
+    .tr_done       = smb_nbst_done,
+    .tr_bind       = smb_nbst_bind,
+    .tr_connect    = smb_nbst_connect,
+    .tr_disconnect = smb_nbst_disconnect,
+    .tr_send       = smb_nbst_send,
+    .tr_recv       = smb_nbst_recv,
+    .tr_timo       = smb_nbst_timo,
+    .tr_getparam   = smb_nbst_getparam,
+    .tr_setparam   = smb_nbst_setparam,
+    .tr_fatal      = smb_nbst_fatal,
+    .tr_link       = {NULL, NULL}
 };

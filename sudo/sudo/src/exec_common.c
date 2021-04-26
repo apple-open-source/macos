@@ -23,22 +23,14 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #ifdef HAVE_PRIV_SET
 # include <priv.h>
 #endif
 #include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
 
 #include "sudo.h"
 #include "sudo_exec.h"
@@ -59,7 +51,7 @@ preload_dso(char *envp[], const char *dso_file)
 # else
     const bool enabled = true;
 # endif
-    debug_decl(preload_dso, SUDO_DEBUG_UTIL)
+    debug_decl(preload_dso, SUDO_DEBUG_UTIL);
 
     /*
      * Preload a DSO file.  For a list of LD_PRELOAD-alikes, see
@@ -107,7 +99,7 @@ preload_dso(char *envp[], const char *dso_file)
      * whether it was dynamically allocated. [TODO: plugin API]
      */
     if (preload_idx == -1 || !enabled) {
-	const int env_size = env_len + 1 + (preload_idx == -1) + enabled;
+	const int env_size = env_len + 1 + (preload_idx == -1) + enabled; // -V547
 
 	char **nenvp = reallocarray(NULL, env_size, sizeof(*envp));
 	if (nenvp == NULL)
@@ -161,7 +153,7 @@ preload_dso(char *envp[], const char *dso_file)
 char **
 disable_execute(char *envp[], const char *dso)
 {
-    debug_decl(disable_execute, SUDO_DEBUG_UTIL)
+    debug_decl(disable_execute, SUDO_DEBUG_UTIL);
 
 #ifdef HAVE_PRIV_SET
     /* Solaris privileges, remove PRIV_PROC_EXEC post-execve. */
@@ -170,7 +162,7 @@ disable_execute(char *envp[], const char *dso)
     (void)priv_set(PRIV_ON, PRIV_INHERITABLE, "PRIV_FILE_DAC_SEARCH", NULL);
     if (priv_set(PRIV_OFF, PRIV_LIMIT, "PRIV_PROC_EXEC", NULL) == 0)
 	debug_return_ptr(envp);
-    sudo_warn(U_("unable to remove PRIV_PROC_EXEC from PRIV_LIMIT"));
+    sudo_warn("%s", U_("unable to remove PRIV_PROC_EXEC from PRIV_LIMIT"));
 #endif /* HAVE_PRIV_SET */
 
 #ifdef RTLD_PRELOAD_VAR
@@ -188,7 +180,7 @@ disable_execute(char *envp[], const char *dso)
 int
 sudo_execve(int fd, const char *path, char *const argv[], char *envp[], bool noexec)
 {
-    debug_decl(sudo_execve, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_execve, SUDO_DEBUG_UTIL);
 
     sudo_debug_execve(SUDO_DEBUG_INFO, path, argv, envp);
 

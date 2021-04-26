@@ -66,7 +66,8 @@ public:
     }
 
     TableElementType type() const { return m_type; }
-    bool isAnyrefTable() const { return m_type == TableElementType::Anyref; }
+    bool isExternrefTable() const { return m_type == TableElementType::Externref; }
+    bool isFuncrefTable() const { return m_type == TableElementType::Funcref; }
     FuncRefTable* asFuncrefTable();
 
     static bool isValidLength(uint32_t length) { return length < maxTableEntries; }
@@ -75,12 +76,13 @@ public:
     void set(uint32_t, JSValue);
     JSValue get(uint32_t) const;
 
-    Optional<uint32_t> grow(uint32_t delta);
+    Optional<uint32_t> grow(uint32_t delta, JSValue defaultValue);
+    void copy(const Table* srcTable, uint32_t dstIndex, uint32_t srcIndex);
 
     void visitAggregate(SlotVisitor&);
 
 protected:
-    Table(uint32_t initial, Optional<uint32_t> maximum, TableElementType = TableElementType::Anyref);
+    Table(uint32_t initial, Optional<uint32_t> maximum, TableElementType = TableElementType::Externref);
 
     void setLength(uint32_t);
 
@@ -100,6 +102,8 @@ public:
     void setFunction(uint32_t, JSObject*, WasmToWasmImportableFunction, Instance*);
     const WasmToWasmImportableFunction& function(uint32_t) const;
     Instance* instance(uint32_t) const;
+
+    void copyFunction(const FuncRefTable* srcTable, uint32_t dstIndex, uint32_t srcIndex);
 
     static ptrdiff_t offsetOfFunctions() { return OBJECT_OFFSETOF(FuncRefTable, m_importableFunctions); }
     static ptrdiff_t offsetOfInstances() { return OBJECT_OFFSETOF(FuncRefTable, m_instances); }

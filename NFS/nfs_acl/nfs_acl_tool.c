@@ -334,10 +334,10 @@ main(int argc, char *argv[])
 				asprintf(&objname, "%s/temp.XXXXXX", path);
 				if (objname == NULL)
 					err(1, "asprintf");
-				mktemp(objname);
+				mkstemp(objname);
 				if (verbose)
 					printf("Creating file %s\n", objname);
-				fd = open(objname, O_WRONLY|O_CREAT);
+				fd = open(objname, O_WRONLY|O_CREAT, 0644);
 				if (fd == -1)
 					err(1, "Could not create %s", objname);
 				close(fd);
@@ -355,7 +355,7 @@ main(int argc, char *argv[])
 				asprintf(&objname, "%s/temp_d.XXXXXX", path);
 				if (objname == NULL)
 					err(1, "asprintf");
-				mktemp(objname);
+				mkstemp(objname);
 				if (verbose)
 					printf("Creating directory %s\n", objname);
 				if (mkdir(objname, 0777))

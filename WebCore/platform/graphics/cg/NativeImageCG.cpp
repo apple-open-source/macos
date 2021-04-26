@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,30 +28,25 @@
 
 #if USE(CG)
 
-#include "Color.h"
-#include "FloatRect.h"
-#include "GeometryUtilities.h"
 #include "GraphicsContextCG.h"
-#include "IntSize.h"
 #include "SubimageCacheWithTimer.h"
-#include <pal/spi/cg/CoreGraphicsSPI.h>
 
 namespace WebCore {
 
-IntSize nativeImageSize(const NativeImagePtr& image)
+IntSize NativeImage::size() const
 {
-    return image ? IntSize(CGImageGetWidth(image.get()), CGImageGetHeight(image.get())) : IntSize();
+    return IntSize(CGImageGetWidth(m_platformImage.get()), CGImageGetHeight(m_platformImage.get()));
 }
 
-bool nativeImageHasAlpha(const NativeImagePtr& image)
+bool NativeImage::hasAlpha() const
 {
-    CGImageAlphaInfo info = CGImageGetAlphaInfo(image.get());
+    CGImageAlphaInfo info = CGImageGetAlphaInfo(m_platformImage.get());
     return (info >= kCGImageAlphaPremultipliedLast) && (info <= kCGImageAlphaFirst);
 }
 
-Color nativeImageSinglePixelSolidColor(const NativeImagePtr& image)
+Color NativeImage::singlePixelSolidColor() const
 {
-    if (!image || nativeImageSize(image) != IntSize(1, 1))
+    if (size() != IntSize(1, 1))
         return Color();
 
     unsigned char pixel[4]; // RGBA
@@ -61,7 +56,7 @@ Color nativeImageSinglePixelSolidColor(const NativeImagePtr& image)
         return Color();
 
     CGContextSetBlendMode(bitmapContext.get(), kCGBlendModeCopy);
-    CGContextDrawImage(bitmapContext.get(), CGRectMake(0, 0, 1, 1), image.get());
+    CGContextDrawImage(bitmapContext.get(), CGRectMake(0, 0, 1, 1), m_platformImage.get());
 
     if (!pixel[3])
         return Color::transparentBlack;
@@ -69,45 +64,10 @@ Color nativeImageSinglePixelSolidColor(const NativeImagePtr& image)
     return clampToComponentBytes<SRGBA>(pixel[0] * 255 / pixel[3], pixel[1] * 255 / pixel[3], pixel[2] * 255 / pixel[3], pixel[3]);
 }
 
-void drawNativeImage(const NativeImagePtr& image, GraphicsContext& context, const FloatRect& destRect, const FloatRect& srcRect, const IntSize& srcSize, const ImagePaintingOptions& options)
-{
-    // Subsampling may have given us an image that is smaller than size().
-    IntSize subsampledImageSize = nativeImageSize(image);
-    if (options.orientation().usesWidthAsHeight())
-        subsampledImageSize = subsampledImageSize.transposedSize();
-
-    // srcRect is in the coordinates of the unsubsampled image, so we have to map it to the subsampled image.
-    FloatRect adjustedSrcRect = srcRect;
-    if (subsampledImageSize != srcSize)
-        adjustedSrcRect = mapRect(srcRect, FloatRect({ }, srcSize), FloatRect({ }, subsampledImageSize));
-
-    context.drawNativeImage(image, subsampledImageSize, destRect, adjustedSrcRect, options);
-}
-
-void drawNativeImage(const NativeImagePtr& image, GraphicsContext& context, float scaleFactor, const IntPoint& destination, const IntRect& source)
-{
-    CGContextRef cgContext = context.platformContext();
-    CGContextSaveGState(cgContext);
-
-    CGContextClipToRect(cgContext, CGRectMake(destination.x(), destination.y(), source.width(), source.height()));
-    CGContextScaleCTM(cgContext, 1, -1);
-
-    CGFloat imageHeight = CGImageGetHeight(image.get()) / scaleFactor;
-    CGFloat imageWidth = CGImageGetWidth(image.get()) / scaleFactor;
-
-    CGFloat destX = destination.x() - source.x();
-    CGFloat destY = -imageHeight - destination.y() + source.y();
-
-    CGContextDrawImage(cgContext, CGRectMake(destX, destY, imageWidth, imageHeight), image.get());
-
-    CGContextRestoreGState(cgContext);
-}
-
-void clearNativeImageSubimages(const NativeImagePtr& image)
+void NativeImage::clearSubimages()
 {
 #if CACHE_SUBIMAGES
-    if (image)
-        SubimageCacheWithTimer::clearImage(image.get());
+    SubimageCacheWithTimer::clearImage(m_platformImage.get());
 #endif
 }
 

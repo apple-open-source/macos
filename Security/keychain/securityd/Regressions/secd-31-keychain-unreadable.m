@@ -113,6 +113,8 @@ int secd_31_keychain_unreadable(int argc, char *const *argv)
     CFReleaseNull(eighty);
     CFReleaseNull(pwdata);
     CFReleaseNull(query);
+
+    secd_test_teardown_delete_temp_keychain("secd_31_keychain_unreadable");
 #endif  // !(TARGET_OS_IOS && TARGET_OS_SIMULATOR)
     return 0;
 }

@@ -308,6 +308,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	
 	
 	lck_mtx_init(&fmp->pm_mutex, webdav_rwlock_group, LCK_ATTR_NULL);
+	lck_mtx_init(&fmp->pm_renamelock, webdav_rwlock_group, LCK_ATTR_NULL);
 	fmp->pm_status = WEBDAV_MOUNT_SUPPORTS_STATFS;	/* assume yes until told no */
 	if ( args.pa_flags & WEBDAV_SUPPRESSALLUI )
 	{
@@ -421,6 +422,7 @@ bad:
 			FREE(fmp->pm_socket_name, M_TEMP);
 		}
 		lck_mtx_destroy(&fmp->pm_mutex, webdav_rwlock_group);
+		lck_mtx_destroy(&fmp->pm_renamelock, webdav_rwlock_group);
 		FREE(fmp, M_TEMP);
 		
 		/* clear the webdavmount in the mount point so anyone looking at it will see it's gone */
@@ -501,6 +503,7 @@ static int webdav_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	FREE(fmp->pm_vol_name, M_TEMP);
 	FREE(fmp->pm_socket_name, M_TEMP);
 	lck_mtx_destroy(&fmp->pm_mutex, webdav_rwlock_group);
+	lck_mtx_destroy(&fmp->pm_renamelock, webdav_rwlock_group);
 	FREE(fmp, M_TEMP);
 	
 	--webdav_mnt_cnt;

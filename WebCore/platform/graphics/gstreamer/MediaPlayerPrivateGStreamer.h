@@ -28,6 +28,7 @@
 
 #include "GStreamerCommon.h"
 #include "GStreamerEMEUtilities.h"
+#include "ImageOrientation.h"
 #include "Logging.h"
 #include "MainThreadNotifier.h"
 #include "MediaPlayerPrivate.h"
@@ -92,7 +93,7 @@ namespace WebCore {
 class BitmapTextureGL;
 class GLContext;
 class GraphicsContext;
-class GraphicsContextGLOpenGL;
+class GraphicsContextGL;
 class IntSize;
 class IntRect;
 class VideoTextureCopierGStreamer;
@@ -141,7 +142,7 @@ public:
     bool hasAudio() const final { return m_hasAudio; }
     void load(const String &url) override;
 #if ENABLE(MEDIA_SOURCE)
-    void load(const String& url, MediaSourcePrivateClient*) override;
+    void load(const URL&, const ContentType&, MediaSourcePrivateClient*) override;
 #endif
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) override;
@@ -163,7 +164,7 @@ public:
     void setMuted(bool) final;
     MediaPlayer::NetworkState networkState() const final;
     MediaPlayer::ReadyState readyState() const final;
-    void setVisible(bool) final { }
+    void setVisible(bool visible) final { m_visible = visible; }
     void setSize(const IntSize&) final;
     // Prefer MediaTime based methods over float based.
     float duration() const final { return durationMediaTime().toFloat(); }
@@ -214,8 +215,8 @@ public:
 #endif
 
 #if USE(GSTREAMER_GL)
-    bool copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL*, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool) override;
-    NativeImagePtr nativeImageForCurrentTime() override;
+    bool copyVideoTextureToPlatformTexture(GraphicsContextGL*, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool) override;
+    RefPtr<NativeImage> nativeImageForCurrentTime() override;
 #endif
 
     void updateEnabledVideoTrack();
@@ -250,7 +251,6 @@ protected:
         VolumeChanged = 1 << 3,
         MuteChanged = 1 << 4,
         TextChanged = 1 << 5,
-        SizeChanged = 1 << 6,
         StreamCollectionChanged = 1 << 7
     };
 
@@ -304,7 +304,6 @@ protected:
     void readyTimerFired();
 
     void notifyPlayerOfVideo();
-    void notifyPlayerOfVideoCaps();
     void notifyPlayerOfAudio();
     void notifyPlayerOfText();
     void newTextSample();
@@ -316,7 +315,6 @@ protected:
 
     static void sourceSetupCallback(MediaPlayerPrivateGStreamer*, GstElement*);
     static void videoChangedCallback(MediaPlayerPrivateGStreamer*);
-    static void videoSinkCapsChangedCallback(MediaPlayerPrivateGStreamer*);
     static void audioChangedCallback(MediaPlayerPrivateGStreamer*);
     static void textChangedCallback(MediaPlayerPrivateGStreamer*);
     static GstFlowReturn newTextSampleCallback(MediaPlayerPrivateGStreamer*);
@@ -331,6 +329,7 @@ protected:
 
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
     MediaPlayer* m_player;
+    String m_referrer;
     mutable MediaTime m_cachedPosition;
     mutable MediaTime m_cachedDuration;
     bool m_canFallBackToLastFinishedSeekPosition { false };
@@ -356,6 +355,7 @@ protected:
 #endif
 
     GRefPtr<GstStreamVolume> m_volumeElement;
+    GRefPtr<GstElement> m_audioSink;
     GRefPtr<GstElement> m_videoSink;
     GRefPtr<GstElement> m_pipeline;
     IntSize m_size;
@@ -454,6 +454,8 @@ private:
     void loadFull(const String& url, const String& pipelineName);
 
     void updateTracks(GRefPtr<GstStreamCollection>&&);
+    void videoSinkCapsChanged(GstPad*);
+    void updateVideoSizeAndOrientationFromCaps(const GstCaps*);
 
 #if ENABLE(ENCRYPTED_MEDIA)
     bool isCDMAttached() const { return m_cdmInstance; }
@@ -501,6 +503,8 @@ private:
     RefPtr<MediaStreamPrivate> m_streamPrivate;
 #endif
 
+    bool m_visible { false };
+
     // playbin3 only:
     bool m_waitingForStreamsSelectedEvent { true };
     AtomString m_currentAudioStreamId; // Currently playing.
@@ -513,7 +517,6 @@ private:
 #if ENABLE(WEB_AUDIO)
     std::unique_ptr<AudioSourceProviderGStreamer> m_audioSourceProvider;
 #endif
-    GRefPtr<GstElement> m_autoAudioSink;
     GRefPtr<GstElement> m_downloadBuffer;
     Vector<RefPtr<MediaPlayerRequestInstallMissingPluginsCallback>> m_missingPluginCallbacks;
     HashMap<AtomString, RefPtr<AudioTrackPrivateGStreamer>> m_audioTracks;
@@ -533,6 +536,8 @@ private:
     Optional<bool> m_hasTaintedOrigin { WTF::nullopt };
 
     GRefPtr<GstElement> m_fpsSink { nullptr };
+    uint64_t m_totalVideoFrames { 0 };
+    uint64_t m_droppedVideoFrames { 0 };
 
 private:
 #if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)

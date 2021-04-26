@@ -81,7 +81,7 @@ void ArgumentCoder<CertificateInfo>::encode(Encoder& encoder, const CertificateI
     // Encode starting from the root certificate.
     for (size_t i = certificatesDataList.size(); i > 0; --i) {
         GByteArray* certificate = certificatesDataList[i - 1].get();
-        encoder.encodeVariableLengthByteArray(IPC::DataReference(certificate->data, certificate->len));
+        encoder << IPC::DataReference(certificate->data, certificate->len);
     }
 
     encoder << static_cast<uint32_t>(certificateInfo.tlsErrors());
@@ -100,7 +100,7 @@ bool ArgumentCoder<CertificateInfo>::decode(Decoder& decoder, CertificateInfo& c
     GRefPtr<GTlsCertificate> certificate;
     for (uint32_t i = 0; i < chainLength; i++) {
         IPC::DataReference certificateDataReference;
-        if (!decoder.decodeVariableLengthByteArray(certificateDataReference))
+        if (!decoder.decode(certificateDataReference))
             return false;
 
         GByteArray* certificateData = g_byte_array_sized_new(certificateDataReference.size());
@@ -252,15 +252,15 @@ bool ArgumentCoder<DictionaryPopupInfo>::decodePlatformData(Decoder&, Dictionary
     return false;
 }
 
-void ArgumentCoder<FontHandle>::encodePlatformData(Encoder&, const FontHandle&)
+void ArgumentCoder<Ref<Font>>::encodePlatformData(Encoder&, const Ref<Font>&)
 {
     ASSERT_NOT_REACHED();
 }
 
-bool ArgumentCoder<FontHandle>::decodePlatformData(Decoder&, FontHandle&)
+Optional<FontPlatformData> ArgumentCoder<Ref<Font>>::decodePlatformData(Decoder&)
 {
     ASSERT_NOT_REACHED();
-    return false;
+    return WTF::nullopt;
 }
 
 #if ENABLE(VIDEO)
@@ -277,4 +277,3 @@ Optional<SerializedPlatformDataCueValue>  ArgumentCoder<SerializedPlatformDataCu
 #endif
 
 }
-

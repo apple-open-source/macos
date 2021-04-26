@@ -57,7 +57,7 @@ WebGLTransformFeedback::WebGLTransformFeedback(WebGL2RenderingContext& ctx)
     m_boundIndexedTransformFeedbackBuffers.resize(ctx.maxTransformFeedbackSeparateAttribs());
 }
 
-void WebGLTransformFeedback::deleteObjectImpl(const AbstractLocker&, GraphicsContextGLOpenGL* context3d, PlatformGLObject object)
+void WebGLTransformFeedback::deleteObjectImpl(const AbstractLocker&, GraphicsContextGL* context3d, PlatformGLObject object)
 {
     context3d->deleteTransformFeedback(object);
 }
@@ -76,7 +76,7 @@ void WebGLTransformFeedback::setBoundIndexedTransformFeedbackBuffer(const Abstra
 
 bool WebGLTransformFeedback::getBoundIndexedTransformFeedbackBuffer(GCGLuint index, WebGLBuffer** outBuffer)
 {
-    if (index > m_boundIndexedTransformFeedbackBuffers.size())
+    if (index >= m_boundIndexedTransformFeedbackBuffers.size())
         return false;
     *outBuffer = m_boundIndexedTransformFeedbackBuffers[index].get();
     return true;

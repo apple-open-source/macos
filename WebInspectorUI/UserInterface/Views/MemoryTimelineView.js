@@ -121,17 +121,16 @@ WI.MemoryTimelineView = class MemoryTimelineView extends WI.TimelineView
 
     // Public
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
-        this._timelineRuler.updateLayout(WI.View.LayoutReason.Resize);
+        this._timelineRuler.needsLayout(WI.View.LayoutReason.Resize);
     }
 
     closed()
     {
-        console.assert(this.representedObject instanceof WI.Timeline);
-        this.representedObject.removeEventListener(null, null, this);
+        this.representedObject.removeEventListener(WI.Timeline.Event.RecordAdded, this._memoryTimelineRecordAdded, this);
     }
 
     reset()

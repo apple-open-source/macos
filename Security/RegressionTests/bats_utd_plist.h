@@ -49,6 +49,8 @@
 #define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
+#define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
+#define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 
 #elif TARGET_OS_OSX
 /* For MacOS, we disable the iOS only tests. */
@@ -69,6 +71,8 @@
 #define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
 #define BATS_UTD_Disabled_SecCodeAPITest _FALSE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _FALSE_
+#define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _FALSE_
+#define BATS_UTD_Disabled_SecLegacyCodeRegressions _FALSE_
 
 #elif TARGET_OS_WATCH
 #define BATS_UTD_Disabled_AuthorizationTest _TRUE_
@@ -88,6 +92,8 @@
 #define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
+#define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
+#define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 
 #elif TARGET_OS_TV
 #define BATS_UTD_Disabled_AuthorizationTest _TRUE_
@@ -107,6 +113,8 @@
 #define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
+#define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
+#define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 
 #else
 /* By default, assume iOS platforms. We disable the MacOS only tests. */
@@ -127,5 +135,7 @@
 #define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
+#define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
+#define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 
 #endif

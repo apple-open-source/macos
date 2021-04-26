@@ -31,6 +31,7 @@
 #import "config.h"
 #import "LocaleCocoa.h"
 
+#import "DateComponents.h"
 #import "LocalizedStrings.h"
 #import <Foundation/NSDateFormatter.h>
 #import <Foundation/NSLocale.h>
@@ -43,30 +44,9 @@
 
 namespace WebCore {
 
-static inline String languageFromLocale(const String& locale)
-{
-    String normalizedLocale = locale;
-    normalizedLocale.replace('-', '_');
-    size_t separatorPosition = normalizedLocale.find('_');
-    if (separatorPosition == notFound)
-        return normalizedLocale;
-    return normalizedLocale.left(separatorPosition);
-}
-
-static RetainPtr<NSLocale> determineLocale(const String& locale)
-{
-    RetainPtr<NSLocale> currentLocale = [NSLocale currentLocale];
-    String currentLocaleLanguage = languageFromLocale(String([currentLocale.get() localeIdentifier]));
-    String localeLanguage = languageFromLocale(locale);
-    if (equalIgnoringASCIICase(currentLocaleLanguage, localeLanguage))
-        return currentLocale;
-    // It seems initWithLocaleIdentifier accepts dash-separated locale identifier.
-    return adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale]);
-}
-
 std::unique_ptr<Locale> Locale::create(const AtomString& locale)
 {
-    return makeUnique<LocaleCocoa>(determineLocale(locale.string()).get());
+    return makeUnique<LocaleCocoa>(locale);
 }
 
 static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCalendar* calendar, NSDateFormatterStyle dateStyle, NSDateFormatterStyle timeStyle)
@@ -80,8 +60,8 @@ static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCa
     return adoptNS(formatter);
 }
 
-LocaleCocoa::LocaleCocoa(NSLocale* locale)
-    : m_locale(locale)
+LocaleCocoa::LocaleCocoa(const AtomString& locale)
+    : m_locale(adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale]))
     , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]))
     , m_didInitializeNumberData(false)
 {
@@ -106,11 +86,11 @@ RetainPtr<NSDateFormatter> LocaleCocoa::shortDateFormatter()
 String LocaleCocoa::formatDateTime(const DateComponents& dateComponents, FormatType)
 {
     double msec = dateComponents.millisecondsSinceEpoch();
-    DateComponents::Type type = dateComponents.type();
+    DateComponentsType type = dateComponents.type();
 
     // "week" type not supported.
-    ASSERT(type != DateComponents::Invalid);
-    if (type == DateComponents::Week)
+    ASSERT(type != DateComponentsType::Invalid);
+    if (type == DateComponentsType::Week)
         return String();
 
     // Incoming msec value is milliseconds since 1970-01-01 00:00:00 UTC. The 1970 epoch.
@@ -180,7 +160,7 @@ String LocaleCocoa::shortMonthFormat()
 {
     if (!m_shortMonthFormat.isNull())
         return m_shortMonthFormat;
-    m_shortMonthFormat = [NSDateFormatter dateFormatFromTemplate:@"yyyyMMM" options:0 locale:m_locale.get()];
+    m_shortMonthFormat = [NSDateFormatter dateFormatFromTemplate:@"yM" options:0 locale:m_locale.get()];
     return m_shortMonthFormat;
 }
 

@@ -30,6 +30,7 @@
 
 #import "Logging.h"
 #import "MediaPlaybackTargetCocoa.h"
+#import "RuntimeEnabledFeatures.h"
 #import "WebCoreThreadRun.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <AVFoundation/AVRouteDetector.h>
@@ -56,6 +57,7 @@ SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_CarPlayIsConnectedAttr
 SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_CarPlayIsConnectedDidChangeNotification, NSString *)
 SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_CarPlayIsConnectedNotificationParameter, NSString *)
 SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_ServerConnectionDiedNotification, NSString *)
+SOFT_LINK_CONSTANT_MAY_FAIL(Celestial, AVSystemController_SubscribeToNotificationsAttribute, NSString *)
 #endif
 
 using namespace WebCore;
@@ -125,25 +127,30 @@ private:
 #endif
 };
 
-static UniqueRef<MediaSessionHelper>& sharedHelperInstance()
+static std::unique_ptr<MediaSessionHelper>& sharedHelperInstance()
 {
-    static NeverDestroyed<UniqueRef<MediaSessionHelper>> helper = makeUniqueRef<MediaSessionHelperiOS>();
+    static NeverDestroyed<std::unique_ptr<MediaSessionHelper>> helper;
     return helper;
 }
 
 MediaSessionHelper& MediaSessionHelper::sharedHelper()
 {
-    return sharedHelperInstance();
+    auto& helper = sharedHelperInstance();
+    if (!helper)
+        resetSharedHelper();
+
+    ASSERT(helper);
+    return *helper;
 }
 
 void MediaSessionHelper::resetSharedHelper()
 {
-    sharedHelperInstance() = makeUniqueRef<MediaSessionHelperiOS>();
+    sharedHelperInstance() = makeUnique<MediaSessionHelperiOS>();
 }
 
 void MediaSessionHelper::setSharedHelper(UniqueRef<MediaSessionHelper>&& helper)
 {
-    sharedHelperInstance() = WTFMove(helper);
+    sharedHelperInstance() = helper.moveToUniquePtr();
 }
 
 void MediaSessionHelper::addClient(MediaSessionHelperClient& client)
@@ -183,6 +190,9 @@ void MediaSessionHelperiOS::providePresentingApplicationPID(int pid)
     if (m_havePresentedApplicationPID)
         return;
     m_havePresentedApplicationPID = true;
+
+    if (RuntimeEnabledFeatures::sharedFeatures().disableMediaExperiencePIDInheritance())
+        return;
 
     if (!canLoadAVSystemController_PIDToInheritApplicationStateFrom())
         return;
@@ -229,6 +239,10 @@ void MediaSessionHelperiOS::stopMonitoringWirelessRoutes()
 void MediaSessionHelperiOS::mediaServerConnectionDied()
 {
     updateCarPlayIsConnected(WTF::nullopt);
+
+    // FIXME: Remove these once rdar://27662716 lands
+    if (canLoadAVSystemController_CarPlayIsConnectedDidChangeNotification() && canLoadAVSystemController_SubscribeToNotificationsAttribute())
+        [[getAVSystemControllerClass() sharedAVSystemController] setAttribute:@[getAVSystemController_CarPlayIsConnectedDidChangeNotification()] forKey:getAVSystemController_SubscribeToNotificationsAttribute() error:nil];
 
     if (!m_havePresentedApplicationPID)
         return;
@@ -343,6 +357,8 @@ void MediaSessionHelperiOS::externalOutputDeviceAvailableDidChange()
         [center addObserver:self selector:@selector(mediaServerConnectionDied:) name:getAVSystemController_ServerConnectionDiedNotification() object:nil];
     if (canLoadAVSystemController_CarPlayIsConnectedDidChangeNotification())
         [center addObserver:self selector:@selector(carPlayIsConnectedDidChange:) name:getAVSystemController_CarPlayIsConnectedDidChangeNotification() object:nil];
+    if (canLoadAVSystemController_CarPlayIsConnectedDidChangeNotification() && canLoadAVSystemController_SubscribeToNotificationsAttribute())
+        [[getAVSystemControllerClass() sharedAVSystemController] setAttribute:@[getAVSystemController_CarPlayIsConnectedDidChangeNotification()] forKey:getAVSystemController_SubscribeToNotificationsAttribute() error:nil];
 #endif
 
     // Now playing won't work unless we turn on the delivery of remote control events.

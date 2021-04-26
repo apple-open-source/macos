@@ -33,17 +33,12 @@
 
 namespace WebKit {
 
-void RemoteMediaPlayerProxy::prepareForPlayback(bool, WebCore::MediaPlayerEnums::Preload, bool, bool, float videoContentScale, CompletionHandler<void(Optional<LayerHostingContextID>&& inlineLayerHostingContextId, Optional<LayerHostingContextID>&& fullscreenLayerHostingContextId)>&&)
+void RemoteMediaPlayerProxy::prepareForPlayback(bool, WebCore::MediaPlayerEnums::Preload, bool, bool, float videoContentScale, CompletionHandler<void(Optional<LayerHostingContextID>&& inlineLayerHostingContextId)>&&)
 {
     notImplemented();
 }
 
 void RemoteMediaPlayerProxy::mediaPlayerFirstVideoFrameAvailable()
-{
-    notImplemented();
-}
-
-void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
 {
     notImplemented();
 }

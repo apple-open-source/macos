@@ -589,6 +589,8 @@ See remaining rules for examples.
 				<string>entitled</string>
 				<string>authenticate-admin</string>
 			</array>
+            <key>version</key>
+            <integer>1</integer>
 		</dict>
 		<key>com.apple.trust-settings.user</key>
 		<dict>

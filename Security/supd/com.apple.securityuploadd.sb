@@ -40,7 +40,7 @@
 (allow file-read*
     (literal "/usr/libexec")
     (literal "/usr/libexec/securityuploadd")
-    (subpath "/Library/Keychains/SupplementalsAssets/")
+    (subpath "/private/var/protected/trustd/SupplementalsAssets/")
     (literal "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist")
     (regex "/private/var/db/mds/messages/([A-Za-z0-9]+/)?se_SecurityMessages"))
 

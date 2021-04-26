@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2003-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2003-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * This code is derived from software contributed by Aaron Spangler.
  *
@@ -25,19 +25,14 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/time.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
 #include <unistd.h>
-#include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
 #ifdef HAVE_LBER_H
@@ -197,12 +192,12 @@ sudo_ldap_conf_add_ports(void)
     char *host, *last, *port, defport[13];
     char hostbuf[LINE_MAX * 2];
     int len;
-    debug_decl(sudo_ldap_conf_add_ports, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_conf_add_ports, SUDOERS_DEBUG_LDAP);
 
     hostbuf[0] = '\0';
     len = snprintf(defport, sizeof(defport), ":%d", ldap_conf.port);
     if (len < 0 || len >= ssizeof(defport)) {
-	sudo_warnx(U_("sudo_ldap_conf_add_ports: port too large"));
+	sudo_warnx(U_("%s: port too large"), __func__);
 	debug_return_bool(false);
     }
 
@@ -243,7 +238,7 @@ sudo_ldap_parse_uri(const struct ldap_config_str_list *uri_list)
     char *buf, hostbuf[LINE_MAX];
     int nldap = 0, nldaps = 0;
     int ret = -1;
-    debug_decl(sudo_ldap_parse_uri, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_parse_uri, SUDOERS_DEBUG_LDAP);
 
     hostbuf[0] = '\0';
     STAILQ_FOREACH(entry, uri_list, entries) {
@@ -289,11 +284,11 @@ sudo_ldap_parse_uri(const struct ldap_config_str_list *uri_list)
 
 	if (nldaps != 0) {
 	    if (nldap != 0) {
-		sudo_warnx(U_("unable to mix ldap and ldaps URIs"));
+		sudo_warnx("%s", U_("unable to mix ldap and ldaps URIs"));
 		goto done;
 	    }
 	    if (ldap_conf.ssl_mode == SUDO_LDAP_STARTTLS)
-		sudo_warnx(U_("starttls not supported when using ldaps"));
+		sudo_warnx("%s", U_("starttls not supported when using ldaps"));
 	    ldap_conf.ssl_mode = SUDO_LDAP_SSL;
 	}
 	free(buf);
@@ -328,7 +323,7 @@ sudo_ldap_decode_secret(const char *secret)
 {
     unsigned char *result = NULL;
     size_t len, reslen;
-    debug_decl(sudo_ldap_decode_secret, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_decode_secret, SUDOERS_DEBUG_LDAP);
 
     if (strncasecmp(secret, "base64:", sizeof("base64:") - 1) == 0) {
 	/*
@@ -360,7 +355,7 @@ sudo_ldap_read_secret(const char *path)
     char *line = NULL;
     size_t linesize = 0;
     ssize_t len;
-    debug_decl(sudo_ldap_read_secret, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_read_secret, SUDOERS_DEBUG_LDAP);
 
     if ((fp = fopen(path_ldap_secret, "r")) != NULL) {
 	len = getdelim(&line, &linesize, '\n', fp);
@@ -396,7 +391,7 @@ sudo_ldap_parse_keyword(const char *keyword, const char *value,
 {
     struct ldap_config_table *cur;
     const char *errstr;
-    debug_decl(sudo_ldap_parse_keyword, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_parse_keyword, SUDOERS_DEBUG_LDAP);
 
     /* Look up keyword in config tables */
     for (cur = table; cur->conf_str != NULL; cur++) {
@@ -478,7 +473,7 @@ const char *
 sudo_krb5_ccname_path(const char *old_ccname)
 {
     const char *ccname = old_ccname;
-    debug_decl(sudo_krb5_ccname_path, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_krb5_ccname_path, SUDOERS_DEBUG_LDAP);
 
     /* Strip off leading FILE: or WRFILE: prefix. */
     switch (ccname[0]) {
@@ -505,7 +500,7 @@ sudo_check_krb5_ccname(const char *ccname)
 {
     int fd = -1;
     const char *ccname_path;
-    debug_decl(sudo_check_krb5_ccname, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_check_krb5_ccname, SUDOERS_DEBUG_LDAP);
 
     /* Strip off prefix to get path name. */
     ccname_path = sudo_krb5_ccname_path(ccname);
@@ -535,7 +530,7 @@ sudo_ldap_read_config(void)
     struct ldap_config_str *conf_str;
     size_t linesize = 0;
     FILE *fp;
-    debug_decl(sudo_ldap_read_config, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_read_config, SUDOERS_DEBUG_LDAP);
 
     /* defaults */
     ldap_conf.version = 3;
@@ -815,7 +810,7 @@ sudo_ldap_set_options_table(LDAP *ld, struct ldap_config_table *table)
     struct ldap_config_table *cur;
     int ival, rc, errors = 0;
     char *sval;
-    debug_decl(sudo_ldap_set_options_table, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_set_options_table, SUDOERS_DEBUG_LDAP);
 
     for (cur = table; cur->conf_str != NULL; cur++) {
 	if (cur->opt_val == -1)
@@ -860,7 +855,7 @@ int
 sudo_ldap_set_options_global(void)
 {
     int ret;
-    debug_decl(sudo_ldap_set_options_global, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_set_options_global, SUDOERS_DEBUG_LDAP);
 
     /* Set ber options */
 #ifdef LBER_OPT_DEBUG_LEVEL
@@ -881,7 +876,7 @@ int
 sudo_ldap_set_options_conn(LDAP *ld)
 {
     int rc;
-    debug_decl(sudo_ldap_set_options_conn, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_set_options_conn, SUDOERS_DEBUG_LDAP);
 
     /* Parse per-connection LDAP options table. */
     rc = sudo_ldap_set_options_table(ld, ldap_conf_conn);

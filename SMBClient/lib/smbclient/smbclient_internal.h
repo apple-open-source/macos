@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #define _SMBCLIENT_INTERNAL_H_
 
 #include <sys/types.h>
+#include <os/availability.h>
 
 #if !defined(SMBCLIENT_EXPORT)
 #if defined(__GNUC__)
@@ -73,11 +74,15 @@ extern "C" {
 #define SMBFS_MNT_VALIDATE_NEG_OFF  0x0800
 #define SMBFS_MNT_SUBMOUNTS_OFF     0x1000
 #define SMBFS_MNT_DIR_LEASE_OFF     0x2000
-#define SMBFS_MNT_FILE_DEF_CLOSE_OFF    0x4000
+#define SMBFS_MNT_FILE_DEF_CLOSE_OFF 0x4000
 #define SMBFS_MNT_DIR_CACHE_OFF     0x8000
 #define SMBFS_MNT_HIGH_FIDELITY     0x10000
 #define SMBFS_MNT_DATACACHE_OFF     0x20000
 #define SMBFS_MNT_MDATACACHE_OFF    0x40000
+#define SMBFS_MNT_MULTI_CHANNEL_ON  0x80000
+#define SMBFS_MNT_SNAPSHOT          0x100000
+#define SMBFS_MNT_MC_PREFER_WIRED   0x200000
+#define SMBFS_MNT_DISABLE_311       0x400000
 
 /*
  * Async Read/Write defaults
@@ -157,7 +162,7 @@ struct TimeMachinePB
 #define kExpandedNameArray		CFSTR("ExpandedNameArray")
 	
 /*!
- * @function SMBMountShare
+ * @function SMBMountShareEx
  * @abstract Mount a SMB share
  * @param inConnection A handle to the connection
  * @param targetShare A UTF-8 encoded share name, may be null.
@@ -182,11 +187,34 @@ SMBMountShareEx(
 		uint64_t	mountOptions,
 		mode_t 		fileMode,
 		mode_t 		dirMode,
-		void (*)(void  *, void *), 
+		void (*)(void *, void *),
 		void *args)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
 	
+/*!
+ * @function SMBMountShareExDict
+ * @abstract Mount a SMB share
+ * @param inConnection A handle to the connection
+ * @param targetShare A UTF-8 encoded share name, may be null.
+ * @param mountPoint A UTF-8 encoded mount point that must exist.
+ * @param mountOptions CFDictonary of mount options
+ * @param retMountInfo Returned CFDictionary containing information about the mount
+ * @result Returns an NTSTATUS error code.
+ */
+SMBCLIENT_EXPORT
+NTSTATUS
+SMBMountShareExDict(
+        SMBHANDLE       inConnection,
+        const char      *targetShare,
+        const char      *mountPoint,
+        CFDictionaryRef mountOptions,
+        CFDictionaryRef *retMountInfo,
+        void (*)(void *, void *),
+        void *args)
+API_AVAILABLE(macos(11.3))
+;
+
 /*!
  * @function SMBAllocateAndSetContext
  * @abstract Creates a SMBHANDLE that contains the smb library internal session 
@@ -300,6 +328,12 @@ SMBQueryDir(
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA)
 ;
 
+SMBCLIENT_EXPORT
+time_t
+SMBConvertGMT(
+              const char *gmt_string)
+API_AVAILABLE(macos(11.3))
+;
 
 #endif // KERNEL
 

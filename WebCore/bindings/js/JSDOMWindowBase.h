@@ -78,12 +78,17 @@ public:
     static bool shouldInterruptScriptBeforeTimeout(const JSC::JSGlobalObject*);
     static JSC::RuntimeFlags javaScriptRuntimeFlags(const JSC::JSGlobalObject*);
     static void queueMicrotaskToEventLoop(JSC::JSGlobalObject&, Ref<JSC::Microtask>&&);
+    static JSC::JSObject* currentScriptExecutionOwner(JSC::JSGlobalObject*);
+    static JSC::ScriptExecutionStatus scriptExecutionStatus(JSC::JSGlobalObject*, JSC::JSObject*);
 
     void printErrorMessage(const String&) const;
 
-    JSWindowProxy* proxy() const;
+    JSWindowProxy& proxy() const;
 
     static void fireFrameClearedWatchpointsForWindow(DOMWindow*);
+
+    void setCurrentEvent(Event*);
+    Event* currentEvent() const;
 
 protected:
     JSDOMWindowBase(JSC::VM&, JSC::Structure*, RefPtr<DOMWindow>&&, JSWindowProxy*);
@@ -106,7 +111,7 @@ private:
 #endif
 
     RefPtr<DOMWindow> m_wrapped;
-    JSWindowProxy* m_proxy;
+    RefPtr<Event> m_currentEvent;
 };
 
 WEBCORE_EXPORT JSC::JSValue toJS(JSC::JSGlobalObject*, DOMWindow&);

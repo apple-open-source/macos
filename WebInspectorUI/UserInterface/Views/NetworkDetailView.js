@@ -45,8 +45,10 @@ WI.NetworkDetailView = class NetworkDetailView extends WI.View
 
     get representedObject() { return this._representedObject; }
 
-    shown()
+    attached()
     {
+        super.attached();
+
         if (!this._contentBrowser)
             return;
 
@@ -56,13 +58,6 @@ WI.NetworkDetailView = class NetworkDetailView extends WI.View
             this._contentBrowser.showContentView(this._contentBrowser.currentContentView, this._contentViewCookie);
             this._contentViewCookie = null;
         }
-
-        this._contentBrowser.shown();
-    }
-
-    hidden()
-    {
-        this._contentBrowser.hidden();
     }
 
     dispose()
@@ -82,7 +77,7 @@ WI.NetworkDetailView = class NetworkDetailView extends WI.View
     initialLayout()
     {
         let closeNavigationItem = new WI.ButtonNavigationItem("close", WI.UIString("Close detail view"), "Images/CloseLarge.svg", 16, 16);
-        closeNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._handleCloseButton.bind(this));
+        closeNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._handleCloseButton, this);
         closeNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
 
         let contentViewNavigationItemsGroup = new WI.GroupNavigationItem;

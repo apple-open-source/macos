@@ -27,6 +27,7 @@
 
 #if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
 
+#include "DataReference.h"
 #include "MediaRecorderIdentifier.h"
 #include "MessageReceiver.h"
 #include "SharedMemory.h"
@@ -36,7 +37,6 @@
 
 namespace IPC {
 class Connection;
-class DataReference;
 class Decoder;
 }
 
@@ -60,6 +60,9 @@ public:
     ~RemoteMediaRecorder();
 
     String mimeType() const { return m_writer->mimeType(); }
+    unsigned audioBitRate() const { return m_writer->audioBitRate(); }
+    unsigned videoBitRate() const { return m_writer->videoBitRate(); }
+
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
 private:
@@ -67,12 +70,12 @@ private:
 
     // IPC::MessageReceiver
     void audioSamplesStorageChanged(const SharedMemory::IPCHandle&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames);
-    void audioSamplesAvailable(MediaTime, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame);
+    void audioSamplesAvailable(MediaTime, uint64_t numberOfFrames);
     void videoSampleAvailable(WebCore::RemoteVideoSample&&);
-    void fetchData(CompletionHandler<void(IPC::DataReference&&)>&&);
+    void fetchData(CompletionHandler<void(IPC::DataReference&&, double)>&&);
     void stopRecording();
-
-    SharedRingBufferStorage& storage();
+    void pause(CompletionHandler<void()>&&);
+    void resume(CompletionHandler<void()>&&);
 
     GPUConnectionToWebProcess& m_gpuConnectionToWebProcess;
     MediaRecorderIdentifier m_identifier;

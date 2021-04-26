@@ -38,17 +38,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSOutgoingQueueOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 @property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
-@property CKOperationGroup* ckoperationGroup;
-
 @property size_t itemsProcessed;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks
                            intending:(OctagonState*)intending
-                          errorState:(OctagonState*)errorState
-                    ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+                          errorState:(OctagonState*)errorState;
 @end
 
 NS_ASSUME_NONNULL_END

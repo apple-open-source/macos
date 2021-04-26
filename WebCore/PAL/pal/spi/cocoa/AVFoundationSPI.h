@@ -40,10 +40,6 @@
 #import <AVFoundation/AVPlayerItem_Private.h>
 #import <AVFoundation/AVPlayerLayer_Private.h>
 
-#if PLATFORM(IOS_FAMILY) && HAVE(AVKIT)
-#import <AVKit/AVPlayerViewController_WebKitOnly.h>
-#endif
-
 #if ENABLE(MEDIA_SOURCE)
 #import <AVFoundation/AVStreamDataParser.h>
 #endif
@@ -56,6 +52,10 @@
 
 #import <AVFoundation/AVPlayer.h>
 #import <AVFoundation/AVPlayerItem.h>
+
+#if HAVE(AVFOUNDATION_INTERSTITIAL_EVENTS)
+#import <AVFoundation/AVPlayerInterstitialEventController.h>
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 @interface AVPlayerItem ()
@@ -90,6 +90,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)outputContext;
 + (instancetype)iTunesAudioContext;
 + (nullable AVOutputContext *)sharedAudioPresentationOutputContext;
++ (nullable AVOutputContext *)sharedSystemAudioContext;
 + (nullable AVOutputContext *)outputContextForID:(NSString *)ID;
 @property (readonly) BOOL supportsMultipleOutputDevices;
 @property (readonly) NSArray<AVOutputDevice *> *outputDevices;
@@ -106,6 +107,8 @@ typedef NS_OPTIONS(NSUInteger, AVOutputDeviceFeatures) {
 @property (nonatomic, readonly) NSString *name;
 @property (nonatomic, readonly) NSString *deviceName;
 @property (nonatomic, readonly) AVOutputDeviceFeatures deviceFeatures;
+@property (nonatomic, readonly) BOOL supportsHeadTrackedSpatialAudio;
+- (BOOL)allowsHeadTrackedSpatialAudio;
 @end
 
 #if !PLATFORM(IOS_FAMILY)
@@ -201,6 +204,7 @@ NS_ASSUME_NONNULL_END
 @end
 
 @interface AVContentKeySession (AVContentKeyGroup_Support)
+@property (readonly, nullable) AVContentKeyReportGroup *defaultContentKeyGroup;
 - (nonnull AVContentKeyReportGroup *)makeContentKeyGroup;
 @end
 
@@ -209,6 +213,19 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)willOutputBeObscuredDueToInsufficientExternalProtectionForDisplays:(NSArray<NSNumber *> *)displays;
 NS_ASSUME_NONNULL_END
 @end
+
+#if HAVE(AVCONTENTKEYREQUEST_PENDING_PROTECTION_STATUS)
+typedef NS_ENUM(NSInteger, AVExternalContentProtectionStatus) {
+    AVExternalContentProtectionStatusPending      = 0,
+    AVExternalContentProtectionStatusSufficient   = 1,
+    AVExternalContentProtectionStatusInsufficient = 2,
+};
+
+@interface AVContentKeyRequest (AVContentKeyRequest_PendingProtectionStatus)
+- (AVExternalContentProtectionStatus)externalContentProtectionStatus;
+@end
+#endif
+
 #endif // HAVE(AVCONTENTKEYSESSION)
 
 #if ENABLE(MEDIA_SOURCE) && !USE(APPLE_INTERNAL_SDK)
@@ -358,12 +375,13 @@ NS_ASSUME_NONNULL_END
 @end
 #endif
 
-#if !USE(APPLE_INTERNAL_SDK) && PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
+#if !USE(APPLE_INTERNAL_SDK) && PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 #import <AVFoundation/AVAudioSession.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface AVAudioSession (AVAudioSessionPrivate)
+- (instancetype)initAuxiliarySession;
 @property (readonly) NSString* routingContextUID;
 @end
 
@@ -399,5 +417,12 @@ NS_ASSUME_NONNULL_END
 @interface AVSampleBufferDisplayLayer (VideoOutput)
 @property (nonatomic, nullable) AVSampleBufferVideoOutput *output;
 @end
+
+#if HAVE(AVFOUNDATION_INTERSTITIAL_EVENTS)
+@interface AVPlayerItem (AVPlayerInterstitialSupport)
+@property (nonatomic) BOOL automaticallyHandlesInterstitialEvents;
+@end
+#endif
+
 #endif // USE(APPLE_INTERNAL_SDK)
 #endif // HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)

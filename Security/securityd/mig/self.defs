@@ -36,8 +36,13 @@ userprefix self_client_;
 // Sent to ourselves upon receipt of a signal (so we get out from under
 // the dreaded "can't do anything useful in a signal handler" problem).
 //
-simpleroutine handleSignal(requestport sport: mach_port_make_send_once_t;
-    in task_port: mach_port_t; in signal_number: int);
+simpleroutine handleSignal(
+    requestport sport: mach_port_make_send_once_t;
+    ServerAuditToken token: audit_token_t;
+    in signal_number: int);
 
-simpleroutine handleSession(requestport sport: mach_port_make_send_once_t;
-	in task_port: mach_port_t; in events: uint32_t; in ident: uint64_t);
+simpleroutine handleSession(
+    requestport sport: mach_port_make_send_once_t;
+    ServerAuditToken token: audit_token_t;
+    in events: uint32_t;
+    in ident: uint64_t);

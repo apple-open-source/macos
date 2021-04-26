@@ -183,9 +183,9 @@ WI.Resource = class Resource extends WI.SourceCode
     {
         let classes = [];
 
-        let isOverride = resource.isLocalResourceOverride;
+        let isOverride = !!resource.localResourceOverride;
         let wasOverridden = resource.responseSource === WI.Resource.ResponseSource.InspectorOverride;
-        let shouldBeOverridden = resource.isLoading() && WI.networkManager.localResourceOverrideForURL(resource.url);
+        let shouldBeOverridden = resource.isLoading() && WI.networkManager.localResourceOverridesForURL(resource.url).some((localResourceOverride) => !localResourceOverride.disabled);
         if (isOverride || wasOverridden || shouldBeOverridden)
             classes.push("override");
 
@@ -363,7 +363,7 @@ WI.Resource = class Resource extends WI.SourceCode
 
     get supportsScriptBlackboxing()
     {
-        if (this.isLocalResourceOverride)
+        if (this.localResourceOverride)
             return false;
         if (!this.finished || this.failed)
             return false;
@@ -427,11 +427,6 @@ WI.Resource = class Resource extends WI.SourceCode
     isMainResource()
     {
         return this._parentFrame ? this._parentFrame.mainResource === this : false;
-    }
-
-    get isLocalResourceOverride()
-    {
-        return false;
     }
 
     addInitiatedResource(resource)
@@ -1027,16 +1022,16 @@ WI.Resource = class Resource extends WI.SourceCode
     requestContent()
     {
         if (this._finished)
-            return super.requestContent();
+            return super.requestContent().catch(this._requestContentFailure.bind(this));
 
         if (this._failed)
-            return Promise.resolve({error: WI.UIString("An error occurred trying to load the resource.")});
+            return this._requestContentFailure();
 
         if (!this._finishThenRequestContentPromise) {
             this._finishThenRequestContentPromise = new Promise((resolve, reject) => {
-                this.addEventListener(WI.Resource.Event.LoadingDidFinish, resolve);
-                this.addEventListener(WI.Resource.Event.LoadingDidFail, reject);
-            }).then(WI.SourceCode.prototype.requestContent.bind(this));
+                this.singleFireEventListener(WI.Resource.Event.LoadingDidFinish, resolve, this);
+                this.singleFireEventListener(WI.Resource.Event.LoadingDidFail, reject, this);
+            }).then(this.requestContent.bind(this));
         }
 
         return this._finishThenRequestContentPromise;
@@ -1062,22 +1057,62 @@ WI.Resource = class Resource extends WI.SourceCode
         cookie[WI.Resource.MainResourceCookieKey] = this.isMainResource();
     }
 
-    async createLocalResourceOverride({initialMIMEType, initialBase64Encoded, initialContent} = {})
+    async createLocalResourceOverride(type, {mimeType, base64Encoded, content} = {})
     {
-        console.assert(!this.isLocalResourceOverride);
-        console.assert(WI.NetworkManager.supportsLocalResourceOverrides());
+        console.assert(!this.localResourceOverride);
+        console.assert(WI.NetworkManager.supportsOverridingResponses());
 
-        let {rawContent, rawBase64Encoded} = await this.requestContent();
+        let resourceData = {
+            requestURL: this.url,
+        };
 
-        return WI.LocalResourceOverride.create({
-            url: this.url,
-            mimeType: initialMIMEType !== undefined ? initialMIMEType : this.mimeType,
-            content: initialContent !== undefined ? initialContent : rawContent,
-            base64Encoded: initialBase64Encoded !== undefined ? initialBase64Encoded : rawBase64Encoded,
-            statusCode: this.statusCode,
-            statusText: this.statusText,
-            headers: this.responseHeaders,
-        });
+        switch (type) {
+        case WI.LocalResourceOverride.InterceptType.Request:
+            resourceData.requestMethod = this.requestMethod ?? WI.HTTPUtilities.RequestMethod.GET;
+            resourceData.requestHeaders = Object.shallowCopy(this.requestHeaders);
+            resourceData.requestData = this.requestData ?? "";
+            break;
+
+        case WI.LocalResourceOverride.InterceptType.Response:
+        case WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork:
+            resourceData.responseMIMEType = this.mimeType ?? WI.mimeTypeForFileExtension(WI.fileExtensionForFilename(this.urlComponents.lastPathComponent));
+            resourceData.responseStatusCode = this.statusCode;
+            resourceData.responseStatusText = this.statusText;
+            if (!resourceData.responseStatusCode) {
+                resourceData.responseStatusCode = 200;
+                resourceData.responseStatusText = null;
+            }
+            resourceData.responseStatusText ||= WI.HTTPUtilities.statusTextForStatusCode(resourceData.responseStatusCode);
+
+            if (base64Encoded === undefined || content === undefined) {
+                try {
+                    let {rawContent, rawBase64Encoded} = await this.requestContent();
+                    content ??= rawContent;
+                    base64Encoded ??= rawBase64Encoded;
+                } catch {
+                    content ??= "";
+                    base64Encoded ??= !WI.shouldTreatMIMETypeAsText(resourceData.mimeType);
+                }
+            }
+            resourceData.responseContent = content;
+            resourceData.responseBase64Encoded = base64Encoded;
+            resourceData.responseHeaders = Object.shallowCopy(this.responseHeaders);
+            break;
+        }
+
+        return WI.LocalResourceOverride.create(WI.urlWithoutFragment(this.url), type, resourceData);
+    }
+
+    updateLocalResourceOverrideRequestData(data)
+    {
+        console.assert(this.localResourceOverride);
+
+        if (data === this._requestData)
+            return;
+
+        this._requestData = data;
+
+        this.dispatchEventToListeners(WI.Resource.Event.RequestDataDidChange);
     }
 
     generateCURLCommand()
@@ -1185,6 +1220,17 @@ WI.Resource = class Resource extends WI.SourceCode
 
         throw errorString;
     }
+
+    // Private
+
+    _requestContentFailure(error)
+    {
+        return Promise.resolve({
+            error: WI.UIString("An error occurred trying to load the resource."),
+            reason: error?.message || this._failureReasonText,
+            sourceCode: this,
+        });
+    }
 };
 
 WI.Resource.TypeIdentifier = "resource";
@@ -1196,6 +1242,7 @@ WI.Resource.Event = {
     MIMETypeDidChange: "resource-mime-type-did-change",
     TypeDidChange: "resource-type-did-change",
     RequestHeadersDidChange: "resource-request-headers-did-change",
+    RequestDataDidChange: "resource-request-data-did-change",
     ResponseReceived: "resource-response-received",
     LoadingDidFinish: "resource-loading-did-finish",
     LoadingDidFail: "resource-loading-did-fail",

@@ -30,16 +30,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <errno.h>
+#include <string.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
@@ -93,8 +86,12 @@ setpwent(void)
 {
     if (pwf == NULL) {
 	pwf = fopen(pwfile, "r");
-	if (pwf != NULL)
-	    (void)fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC);
+	if (pwf != NULL) {
+	    if (fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC) == -1) {
+		fclose(pwf);
+		pwf = NULL;
+	    }
+	}
     } else {
 	rewind(pwf);
     }
@@ -171,7 +168,10 @@ getpwnam(const char *name)
     if (pwf == NULL) {
 	if ((pwf = fopen(pwfile, "r")) == NULL)
 	    return NULL;
-	(void)fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC);
+	if (fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC) == -1) {
+	    fclose(pwf);
+	    return NULL;
+	}
     } else {
 	rewind(pwf);
     }
@@ -194,7 +194,10 @@ getpwuid(uid_t uid)
     if (pwf == NULL) {
 	if ((pwf = fopen(pwfile, "r")) == NULL)
 	    return NULL;
-	(void)fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC);
+	if (fcntl(fileno(pwf), F_SETFD, FD_CLOEXEC) == -1) {
+	    fclose(pwf);
+	    return NULL;
+	}
     } else {
 	rewind(pwf);
     }
@@ -222,8 +225,12 @@ setgrent(void)
 {
     if (grf == NULL) {
 	grf = fopen(grfile, "r");
-	if (grf != NULL)
-	    (void)fcntl(fileno(grf), F_SETFD, FD_CLOEXEC);
+	if (grf != NULL) {
+	    if (fcntl(fileno(grf), F_SETFD, FD_CLOEXEC) == -1) {
+		fclose(grf);
+		grf = NULL;
+	    }
+	}
     } else {
 	rewind(grf);
     }
@@ -297,7 +304,10 @@ getgrnam(const char *name)
     if (grf == NULL) {
 	if ((grf = fopen(grfile, "r")) == NULL)
 	    return NULL;
-	(void)fcntl(fileno(grf), F_SETFD, FD_CLOEXEC);
+	if (fcntl(fileno(grf), F_SETFD, FD_CLOEXEC) == -1) {
+	    fclose(grf);
+	    grf = NULL;
+	}
     } else {
 	rewind(grf);
     }
@@ -320,7 +330,10 @@ getgrgid(gid_t gid)
     if (grf == NULL) {
 	if ((grf = fopen(grfile, "r")) == NULL)
 	    return NULL;
-	(void)fcntl(fileno(grf), F_SETFD, FD_CLOEXEC);
+	if (fcntl(fileno(grf), F_SETFD, FD_CLOEXEC) == -1) {
+	    fclose(grf);
+	    grf = NULL;
+	}
     } else {
 	rewind(grf);
     }
@@ -343,8 +356,7 @@ sudo_getgrouplist2_v1(const char *name, GETGROUPS_T basegid,
     GETGROUPS_T **groupsp, int *ngroupsp)
 {
     GETGROUPS_T *groups = *groupsp;
-    int grpsize = *ngroupsp;
-    int i, ngroups = 1;
+    int i, grpsize, ngroups = 1;
     int ret = -1;
     struct group *grp;
 
@@ -359,7 +371,7 @@ sudo_getgrouplist2_v1(const char *name, GETGROUPS_T basegid,
 	grpsize <<= 2;
     } else {
 	/* Static group vector. */
-	if (grpsize < 1)
+	if ((grpsize = *ngroupsp) < 1)
 	    return -1;
     }
 

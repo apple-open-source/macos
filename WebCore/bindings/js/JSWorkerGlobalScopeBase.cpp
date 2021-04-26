@@ -66,6 +66,8 @@ const GlobalObjectMethodTable JSWorkerGlobalScopeBase::s_globalObjectMethodTable
     nullptr, // moduleLoaderEvaluate
     &promiseRejectionTracker,
     &reportUncaughtExceptionAtEventLoop,
+    &currentScriptExecutionOwner,
+    &scriptExecutionStatus,
     &defaultLanguage,
     nullptr, // compileStreaming
     nullptr, // instantiateStreaming
@@ -83,13 +85,6 @@ void JSWorkerGlobalScopeBase::finishCreation(VM& vm, JSProxy* proxy)
 
     Base::finishCreation(vm, m_proxy.get());
     ASSERT(inherits(vm, info()));
-}
-
-void JSWorkerGlobalScopeBase::clearDOMGuardedObjects()
-{
-    auto guardedObjects = m_guardedObjects;
-    for (auto& guarded : guardedObjects)
-        guarded->clear();
 }
 
 void JSWorkerGlobalScopeBase::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -131,6 +126,12 @@ RuntimeFlags JSWorkerGlobalScopeBase::javaScriptRuntimeFlags(const JSGlobalObjec
     return thisObject->m_wrapped->thread().runtimeFlags();
 }
 
+JSC::ScriptExecutionStatus JSWorkerGlobalScopeBase::scriptExecutionStatus(JSC::JSGlobalObject* globalObject, JSC::JSObject* owner)
+{
+    ASSERT_UNUSED(owner, globalObject == owner);
+    return jsCast<JSWorkerGlobalScopeBase*>(globalObject)->scriptExecutionContext()->jscScriptExecutionStatus();
+}
+
 void JSWorkerGlobalScopeBase::queueMicrotaskToEventLoop(JSGlobalObject& object, Ref<JSC::Microtask>&& task)
 {
     JSWorkerGlobalScopeBase& thisObject = static_cast<JSWorkerGlobalScopeBase&>(object);
@@ -149,12 +150,12 @@ JSValue toJS(JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject*, WorkerGlob
 
 JSValue toJS(JSGlobalObject*, WorkerGlobalScope& workerGlobalScope)
 {
-    WorkerScriptController* script = workerGlobalScope.script();
+    auto* script = workerGlobalScope.script();
     if (!script)
         return jsNull();
-    JSWorkerGlobalScope* contextWrapper = script->workerGlobalScopeWrapper();
+    auto* contextWrapper = script->globalScopeWrapper();
     ASSERT(contextWrapper);
-    return contextWrapper->proxy();
+    return &contextWrapper->proxy();
 }
 
 JSDedicatedWorkerGlobalScope* toJSDedicatedWorkerGlobalScope(VM& vm, JSValue value)

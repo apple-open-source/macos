@@ -145,7 +145,7 @@ fi{
         IL{"Israel"}
         IM{"Mansaari"}
         IN{"Intia"}
-        IO{"Brittiläinen Intian valtameren alue"}
+        IO{"Chagossaaret"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Islanti"}

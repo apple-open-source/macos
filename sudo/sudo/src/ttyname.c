@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2012-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2012-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,12 +38,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -104,7 +99,7 @@ get_process_ttyname(char *name, size_t namelen)
     size_t size = sizeof(*ki_proc);
     int mib[6], rc, serrno = errno;
     char *ret = NULL;
-    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL)
+    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
     /*
      * Lookup controlling tty for this process via sysctl.
@@ -116,7 +111,7 @@ get_process_ttyname(char *name, size_t namelen)
     mib[3] = (int)getpid();
     mib[4] = sizeof(*ki_proc);
     mib[5] = 1;
-    do {
+    for (;;) {
 	struct sudo_kinfo_proc *kp;
 
 	size += size / 10;
@@ -126,7 +121,9 @@ get_process_ttyname(char *name, size_t namelen)
 	}
 	ki_proc = kp;
 	rc = sysctl(mib, sudo_kp_namelen, ki_proc, &size, NULL, 0);
-    } while (rc == -1 && errno == ENOMEM);
+	if (rc != -1 || errno != ENOMEM)
+	    break;
+    }
     errno = ENOENT;
     if (rc != -1) {
 	if ((dev_t)ki_proc->sudo_kp_tdev != (dev_t)-1) {
@@ -158,7 +155,7 @@ get_process_ttyname(char *name, size_t namelen)
     struct psinfo psinfo;
     ssize_t nread;
     int fd, serrno = errno;
-    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL)
+    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
     /* Try to determine the tty from pr_ttydev in /proc/pid/psinfo. */
     (void)snprintf(path, sizeof(path), "/proc/%u/psinfo", (unsigned int)getpid());
@@ -201,7 +198,7 @@ get_process_ttyname(char *name, size_t namelen)
     int serrno = errno;
     ssize_t nread;
     int fd;
-    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL)
+    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
     /*
      * Try to determine the tty from tty_nr in /proc/self/stat.
@@ -281,22 +278,22 @@ done:
 char *
 get_process_ttyname(char *name, size_t namelen)
 {
-    struct pst_status pstat;
+    struct pst_status pst;
     char *ret = NULL;
     int rc, serrno = errno;
-    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL)
+    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
     /*
      * Determine the tty from psdev in struct pst_status.
      * EOVERFLOW is not a fatal error for the fields we use.
      * See the "EOVERFLOW Error" section of pstat_getvminfo(3).
      */
-    rc = pstat_getproc(&pstat, sizeof(pstat), 0, getpid());
+    rc = pstat_getproc(&pst, sizeof(pst), 0, getpid());
     if (rc != -1 || errno == EOVERFLOW) {
-	if (pstat.pst_term.psd_major != -1 && pstat.pst_term.psd_minor != -1) {
+	if (pst.pst_term.psd_major != -1 && pst.pst_term.psd_minor != -1) {
 	    errno = serrno;
-	    ret = sudo_ttyname_dev(makedev(pstat.pst_term.psd_major,
-		pstat.pst_term.psd_minor), name, namelen);
+	    ret = sudo_ttyname_dev(makedev(pst.pst_term.psd_major,
+		pst.pst_term.psd_minor), name, namelen);
 	    goto done;
 	}
     }
@@ -318,7 +315,7 @@ char *
 get_process_ttyname(char *name, size_t namelen)
 {
     char *tty;
-    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL)
+    debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
     if ((tty = ttyname(STDIN_FILENO)) == NULL) {
 	if ((tty = ttyname(STDOUT_FILENO)) == NULL)

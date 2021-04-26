@@ -76,47 +76,25 @@ void ModuleCallbackSet::erase(const ModuleCallback &oldCallback)
 //
 // Invoke an entire callback set.
 // THREADS: Caller is ensuring  single-thread access on these calls.
+// Note that the callbacks are background thread, and so is the ->exit() call
 //
+// NOTE WELL, if this is called, you can't safely call add/remove
+
 void ModuleCallbackSet::operator () (CSSM_MODULE_EVENT event,
                                      const Guid &guid, uint32 subId,
                                      CSSM_SERVICE_TYPE serviceType) const
 {
     if (callbacks.empty())	// nothing to do; quick exit
         return;
-
-#if _USE_THREADS == _USE_NO_THREADS || defined(SYNCHRONOUS_CALLBACKS)
-    // no threading model supported - we HAVE to do this right here
-    // note that the user better not re-enter CSSM too much,
-    // or we might deadlock...
-    for (CallbackMap::const_iterator it = callbacks.begin();
-         it != callbacks.end(); it++) {
-        it->first(event, guid, subId, serviceType);
-    }
-#else // real threads available
-    // lock down all callback elements - still protected by global lock (via caller)
-    for (CallbackMap::iterator it = callbacks.begin();
-         it != callbacks.end(); it++)
+    
+    for (auto it = callbacks.begin(); it != callbacks.end(); it++) {
         it->second->enter();
-
-    // get out of this thread - now!
-    (new Runner(callbacks, event, guid, subId, serviceType))->run();
-#endif
-}
-
-void ModuleCallbackSet::Runner::action()
-{
-    //
-    // NOTE WELL: Our callbacks map shares (pointed-to) values with the ModuleCallbackSet
-    // we were created from. Some of these values may be dangling pointers since they have
-    // been destroyed by other threads, but only *after* we are done with them, since
-    // we must call exit() on them before they become eligible for destruction.
-    // In all cases, it is the responsibility of other threads to destroy those mutexi.
-    //
-    // @@@ Could also fan out to multiple callback threads in parallel.
-    for (CallbackMap::iterator it = callbacks.begin();
-         it != callbacks.end(); it++) {
-        //@@@ safety vs. convenience - recheck
-        it->first(event, guid, subserviceId, serviceType);
-        it->second->exit();
     }
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (auto it = callbacks.begin(); it != callbacks.end(); it++) {
+            it->first(event, guid, subId, serviceType);
+            it->second->exit();
+        }
+    });
 }

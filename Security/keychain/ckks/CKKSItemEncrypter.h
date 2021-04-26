@@ -28,6 +28,7 @@
 @class CKKSItem;
 @class CKKSMirrorEntry;
 @class CKKSKey;
+@class CKKSMemoryKeyCache;
 @class CKKSOutgoingQueueEntry;
 @class CKKSAESSIVKey;
 @class CKRecordZoneID;
@@ -42,9 +43,12 @@ NS_ASSUME_NONNULL_BEGIN
                         dataDictionary:(NSDictionary*)dict
                       updatingCKKSItem:(CKKSItem* _Nullable)olditem
                              parentkey:(CKKSKey*)parentkey
+                              keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
                                  error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
-+ (NSDictionary* _Nullable)decryptItemToDictionary:(CKKSItem*)item error:(NSError* _Nullable __autoreleasing* _Nullable)error;
++ (NSDictionary* _Nullable)decryptItemToDictionary:(CKKSItem*)item
+                                          keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                                             error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
 + (NSData* _Nullable)encryptDictionary:(NSDictionary*)dict
                                    key:(CKKSAESSIVKey*)key

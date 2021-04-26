@@ -40,7 +40,7 @@ public:
 	AuditMonitor(MachPlusPlus::Port relay);
 	~AuditMonitor();
 	
-	void action();
+	void threadAction();
 
 private:
 	MachPlusPlus::Port mRelay;

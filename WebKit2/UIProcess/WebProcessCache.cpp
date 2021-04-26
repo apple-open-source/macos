@@ -85,15 +85,18 @@ bool WebProcessCache::addProcessIfPossible(Ref<WebProcessProxy>&& process)
     ASSERT(!process->pageCount());
     ASSERT(!process->provisionalPageCount());
     ASSERT(!process->suspendedPageCount());
+    ASSERT(!process->isRunningServiceWorkers());
 
     if (!canCacheProcess(process))
         return false;
 
+    // CachedProcess can destroy the process pool (which owns the WebProcessCache), by making its reference weak in WebProcessProxy::setIsInProcessCache.
+    auto protectedProcessPool = makeRef(process->processPool());
     uint64_t requestIdentifier = generateAddRequestIdentifier();
     m_pendingAddRequests.add(requestIdentifier, makeUnique<CachedProcess>(process.copyRef()));
 
     WEBPROCESSCACHE_RELEASE_LOG("addProcessIfPossible: Checking if process is responsive before caching it", process->processIdentifier());
-    process->isResponsive([this, processPool = makeRef(process->processPool()), process, requestIdentifier](bool isResponsive) {
+    process->isResponsive([this, processPool = WTFMove(protectedProcessPool), process, requestIdentifier](bool isResponsive) {
         auto cachedProcess = m_pendingAddRequests.take(requestIdentifier);
         if (!cachedProcess)
             return;
@@ -112,6 +115,7 @@ bool WebProcessCache::addProcess(std::unique_ptr<CachedProcess>&& cachedProcess)
     ASSERT(!cachedProcess->process().pageCount());
     ASSERT(!cachedProcess->process().provisionalPageCount());
     ASSERT(!cachedProcess->process().suspendedPageCount());
+    ASSERT(!cachedProcess->process().isRunningServiceWorkers());
 
     if (!canCacheProcess(cachedProcess->process()))
         return false;

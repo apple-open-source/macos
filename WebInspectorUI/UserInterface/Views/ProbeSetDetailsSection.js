@@ -30,6 +30,8 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
     {
         console.assert(probeSet instanceof WI.ProbeSet, "Invalid ProbeSet argument:", probeSet);
 
+        let title = probeSet.breakpoint.displayName;
+
         var optionsElement = document.createElement("div");
         var dataGrid = new WI.ProbeSetDataGrid(probeSet);
 
@@ -38,11 +40,10 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
 
         var probeSectionGroup = new WI.DetailsSectionGroup([singletonRow]);
 
-        super("probe", "", [probeSectionGroup], optionsElement);
+        super("probe", title, [probeSectionGroup], optionsElement);
 
         this.element.classList.add("probe-set");
 
-        this._listenerSet = new WI.EventListenerSet(this, "ProbeSetDetailsSection UI listeners");
         this._probeSet = probeSet;
         this._dataGrid = dataGrid;
 
@@ -62,22 +63,28 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
         this._removeProbeButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._removeProbeButtonClicked, this);
         this._navigationBar.addNavigationItem(this._removeProbeButtonItem);
 
-        this._listenerSet.register(this._probeSet, WI.ProbeSet.Event.SampleAdded, this._probeSetSamplesChanged);
-        this._listenerSet.register(this._probeSet, WI.ProbeSet.Event.SamplesCleared, this._probeSetSamplesChanged);
+        this._probeSet.addEventListener(WI.ProbeSet.Event.SampleAdded, this._probeSetSamplesChanged, this);
+        this._probeSet.addEventListener(WI.ProbeSet.Event.SamplesCleared, this._probeSetSamplesChanged, this);
 
-        // Update the source link when the breakpoint's resolved state changes,
-        // so that it can become a live location link when possible.
-        this._updateLinkElement();
-        this._listenerSet.register(this._probeSet.breakpoint, WI.Breakpoint.Event.ResolvedStateDidChange, this._updateLinkElement);
+        if (this._probeSet.breakpoint instanceof WI.JavaScriptBreakpoint) {
+            // Update the source link when the breakpoint's resolved state changes,
+            // so that it can become a live location link when possible.
+            this._updateLinkElement();
+            this._probeSet.breakpoint.addEventListener(WI.JavaScriptBreakpoint.Event.ResolvedStateDidChange, this._updateLinkElement, this);
+        }
 
-        this._listenerSet.install();
     }
 
     // Public
 
     closed()
     {
-        this._listenerSet.uninstall(true);
+        this._probeSet.removeEventListener(WI.ProbeSet.Event.SampleAdded, this._probeSetSamplesChanged, this);
+        this._probeSet.removeEventListener(WI.ProbeSet.Event.SamplesCleared, this._probeSetSamplesChanged, this);
+
+        if (this._probeSet.breakpoint instanceof WI.JavaScriptBreakpoint)
+            this._probeSet.breakpoint.removeEventListener(WI.JavaScriptBreakpoint.Event.ResolvedStateDidChange, this._updateLinkElement, this);
+
         this.element.remove();
     }
 

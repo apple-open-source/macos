@@ -71,7 +71,8 @@ static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
 }
 #pragma clang diagnostic pop
 
-- (NSData*) getKey {
+- (NSData* _Nullable)getKey
+{
     size_t key_length = 0;
     const void * key = ccsrp_get_session_key(self.context, &key_length);
 

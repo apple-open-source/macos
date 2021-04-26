@@ -32,6 +32,7 @@
 #include "WebPreferencesStore.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakHashSet.h>
 
 #define DECLARE_PREFERENCE_GETTER_AND_SETTERS(KeyUpper, KeyLower, TypeName, Type, DefaultValue, HumanReadableName, HumanReadableDescription) \
     void set##KeyUpper(const Type& value); \
@@ -59,6 +60,7 @@ public:
 
     const WebPreferencesStore& store() const { return m_store; }
 
+    // Implemented in generated file WebPreferencesGetterSetters.cpp.
     FOR_EACH_WEBKIT_PREFERENCE(DECLARE_PREFERENCE_GETTER_AND_SETTERS)
     FOR_EACH_WEBKIT_DEBUG_PREFERENCE(DECLARE_PREFERENCE_GETTER_AND_SETTERS)
     FOR_EACH_WEBKIT_INTERNAL_DEBUG_FEATURE_PREFERENCE(DECLARE_PREFERENCE_GETTER_AND_SETTERS)
@@ -77,12 +79,36 @@ public:
     void resetAllInternalDebugFeatures();
 
     // Exposed for WebKitTestRunner use only.
+    void setBoolValueForKey(const String&, bool value);
+    void setDoubleValueForKey(const String&, double value);
+    void setUInt32ValueForKey(const String&, uint32_t value);
+    void setStringValueForKey(const String&, const String& value);
     void forceUpdate() { update(); }
 
 private:
     void platformInitializeStore();
 
     void update();
+
+    class UpdateBatch {
+    public:
+        explicit UpdateBatch(WebPreferences& preferences)
+            : m_preferences(preferences)
+        {
+            m_preferences.startBatchingUpdates();
+        }
+        
+        ~UpdateBatch()
+        {
+            m_preferences.endBatchingUpdates();
+        }
+        
+    private:
+        WebPreferences& m_preferences;
+    };
+
+    void startBatchingUpdates();
+    void endBatchingUpdates();
 
     void updateStringValueForKey(const String& key, const String& value);
     void updateBoolValueForKey(const String& key, bool value);
@@ -113,7 +139,9 @@ private:
     const String m_globalDebugKeyPrefix;
     WebPreferencesStore m_store;
 
-    HashSet<WebPageProxy*> m_pages;
+    WeakHashSet<WebPageProxy> m_pages;
+    unsigned m_updateBatchCount { 0 };
+    bool m_needUpdateAfterBatch { false };
 };
 
 } // namespace WebKit

@@ -1348,39 +1348,15 @@ NAHGetSelections(NAHRef na)
     return na->selections;
 }
 
-static CFStringRef
-copyInferedNameFromIdentity(SecIdentityRef identity)
-{
-    CFStringRef inferredLabel = NULL;
-    SecCertificateRef cert = NULL;
-
-    SecIdentityCopyCertificate(identity, &cert);
-    if (cert == NULL)
-	return NULL;
-    
-    inferredLabel = _CSCopyAppleIDAccountForAppleIDCertificate(cert, NULL);
-    if (inferredLabel == NULL)
-	SecCertificateInferLabel(cert, &inferredLabel);
-
-    CFRELEASE(cert);
-
-    return inferredLabel;
-}
-
-
 static void
 setFriendlyName(NAHRef na,
 		NAHSelectionRef selection,
-		SecIdentityRef cert,
 		krb5_ccache id,
 		int is_lkdc)
 {
     CFStringRef inferredLabel = NULL;
 
-    if (cert) {
-	inferredLabel = copyInferedNameFromIdentity(cert);
-
-    } else if (na->specificname || is_lkdc) {
+    if (na->specificname || is_lkdc) {
 	inferredLabel = na->username;
 	CFRetain(inferredLabel);
     } else {
@@ -1585,7 +1561,7 @@ acquire_kerberos(NAHRef na,
 	}
     }
 
-    setFriendlyName(na, selection, cert, id, is_lkdc);
+    setFriendlyName(na, selection, id, is_lkdc);
     {
 	krb5_data data;
 	data.data = "1";
@@ -1852,9 +1828,6 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	    CFRelease(selection->na);
 	    return false;
 	}
-
-	if (selection->certificate)
-	    selection->inferredLabel = copyInferedNameFromIdentity(selection->certificate);
 
 	if (selection->inferredLabel == NULL) {
 	    CFMutableStringRef str = CFStringCreateMutableCopy(NULL, 0, selection->client);

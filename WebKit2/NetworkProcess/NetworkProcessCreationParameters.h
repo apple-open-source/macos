@@ -27,7 +27,6 @@
 
 #include "CacheModel.h"
 #include "SandboxExtension.h"
-#include "WebsiteDataStoreParameters.h"
 #include <WebCore/Cookie.h>
 #include <wtf/ProcessID.h>
 #include <wtf/Vector.h>
@@ -35,7 +34,6 @@
 
 #if USE(SOUP)
 #include <WebCore/HTTPCookieAcceptPolicy.h>
-#include <WebCore/SoupNetworkProxySettings.h>
 #endif
 
 namespace IPC {
@@ -60,6 +58,7 @@ struct NetworkProcessCreationParameters {
     SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
     SandboxExtension::Handle containerCachesDirectoryExtensionHandle;
     SandboxExtension::Handle parentBundleDirectoryExtensionHandle;
+    SandboxExtension::Handle tempDirectoryExtensionHandle;
 #endif
     bool shouldSuppressMemoryPressureHandler { false };
 
@@ -69,16 +68,11 @@ struct NetworkProcessCreationParameters {
     String uiProcessBundleIdentifier;
     uint32_t uiProcessSDKVersion { 0 };
     RetainPtr<CFDataRef> networkATSContext;
-    bool storageAccessAPIEnabled;
 #endif
 
-    WebsiteDataStoreParameters defaultDataStoreParameters;
-    
 #if USE(SOUP)
     WebCore::HTTPCookieAcceptPolicy cookieAcceptPolicy { WebCore::HTTPCookieAcceptPolicy::AlwaysAccept };
-    bool ignoreTLSErrors { false };
     Vector<String> languages;
-    WebCore::SoupNetworkProxySettings proxySettings;
 #endif
 
     Vector<String> urlSchemesRegisteredAsSecure;
@@ -86,15 +80,8 @@ struct NetworkProcessCreationParameters {
     Vector<String> urlSchemesRegisteredAsLocal;
     Vector<String> urlSchemesRegisteredAsNoAccess;
 
-#if ENABLE(SERVICE_WORKER)
-    String serviceWorkerRegistrationDirectory;
-    SandboxExtension::Handle serviceWorkerRegistrationDirectoryExtensionHandle;
-    bool shouldDisableServiceWorkerProcessTerminationDelay { false };
-#endif
-    bool shouldEnableITPDatabase { false };
-    bool enableAdClickAttributionDebugMode { false };
-    String hstsStorageDirectory;
-    SandboxExtension::Handle hstsStorageDirectoryExtensionHandle;
+    bool enablePrivateClickMeasurement { true };
+    bool enablePrivateClickMeasurementDebugMode { false };
 };
 
 } // namespace WebKit

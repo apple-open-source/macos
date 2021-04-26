@@ -38,7 +38,6 @@
 #include "WebPageProxyIdentifier.h"
 #include "WebPaymentCoordinatorProxy.h"
 #include "WebResourceLoadObserver.h"
-#include "WebSocketIdentifier.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/MessagePortChannelProvider.h>
@@ -48,6 +47,7 @@
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RegistrableDomain.h>
+#include <WebCore/WebSocketIdentifier.h>
 #include <wtf/RefCounted.h>
 
 namespace PAL {
@@ -158,7 +158,7 @@ public:
 
     Vector<RefPtr<WebCore::BlobDataFileReference>> resolveBlobReferences(const NetworkResourceLoadParameters&);
 
-    void removeSocketChannel(WebSocketIdentifier);
+    void removeSocketChannel(WebCore::WebSocketIdentifier);
 
     WebCore::ProcessIdentifier webProcessIdentifier() const { return m_webProcessIdentifier; }
 
@@ -199,6 +199,7 @@ private:
     void prefetchDNS(const String&);
     void sendH2Ping(NetworkResourceLoadParameters&&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
     void preconnectTo(Optional<uint64_t> preconnectionIdentifier, NetworkResourceLoadParameters&&);
+    void isResourceLoadFinished(uint64_t loadIdentifier, CompletionHandler<void(bool)>&&);
 
     void removeLoadIdentifier(ResourceLoadIdentifier);
     void pageLoadCompleted(WebCore::PageIdentifier);
@@ -227,9 +228,9 @@ private:
 
     void setCaptureExtraNetworkLoadMetricsEnabled(bool);
 
-    void createSocketStream(URL&&, String cachePartition, WebSocketIdentifier);
+    void createSocketStream(URL&&, String cachePartition, WebCore::WebSocketIdentifier);
 
-    void createSocketChannel(const WebCore::ResourceRequest&, const String& protocol, WebSocketIdentifier);
+    void createSocketChannel(const WebCore::ResourceRequest&, const String& protocol, WebCore::WebSocketIdentifier);
     void updateQuotaBasedOnSpaceUsageForTesting(const WebCore::ClientOrigin&);
 
 #if ENABLE(SERVICE_WORKER)
@@ -251,6 +252,10 @@ private:
     void didDeliverMessagePortMessages(uint64_t messageBatchIdentifier);
 
     void setCORSDisablingPatterns(WebCore::PageIdentifier, Vector<String>&&);
+
+#if PLATFORM(MAC)
+    void updateActivePages(const String& name, const Vector<String>& activePagesOrigins, audit_token_t);
+#endif
 
 #if USE(LIBWEBRTC)
     NetworkRTCProvider& rtcProvider();
@@ -339,8 +344,8 @@ private:
     Ref<NetworkProcess> m_networkProcess;
     PAL::SessionID m_sessionID;
 
-    HashMap<WebSocketIdentifier, RefPtr<NetworkSocketStream>> m_networkSocketStreams;
-    HashMap<WebSocketIdentifier, std::unique_ptr<NetworkSocketChannel>> m_networkSocketChannels;
+    HashMap<WebCore::WebSocketIdentifier, RefPtr<NetworkSocketStream>> m_networkSocketStreams;
+    HashMap<WebCore::WebSocketIdentifier, std::unique_ptr<NetworkSocketChannel>> m_networkSocketChannels;
     NetworkResourceLoadMap m_networkResourceLoaders;
     HashMap<String, RefPtr<WebCore::BlobDataFileReference>> m_blobDataFileReferences;
     Vector<ResourceNetworkActivityTracker> m_networkActivityTrackers;

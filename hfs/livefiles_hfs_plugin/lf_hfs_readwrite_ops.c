@@ -785,7 +785,8 @@ hfs_vnop_preallocate(struct vnode * vp, LIFilePreallocateArgs_t* psPreAllocReq, 
     hfs_lock_truncate(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
 
     if ((retval = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
-        goto err_exit;
+        hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
+        return (retval);
     }
     
     off_t filebytes = (off_t)fp->ff_blocks * (off_t)vcb->blockSize;

@@ -90,6 +90,21 @@ function newPromiseCapability(constructor)
 }
 
 @globalPrivate
+function promiseResolve(constructor, value)
+{
+    if (@isPromise(value) && value.constructor === constructor)
+        return value;
+
+    if (constructor === @Promise) {
+        var promise = @newPromise();
+        @resolvePromiseWithFirstResolvingFunctionCallCheck(promise, value);
+        return promise;
+    }
+
+    return @promiseResolveSlow(constructor, value);
+}
+
+@globalPrivate
 function promiseResolveSlow(constructor, value)
 {
     @assert(constructor !== @Promise);
@@ -219,6 +234,17 @@ function resolvePromiseWithFirstResolvingFunctionCallCheck(promise, value)
         return;
     @putPromiseInternalField(promise, @promiseFieldFlags, flags | @promiseFlagsIsFirstResolvingFunctionCalled);
     return @resolvePromise(promise, value);
+}
+
+@globalPrivate
+function fulfillPromiseWithFirstResolvingFunctionCallCheck(promise, value)
+{
+    @assert(@isPromise(promise));
+    var flags = @getPromiseInternalField(promise, @promiseFieldFlags);
+    if (flags & @promiseFlagsIsFirstResolvingFunctionCalled)
+        return;
+    @putPromiseInternalField(promise, @promiseFieldFlags, flags | @promiseFlagsIsFirstResolvingFunctionCalled);
+    return @fulfillPromise(promise, value);
 }
 
 @globalPrivate
@@ -415,6 +441,14 @@ function promiseResolveThenableJobFast(thenable, promiseToResolve)
     @assert(@isPromise(thenable));
     @assert(@isPromise(promiseToResolve));
 
+    // Even if we are using @defaultPromiseThen, still thenable.constructor access is observable, and if it is not returning @Promise,
+    // we need to call this constructor.
+    var constructor = @speciesConstructor(thenable, @Promise);
+    if (constructor !== @Promise && constructor !== @InternalPromise) {
+        @promiseResolveThenableJobWithDerivedPromise(thenable, constructor, @createResolvingFunctions(promiseToResolve));
+        return;
+    }
+
     var flags = @getPromiseInternalField(thenable, @promiseFieldFlags);
     var state = flags & @promiseStateMask;
     var reaction = @newPromiseReaction(promiseToResolve, @undefined, @undefined);
@@ -435,6 +469,14 @@ function promiseResolveThenableJobWithoutPromiseFast(thenable, onFulfilled, onRe
     "use strict";
 
     @assert(@isPromise(thenable));
+
+    // Even if we are using @defaultPromiseThen, still thenable.constructor access is observable, and if it is not returning @Promise,
+    // we need to call this constructor.
+    var constructor = @speciesConstructor(thenable, @Promise);
+    if (constructor !== @Promise && constructor !== @InternalPromise) {
+        @promiseResolveThenableJobWithDerivedPromise(thenable, constructor, @createResolvingFunctionsWithoutPromise(onFulfilled, onRejected));
+        return;
+    }
 
     var flags = @getPromiseInternalField(thenable, @promiseFieldFlags);
     var state = flags & @promiseStateMask;
@@ -464,4 +506,44 @@ function promiseResolveThenableJob(thenable, then, resolvingFunctions)
     } catch (error) {
         return resolvingFunctions.@reject.@call(@undefined, error);
     }
+}
+
+@globalPrivate
+function promiseResolveThenableJobWithDerivedPromise(thenable, constructor, resolvingFunctions)
+{
+    "use strict";
+
+    try {
+        var promiseOrCapability = @newPromiseCapabilitySlow(constructor);
+        @performPromiseThen(thenable, resolvingFunctions.@resolve, resolvingFunctions.@reject, promiseOrCapability);
+        return promiseOrCapability.@promise;
+    } catch (error) {
+        return resolvingFunctions.@reject.@call(@undefined, error);
+    }
+}
+
+@globalPrivate
+function performPromiseThen(promise, onFulfilled, onRejected, promiseOrCapability)
+{
+    "use strict";
+
+    if (!@isCallable(onFulfilled))
+        onFulfilled = function (argument) { return argument; };
+
+    if (!@isCallable(onRejected))
+        onRejected = function (argument) { throw argument; };
+
+    var reaction = @newPromiseReaction(promiseOrCapability, onFulfilled, onRejected);
+
+    var flags = @getPromiseInternalField(promise, @promiseFieldFlags);
+    var state = flags & @promiseStateMask;
+    if (state === @promiseStatePending) {
+        reaction.@next = @getPromiseInternalField(promise, @promiseFieldReactionsOrResult);
+        @putPromiseInternalField(promise, @promiseFieldReactionsOrResult, reaction);
+    } else {
+        if (state === @promiseStateRejected && !(flags & @promiseFlagsIsHandled))
+            @hostPromiseRejectionTracker(promise, @promiseRejectionHandle);
+        @enqueueJob(@promiseReactionJob, state, reaction, @getPromiseInternalField(promise, @promiseFieldReactionsOrResult));
+    }
+    @putPromiseInternalField(promise, @promiseFieldFlags, @getPromiseInternalField(promise, @promiseFieldFlags) | @promiseFlagsIsHandled);
 }

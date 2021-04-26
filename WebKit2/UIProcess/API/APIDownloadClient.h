@@ -28,6 +28,7 @@
 #include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationDecisionListener.h"
+#include "DownloadID.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/WTFString.h>
 
@@ -43,25 +44,26 @@ class DownloadProxy;
 class WebsiteDataStore;
 class WebProtectionSpace;
 
-enum class AllowOverwrite { No, Yes };
+enum class AllowOverwrite : bool;
 }
 
 namespace API {
 
-class DownloadClient {
+class Data;
+
+class DownloadClient : public RefCounted<DownloadClient> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~DownloadClient() { }
 
-    virtual void didStart(WebKit::DownloadProxy&) { }
+    virtual void legacyDidStart(WebKit::DownloadProxy&) { }
     virtual void didReceiveAuthenticationChallenge(WebKit::DownloadProxy&, WebKit::AuthenticationChallengeProxy& challenge) { challenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::Cancel); }
-    virtual void didReceiveResponse(WebKit::DownloadProxy&, const WebCore::ResourceResponse&) { }
     virtual void didReceiveData(WebKit::DownloadProxy&, uint64_t, uint64_t, uint64_t) { }
-    virtual void decideDestinationWithSuggestedFilename(WebKit::DownloadProxy&, const WTF::String&, Function<void(WebKit::AllowOverwrite, WTF::String)>&& completionHandler) { completionHandler(WebKit::AllowOverwrite::No, { }); }
+    virtual void decideDestinationWithSuggestedFilename(WebKit::DownloadProxy&, const WebCore::ResourceResponse&, const WTF::String&, CompletionHandler<void(WebKit::AllowOverwrite, WTF::String)>&& completionHandler) { completionHandler(WebKit::AllowOverwrite::No, { }); }
     virtual void didCreateDestination(WebKit::DownloadProxy&, const WTF::String&) { }
     virtual void didFinish(WebKit::DownloadProxy&) { }
-    virtual void didFail(WebKit::DownloadProxy&, const WebCore::ResourceError&) { }
-    virtual void didCancel(WebKit::DownloadProxy&) { }
+    virtual void didFail(WebKit::DownloadProxy&, const WebCore::ResourceError&, API::Data* resumeData) { }
+    virtual void legacyDidCancel(WebKit::DownloadProxy&) { }
     virtual void processDidCrash(WebKit::DownloadProxy&) { }
     virtual void willSendRequest(WebKit::DownloadProxy&, WebCore::ResourceRequest&& request, const WebCore::ResourceResponse&, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler) { completionHandler(WTFMove(request)); }
 };

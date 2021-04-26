@@ -484,6 +484,24 @@ sec_protocol_options_get_default_max_dtls_protocol_version(void)
     return tls_protocol_version_DTLSv12;
 }
 
+bool
+sec_protocol_options_get_enable_encrypted_client_hello(sec_protocol_options_t options) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, false);
+
+    __block bool enable_ech = false;
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        enable_ech = content->enable_ech;
+
+        return true;
+    });
+
+    return enable_ech;
+}
+
 void
 sec_protocol_options_add_tls_application_protocol(sec_protocol_options_t options, const char *application_protocol)
 {
@@ -859,6 +877,19 @@ sec_protocol_options_set_peer_authentication_optional(sec_protocol_options_t opt
 
         content->peer_authentication_optional = peer_authentication_optional;
         content->peer_authentication_override = true;
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_enable_encrypted_client_hello(sec_protocol_options_t options, bool enable_encrypted_client_hello) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->enable_ech = enable_encrypted_client_hello;
         return true;
     });
 }

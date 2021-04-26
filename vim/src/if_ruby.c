@@ -1444,7 +1444,7 @@ buffer_delete(VALUE self, VALUE num)
 
 	if (u_savedel(n, 1) == OK)
 	{
-	    ml_delete(n, 0);
+	    ml_delete(n);
 
 	    // Changes to non-active buffers should properly refresh
 	    //   SegPhault - 01/09/05
@@ -1860,7 +1860,7 @@ ruby_convert_to_vim_value(VALUE val, typval_T *rettv)
 
 		rettv->v_type = VAR_STRING;
 		rettv->vval.v_string = vim_strnsave((char_u *)RSTRING_PTR(str),
-							 (int)RSTRING_LEN(str));
+							     RSTRING_LEN(str));
 	    }
 	    break;
 	case T_ARRAY:

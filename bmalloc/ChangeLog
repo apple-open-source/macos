@@ -1,268 +1,190 @@
-2020-10-14  Alan Coon  <alancoon@apple.com>
+2020-12-07  Don Olmstead  <don.olmstead@sony.com>
 
-        Cherry-pick r268371. rdar://problem/70267767
+        [CMake] Remove WEBKIT_WRAP_SOURCELIST
+        https://bugs.webkit.org/show_bug.cgi?id=196916
 
-    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
-    with Xcode 12 on macOS Big Sur SUs
-    https://bugs.webkit.org/show_bug.cgi?id=217602
-    rdar://70194453
-    
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
-    Reviewed by Darin Adler.
-    
-    The previous workaround turns out to be ineffective because we can't set the value of
-    TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
-    variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
-    adjust MAC_OS_X_VERSION_MAJOR to 110000.
-    
-    PerformanceTests:
-    
-    * DecoderTest/Configurations/DebugRelease.xcconfig:
-    * MediaTime/Configurations/DebugRelease.xcconfig:
-    
-    Source/bmalloc:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/JavaScriptCore:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/ThirdParty:
-    
-    * gtest/xcode/Config/General.xcconfig:
-    
-    Source/ThirdParty/ANGLE:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/ThirdParty/libwebrtc:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebCore:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebCore/PAL:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebInspectorUI:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebKit:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebKitLegacy/mac:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WTF:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Tools:
-    
-    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
-    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
-    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
-    * MiniBrowser/Configurations/DebugRelease.xcconfig:
-    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
-    * WebEditingTester/Configurations/DebugRelease.xcconfig:
-    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
-    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268371 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        Reviewed by Michael Catanzaro.
 
-    2020-10-12  Luming Yin  <luming_yin@apple.com>
+        * CMakeLists.txt:
 
-            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
-            with Xcode 12 on macOS Big Sur SUs
-            https://bugs.webkit.org/show_bug.cgi?id=217602
-            rdar://70194453
+2020-12-04  Adam Roben  <aroben@apple.com>
 
-            Reviewed by Darin Adler.
+        More FALLBACK_PLATFORM adoption
+        https://bugs.webkit.org/show_bug.cgi?id=219545
 
-            The previous workaround turns out to be ineffective because we can't set the value of
-            TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new
-            variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly
-            adjust MAC_OS_X_VERSION_MAJOR to 110000.
+        Reviewed by Tim Horton.
 
-            * Configurations/DebugRelease.xcconfig:
+        * Configurations/SDKVariant.xcconfig:
+        WK_EMPTY_$(THIS_IS_NOT_EMPTY) evaluates to the empty string, not to
+        NO.
 
-2020-10-14  Alan Coon  <alancoon@apple.com>
+2020-12-03  Adam Roben  <aroben@apple.com>
 
-        Cherry-pick r268353. rdar://problem/70267767
+        Adopt FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=219504
 
-    [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
-    with Xcode 12 on macOS Big Sur SUs
-    https://bugs.webkit.org/show_bug.cgi?id=217602
-    rdar://70194453
-    
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-12
-    Reviewed by Darin Adler.
-    
-    Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
-    minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
-    to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
-    
-    To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
-    drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
-    
-    Note: This change should be reverted after <rdar://70185899> is resolved.
-    
-    PerformanceTests:
-    
-    * DecoderTest/Configurations/DebugRelease.xcconfig:
-    * MediaTime/Configurations/DebugRelease.xcconfig:
-    
-    Source/bmalloc:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/JavaScriptCore:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/ThirdParty:
-    
-    * gtest/xcode/Config/General.xcconfig:
-    
-    Source/ThirdParty/ANGLE:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/ThirdParty/libwebrtc:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebCore:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebCore/PAL:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebInspectorUI:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebKit:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WebKitLegacy/mac:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Source/WTF:
-    
-    * Configurations/DebugRelease.xcconfig:
-    
-    Tools:
-    
-    * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
-    * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
-    * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
-    * MiniBrowser/Configurations/DebugRelease.xcconfig:
-    * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
-    * WebEditingTester/Configurations/DebugRelease.xcconfig:
-    * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
-    * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        Reviewed by Tim Horton.
 
-    2020-10-12  Luming Yin  <luming_yin@apple.com>
+        * Configurations/SDKVariant.xcconfig: Use FALLBACK_PLATFORM it if it's
+        defined, otherwise use PLATFORM_NAME as before.
 
-            [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building
-            with Xcode 12 on macOS Big Sur SUs
-            https://bugs.webkit.org/show_bug.cgi?id=217602
-            rdar://70194453
+2020-11-04  David Kilzer  <ddkilzer@apple.com>
 
-            Reviewed by Darin Adler.
+        Remove bmalloc::logVMFailure() and BSoftLinking.h
+        <https://webkit.org/b/218571>
+        <rdar://problem/69813381>
 
-            Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the
-            minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit
-            to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+        Reviewed by Geoffrey Garen.
 
-            To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number,
-            drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+        * PlatformMac.cmake:
+        * bmalloc.xcodeproj/project.pbxproj:
+        - Remove BSoftLinking.h from project files.
 
-            Note: This change should be reverted after <rdar://70185899> is resolved.
+        * bmalloc/Logging.cpp:
+        * bmalloc/Logging.h:
+        (bmalloc::logVMFailure): Delete.
 
-            * Configurations/DebugRelease.xcconfig:
+        * bmalloc/darwin/BSoftLinking.h: Remove.
 
-2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
+2020-11-04  David Kilzer  <ddkilzer@apple.com>
 
-        Cherry-pick r268330. rdar://problem/70189394
+        WebKit should remove unused debug variant support
+        <https://webkit.org/b/218315>
+        <rdar://problem/70785369>
 
-    Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
-    or later
-    https://bugs.webkit.org/show_bug.cgi?id=217594
-    rdar://70188497
-    
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
-    Reviewed by Darin Adler.
-    
-    To ensure successful Mac Catalyst WebKit builds, strip the patch version from
-    TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
-    
-    * Configurations/Base.xcconfig:
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268330 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        Reviewed by Darin Adler.
 
-    2020-10-11  Luming Yin  <luming_yin@apple.com>
+        Remove support for building the debug variant since it is
+        currently unused. We now set default values for the
+        DEAD_CODE_STRIPPING, DEBUG_DEFINES, GCC_OPTIMIZATION_LEVEL and
+        STRIP_INSTALLED_PRODUCT variables.
 
-            Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
-            or later
-            https://bugs.webkit.org/show_bug.cgi?id=217594
-            rdar://70188497
+        Also move these values out of the Xcode project into
+        Base.xcconfig files using the [config=Debug] specifier so that
+        these overrides are next to the definitions.
 
-            Reviewed by Darin Adler.
+        * Configurations/Base.xcconfig:
+        * bmalloc.xcodeproj/project.pbxproj:
 
-            To ensure successful Mac Catalyst WebKit builds, strip the patch version from
-            TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
+2020-11-02  David Kilzer  <ddkilzer@apple.com>
 
-            * Configurations/Base.xcconfig:
+        Sort Xcode project file
 
-2020-10-11  Kocsen Chung  <kocsen_chung@apple.com>
+        * bmalloc.xcodeproj/project.pbxproj:
 
-        Cherry-pick r268327. rdar://problem/70189401
+2020-10-13  Keith Rollin  <krollin@apple.com>
 
-    Ignore deployment suffix and identifier when computing major OS version for macOS
-    Big Sur and newer
-    https://bugs.webkit.org/show_bug.cgi?id=217584
-    rdar://70168426
-    
-    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
-    Reviewed by Darin Adler.
-    
-    Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
-    Only use the deployment target base for macOS Big Sur and newer. Keep the manual
-    definitions for legacy versions of macOS.
-    
-    * Configurations/Base.xcconfig:
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268327 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        Remove leftover MACOSX_DEPLOYMENT_TARGET_macosx support
+        https://bugs.webkit.org/show_bug.cgi?id=217649
+        <rdar://problem/70236877>
 
-    2020-10-11  Luming Yin  <luming_yin@apple.com>
+        Reviewed by Darin Adler.
 
-            Ignore deployment suffix and identifier when computing major OS version for macOS
-            Big Sur and newer
-            https://bugs.webkit.org/show_bug.cgi?id=217584
-            rdar://70168426
+        Bug 42796 introduced MACOSX_DEPLOYMENT_TARGET_<PLATFORM> as "support
+        for compiling WebKit against iOS SDKs". Support for the iOS part of
+        this feature was later removed in several changes, including Bug
+        139212, Bug 139463 and Bug 144762. However, vestiges have remained for
+        five or six years in the form of MACOSX_DEPLOYMENT_TARGET_macosx. The
+        inclusion of the platform in MACOSX_DEPLOYMENT_TARGET is no longer
+        needed and can be removed.
 
-            Reviewed by Darin Adler.
+        This changes brings most projects in conformance with other projects
+        that don't support including the platform in MACOSX_DEPLOYMENT_TARGET,
+        including WebEditingTester, gtest, WebKitTestRunner, MiniBrowser, and
+        TestWebKitAPI.
 
-            Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
-            Only use the deployment target base for macOS Big Sur and newer. Keep the manual
-            definitions for legacy versions of macOS.
+        Along the way, remove a couple of left-over references to macOS 10.16,
+        and a couple of places where [sdk=macosx*] was still being used.
 
-            * Configurations/Base.xcconfig:
+        With this change, initialization of MACOSX_DEPLOYMENT_TARGET should be
+        consistent across all projects, with two exceptions: WebKitLauncher
+        (which hardcodes it to 10.12) and libwebrtc's copy of googletest
+        (which hardcodes it to 10.4). The reasons for these hard-coded values
+        is not apparent, so leave them be.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+        [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building 
+        with Xcode 12 on macOS Big Sur SUs
+        https://bugs.webkit.org/show_bug.cgi?id=217602
+        rdar://70194453
+
+        Reviewed by Darin Adler.
+
+        The previous workaround turns out to be ineffective because we can't set the value of 
+        TARGET_MAC_OS_X_VERSION_MAJOR based on a previous value of itself. Introduce a new 
+        variable TARGET_MAC_OS_X_VERSION_MAJOR to determine whether we need to explicitly 
+        adjust MAC_OS_X_VERSION_MAJOR to 110000.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2020-10-12  Luming Yin  <luming_yin@apple.com>
+
+        [macOS] Workaround for MAC_OS_X_VERSION_MAJOR incorrectly including minor version when building 
+        with Xcode 12 on macOS Big Sur SUs
+        https://bugs.webkit.org/show_bug.cgi?id=217602
+        rdar://70194453
+
+        Reviewed by Darin Adler.
+
+        Due to a bug in Xcode (rdar://70185899), Xcode 12.0 and Xcode 12.1 Beta incorrectly includes the 
+        minor release number in MAC_OS_X_VERSION_MAJOR, which causes Debug and Release builds of WebKit 
+        to be misconfigured when building on macOS Big Sur SUs, leading to webpages failing to load.
+
+        To work around the Xcode bug, when the MAC_OS_X_VERSION_MAJOR includes the minor version number, 
+        drop the minor version number by explicitly setting TARGET_MAC_OS_X_VERSION_MAJOR to 110000.
+
+        Note: This change should be reverted after <rdar://70185899> is resolved.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2020-10-11  Luming Yin  <luming_yin@apple.com>
+
+        Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur 
+        or later
+        https://bugs.webkit.org/show_bug.cgi?id=217594
+        rdar://70188497
+
+        Reviewed by Darin Adler.
+
+        To ensure successful Mac Catalyst WebKit builds, strip the patch version from 
+        TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
+
+        * Configurations/Base.xcconfig:
+
+2020-10-11  Luming Yin  <luming_yin@apple.com>
+
+        Ignore deployment suffix and identifier when computing major OS version for macOS 
+        Big Sur and newer
+        https://bugs.webkit.org/show_bug.cgi?id=217584
+        rdar://70168426
+
+        Reviewed by Darin Adler.
+
+        Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions. 
+        Only use the deployment target base for macOS Big Sur and newer. Keep the manual 
+        definitions for legacy versions of macOS.
+
+        * Configurations/Base.xcconfig:
+
+2020-09-21  Mark Lam  <mark.lam@apple.com>
+
+        Move some LLInt globals into JSC::Config.
+        https://bugs.webkit.org/show_bug.cgi?id=216685
+        rdar://68964544
+
+        Reviewed by Keith Miller.
+
+        Introduce ConfigAlignment to match WTFConfig.h.
+        Added BENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD) support to match WTF.
+
+        * bmalloc/BPlatform.h:
+        * bmalloc/Gigacage.cpp:
+        (Gigacage::ensureGigacage):
+        * bmalloc/GigacageConfig.h:
+        * bmalloc/mbmalloc.cpp:
 
 2020-08-07  Saam Barati  <sbarati@apple.com>
 

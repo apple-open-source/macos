@@ -217,7 +217,7 @@ errOut:
     return result;
 }
 
-#ifdef TARGET_OS_OSX
+#if TARGET_OS_OSX
 static void set_ku_from_properties(SecPolicyRef policy, CFDictionaryRef properties);
 #endif
 
@@ -357,6 +357,8 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         policy = SecPolicyCreateAggregateMetricTransparency(!client);
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleAggregateMetricEncryption)) {
         policy = SecPolicyCreateAggregateMetricEncryption(!client);
+    } else if (CFEqual(policyIdentifier, kSecPolicyApplePayModelSigning)) {
+        policy = SecPolicyCreateApplePayModelSigning(true);
     }
     /* For a couple of common patterns we use the macro, but some of the
      * policies are deprecated (or not yet available), so we need to ignore the warning. */
@@ -382,7 +384,7 @@ _P_PROPERTIES_##IN_PROPERTIES(NAME, IN_NAME, FUNCTION)
         return NULL;
     }
 
-#ifdef TARGET_OS_OSX
+#if TARGET_OS_OSX
     set_ku_from_properties(policy, properties);
 #endif
 
@@ -585,7 +587,7 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 		}
 	}
 
-#ifdef TARGET_OS_OSX
+#if TARGET_OS_OSX
     set_ku_from_properties(policyRef, properties);
 #endif
 	CFRelease(oid);
@@ -941,7 +943,17 @@ static void add_ku(CFMutableDictionaryRef options, SecKeyUsage keyUsage) {
     }
 }
 
-#ifdef TARGET_OS_OSX
+static void add_ku_report(CFMutableDictionaryRef options, SecKeyUsage keyUsage) {
+    SInt32 dku = keyUsage;
+    CFNumberRef ku = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type,
+        &dku);
+    if (ku) {
+        add_element(options, kSecPolicyCheckKeyUsageReportOnly, ku);
+        CFRelease(ku);
+    }
+}
+
+#if TARGET_OS_OSX
 static void set_ku_from_properties(SecPolicyRef policy, CFDictionaryRef properties) {
     if (!policy || !properties) {
         return;
@@ -1495,6 +1507,34 @@ static bool SecPolicyAddPinningRequiredIfInfoSpecified(CFMutableDictionaryRef op
     return result;
 }
 
+void SecPolicySetSHA256Pins(SecPolicyRef policy, CFArrayRef _Nullable leafSPKISHA256, CFArrayRef _Nullable caSPKISHA256)
+{
+    if (!policy) {
+        return;
+    }
+    CFMutableDictionaryRef options = (CFMutableDictionaryRef) policy->_options;
+    if (!options) {
+        options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (!options) return;
+        policy->_options = options;
+    }
+
+    if (leafSPKISHA256) {
+        CFDictionaryRemoveValue(options, kSecPolicyCheckLeafSPKISHA256);
+        add_element(options, kSecPolicyCheckLeafSPKISHA256, leafSPKISHA256);
+    } else {
+        CFDictionaryRemoveValue(options, kSecPolicyCheckLeafSPKISHA256);
+    }
+
+    if (caSPKISHA256) {
+        CFDictionaryRemoveValue(options, kSecPolicyCheckCAspkiSHA256);
+        add_element(options, kSecPolicyCheckCAspkiSHA256, caSPKISHA256);
+    } else {
+        CFDictionaryRemoveValue(options, kSecPolicyCheckCAspkiSHA256);
+    }
+}
+
 //
 // MARK: Policy Creation Functions
 //
@@ -1516,7 +1556,7 @@ errOut:
 	return (SecPolicyRef _Nonnull)result;
 }
 
-SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
+SecPolicyRef SecPolicyCreateSSLWithKeyUsage(Boolean server, CFStringRef hostname, uint32_t keyUsage) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
@@ -1545,6 +1585,10 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
 #endif
     }
 
+    if (keyUsage) {
+        add_ku_report(options, keyUsage);
+    }
+
 	set_ssl_ekus(options, server);
 
 	require(result = SecPolicyCreate(kSecPolicyAppleSSL,
@@ -1554,6 +1598,10 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
 errOut:
 	CFReleaseSafe(options);
 	return (SecPolicyRef _Nonnull)result;
+}
+
+SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
+    return SecPolicyCreateSSLWithKeyUsage(server, hostname, kSecKeyUsageUnspecified);
 }
 
 SecPolicyRef SecPolicyCreateLegacySSL(Boolean server, CFStringRef hostname) {
@@ -2813,7 +2861,8 @@ errOut:
     return result;
 }
 
-static SecPolicyRef CreateConfigurationProfileSigner(bool forTest) {
+SecPolicyRef SecPolicyCreateConfigurationProfileSigner(void)
+{
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
@@ -2827,14 +2876,20 @@ static SecPolicyRef CreateConfigurationProfileSigner(bool forTest) {
     require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     // Require the profile signing EKU
-    const DERItem* pOID = (forTest) ? &oidAppleExtendedKeyUsageQAProfileSigning :&oidAppleExtendedKeyUsageProfileSigning;
-    add_eku(options, pOID);
+    add_eku(options, &oidAppleExtendedKeyUsageProfileSigning);
+
+    CFStringRef releaseType = MGCopyAnswer(kMGQReleaseType, NULL);
+    if (releaseType != NULL) {
+        // all non-GM variants (beta, carrier, internal, etc) allow the QA signer as well
+        add_eku(options, &oidAppleExtendedKeyUsageQAProfileSigning);
+    }
+    CFReleaseNull(releaseType);
 
     // Require the Apple Application Integration CA marker OID
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.3"));
 
-    require(result = SecPolicyCreate((forTest) ? kSecPolicyAppleQAProfileSigner: kSecPolicyAppleProfileSigner,
-                                     (forTest) ? kSecPolicyNameQAProfileSigner : kSecPolicyNameProfileSigner,
+    require(result = SecPolicyCreate(kSecPolicyAppleProfileSigner,
+                                     kSecPolicyNameProfileSigner,
                                      options), errOut);
 
 errOut:
@@ -2842,24 +2897,9 @@ errOut:
     return result;
 }
 
-SecPolicyRef SecPolicyCreateConfigurationProfileSigner(void)
-{
-    return CreateConfigurationProfileSigner(false);
-}
-
 SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void)
 {
-    CFStringRef releaseType = MGCopyAnswer(kMGQReleaseType, NULL);
-    SecPolicyRef result = NULL;
-    if (releaseType == NULL) {
-        // customer variants do not trust the QA signer
-        result = CreateConfigurationProfileSigner(false);
-    } else {
-        // all other variants (beta, carrier, internal, etc) allow the QA signer
-        result = CreateConfigurationProfileSigner(true);
-    }
-    CFReleaseNull(releaseType);
-    return result;
+    return SecPolicyCreateConfigurationProfileSigner();
 }
 
 SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
@@ -4559,6 +4599,46 @@ SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
 
     require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricEncryption,
                                      kSecPolicyNameAggregateMetricEncryption, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    if (checkExpiration) {
+        SecPolicyAddBasicX509Options(options);
+    } else {
+        SecPolicyAddBasicCertOptions(options);
+    }
+
+    /* Anchored to the Apple Roots */
+    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePayModelSigning), errOut);
+
+    /* Exactly 3 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Intermediate marker OID is Apple System Integration CA 4 */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
+
+    /* Leaf marker OID for ApplePay Model Signing */
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.12.20"));
+
+    /* Check revocation using any available method */
+    add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    require(result = SecPolicyCreate(kSecPolicyApplePayModelSigning,
+                                     kSecPolicyNamePayModelSigning, options), errOut);
 
 errOut:
     CFReleaseSafe(options);

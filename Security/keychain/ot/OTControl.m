@@ -539,6 +539,15 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] invalidateEscrowCache:containerName contextID:contextID reply:reply];
 }
 
+- (void)resetAccountCDPContents:(NSString* _Nullable)containerName
+                      contextID:(NSString*)contextID
+                          reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(connectionError);
+    }] resetAccountCDPContents:containerName contextID:contextID reply:reply];
+}
+
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {
     return [OTControl controlObject:false error:error];
 }

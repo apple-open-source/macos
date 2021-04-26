@@ -322,7 +322,7 @@ public:
     TextCheckingGuesses guessesForMisspelledOrUngrammatical();
     bool isSpellCheckingEnabledInFocusedNode() const;
     bool isSpellCheckingEnabledFor(Node*) const;
-    WEBCORE_EXPORT void markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart, const VisibleSelection& selectionAfterTyping, bool doReplacement);
+    WEBCORE_EXPORT void markMisspellingsAfterTypingToWord(const VisiblePosition& wordStart, const VisibleSelection& selectionAfterTyping, bool doReplacement);
     Optional<SimpleRange> markMisspellings(const VisibleSelection&); // Returns first misspelling range.
     void markBadGrammar(const VisibleSelection&);
     void markMisspellingsAndBadGrammar(const VisibleSelection& spellingSelection, bool markGrammar, const VisibleSelection& grammarSelection);
@@ -462,7 +462,7 @@ public:
     void selectionWillChange();
     void respondToChangedSelection(const VisibleSelection& oldSelection, OptionSet<FrameSelection::SetSelectionOption>);
     WEBCORE_EXPORT void updateEditorUINowIfScheduled();
-    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
+    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, Affinity, bool stillSelecting) const;
     WEBCORE_EXPORT unsigned countMatchesForText(const String&, const Optional<SimpleRange>&, FindOptions, unsigned limit, bool markMatches, Vector<SimpleRange>*);
     bool markedTextMatchesAreHighlighted() const;
     WEBCORE_EXPORT void setMarkedTextMatchesAreHighlighted(bool);
@@ -511,6 +511,7 @@ public:
     WEBCORE_EXPORT void toggleAutomaticTextReplacement();
     WEBCORE_EXPORT bool isAutomaticSpellingCorrectionEnabled();
     WEBCORE_EXPORT void toggleAutomaticSpellingCorrection();
+    WEBCORE_EXPORT bool canEnableAutomaticSpellingCorrection() const;
 #endif
 
     RefPtr<DocumentFragment> webContentFromPasteboard(Pasteboard&, const SimpleRange& context, bool allowPlainText, bool& chosePlainText);
@@ -569,8 +570,6 @@ public:
     void getPasteboardTypesAndDataForAttachment(Element&, Vector<String>& outTypes, Vector<RefPtr<SharedBuffer>>& outData);
 #endif
 #endif
-
-    WEBCORE_EXPORT RefPtr<HTMLImageElement> insertEditableImage();
 
     WEBCORE_EXPORT RefPtr<TextPlaceholderElement> insertTextPlaceholder(const IntSize&);
     WEBCORE_EXPORT void removeTextPlaceholder(TextPlaceholderElement&);

@@ -47,19 +47,13 @@ namespace WebCore {
 
 class MediaSourcePrivateGStreamer;
 
-class SourceBufferPrivateGStreamer final : public SourceBufferPrivate
-#if !RELEASE_LOG_DISABLED
-    , private LoggerHelper
-#endif
-{
-
+class SourceBufferPrivateGStreamer final : public SourceBufferPrivate {
 public:
     static Ref<SourceBufferPrivateGStreamer> create(MediaSourcePrivateGStreamer*, const ContentType&, MediaPlayerPrivateGStreamerMSE&);
     virtual ~SourceBufferPrivateGStreamer() = default;
 
     void clearMediaSource() { m_mediaSource = nullptr; }
 
-    void setClient(SourceBufferPrivateClient*) final;
     void append(Vector<unsigned char>&&) final;
     void abort() final;
     void resetParserState() final;
@@ -72,15 +66,20 @@ public:
     void allSamplesInTrackEnqueued(const AtomString&) final;
     bool isReadyForMoreSamples(const AtomString&) final;
     void setActive(bool) final;
+    bool isActive() const final;
     void notifyClientWhenReadyForMoreSamples(const AtomString&) final;
 
     void setReadyForMoreSamples(bool);
     void notifyReadyForMoreSamples();
 
-    void didReceiveInitializationSegment(const SourceBufferPrivateClient::InitializationSegment&);
+    void didReceiveInitializationSegment(SourceBufferPrivateClient::InitializationSegment&&, CompletionHandler<void()>&&);
     void didReceiveSample(MediaSample&);
     void didReceiveAllPendingSamples();
     void appendParsingFailed();
+
+    bool isSeeking() const final;
+    MediaTime currentMediaTime() const final;
+    MediaTime duration() const final;
 
     ContentType type() const { return m_type; }
 
@@ -97,10 +96,10 @@ private:
     SourceBufferPrivateGStreamer(MediaSourcePrivateGStreamer*, const ContentType&, MediaPlayerPrivateGStreamerMSE&);
 
     MediaSourcePrivateGStreamer* m_mediaSource;
+    bool m_isActive { false };
     ContentType m_type;
     MediaPlayerPrivateGStreamerMSE& m_playerPrivate;
     UniqueRef<AppendPipeline> m_appendPipeline;
-    SourceBufferPrivateClient* m_sourceBufferPrivateClient { nullptr };
     bool m_isReadyForMoreSamples = true;
     bool m_notifyWhenReadyForMoreSamples = false;
     AtomString m_trackId;

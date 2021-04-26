@@ -64,6 +64,8 @@ static Optional<size_t> stackSize(ThreadType threadType)
 #endif
 }
 
+std::atomic<uint32_t> Thread::s_uid { 0 };
+
 struct Thread::NewThreadContext : public ThreadSafeRefCounted<NewThreadContext> {
 public:
     NewThreadContext(const char* name, Function<void()>&& entryPoint, Ref<Thread>&& thread)
@@ -146,6 +148,10 @@ void Thread::initializeInThread()
         m_currentAtomStringTable = &sharedStringTable.get();
     }
 #endif
+
+#if OS(LINUX)
+    m_id = currentID();
+#endif
 }
 
 void Thread::entryPoint(NewThreadContext* newThreadContext)
@@ -175,7 +181,7 @@ void Thread::entryPoint(NewThreadContext* newThreadContext)
     function();
 }
 
-Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint, ThreadType threadType)
+Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint, ThreadType threadType, QOS qos)
 {
     WTF::initialize();
     Ref<Thread> thread = adoptRef(*new Thread());
@@ -188,7 +194,7 @@ Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint, Thre
     context->ref();
     {
         MutexLocker locker(context->mutex);
-        bool success = thread->establishHandle(context.ptr(), stackSize(threadType));
+        bool success = thread->establishHandle(context.ptr(), stackSize(threadType), qos);
         RELEASE_ASSERT(success);
         context->stage = NewThreadContext::Stage::EstablishedHandle;
 

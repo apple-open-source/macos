@@ -60,7 +60,7 @@ public:
 	size_t execSegBase(const Architecture *arch);
 	size_t execSegLimit(const Architecture *arch);
 	std::string format();
-    CFDictionaryRef diskRepInformation();
+    CFDictionaryRef copyDiskRepInformation();
 
 	std::string recommendedIdentifier(const SigningContext &ctx);
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);

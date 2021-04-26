@@ -380,34 +380,21 @@ public:
 //
 class Thread {
     NOCOPY(Thread)
+    const char *threadName;
 
 public:
-    Thread() { }				// constructor
+    Thread(const char *name): threadName(name) { }				// constructor
     virtual ~Thread();	 		// virtual destructor
-    void run();					// begin running the thread
+    void threadRun();					// begin running the thread
     
 public:
-	static void yield();		// unstructured short-term processor yield
+	static void threadYield();		// unstructured short-term processor yield
     
 protected:
-    virtual void action() = 0; 	// the action to be performed
+    virtual void threadAction() = 0; 	// the action to be performed
 
 private:
     static void *runner(void *); // argument to pthread_create
-};
-
-
-//
-// A "just run this function in a thread" variant of Thread
-//
-class ThreadRunner : public Thread {
-    typedef void Action();
-public:
-    ThreadRunner(Action *todo);
-
-private:
-    void action();
-    Action *mAction;
 };
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -868,7 +868,13 @@ SCNetworkSetCopyServices(SCNetworkSetRef set)
 				       setPrivate->setID);
 				continue;	 // if the service is not a link
 			}
-
+			if (SCPreferencesPathGetValue(setPrivate->prefs, link) == NULL) {
+				SC_log(LOG_INFO, "service \"%@\" for set \"%@\" broken link \"%@\"",
+				       keys[i],
+				       setPrivate->setID,
+				       link);
+				continue;	 // the link is broken
+			}
 			components = CFStringCreateArrayBySeparatingStrings(NULL, link, CFSTR("/"));
 			if (CFArrayGetCount(components) == 3) {
 				CFStringRef serviceID;

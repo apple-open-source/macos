@@ -97,6 +97,14 @@ s/^\(.TH .*\)/.nr SL @SEMAN@\
 .\\}
 	    }
 	}
+	/^\.TP 18n\nselinux$/,/^\.TP 18n/ {
+	    /^\.TP 18n/ {
+		/^\.TP 18n\nselinux$/i\
+.if \\n(SL \\{\\
+		/^\.TP 18n\nselinux$/!i\
+.\\}
+	    }
+	}
 	/^\.TP 18n\nrole$/,/^\.TP 18n/ {
 	    /^\.TP 18n/ {
 		/^\.TP 18n\nrole$/i\
@@ -113,4 +121,30 @@ s/^\(.TH .*\)/.nr SL @SEMAN@\
 .\\}
 	    }
 	}
+}
+
+/^\\fRPRIVS\\fR,/ {
+    i\
+.if \\n(PS \\{\\
+    a\
+.\\}
+}
+/^\\fRLIMITPRIVS\\fR,/ {
+    i\
+.if \\n(PS \\{\\
+    a\
+.\\}
+}
+
+/^\\fRROLE\\fR,/ {
+    i\
+.if \\n(SL \\{\\
+    a\
+.\\}
+}
+/^\\fRTYPE\\fR,/ {
+    i\
+.if \\n(SL \\{\\
+    a\
+.\\}
 }

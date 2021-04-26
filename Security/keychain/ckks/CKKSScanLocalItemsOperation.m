@@ -35,6 +35,7 @@
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSKey.h"
+#import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSStates.h"
@@ -168,13 +169,16 @@
     return YES;
 }
 
-- (BOOL)onboardItemToCKKS:(SecDbItemRef)item error:(NSError**)error
+- (BOOL)onboardItemToCKKS:(SecDbItemRef)item
+                 keyCache:(CKKSMemoryKeyCache*)keyCache
+                    error:(NSError**)error
 {
     NSError* itemSaveError = nil;
 
     CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry withItem:item
                                                             action:SecCKKSActionAdd
                                                             zoneID:self.deps.zoneID
+                                                          keyCache:keyCache
                                                              error:&itemSaveError];
 
     if(itemSaveError) {
@@ -206,6 +210,8 @@
     // Use one transaction for each item to allow for SecItem API calls to interleave
     for(NSString* itemUUID in uuids) {
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult {
+            CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
+
             NSDictionary* queryAttributes = @{
                 (id)kSecClass: itemClass,
                 (id)kSecReturnRef: @(YES),
@@ -219,7 +225,7 @@
             __block NSError* itemSaveError = nil;
 
             [self executeQuery:queryAttributes readWrite:false error:&itemSaveError block:^(SecDbItemRef itemToSave) {
-                [self onboardItemToCKKS:itemToSave error:&itemSaveError];
+                [self onboardItemToCKKS:itemToSave keyCache:keyCache error:&itemSaveError];
             }];
 
             if(itemSaveError) {
@@ -243,6 +249,8 @@
 
     [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         __block NSError* itemError = nil;
+
+        __block CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
 
         for(NSDictionary* primaryKey in primaryKeys) {
             ckksnotice("ckksscan", self.deps.zoneID, "Found item with no uuid: %@", primaryKey);
@@ -279,7 +287,9 @@
                     });
 
                     if(updateSuccess) {
-                        [self onboardItemToCKKS:new_item error:&itemError];
+                        [self onboardItemToCKKS:new_item
+                                       keyCache:keyCache
+                                          error:&itemError];
                     } else {
                         ckksnotice("ckksscan", self.deps.zoneID, "Unable to update item with new UUID: %@", cferror);
                     }
@@ -368,6 +378,7 @@
         __block NSError* error = nil;
 
         [mirrorUUIDs addObjectsFromArray:[CKKSMirrorEntry allUUIDs:self.deps.zoneID error:&error]];
+        __block CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
 
         // Must query per-class, so:
         const SecDbSchema *newSchema = current_schema();
@@ -446,7 +457,7 @@
                     [mirrorUUIDs removeObject:uuid];
                     ckksinfo("ckksscan", self.deps.zoneID, "Existing mirror entry with UUID %@", uuid);
 
-                    if([self areEquivalent:item ckksItem:ckme.item]) {
+                    if([self areEquivalent:item ckksItem:ckme.item keyCache:keyCache]) {
                         // Fair enough.
                         return;
                     } else {
@@ -556,10 +567,15 @@
     (void)transaction;
 }
 
-- (BOOL)areEquivalent:(SecDbItemRef)item ckksItem:(CKKSItem*)ckksItem
+- (BOOL)areEquivalent:(SecDbItemRef)item
+             ckksItem:(CKKSItem*)ckksItem
+             keyCache:(CKKSMemoryKeyCache*)keyCache
 {
     NSError* localerror = nil;
-    NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:ckksItem error:&localerror];
+
+    NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:ckksItem
+                                                                              keyCache:keyCache
+                                                                                 error:&localerror];
     if(!attributes || localerror) {
         ckksnotice("ckksscan", self.deps.zoneID, "Could not decrypt item for comparison: %@", localerror);
         return YES;

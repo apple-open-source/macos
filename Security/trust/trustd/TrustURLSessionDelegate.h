@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2018-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,9 +29,8 @@
 #include <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
-/* This is our abstract NSURLSessionDelegate that handles the elements common to
- * fetching data over the network during a trust evaluation */
-@interface TrustURLSessionDelegate : NSObject <NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate>
+
+@interface TrustURLSessionContext : NSObject
 @property (assign, nullable) void *context;
 @property NSArray <NSURL *>*URIs;
 @property NSUInteger URIix;
@@ -39,11 +38,25 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSTimeInterval expiration;
 @property NSUInteger numTasks;
 
-- (BOOL)fetchNext:(NSURLSession *)session;
-- (NSURLRequest *)createNextRequest:(NSURL *)uri;
+- (instancetype)initWithContext:(void *)context uris:(NSArray <NSURL *>*)uris;
 @end
 
-NSTimeInterval TrustURLSessionGetResourceTimeout(void);
+@interface NSURLRequest (TrustURLRequest)
+- (NSUUID * _Nullable)taskId;
+@end
+
+/* This is our abstract NSURLSessionDelegate that handles the elements common to
+ * fetching data over the network during a trust evaluation */
+@interface TrustURLSessionDelegate : NSObject <NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate>
+
+/* The delegate superclass keeps track of all the tasks that have been kicked off (via fetchNext);
+ * it is the responsibility of the subclass to remove tasks when it is done with them. */
+- (TrustURLSessionContext *)contextForTask:(NSUUID *)taskId;
+- (void)removeTask:(NSUUID *)taskId;
+
+- (BOOL)fetchNext:(NSURLSession *)session context:(TrustURLSessionContext *)context;
+- (NSURLRequest *)createNextRequest:(NSURL *)uri context:(TrustURLSessionContext *)context;
+@end
 
 NS_ASSUME_NONNULL_END
 #endif // __OBJC__

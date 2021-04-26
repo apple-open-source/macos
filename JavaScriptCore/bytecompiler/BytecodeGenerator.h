@@ -408,10 +408,10 @@ namespace JSC {
     public:
         typedef DeclarationStacks::FunctionStack FunctionStack;
 
-        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*, ECMAMode);
-        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*, ECMAMode);
-        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*, ECMAMode);
-        BytecodeGenerator(VM&, ModuleProgramNode*, UnlinkedModuleProgramCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*, ECMAMode);
+        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, OptionSet<CodeGenerationMode>, const RefPtr<TDZEnvironmentLink>&, ECMAMode);
+        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, OptionSet<CodeGenerationMode>, const RefPtr<TDZEnvironmentLink>&, ECMAMode);
+        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, OptionSet<CodeGenerationMode>, const RefPtr<TDZEnvironmentLink>&, ECMAMode);
+        BytecodeGenerator(VM&, ModuleProgramNode*, UnlinkedModuleProgramCodeBlock*, OptionSet<CodeGenerationMode>, const RefPtr<TDZEnvironmentLink>&, ECMAMode);
 
         ~BytecodeGenerator();
         
@@ -431,14 +431,14 @@ namespace JSC {
         NeedsClassFieldInitializer needsClassFieldInitializer() const { return m_codeBlock->needsClassFieldInitializer(); }
 
         template<typename Node, typename UnlinkedCodeBlock>
-        static ParserError generate(VM& vm, Node* node, const SourceCode& sourceCode, UnlinkedCodeBlock* unlinkedCodeBlock, OptionSet<CodeGenerationMode> codeGenerationMode, const VariableEnvironment* environment, ECMAMode ecmaMode)
+        static ParserError generate(VM& vm, Node* node, const SourceCode& sourceCode, UnlinkedCodeBlock* unlinkedCodeBlock, OptionSet<CodeGenerationMode> codeGenerationMode, const RefPtr<TDZEnvironmentLink>& parentScopeTDZVariables, ECMAMode ecmaMode)
         {
             MonotonicTime before;
             if (UNLIKELY(Options::reportBytecodeCompileTimes()))
                 before = MonotonicTime::now();
 
             DeferGC deferGC(vm.heap);
-            auto bytecodeGenerator = makeUnique<BytecodeGenerator>(vm, node, unlinkedCodeBlock, codeGenerationMode, environment, ecmaMode);
+            auto bytecodeGenerator = makeUnique<BytecodeGenerator>(vm, node, unlinkedCodeBlock, codeGenerationMode, parentScopeTDZVariables, ecmaMode);
             auto result = bytecodeGenerator->generate();
 
             if (UNLIKELY(Options::reportBytecodeCompileTimes())) {
@@ -581,14 +581,14 @@ namespace JSC {
             return emitNodeInTailPosition(nullptr, n);
         }
 
-        RegisterID* emitDefineClassElements(PropertyListNode* n, RegisterID* constructor, RegisterID* prototype, Vector<JSTextPosition>& instanceFieldLocations)
+        RegisterID* emitDefineClassElements(PropertyListNode* n, RegisterID* constructor, RegisterID* prototype, Vector<JSTextPosition>& instanceFieldLocations, Vector<JSTextPosition>& staticFieldLocations)
         {
             ASSERT(constructor->refCount() && prototype->refCount());
             if (UNLIKELY(!m_vm.isSafeToRecurse()))
                 return emitThrowExpressionTooDeepException();
             if (UNLIKELY(n->needsDebugHook()))
                 emitDebugHook(n);
-            return n->emitBytecode(*this, constructor, prototype, &instanceFieldLocations);
+            return n->emitBytecode(*this, constructor, prototype, &instanceFieldLocations, &staticFieldLocations);
         }
 
         RegisterID* emitNodeForProperty(RegisterID* dst, ExpressionNode* node)
@@ -775,7 +775,7 @@ namespace JSC {
         RegisterID* emitNewFunction(RegisterID* dst, FunctionMetadataNode*);
         RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode*);
         RegisterID* emitNewDefaultConstructor(RegisterID* dst, ConstructorKind, const Identifier& name, const Identifier& ecmaName, const SourceCode& classSource, NeedsClassFieldInitializer);
-        RegisterID* emitNewInstanceFieldInitializerFunction(RegisterID* dst, Vector<JSTextPosition>&& instanceFieldLocations, bool isDerived);
+        RegisterID* emitNewClassFieldInitializerFunction(RegisterID* dst, Vector<JSTextPosition>&& classFieldLocations, bool isDerived);
         RegisterID* emitNewArrowFunctionExpression(RegisterID*, ArrowFuncExprNode*);
         RegisterID* emitNewMethodDefinition(RegisterID* dst, MethodDefinitionNode*);
         RegisterID* emitNewRegExp(RegisterID* dst, RegExp*);
@@ -807,11 +807,12 @@ namespace JSC {
         RegisterID* emitDirectGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitPutById(RegisterID* base, const Identifier& property, RegisterID* value);
         RegisterID* emitPutById(RegisterID* base, RegisterID* thisValue, const Identifier& property, RegisterID* value);
-        RegisterID* emitDirectPutById(RegisterID* base, const Identifier& property, RegisterID* value, PropertyNode::PutType);
+        RegisterID* emitDirectPutById(RegisterID* base, const Identifier& property, RegisterID* value);
         RegisterID* emitDeleteById(RegisterID* dst, RegisterID* base, const Identifier&);
         RegisterID* emitGetByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
         RegisterID* emitGetByVal(RegisterID* dst, RegisterID* base, RegisterID* thisValue, RegisterID* property);
         RegisterID* emitGetPrototypeOf(RegisterID* dst, RegisterID* value);
+        RegisterID* emitDirectSetPrototypeOf(RegisterID* base, RegisterID* prototype);
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* thisValue, RegisterID* property, RegisterID* value);
         RegisterID* emitDirectGetByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
@@ -901,10 +902,10 @@ namespace JSC {
         void emitEnter();
         void emitCheckTraps();
 
-        RegisterID* emitHasIndexedProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName);
-        RegisterID* emitHasStructureProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName, RegisterID* enumerator);
+        RegisterID* emitHasEnumerableIndexedProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName);
+        RegisterID* emitHasEnumerableStructureProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName, RegisterID* enumerator);
+        RegisterID* emitHasEnumerableProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName);
         RegisterID* emitHasOwnStructureProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName, RegisterID* enumerator);
-        RegisterID* emitHasGenericProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName);
         RegisterID* emitGetPropertyEnumerator(RegisterID* dst, RegisterID* base);
         RegisterID* emitGetEnumerableLength(RegisterID* dst, RegisterID* base);
         RegisterID* emitGetStructurePropertyEnumerator(RegisterID* dst, RegisterID* base, RegisterID* length);
@@ -1184,7 +1185,7 @@ namespace JSC {
                     newDerivedContextType = DerivedContextType::DerivedMethodContext;
             }
 
-            Optional<CompactVariableMap::Handle> optionalVariablesUnderTDZ = getVariablesUnderTDZ();
+            auto optionalVariablesUnderTDZ = getVariablesUnderTDZ();
 
             // FIXME: These flags, ParserModes and propagation to XXXCodeBlocks should be reorganized.
             // https://bugs.webkit.org/show_bug.cgi?id=151547
@@ -1196,7 +1197,7 @@ namespace JSC {
             return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), WTFMove(optionalVariablesUnderTDZ), newDerivedContextType, needsClassFieldInitializer);
         }
 
-        Optional<CompactVariableMap::Handle> getVariablesUnderTDZ();
+        RefPtr<TDZEnvironmentLink> getVariablesUnderTDZ();
 
         RegisterID* emitConstructVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
         template<typename CallOp>
@@ -1227,9 +1228,11 @@ namespace JSC {
 
         RegisterID* emitThrowExpressionTooDeepException();
 
+        using TDZStackEntry = std::pair<TDZMap, RefPtr<TDZEnvironmentLink>>;
+
         class PreservedTDZStack {
         private:
-            Vector<TDZMap> m_preservedTDZStack;
+            Vector<TDZStackEntry> m_preservedTDZStack;
             friend class BytecodeGenerator;
         };
 
@@ -1261,7 +1264,8 @@ namespace JSC {
         };
         Vector<LexicalScopeStackEntry> m_lexicalScopeStack;
 
-        Vector<TDZMap> m_TDZStack;
+        RefPtr<TDZEnvironmentLink> m_cachedParentTDZ;
+        Vector<TDZStackEntry> m_TDZStack;
         Optional<size_t> m_varScopeLexicalScopeStackIndex;
         void pushTDZVariables(const VariableEnvironment&, TDZCheckOptimization, TDZRequirement);
 
@@ -1343,12 +1347,9 @@ namespace JSC {
         bool m_isBuiltinFunction { false };
         bool m_usesNonStrictEval { false };
         bool m_inTailPosition { false };
-        bool m_hasCachedVariablesUnderTDZ { false };
         bool m_needsToUpdateArrowFunctionContext : 1;
         ECMAMode m_ecmaMode;
         DerivedContextType m_derivedContextType { DerivedContextType::None };
-
-        CompactVariableMap::Handle m_cachedVariablesUnderTDZ;
 
         struct CatchEntry {
             TryData* tryData;

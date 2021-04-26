@@ -186,6 +186,7 @@ set(char *t, NODE *ip)
 	mode_t *m;
 	int value;
 	char *ep;
+	char *l;
 
 	for (; (kw = strtok(t, "= \t\n")); t = NULL) {
 		ip->flags |= type = parsekey(kw, &value);
@@ -415,14 +416,19 @@ set(char *t, NODE *ip)
 				}
 				break;
 			case F_XATTRS:
-				ep = strtok(val,".");
+				/*
+				 * Note this is nested inside an strtok loop,
+				 * strtok_r must be used to preserve the strtok context
+				 * of the loop.
+				 */
+				ep = strtok_r(val,".", &l);
 				ip->xattrsdigest = strdup(ep);
 				if (!ip->xattrsdigest) {
 					error = errno;
 					RECORD_FAILURE(54, error);
 					errc(1, error, "strdup");
 				}
-				val = strtok(NULL,".");
+				val = strtok_r(NULL,".", &l);
 				if (val) {
 					ip->xdstream_priv_id = strtoull(val, &ep, 10);
 					if (*ep) {

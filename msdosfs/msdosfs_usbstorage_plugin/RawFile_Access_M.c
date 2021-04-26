@@ -142,7 +142,7 @@ static void registerUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffse
 {
 
 retry:
-    pthread_mutex_lock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    pthread_mutex_lock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     uint64_t uSector;
 
     uSector = uOffset / SECTOR_SIZE(GET_FSRECORD(psFileNode));
@@ -152,14 +152,14 @@ retry:
     for (int iCond = 0; iCond < NUM_OF_COND; iCond++)
     {
         //Found someone that is writing into this sector
-        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == uSector)
+        if (psFileNode->sExtraData.sFileData.sCondTable[iCond].uSectorNum == uSector)
         {
             needToWait = true;
-            condToWait = &psFileNode->sRecordData.sCondTable[iCond].sCond;
+            condToWait = &psFileNode->sExtraData.sFileData.sCondTable[iCond].sCond;
             break;
         }
         
-        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == 0 && iFreeLocation == NUM_OF_COND)
+        if (psFileNode->sExtraData.sFileData.sCondTable[iCond].uSectorNum == 0 && iFreeLocation == NUM_OF_COND)
         {
             iFreeLocation = iCond;
         }
@@ -171,41 +171,41 @@ retry:
         //if we found a free location
         if (iFreeLocation != NUM_OF_COND)
         {
-            psFileNode->sRecordData.sCondTable[iFreeLocation].uSectorNum = uSector;
+            psFileNode->sExtraData.sFileData.sCondTable[iFreeLocation].uSectorNum = uSector;
         } else {
             //we will wait on the last one to finish
             needToWait = true;
-            condToWait = &psFileNode->sRecordData.sCondTable[NUM_OF_COND - 1].sCond;
+            condToWait = &psFileNode->sExtraData.sFileData.sCondTable[NUM_OF_COND - 1].sCond;
         }
     }
     
-    pthread_mutex_unlock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    pthread_mutex_unlock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     
     if (needToWait)
     {
-        pthread_cond_wait(condToWait, &psFileNode->sRecordData.sUnAlignedWriteLck);
+        pthread_cond_wait(condToWait, &psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
         goto retry;
     }
 }
 
 static void unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset) {
  
-    pthread_mutex_lock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    pthread_mutex_lock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     uint64_t uSector = uOffset / SECTOR_SIZE(GET_FSRECORD(psFileNode));
     bool unregistered = false;
     for (int iCond = 0; iCond < NUM_OF_COND; iCond++)
     {
         //Found my condition
-        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == uSector)
+        if (psFileNode->sExtraData.sFileData.sCondTable[iCond].uSectorNum == uSector)
         {
-            psFileNode->sRecordData.sCondTable[iCond].uSectorNum = 0;
-            pthread_cond_broadcast(&psFileNode->sRecordData.sCondTable[iCond].sCond);
+            psFileNode->sExtraData.sFileData.sCondTable[iCond].uSectorNum = 0;
+            pthread_cond_broadcast(&psFileNode->sExtraData.sFileData.sCondTable[iCond].sCond);
             unregistered = true;
             break;
         }
     }
     assert(unregistered);
-    pthread_mutex_unlock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    pthread_mutex_unlock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
 }
 
 size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLength, void *pvBuf, int* piError)

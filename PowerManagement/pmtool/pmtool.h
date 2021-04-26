@@ -122,6 +122,7 @@ static void sendBHDataFromCFPrefs(void);
 static void sendAgingDataFromCFPrefs(void);
 #if TARGET_OS_OSX
 static void isVactSupported(void);
+static void setPermFaultStatus(int64_t pfStatus);
 #endif
 
 /*************************************************************************/
@@ -175,6 +176,7 @@ typedef enum {
     kGetBHDataFromPrefsIndex,
     kGetAgingDataFromPrefsIndex,
     kGetVactSupportedIndex,
+    kSetPermFaultStatusIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
 
@@ -257,6 +259,7 @@ enum {
 #define kActionGetBHDataFromPrefs                       "getbhdatafromprefs"
 #define kActionGetAgingDataFromPrefs                    "getagingdatafromprefs"
 #define kActionGetVactSupported                         "isvactsupported"
+#define kActionSetPermFaultStatus                       "setpermfaultstatus"
 
 #define kArgIOPMConnection                              "iopmconnection"
 #define kArgIORegisterForSystemPower                    "ioregisterforsystempower"

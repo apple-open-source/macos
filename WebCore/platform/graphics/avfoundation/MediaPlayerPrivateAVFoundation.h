@@ -158,7 +158,7 @@ protected:
     // MediaPlayerPrivatePrivateInterface overrides.
     void load(const String& url) override;
 #if ENABLE(MEDIA_SOURCE)
-    void load(const String&, MediaSourcePrivateClient*) override;
+    void load(const URL&, const ContentType&, MediaSourcePrivateClient*) override;
 #endif
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) override { setNetworkState(MediaPlayer::NetworkState::FormatError); }
@@ -240,7 +240,6 @@ protected:
     virtual void platformPlay() = 0;
     virtual void platformPause() = 0;
     virtual bool platformPaused() const { return !rate(); }
-    virtual void checkPlayability() = 0;
     virtual void seekToTime(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance) = 0;
     unsigned long long totalBytes() const override = 0;
     virtual std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const = 0;

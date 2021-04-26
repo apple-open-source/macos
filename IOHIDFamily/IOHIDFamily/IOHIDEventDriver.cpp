@@ -313,6 +313,8 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_orientation.cmElements);
     OSSafeReleaseNULL(_orientation.tiltElements);
     OSSafeReleaseNULL(_proximity.elements);
+    OSSafeReleaseNULL(_phase.phaseElements);
+    OSSafeReleaseNULL(_phase.longPress);
 
     if (_commandGate) {
         if ( _workLoop ) {
@@ -2692,6 +2694,7 @@ bool IOHIDEventDriver::parsePhaseElement(IOHIDElement * element)
             switch(usage) {
                 case kHIDUsage_AppleVendorKeyboard_LongPress:
                     _phase.longPress = element;
+                    _phase.longPress->retain();
                     return true;
             }
             break;
@@ -3812,8 +3815,6 @@ exit:
 //====================================================================================================
 void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 reportID)
 {
-    UInt32          volumeHandled    = 0;
-    UInt32          volumeState      = 0;
     Boolean         longPress        = false;
     Boolean         longPressChanged = false;
     UInt32          index;
@@ -3858,30 +3859,7 @@ void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 report
         usagePage   = element->getUsagePage();
         usage       = element->getUsage();
         
-        if ( usagePage == kHIDPage_Consumer ) {
-            bool suppress = true;
-            switch ( usage ) {
-                case kHIDUsage_Csmr_VolumeIncrement:
-                    volumeHandled   |= 0x1;
-                    volumeState     |= (value) ? 0x1:0;
-                    break;
-                case kHIDUsage_Csmr_VolumeDecrement:
-                    volumeHandled   |= 0x2;
-                    volumeState     |= (value) ? 0x2:0;
-                    break;
-                case kHIDUsage_Csmr_Mute:
-                    volumeHandled   |= 0x4;
-                    volumeState     |= (value) ? 0x4:0;
-                    break;
-                default:
-                    suppress = false;
-                    break;
-            }
-            
-            if ( suppress ) {
-                continue;
-            }
-        } else if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
+        if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
             setProperty(kIOHIDKeyboardEnabledKey, (value == 0) ? kOSBooleanFalse : kOSBooleanTrue);
         }
         
@@ -3902,21 +3880,6 @@ void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 report
                 dispatchKeyboardEvent(timeStamp, usagePage, usage, 1, 1, longPress, 0);
             }
         }
-    }
-    
-    // RY: Handle the case where Vol Increment, Decrement, and Mute are all down
-    // If such an event occurs, it is likely that the device is defective,
-    // and should be ignored.
-    if ( (volumeState != 0x7) && (volumeHandled != 0x7) ) {
-        // Volume Increment
-        if ( volumeHandled & 0x1 )
-            dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_VolumeIncrement, ((volumeState & 0x1) != 0), 1, longPress, 0);
-        // Volume Decrement
-        if ( volumeHandled & 0x2 )
-            dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_VolumeDecrement, ((volumeState & 0x2) != 0), 1, longPress, 0);
-        // Volume Mute
-        if ( volumeHandled & 0x4 )
-            dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Mute, ((volumeState & 0x4) != 0), 1, longPress, 0);
     }
 
 exit:

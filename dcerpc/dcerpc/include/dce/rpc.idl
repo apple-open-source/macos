@@ -762,7 +762,7 @@ void rpc_server_register_if_ex
     [in]        rpc_if_callback_fn_t    if_callback,
     [out]       unsigned32              *status
 );
-#endif
+*/
 
 /*
  * R P C _ S E R V E R _ R E G I S T E R _ I F 2

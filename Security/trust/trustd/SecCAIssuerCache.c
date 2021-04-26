@@ -28,6 +28,7 @@
 
 #include "trust/trustd/SecCAIssuerCache.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
+#include "trust/trustd/trustdFileLocations.h"
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
@@ -46,7 +47,6 @@
 #include "utilities/iOSforOSX.h"
 
 #include <CoreFoundation/CFUtilities.h>
-#include <utilities/SecFileLocations.h>
 #include <utilities/SecCFWrappers.h>
 
 static const char expireSQL[] = "DELETE FROM issuers WHERE expires<?";
@@ -119,7 +119,12 @@ static int sec_sqlite3_open(const char *db_name, sqlite3 **s3h,
                             bool create_path)
 {
 	int s3e;
-	s3e = sqlite3_open(db_name, s3h);
+#if TARGET_OS_IPHONE
+    int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FILEPROTECTION_NONE;
+#else
+    int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+#endif
+    s3e = sqlite3_open_v2(db_name, s3h, flags, NULL);
 	if (s3e == SQLITE_CANTOPEN && create_path) {
 		/* Make sure the path to db_name exists and is writable, then
          try again. */
@@ -254,19 +259,13 @@ errOut:
 }
 
 static void SecCAIssuerCacheInit(void) {
-#if TARGET_OS_IPHONE
-    WithPathInKeychainDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
+    WithPathInPrivateUserTrustdDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
         kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
     });
-#else
-    /* macOS caches should be in user cache dir */
-    WithPathInUserCacheDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
-        kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
-    });
-#endif
 
-    if (kSecCAIssuerCache)
+    if (kSecCAIssuerCache) {
         atexit(SecCAIssuerCacheGC);
+    }
 }
 
 static CF_RETURNS_RETAINED CFDataRef convertArrayOfCertsToData(CFArrayRef certificates) {

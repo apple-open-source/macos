@@ -365,6 +365,7 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
     CKKSErrorPolicyNotLoaded = 56,
 
     CKKSErrorUnexpectedNil = 57,
+    CKKSErrorGenerationCountMismatch = 58,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

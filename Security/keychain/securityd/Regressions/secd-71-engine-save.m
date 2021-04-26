@@ -178,6 +178,7 @@ static void testSaveRestore(void) {
     ok(bx,"SOSTestDeviceEngineSave v2: %@",error);
 
     SOSTestDeviceDestroyEngine(testDevices);
+    SOSTestDeviceForceCloseDatabases(testDevices);
     CFReleaseSafe(deviceIDs);
     CFReleaseSafe(testDevices);
     CFReleaseSafe(error);

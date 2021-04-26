@@ -1094,7 +1094,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 		(np->n_reparse_tag != IO_REPARSE_TAG_DFS) && 
         (np->n_reparse_tag != IO_REPARSE_TAG_SYMLINK) &&
         (np->n_reparse_tag != IO_REPARSE_TAG_DEDUP) &&
-        (np->n_reparse_tag != IO_REPARSE_TAG_AZURE_TIERED_FILE))  {
+        (np->n_reparse_tag != IO_REPARSE_TAG_STORAGE_SYNC))  {
         SMBWARNING_LOCK(np, "%s - unknown reparse point tag 0x%x\n", np->n_name, np->n_reparse_tag);
 	}
 	
@@ -1983,6 +1983,41 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
 		/* go ahead and update the meta data and return it for this vnode */
 	}
 
+    /* Need to check to see if dataless file status has changed */
+    if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) != (fap->fa_attr & SMB_EFA_REPARSE_POINT)) {
+        if ((np->n_reparse_tag == IO_REPARSE_TAG_STORAGE_SYNC) ||
+            (fap->fa_reparse_tag == IO_REPARSE_TAG_STORAGE_SYNC)) {
+            /*
+             * If its a cacheable file, push any dirty data and then invalidate
+             * the UBC
+             */
+            SMBWARNING_LOCK(np, "%s had dataless dosattr/reparse_tag of 0x%x/0x%x now its 0x%x/0x%x \n",
+                            np->n_name,
+                            np->n_dosattr, np->n_reparse_tag,
+                            fap->fa_attr, fap->fa_reparse_tag);
+
+            if (smbfsIsCacheable(vp)) {
+                if (np->f_refcnt > 0) {
+                    /*
+                     * File has to be open for the push dirty data to work.
+                     * Although this will probably cause the file on the server
+                     * to get materialized if its not already materialized.
+                     */
+                    ubc_msync (vp, 0, ubc_getsize(vp), NULL,
+                               UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
+                }
+                else {
+                    ubc_msync (vp, 0, ubc_getsize(vp), NULL,
+                               UBC_INVALIDATE);
+                }
+            }
+
+            monitorHint |= VNODE_EVENT_RENAME | VNODE_EVENT_ATTRIB;
+            /* Save the new reparse tag */
+            np->n_reparse_tag = fap->fa_reparse_tag;
+        }
+    }
+
 	/* No need to update the cache after close, we just got updated */
 	np->n_flag &= ~NATTRCHANGED;
 	if (node_vtype == VREG) {
@@ -2185,7 +2220,8 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
 		fap->fa_attr &= ~(SMB_EFA_RDONLY | SMB_EFA_HIDDEN | SMB_EFA_ARCHIVE);
 		np->n_dosattr &= (SMB_EFA_RDONLY | SMB_EFA_HIDDEN | SMB_EFA_ARCHIVE);
 		np->n_dosattr |= fap->fa_attr;
-	} else {
+	}
+    else {
 		np->n_dosattr = fap->fa_attr;
 	}
 
@@ -2383,6 +2419,35 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
         if ((np->n_dosattr & SMB_EFA_HIDDEN) && !vnode_isvroot(vp)) {
             va->va_flags |= UF_HIDDEN;
         }
+        
+        /*
+         * Is the file currently dataless?
+         */
+        if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) &&
+            (np->n_reparse_tag == IO_REPARSE_TAG_STORAGE_SYNC)) {
+            if (np->n_dosattr & SMB_EFA_RECALL_ON_DATA_ACCESS) {
+                /*
+                 * If M bit is set, then its a newer server and we know for
+                 * sure that reading the file will recall it. Opening the file
+                 * is fine.
+                 */
+                va->va_flags |= SF_DATALESS;
+            }
+            else {
+                /*
+                 * Check for older server which might have P or O bits set
+                 * If P or O bits are set, then must be an older server so we
+                 * assume that just opening the file will recall it.
+                 *
+                 * This is separated out in case we change our mind on this
+                 * behavior for older servers.
+                 */
+                if (np->n_dosattr & (SMB_EFA_OFFLINE | SMB_EFA_SPARSE)) {
+                    va->va_flags |= SF_DATALESS;
+                }
+            }
+        }
+        
         VATTR_SET_SUPPORTED(va, va_flags);
     }
     
@@ -3861,13 +3926,20 @@ smb2fs_reconnect(struct smbmount *smp)
      * which is the amount of credits we will start with after a reconnect
      * succeeds.
      */
-    SMBC_CREDIT_LOCK(sessionp);
-    curr_credits = OSAddAtomic(0, &sessionp->session_credits_ss_granted);
-    SMBC_CREDIT_UNLOCK(sessionp);
+    struct smbiod *iod = NULL;
+    if (smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__)) { // TBD: Do we need a for loop on all iods?
+        SMBERROR("Invalid iod\n");
+        return 0;
+    }
+
+    SMBC_CREDIT_LOCK(iod);
+    curr_credits = OSAddAtomic(0, &iod->iod_credits_ss_granted);
+    SMBC_CREDIT_UNLOCK(iod);
     if (curr_credits < 5) {
         SMBERROR("Insufficient credits <%d> after reconnect \n",
                  curr_credits);
-        return(ENOTCONN);
+        reconnect_error = ENOTCONN;
+        goto exit;
     }
     
     /*
@@ -3875,7 +3947,8 @@ smb2fs_reconnect(struct smbmount *smp)
      * check for whether the session needs to be validated or not.
      */
     if (!(smp->sm_args.altflags & SMBFS_MNT_VALIDATE_NEG_OFF)) {
-        if (sessionp->session_flags & SMBV_SMB2) {
+        if ((sessionp->session_flags & SMBV_SMB2) &&
+            !(sessionp->session_flags & SMBV_SMB311)) {
             /*
              * Use iod_context so we can tell this is from reconnect
              * Share was locked from smb_iod_reconnect, so have to unlock it
@@ -3888,7 +3961,8 @@ smb2fs_reconnect(struct smbmount *smp)
             if (error) {
                 SMBERROR("smb2fs_smb_validate_neg_info failed %d \n", error);
                 lck_mtx_lock(&smp->sm_share->ss_shlock);
-                return(ENOTCONN);
+                reconnect_error = ENOTCONN;
+                goto exit;
             }
             
             lck_mtx_lock(&smp->sm_share->ss_shlock);
@@ -3948,7 +4022,8 @@ smb2fs_reconnect(struct smbmount *smp)
         !(sessionp->session_misc_flags & SMBV_OSX_SERVER)) {
         SMBERROR("Prevously was OS X server, but not OS X server after reconnecting for %s volume\n",
                  (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
-        return(ENOTCONN);
+        reconnect_error = ENOTCONN;
+        goto exit;
     }
 
     /*
@@ -3961,7 +4036,8 @@ smb2fs_reconnect(struct smbmount *smp)
             !(smp->sm_share->ss_attributes & FILE_NAMED_STREAMS)) {
             SMBERROR("%s failed high fidelity check \n",
                      (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
-            return(ENOTCONN);
+            reconnect_error = ENOTCONN;
+            goto exit;
         }
     }
 
@@ -4365,7 +4441,9 @@ exit:
     if (fap) {
         SMB_FREE(fap, M_SMBTEMP);
     }
-	
+    
+    smb_iod_rel(iod, NULL, __FUNCTION__);
+    
 	return (reconnect_error);
 }
 
@@ -4713,10 +4791,9 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	struct smb2_durable_handle *dur_handlep = NULL;
 	//int need_ubc_flush = 0;
     int need_close_files = 0;
-    int need_close_dir = 0;
-	int is_locked = 0;
+    int is_locked = 0;
 	uint32_t ret_lease_state = 0;
-    SMBFID fid;
+    SMBFID fid = 0;
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_HANDLE_LEASE_BREAK | DBG_FUNC_START,
                    0, 0, 0, 0, 0);
@@ -4909,45 +4986,9 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 						  np->n_name);
 		}
 	}
-	else {
-		/* Check for a Dir Lease; can only be one per dir */
-		lck_mtx_lock(&np->d_dur_handle.lock);
-		
-		if ((np->d_dur_handle.lease_key_hi == lease_rqp->lease_key_hi) &&
-			(np->d_dur_handle.lease_key_low == lease_rqp->lease_key_low)) {
-			dur_handlep = &np->d_dur_handle;
-
-            /* This will invalidate the dir enum cache */
-			np->d_changecnt++;
-			
-			/* Assume a Dir Lease break essentially means the lease is gone */
-			if (lease_rqp->new_lease_state != SMB2_LEASE_NONE) {
-				SMBERROR_LOCK(np, "Dir Lease break not SMB2_LEASE_NONE <0x%x> on <%s>? \n",
-							  lease_rqp->new_lease_state, np->n_name);
-			}
-			dur_handlep->flags |= SMB2_LEASE_BROKEN;
-			dur_handlep->flags &= ~SMB2_LEASE_GRANTED;
-			
-			lck_mtx_unlock(&np->d_dur_handle.lock);
-			
-			cache_purge(vp);
-
-            /* Set flag to close the dir later in this code */
-            need_close_dir = 1;
-
-            SMB_LOG_UNIT_TEST_LOCK(np, "LeaseUnitTest - Lost dir lease on <%s> due to lease break \n",
-								   np->n_name);
-		}
-		else {
-			lck_mtx_unlock(&np->d_dur_handle.lock);
-			
-			SMBERROR_LOCK(np, "No dir lease found for lease break on <%s>\n",
-						  np->n_name);
-		}
-	}
 	
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_HANDLE_LEASE_BREAK | DBG_FUNC_NONE,
-                   0xabc002, need_close_files, need_close_dir, 0, 0);
+                   0xabc002, need_close_files, lease_rqp->need_close_dir, 0, 0);
 
 	/*
 	 * If there is no lease left, free it (if not already freed)
@@ -4969,15 +5010,14 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	 * the global lease table.
 	 */
 	
-	
 	/*
      * Free the hash lock as the file or dir closes and lease break ack
      * could take awhile and a reconnect could occur during that time.
      */
-	if (is_locked) {
-		lck_mtx_unlock(&global_Lease_hash_lock);
-		is_locked = 0;
-	}
+    if (is_locked) {
+        lck_mtx_unlock(&global_Lease_hash_lock);
+        is_locked = 0;
+    }
 
     /* Attempt to close the file fid now if needed */
     if ((need_close_files) &&
@@ -4990,7 +5030,7 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
     }
 
     /* Attempt to close the dir now if needed */
-    if ((need_close_dir) &&
+    if ((lease_rqp->need_close_dir) &&
         (np != NULL) &&
         (vp != NULL)) {
         /*
@@ -5032,6 +5072,7 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 		 * signing is being used.
 		 */
 		error = smb2_smb_lease_break_ack(share,
+                                         lease_rqp->received_iod,
 										 lease_rqp->lease_key_hi,
 										 lease_rqp->lease_key_low,
 										 lease_rqp->new_lease_state,
@@ -5041,10 +5082,10 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	}
 
 bad:
-	if (is_locked) {
-		lck_mtx_unlock(&global_Lease_hash_lock);
-	}
-	
+    if (is_locked) {
+        lck_mtx_unlock(&global_Lease_hash_lock);
+    }
+
 	if (share != NULL) {
 		smb_share_rele(share, context);
 	}
@@ -5055,6 +5096,109 @@ bad:
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_HANDLE_LEASE_BREAK | DBG_FUNC_END,
                    error, 0, 0, 0, 0);
+
+    return (error);
+}
+
+int
+smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
+{
+    vnode_t    vp = NULL;
+    uint32_t vid = 0;
+    struct smb_lease *leasep = NULL;
+    int error = 0;
+    struct smbnode *np = NULL;
+    struct smb2_durable_handle *dur_handlep = NULL;
+
+    /*
+     * if its a dir lease break, then we are invalidating the dir enumeration
+     * cache immediately instead of waiting for the lease thread to run at
+     * some later time. Closing the dir, removing the lease entry, and sending
+     * the lease break ack is done later by the lease thread.
+     */
+
+    /*
+     * Use the lease key to find the leasep
+     */
+    lck_mtx_lock(&global_Lease_hash_lock);
+
+    /*
+     * Be careful here holding on to the global_Lease_hash_lock for too long.
+     * Do NOT hold it over any SMB Requests/Reply as reconnect could occur
+     * and the reconnect code will need to grab the global_Lease_hash_lock.
+     * That can lead to a deadlock where we are holding global_Lease_hash_lock
+     * and waiting for a reply, but the iod thread is in reconnect and not
+     * processing replies while it waits for the global_Lease_hash_lock
+     */
+    leasep = smb2_lease_hash_get(lease_rqp->lease_key_hi,
+                                 lease_rqp->lease_key_low);
+
+    if (leasep == NULL) {
+        SMBERROR("Failed to find lease \n");
+        error = ENOENT;
+        goto bad;
+    }
+
+    /* Try to retrieve the vnode */
+    vp = leasep->vnode;
+    vid = leasep->vid;
+
+    if (vnode_getwithvid(vp, vid)) {
+        SMBERROR("Failed to get the vnode \n");
+        error = ENOENT;
+        vp = NULL;
+        goto bad;
+    }
+
+    /* Make sure it is one of my vnodes */
+    if (vnode_tag(vp) != VT_CIFS) {
+        /* Should be impossible */
+        SMBERROR("vnode_getwithvid found non SMB vnode???\n");
+        error = ENOENT;
+        goto bad;
+    }
+
+    np = VTOSMB(vp);
+
+    if (vnode_vtype(vp) == VDIR) {
+        /* Check for a Dir Lease; can only be one per dir */
+        lck_mtx_lock(&np->d_dur_handle.lock);
+
+        if ((np->d_dur_handle.lease_key_hi == lease_rqp->lease_key_hi) &&
+            (np->d_dur_handle.lease_key_low == lease_rqp->lease_key_low)) {
+            dur_handlep = &np->d_dur_handle;
+
+            /* This will invalidate the dir enum cache */
+            np->d_changecnt++;
+
+            /* Assume a Dir Lease break essentially means the lease is gone */
+            if (lease_rqp->new_lease_state != SMB2_LEASE_NONE) {
+                SMBERROR_LOCK(np, "Dir Lease break not SMB2_LEASE_NONE <0x%x> on <%s>? \n",
+                              lease_rqp->new_lease_state, np->n_name);
+            }
+            dur_handlep->flags |= SMB2_LEASE_BROKEN;
+            dur_handlep->flags &= ~SMB2_LEASE_GRANTED;
+
+            lck_mtx_unlock(&np->d_dur_handle.lock);
+
+            cache_purge(vp);
+
+            /* set need_close_dir flag so lease thread will attemp to close the dir */
+            lease_rqp->need_close_dir = 1;
+        }
+        else {
+            lck_mtx_unlock(&np->d_dur_handle.lock);
+            SMBERROR_LOCK(np, "No dir lease found for lease break on <%s>\n",
+                          np->n_name);
+        }
+    }
+
+bad:
+    lck_mtx_unlock(&global_Lease_hash_lock);
+
+    if (vp != NULL) {
+        vnode_put(vp);
+    }
 
     return (error);
 }

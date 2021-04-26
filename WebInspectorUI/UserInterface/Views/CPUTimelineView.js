@@ -82,18 +82,16 @@ WI.CPUTimelineView = class CPUTimelineView extends WI.TimelineView
 
     // Public
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
-        if (this._timelineRuler)
-            this._timelineRuler.updateLayout(WI.View.LayoutReason.Resize);
+        this._timelineRuler?.needsLayout(WI.View.LayoutReason.Resize);
     }
 
     closed()
     {
-        console.assert(this.representedObject instanceof WI.Timeline);
-        this.representedObject.removeEventListener(null, null, this);
+        this.representedObject.removeEventListener(WI.Timeline.Event.RecordAdded, this._cpuTimelineRecordAdded, this);
     }
 
     reset()

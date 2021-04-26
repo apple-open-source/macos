@@ -43,6 +43,23 @@
 
 namespace WebCore {
 
+class ThreadSafeImageBufferFlusherCG : public ThreadSafeImageBufferFlusher {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    ThreadSafeImageBufferFlusherCG(CGContextRef context)
+        : m_context(context)
+    {
+    }
+
+    void flush() override
+    {
+        CGContextFlush(m_context.get());
+    }
+
+private:
+    RetainPtr<CGContextRef> m_context;
+};
+
 RetainPtr<CGColorSpaceRef> ImageBufferCGBackend::contextColorSpace(const GraphicsContext& context)
 {
 #if PLATFORM(COCOA)
@@ -57,13 +74,13 @@ RetainPtr<CGColorSpaceRef> ImageBufferCGBackend::contextColorSpace(const Graphic
     return nullptr;
 #endif
 }
-#
 
-void ImageBufferCGBackend::setupContext()
+void ImageBufferCGBackend::setupContext() const
 {
+    // The initial CTM matches DisplayList::Recorder::clipToDrawingCommands()'s initial CTM.
     context().scale(FloatSize(1, -1));
-    context().translate(0, -m_backendSize.height());
-    context().applyDeviceScaleFactor(m_resolutionScale);
+    context().translate(0, -backendSize().height());
+    context().applyDeviceScaleFactor(resolutionScale());
 }
 
 static RetainPtr<CGImageRef> createCroppedImageIfNecessary(CGImageRef image, const IntSize& backendSize)
@@ -73,17 +90,17 @@ static RetainPtr<CGImageRef> createCroppedImageIfNecessary(CGImageRef image, con
     return image;
 }
 
-static RefPtr<Image> createBitmapImageAfterScalingIfNeeded(RetainPtr<CGImageRef>&& image, const IntSize& logicalSize, const IntSize& backendSize, float resolutionScale, PreserveResolution preserveResolution)
+static RefPtr<Image> createBitmapImageAfterScalingIfNeeded(RefPtr<NativeImage>&& image, const IntSize& logicalSize, const IntSize& backendSize, float resolutionScale, PreserveResolution preserveResolution)
 {
     if (resolutionScale == 1 || preserveResolution == PreserveResolution::Yes)
-        image = createCroppedImageIfNecessary(image.get(), backendSize);
+        image = NativeImage::create(createCroppedImageIfNecessary(image->platformImage().get(), backendSize));
     else {
-        auto context = adoptCF(CGBitmapContextCreate(0, logicalSize.width(), logicalSize.height(), 8, 4 * logicalSize.width(), sRGBColorSpaceRef(), kCGImageAlphaPremultipliedLast));
+        auto context = adoptCF(CGBitmapContextCreate(0, logicalSize.width(), logicalSize.height(), 8, 4 * logicalSize.width(), sRGBColorSpaceRef(), kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
         CGContextSetBlendMode(context.get(), kCGBlendModeCopy);
         CGContextClipToRect(context.get(), FloatRect(FloatPoint::zero(), logicalSize));
         FloatSize imageSizeInUserSpace = logicalSize;
-        CGContextDrawImage(context.get(), FloatRect(FloatPoint::zero(), imageSizeInUserSpace), image.get());
-        image = adoptCF(CGBitmapContextCreateImage(context.get()));
+        CGContextDrawImage(context.get(), FloatRect(FloatPoint::zero(), imageSizeInUserSpace), image->platformImage().get());
+        image = NativeImage::create(adoptCF(CGBitmapContextCreateImage(context.get())));
     }
 
     if (!image)
@@ -94,40 +111,54 @@ static RefPtr<Image> createBitmapImageAfterScalingIfNeeded(RetainPtr<CGImageRef>
 
 RefPtr<Image> ImageBufferCGBackend::copyImage(BackingStoreCopy copyBehavior, PreserveResolution preserveResolution) const
 {
-    NativeImagePtr image;
-    if (m_resolutionScale == 1 || preserveResolution == PreserveResolution::Yes)
+    RefPtr<NativeImage> image;
+    if (resolutionScale() == 1 || preserveResolution == PreserveResolution::Yes)
         image = copyNativeImage(copyBehavior);
     else
         image = copyNativeImage(DontCopyBackingStore);
-    return createBitmapImageAfterScalingIfNeeded(WTFMove(image), m_logicalSize, m_backendSize, m_resolutionScale, preserveResolution);
+    return createBitmapImageAfterScalingIfNeeded(WTFMove(image), logicalSize(), backendSize(), resolutionScale(), preserveResolution);
 }
 
 RefPtr<Image> ImageBufferCGBackend::sinkIntoImage(PreserveResolution preserveResolution)
 {
-    return createBitmapImageAfterScalingIfNeeded(sinkIntoNativeImage(), m_logicalSize, m_backendSize, m_resolutionScale, preserveResolution);
+    // Get the backend size before sinking the it into a NativeImage. sinkIntoNativeImage() sets the IOSurface to null if it's an accelerated backend.
+    auto backendSize = this->backendSize();
+    return createBitmapImageAfterScalingIfNeeded(sinkIntoNativeImage(), logicalSize(), backendSize, resolutionScale(), preserveResolution);
 }
 
 void ImageBufferCGBackend::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     FloatRect srcRectScaled = srcRect;
-    srcRectScaled.scale(m_resolutionScale);
+    srcRectScaled.scale(resolutionScale());
 
     if (auto image = copyNativeImage(&destContext == &context() ? CopyBackingStore : DontCopyBackingStore))
-        destContext.drawNativeImage(image.get(), m_backendSize, destRect, srcRectScaled, options);
+        destContext.drawNativeImage(*image, backendSize(), destRect, srcRectScaled, options);
 }
 
 void ImageBufferCGBackend::drawPattern(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     FloatRect adjustedSrcRect = srcRect;
-    adjustedSrcRect.scale(m_resolutionScale);
+    adjustedSrcRect.scale(resolutionScale());
 
     if (auto image = copyImage(&destContext == &context() ? CopyBackingStore : DontCopyBackingStore))
         image->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
 }
 
-AffineTransform ImageBufferCGBackend::baseTransform() const
+void ImageBufferCGBackend::clipToMask(GraphicsContext& destContext, const FloatRect& destRect)
 {
-    return AffineTransform(1, 0, 0, -1, 0, m_logicalSize.height());
+    auto nativeImage = copyNativeImage(DontCopyBackingStore);
+    if (!nativeImage)
+        return;
+    
+    CGContextRef cgContext = destContext.platformContext();
+
+    // FIXME: This image needs to be grayscale to be used as an alpha mask here.
+    CGContextTranslateCTM(cgContext, destRect.x(), destRect.maxY());
+    CGContextScaleCTM(cgContext, 1, -1);
+    CGContextClipToRect(cgContext, { { }, destRect.size() });
+    CGContextClipToMask(cgContext, { { }, destRect.size() }, nativeImage->platformImage().get());
+    CGContextScaleCTM(cgContext, 1, -1);
+    CGContextTranslateCTM(cgContext, -destRect.x(), -destRect.maxY());
 }
 
 RetainPtr<CFDataRef> ImageBufferCGBackend::toCFData(const String& mimeType, Optional<double> quality, PreserveResolution preserveResolution) const
@@ -137,7 +168,7 @@ RetainPtr<CFDataRef> ImageBufferCGBackend::toCFData(const String& mimeType, Opti
     auto uti = utiFromImageBufferMIMEType(mimeType);
     ASSERT(uti);
 
-    RetainPtr<CGImageRef> image;
+    PlatformImagePtr image;
     RefPtr<Uint8ClampedArray> protectedPixelArray;
 
     if (CFEqual(uti.get(), jpegUTI())) {
@@ -156,12 +187,12 @@ RetainPtr<CFDataRef> ImageBufferCGBackend::toCFData(const String& mimeType, Opti
             return nullptr;
 
         image = adoptCF(CGImageCreate(pixelArrayDimensions.width(), pixelArrayDimensions.height(), 8, 32, 4 * pixelArrayDimensions.width(), sRGBColorSpaceRef(), kCGBitmapByteOrderDefault | kCGImageAlphaNoneSkipLast, dataProvider.get(), 0, false, kCGRenderingIntentDefault));
-    } else if (m_resolutionScale == 1 || preserveResolution == PreserveResolution::Yes) {
-        image = copyNativeImage(CopyBackingStore);
+    } else if (resolutionScale() == 1 || preserveResolution == PreserveResolution::Yes) {
+        image = copyNativeImage(CopyBackingStore)->platformImage();
         image = createCroppedImageIfNecessary(image.get(), backendSize());
     } else {
-        image = copyNativeImage(DontCopyBackingStore);
-        auto context = adoptCF(CGBitmapContextCreate(0, backendSize().width(), backendSize().height(), 8, 4 * backendSize().width(), sRGBColorSpaceRef(), kCGImageAlphaPremultipliedLast));
+        image = copyNativeImage(DontCopyBackingStore)->platformImage();
+        auto context = adoptCF(CGBitmapContextCreate(0, backendSize().width(), backendSize().height(), 8, 4 * backendSize().width(), sRGBColorSpaceRef(), kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
         CGContextSetBlendMode(context.get(), kCGBlendModeCopy);
         CGContextClipToRect(context.get(), CGRectMake(0, 0, backendSize().width(), backendSize().height()));
         CGContextDrawImage(context.get(), CGRectMake(0, 0, backendSize().width(), backendSize().height()), image.get());
@@ -189,6 +220,11 @@ String ImageBufferCGBackend::toDataURL(const String& mimeType, Optional<double> 
     return "data:,"_s;
 }
 
+std::unique_ptr<ThreadSafeImageBufferFlusher> ImageBufferCGBackend::createFlusher()
+{
+    return WTF::makeUnique<ThreadSafeImageBufferFlusherCG>(context().platformContext());
+}
+
 #if USE(ACCELERATE)
 static inline vImage_Buffer makeVImageBuffer(unsigned bytesPerRow, uint8_t* rows, const IntSize& size)
 {
@@ -202,11 +238,11 @@ static inline vImage_Buffer makeVImageBuffer(unsigned bytesPerRow, uint8_t* rows
 }
 
 static inline void copyImagePixelsAccelerated(
-    AlphaPremultiplication srcAlphaFormat, ColorFormat srcColorFormat, vImage_Buffer& src,
-    AlphaPremultiplication destAlphaFormat, ColorFormat destColorFormat, vImage_Buffer& dest)
+    AlphaPremultiplication srcAlphaFormat, PixelFormat srcPixelFormat, vImage_Buffer& src,
+    AlphaPremultiplication destAlphaFormat, PixelFormat destPixelFormat, vImage_Buffer& dest)
 {
     if (srcAlphaFormat == destAlphaFormat) {
-        ASSERT(srcColorFormat != destColorFormat);
+        ASSERT(srcPixelFormat != destPixelFormat);
         // The destination alpha format can be unpremultiplied in the
         // case of an ImageBitmap created from an ImageData with
         // premultiplyAlpha=="none".
@@ -218,18 +254,18 @@ static inline void copyImagePixelsAccelerated(
     }
 
     if (destAlphaFormat == AlphaPremultiplication::Unpremultiplied) {
-        if (srcColorFormat == ColorFormat::RGBA)
+        if (srcPixelFormat == PixelFormat::RGBA8)
             vImageUnpremultiplyData_RGBA8888(&src, &dest, kvImageNoFlags);
         else
             vImageUnpremultiplyData_BGRA8888(&src, &dest, kvImageNoFlags);
     } else {
-        if (srcColorFormat == ColorFormat::RGBA)
+        if (srcPixelFormat == PixelFormat::RGBA8)
             vImagePremultiplyData_RGBA8888(&src, &dest, kvImageNoFlags);
         else
             vImagePremultiplyData_BGRA8888(&src, &dest, kvImageNoFlags);
     }
 
-    if (srcColorFormat != destColorFormat) {
+    if (srcPixelFormat != destPixelFormat) {
         // Swap pixel channels BGRA <-> RGBA.
         const uint8_t map[4] = { 2, 1, 0, 3 };
         vImagePermuteChannels_ARGB8888(&dest, &dest, map, kvImageNoFlags);
@@ -237,18 +273,22 @@ static inline void copyImagePixelsAccelerated(
 }
 
 void ImageBufferCGBackend::copyImagePixels(
-    AlphaPremultiplication srcAlphaFormat, ColorFormat srcColorFormat, unsigned srcBytesPerRow, uint8_t* srcRows,
-    AlphaPremultiplication destAlphaFormat, ColorFormat destColorFormat, unsigned destBytesPerRow, uint8_t* destRows, const IntSize& size) const
+    AlphaPremultiplication srcAlphaFormat, PixelFormat srcPixelFormat, unsigned srcBytesPerRow, uint8_t* srcRows,
+    AlphaPremultiplication destAlphaFormat, PixelFormat destPixelFormat, unsigned destBytesPerRow, uint8_t* destRows, const IntSize& size) const
 {
-    if (srcAlphaFormat == destAlphaFormat && srcColorFormat == destColorFormat) {
-        ImageBufferBackend::copyImagePixels(srcAlphaFormat, srcColorFormat, srcBytesPerRow, srcRows, destAlphaFormat, destColorFormat, destBytesPerRow, destRows, size);
+    // We don't currently support getting or putting pixel data with deep color buffers.
+    ASSERT(srcPixelFormat == PixelFormat::RGBA8 || srcPixelFormat == PixelFormat::BGRA8);
+    ASSERT(destPixelFormat == PixelFormat::RGBA8 || destPixelFormat == PixelFormat::BGRA8);
+
+    if (srcAlphaFormat == destAlphaFormat && srcPixelFormat == destPixelFormat) {
+        ImageBufferBackend::copyImagePixels(srcAlphaFormat, srcPixelFormat, srcBytesPerRow, srcRows, destAlphaFormat, destPixelFormat, destBytesPerRow, destRows, size);
         return;
     }
 
     vImage_Buffer src = makeVImageBuffer(srcBytesPerRow, srcRows, size);
     vImage_Buffer dest = makeVImageBuffer(destBytesPerRow, destRows, size);
 
-    copyImagePixelsAccelerated(srcAlphaFormat, srcColorFormat, src, destAlphaFormat, destColorFormat, dest);
+    copyImagePixelsAccelerated(srcAlphaFormat, srcPixelFormat, src, destAlphaFormat, destPixelFormat, dest);
 }
 #endif
 

@@ -26,6 +26,7 @@
 // ssclient - SecurityServer client interface library
 //
 #include "sstransit.h"
+#include <os/assumes.h>
 #include <servers/netname.h>
 #include <security_utilities/debugging.h>
 
@@ -67,6 +68,31 @@ ClientSession::registerForAclEdits(DidChangeKeyAclCallback *callback, void *cont
 	mCallbackContext = context;
 }
 
+// chroot safety: revert to old behavior on old kernel
+static task_id_token_t
+self_token_create(void)
+{
+    task_id_token_t self_token = TASK_ID_TOKEN_NULL;
+
+    kern_return_t kr = task_create_identity_token(mach_task_self(), &self_token);
+    if (kr == MIG_BAD_ID) {
+        self_token = mach_task_self();
+    } else {
+        os_assert_zero(kr);
+    }
+
+    return self_token;
+}
+
+// chroot safety: self_token_create may have returned the task port
+static void
+self_token_deallocate(task_id_token_t token)
+{
+    if (token != mach_task_self()) {
+        (void)mach_port_deallocate(mach_task_self(), token);
+    }
+}
+
 //
 // Perform any preambles required to be a securityd client in good standing.
 // This includes initial setup calls, thread registration, fork management,
@@ -87,7 +113,9 @@ void ClientSession::activate()
     Thread &thread = global.thread();
     if (!thread) {
 		// first time for this thread - use abbreviated registration
-		IPCN(ucsp_client_setupThread(UCSP_ARGS, mach_task_self()));
+		task_id_token_t token = self_token_create();
+		IPCN(ucsp_client_setupThread(UCSP_ARGS, token));
+		self_token_deallocate(token);
         thread.registered = true;
         secinfo("SSclnt", "Thread registered with %s", mContactName);
 	}
@@ -135,8 +163,10 @@ ClientSession::Global::Global()
     // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
     Thread &thread = this->thread();
 	
+	task_id_token_t token = self_token_create();
 	IPCBASIC(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
-		mach_task_self(), info, extForm));
+		token, info, extForm));
+	self_token_deallocate(token);
     thread.registered = true;	// as a side-effect of setup call above
 	IFDEBUG(serverPort.requestNotify(thread.replyPort));
 	secinfo("SSclnt", "contact with %s established", mContactName);

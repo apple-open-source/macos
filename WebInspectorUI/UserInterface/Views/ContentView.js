@@ -93,13 +93,16 @@ WI.ContentView = class ContentView extends WI.View
                 return new WI.MediaTimelineView(representedObject, extraArguments);
         }
 
-        if (representedObject instanceof WI.Breakpoint || representedObject instanceof WI.IssueMessage) {
+        if (representedObject instanceof WI.JavaScriptBreakpoint || representedObject instanceof WI.IssueMessage) {
             if (representedObject.sourceCodeLocation)
                 return WI.ContentView.createFromRepresentedObject(representedObject.sourceCodeLocation.displaySourceCode, extraArguments);
         }
 
-        if (representedObject instanceof WI.LocalResourceOverride)
+        if (representedObject instanceof WI.LocalResourceOverride) {
+            if (representedObject.type === WI.LocalResourceOverride.InterceptType.Request)
+                return new WI.LocalResourceOverrideRequestContentView(representedObject);
             return WI.ContentView.createFromRepresentedObject(representedObject.localResource);
+        }
 
         if (representedObject instanceof WI.DOMStorageObject)
             return new WI.DOMStorageContentView(representedObject, extraArguments);
@@ -234,19 +237,22 @@ WI.ContentView = class ContentView extends WI.View
         if (representedObject instanceof WI.Frame)
             return representedObject.mainResource;
 
-        if (representedObject instanceof WI.Breakpoint || representedObject instanceof WI.IssueMessage) {
+        if (representedObject instanceof WI.JavaScriptBreakpoint || representedObject instanceof WI.IssueMessage) {
             if (representedObject.sourceCodeLocation)
                 return representedObject.sourceCodeLocation.displaySourceCode;
+            return representedObject;
         }
 
         if (representedObject instanceof WI.DOMBreakpoint) {
             if (representedObject.domNode)
                 return WI.ContentView.resolvedRepresentedObjectForRepresentedObject(representedObject.domNode);
+            return representedObject;
         }
 
         if (representedObject instanceof WI.DOMNode) {
             if (representedObject.frame)
                 return WI.ContentView.resolvedRepresentedObjectForRepresentedObject(representedObject.frame);
+            return representedObject;
         }
 
         if (representedObject instanceof WI.DOMSearchMatchObject)
@@ -255,8 +261,11 @@ WI.ContentView = class ContentView extends WI.View
         if (representedObject instanceof WI.SourceCodeSearchMatchObject)
             return representedObject.sourceCode;
 
-        if (representedObject instanceof WI.LocalResourceOverride)
-            return representedObject.localResource;
+        if (representedObject instanceof WI.LocalResourceOverride) {
+            if (representedObject.type !== WI.LocalResourceOverride.InterceptType.Request)
+                return representedObject.localResource;
+            return representedObject;
+        }
 
         return representedObject;
     }
@@ -279,7 +288,7 @@ WI.ContentView = class ContentView extends WI.View
             return true;
         if (representedObject instanceof WI.Timeline)
             return true;
-        if (representedObject instanceof WI.Breakpoint || representedObject instanceof WI.IssueMessage)
+        if (representedObject instanceof WI.JavaScriptBreakpoint || representedObject instanceof WI.IssueMessage)
             return representedObject.sourceCodeLocation;
         if (representedObject instanceof WI.LocalResourceOverride)
             return true;
@@ -346,16 +355,6 @@ WI.ContentView = class ContentView extends WI.View
         return this._parentContainer;
     }
 
-    get visible()
-    {
-        return this._visible;
-    }
-
-    set visible(flag)
-    {
-        this._visible = flag;
-    }
-
     get scrollableElements()
     {
         // Implemented by subclasses.
@@ -389,16 +388,6 @@ WI.ContentView = class ContentView extends WI.View
     {
         // Implemented by subclasses.
         return WI.dockedConfigurationSupportsSplitContentBrowser();
-    }
-
-    shown()
-    {
-        // Implemented by subclasses.
-    }
-
-    hidden()
-    {
-        // Implemented by subclasses.
     }
 
     closed()

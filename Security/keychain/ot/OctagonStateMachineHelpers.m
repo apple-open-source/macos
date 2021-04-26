@@ -28,6 +28,8 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/ckks/CKKS.h"
 
 OctagonState* const OctagonStateMachineNotStarted = (OctagonState*) @"not_started";
 OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
@@ -173,6 +175,69 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
     });
 
     return self;
+}
+
+@end
+
+@implementation NSError (Octagon)
+
+- (NSTimeInterval)overallCuttlefishRetry {
+    NSTimeInterval baseDelay = SecCKKSTestsEnabled() ? 2 : 30;
+    NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self);
+    NSTimeInterval cuttlefishDelay = [self cuttlefishRetryAfter];
+    NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
+    if (delay == 0) {
+        delay = baseDelay;
+    }
+    return delay;
+}
+
+- (bool)retryableCuttlefishError {
+    bool retry = false;
+    // Specific errors that are transaction failed -- try them again
+    if ([self isCuttlefishError:CuttlefishErrorRetryableServerFailure] ||
+        [self isCuttlefishError:CuttlefishErrorTransactionalFailure]) {
+        retry = true;
+    // These are the CuttlefishError -> FunctionErrorType
+    } else if ([self isCuttlefishError:CuttlefishErrorJoinFailed] ||
+               [self isCuttlefishError:CuttlefishErrorUpdateTrustFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEstablishPeerFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEstablishBottleFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEscrowProxyFailure]) {
+        retry = true;
+    } else if ([self.domain isEqualToString:TrustedPeersHelperErrorDomain]) {
+        switch (self.code) {
+        case TrustedPeersHelperErrorUnknownCloudKitError:
+            retry = true;
+            break;
+        default:
+            break;
+        }
+    } else if ([self.domain isEqualToString:NSURLErrorDomain]) {
+        switch (self.code) {
+        case NSURLErrorTimedOut:
+            retry = true;
+            break;
+        default:
+            break;
+        }
+    } else if ([self.domain isEqualToString:CKErrorDomain]) {
+        if (self.userInfo[CKErrorRetryAfterKey] != nil) {
+            retry = true;
+        } else {
+            switch (self.code) {
+            case CKErrorNetworkFailure:
+                retry = true;
+                break;
+            default:
+                break;
+            }
+        }
+    } else if ([self isCKServerInternalError]) {
+        retry = true;
+    }
+
+    return retry;
 }
 
 @end

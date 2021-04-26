@@ -184,15 +184,11 @@ public:
     // Notification from the renderer that its content changed.
     void contentChanged(ContentChangeType);
 
-    // Interface to start, finish, suspend and resume animations and transitions
-    bool startTransition(double, CSSPropertyID, const RenderStyle* fromStyle, const RenderStyle* toStyle);
-    void transitionPaused(double timeOffset, CSSPropertyID);
-    void transitionFinished(CSSPropertyID);
-
+    // Interface to start, finish, suspend and resume animations
     bool startAnimation(double timeOffset, const Animation&, const KeyframeList&);
     void animationPaused(double timeOffset, const String& name);
     void animationFinished(const String& name);
-
+    void transformRelatedPropertyDidChange();
     void suspendAnimations(MonotonicTime = MonotonicTime());
     void resumeAnimations();
 
@@ -254,6 +250,8 @@ public:
     bool needsPixelAligment() const override { return !m_isMainFrameRenderViewLayer; }
 
     LayoutSize subpixelOffsetFromRenderer() const { return m_subpixelOffsetFromRenderer; }
+
+    TransformationMatrix transformMatrixForProperty(AnimatedPropertyID) const final;
 
 #if PLATFORM(IOS_FAMILY)
     bool needsIOSDumpRenderTreeMainFrameRenderViewLayerIsAlwaysOpaqueHack(const GraphicsLayer&) const override;

@@ -23,6 +23,7 @@
 
 #import <Foundation/Foundation.h>
 #import "supdProtocol.h"
+#import "trust/trustd/trustdFileLocations.h"
 
 @interface SFAnalyticsClient: NSObject
 @property (nonatomic) NSString* storePath;
@@ -72,18 +73,15 @@ typedef NS_ENUM(NSInteger, SupdError) {
     SupdInvalidJSONError,
 };
 
-@interface supd : NSObject <supdProtocol>
-+ (instancetype)instance;
-+ (void)removeInstance;
-+ (void)instantiate;
-- (instancetype)initWithReporter:(SFAnalyticsReporter *)reporter;
+@interface supd : NSObject <supdProtocol, TrustdFileHelper_protocol>
+- (instancetype)initWithConnection:(NSXPCConnection *)connection;
 
 // --------------------------------
 // Things below are for unit testing
-@property (readonly) dispatch_queue_t queue;
 @property (readonly) NSArray<SFAnalyticsTopic*>* analyticsTopics;
 @property (readonly) SFAnalyticsReporter *reporter;
 - (void)sendNotificationForOncePerReportSamplers;
+- (instancetype)initWithConnection:(NSXPCConnection *)connection reporter:(SFAnalyticsReporter *)reporter;
 @end
 
 // --------------------------------

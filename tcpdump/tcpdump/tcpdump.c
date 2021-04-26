@@ -4004,6 +4004,13 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					  prsep));
 				prsep = ", ";
 			}
+#ifdef PCAPNG_EPB_PMDF_WAKE_PKT
+			if ((pmdflags & PCAPNG_EPB_PMDF_WAKE_PKT)) {
+				ND_PRINT((ndo, "%s" "wk",
+					  prsep));
+				prsep = ", ";
+			}
+#endif /* PCAPNG_EPB_PMDF_WAKE_PKT */
 		}
 
 		/*

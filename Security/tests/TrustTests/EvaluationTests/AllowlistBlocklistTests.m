@@ -30,6 +30,7 @@
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecCFWrappers.h>
 
 #import "../TestMacroConversions.h"
 #import "TrustEvaluationTestCase.h"
@@ -83,6 +84,30 @@
     [self validate_one_cert:login_skype_com_cer length:sizeof(login_skype_com_cer) chain_length:2 trustResult:kSecTrustResultFatalTrustFailure];
     [self validate_one_cert:www_google_com_cer length:sizeof(www_google_com_cer) chain_length:2 trustResult:kSecTrustResultFatalTrustFailure];
 }
+
+- (void)testDigicertMalaysia {
+    SecPolicyRef sslPolicy = SecPolicyCreateSSL(false, 0);
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+
+    /* Run the tests. */
+    [self runCertificateTestForDirectory:sslPolicy subDirectory:@"DigicertMalaysia" verifyDate:testDate];
+
+    CFReleaseSafe(sslPolicy);
+}
+
+#if !TARGET_OS_BRIDGE
+/* BridgeOS doesn't have Valid -- the other Blocklist tests happen to pass because the certs fail for other
+ * reasons (no root store, missing EKU, disallowed hash or key size). */
+- (void)testDigiNotar {
+    SecPolicyRef sslPolicy = SecPolicyCreateSSL(false, 0);
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+
+    /* Run the tests. */
+    [self runCertificateTestForDirectory:sslPolicy subDirectory:@"DigiNotar" verifyDate:testDate];
+
+    CFReleaseSafe(sslPolicy);
+}
+#endif // !TARGET_OS_BRIDGE
 
 @end
 

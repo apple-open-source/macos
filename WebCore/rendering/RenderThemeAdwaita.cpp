@@ -79,7 +79,7 @@ static constexpr auto mediaSliderTrackActiveColor = SRGBA<uint8_t> { 252, 252, 2
 #if !PLATFORM(GTK)
 RenderTheme& RenderTheme::singleton()
 {
-    static NeverDestroyed<RenderThemeAdwaita> theme;
+    static MainThreadNeverDestroyed<RenderThemeAdwaita> theme;
     return theme;
 }
 #endif
@@ -251,7 +251,7 @@ void RenderThemeAdwaita::adjustMenuListButtonStyle(RenderStyle& style, const Ele
     adjustMenuListStyle(style, element);
 }
 
-LengthBox RenderThemeAdwaita::popupInternalPaddingBox(const RenderStyle& style) const
+LengthBox RenderThemeAdwaita::popupInternalPaddingBox(const RenderStyle& style, const Settings&) const
 {
     if (style.appearance() == NoControlPart)
         return { };
@@ -297,17 +297,17 @@ bool RenderThemeAdwaita::paintMenuList(const RenderObject& renderObject, const P
     return false;
 }
 
-bool RenderThemeAdwaita::paintMenuListButtonDecorations(const RenderBox& renderObject, const PaintInfo& paintInfo, const FloatRect& rect)
+void RenderThemeAdwaita::paintMenuListButtonDecorations(const RenderBox& renderObject, const PaintInfo& paintInfo, const FloatRect& rect)
 {
-    return paintMenuList(renderObject, paintInfo, rect);
+    paintMenuList(renderObject, paintInfo, rect);
 }
 
-Seconds RenderThemeAdwaita::animationRepeatIntervalForProgressBar(RenderProgress&) const
+Seconds RenderThemeAdwaita::animationRepeatIntervalForProgressBar(const RenderProgress&) const
 {
     return progressAnimationFrameRate;
 }
 
-Seconds RenderThemeAdwaita::animationDurationForProgressBar(RenderProgress&) const
+Seconds RenderThemeAdwaita::animationDurationForProgressBar(const RenderProgress&) const
 {
     return progressAnimationFrameRate * progressAnimationFrameCount;
 }

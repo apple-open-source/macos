@@ -89,6 +89,8 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
 
     if (quirks.contains(UserAgentQuirks::NeedsMacintoshPlatform))
         uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsMacintoshPlatform));
+    else if (quirks.contains(UserAgentQuirks::NeedsWindowsPlatform))
+        uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsWindowsPlatform));
     else if (quirks.contains(UserAgentQuirks::NeedsLinuxDesktopPlatform))
         uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsLinuxDesktopPlatform));
     else {
@@ -104,6 +106,10 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
         uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsFirefoxBrowser));
         return uaString.toString();
     }
+    if (quirks.contains(UserAgentQuirks::NeedsInternetExplorerBrowser)) {
+        uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsInternetExplorerBrowser));
+        return uaString.toString();
+    }
 
     uaString.appendLiteral(") AppleWebKit/");
     uaString.append(versionForUAString());
@@ -117,7 +123,7 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
     } else
-        uaString.appendLiteral("Version/13.0 ");
+        uaString.appendLiteral("Version/14.0 ");
 
     if (chassisType() == WTF::ChassisType::Mobile)
         uaString.appendLiteral("Mobile ");

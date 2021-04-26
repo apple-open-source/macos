@@ -45,6 +45,7 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
 					  struct smb_dev *sdp, int searchOnly)
 {
 	struct smb_session *sessionp;
+    struct smbiod      *iod;
 	int error;
 	uint32_t usersMaxBufferLen = vspec->ioc_negotiate_token_len;
     struct sockaddr *session_saddr = NULL;
@@ -65,17 +66,18 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
 	}
 
 	sessionp = sdp->sd_session;
+    iod      = sessionp->session_iod;
 	/* Return to the user the server's capablilities */
 	vspec->ioc_ret_caps = SESSION_CAPS(sessionp);
 	/* Return to the user the session flags */
 	vspec->ioc_ret_session_flags = sessionp->session_flags;
 	
 	/* If we got a server provide init token copy that back to the caller. */
-	vspec->ioc_negotiate_token_len = sessionp->negotiate_tokenlen;
-	if ((sessionp->negotiate_token) &&
-        (usersMaxBufferLen >= sessionp->negotiate_tokenlen)) {
+	vspec->ioc_negotiate_token_len = iod->negotiate_tokenlen;
+	if ((iod->negotiate_token) &&
+        (usersMaxBufferLen >= iod->negotiate_tokenlen)) {
 		user_addr_t uaddr = vspec->ioc_negotiate_token;
-		error = copyout(sessionp->negotiate_token, uaddr, (size_t)sessionp->negotiate_tokenlen);
+		error = copyout(iod->negotiate_token, uaddr, (size_t)iod->negotiate_tokenlen);
 		vspec->ioc_errno = error;
 	}
     
@@ -86,8 +88,8 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
 		}
         
 		/* Return the size of the client and server principal name */
-		vspec->ioc_max_client_size = sessionp->session_gss.gss_cpn_len;
-		vspec->ioc_max_target_size = sessionp->session_gss.gss_spn_len;
+		vspec->ioc_max_client_size = iod->iod_gss.gss_cpn_len;
+		vspec->ioc_max_target_size = iod->iod_gss.gss_spn_len;
 
         /*
          * If we matched by DNS name, return the server address of the shared
@@ -97,8 +99,9 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
          * Ignore NetBIOS addresses which should never match on DNS.
          */
         if (matched_dns == 1) {
+            /* <72239144> Return original server IP address that was used */
             session_saddr = sessionp->session_saddr;
-            
+
             /* Ignore NetBIOS names */
             if ((session_saddr->sa_family != AF_NETBIOS) &&
                 (session_saddr->sa_len > 0) &&
@@ -108,8 +111,8 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
             }
         }
 	}
-		
-	return error;
+
+    return error;
 }
 
 /*

@@ -350,7 +350,11 @@ DISPATCH_TSD_INLINE DISPATCH_CONST
 static inline unsigned int
 _dispatch_cpu_number(void)
 {
-#if __has_include(<os/tsd.h>)
+#if TARGET_OS_SIMULATOR
+	size_t n;
+	pthread_cpu_number_np(&n);
+	return (unsigned int)n;
+#elif __has_include(<os/tsd.h>)
 	return _os_cpu_number();
 #elif defined(__x86_64__) || defined(__i386__)
 	struct { uintptr_t p1, p2; } p;

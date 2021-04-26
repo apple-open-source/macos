@@ -137,6 +137,8 @@ ALWAYS_INLINE bool JSObject::getPropertySlot(JSGlobalObject* globalObject, unsig
             return false;
         if (object->type() == ProxyObjectType && slot.internalMethodType() == PropertySlot::InternalMethodType::HasProperty)
             return false;
+        if (isTypedArrayType(object->type()) && propertyName >= jsCast<JSArrayBufferView*>(object)->length())
+            return false;
         JSValue prototype;
         if (LIKELY(!structure->typeInfo().overridesGetPrototype() || slot.internalMethodType() == PropertySlot::InternalMethodType::VMInquiry))
             prototype = object->getPrototypeDirect(vm);
@@ -179,6 +181,8 @@ ALWAYS_INLINE bool JSObject::getNonIndexPropertySlot(JSGlobalObject* globalObjec
             if (UNLIKELY(slot.isVMInquiry() && slot.isTaintedByOpaqueObject()))
                 return false;
             if (object->type() == ProxyObjectType && slot.internalMethodType() == PropertySlot::InternalMethodType::HasProperty)
+                return false;
+            if (isTypedArrayType(object->type()) && isCanonicalNumericIndexString(propertyName))
                 return false;
         }
         JSValue prototype;
@@ -617,7 +621,7 @@ inline bool JSObject::getPrivateField(JSGlobalObject* globalObject, PropertyName
     RELEASE_AND_RETURN(scope, true);
 }
 
-inline void JSObject::putPrivateField(JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& putSlot)
+inline void JSObject::setPrivateField(JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& putSlot)
 {
     VM& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);

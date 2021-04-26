@@ -470,6 +470,58 @@
             ];
 }
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    // CKKSTLKShares get saved with no modification
+    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+    bool saved = [share saveToDatabase:&localerror];
+    if(!saved || localerror) {
+        ckkserror("ckksshare", record.recordID.zoneID, "Couldn't save new TLK share to database: %@ %@", share, localerror);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+    return YES;
+}
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+    ckksinfo("ckksshare", recordID.zoneID, "CloudKit notification: deleted tlk share record(%@): %@", SecCKRecordTLKShareType, recordID);
+
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:recordID error:&localerror];
+    [share deleteFromDatabase:&localerror];
+
+    if(localerror) {
+        ckkserror("ckksshare", recordID.zoneID, "CK notification: Couldn't delete deleted TLKShare: %@ %@", recordID,  localerror);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+    return YES;
+}
+
++ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    __block NSNumber *result = nil;
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                      columns:@[@"count(rowid)"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(rowid)"].asNSNumberInteger;
+                                   }
+                                        error: error];
+    return result;
+}
+
 @end
 
 #endif // OCTAGON

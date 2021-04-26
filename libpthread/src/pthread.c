@@ -1732,6 +1732,17 @@ parse_ptr_munge_params(const char *envp[], const char *apple[])
 	_pthread_init_signature(_main_thread_ptr);
 }
 
+static void
+parse_main_thread_port(const char *apple[], mach_port_name_t *main_th)
+{
+       const char *p, *s;
+       p = _simple_getenv(apple, "th_port");
+       if (p) {
+               *main_th = (mach_port_name_t)_pthread_strtoul(p, &s, 16);
+               bzero((char *)p, strlen(p));
+       }
+}
+
 int
 __pthread_init(const struct _libpthread_functions *pthread_funcs,
 		const char *envp[], const char *apple[],
@@ -1812,13 +1823,17 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 			stackaddr, stacksize, allocaddr, allocsize);
 	thread->tl_joinable = true;
 
+	// Get main thread port name from the kernel.
+	mach_port_name_t main_th_port = MACH_PORT_NULL;
+	parse_main_thread_port(apple, &main_th_port);
+
 	// Finish initialization with common code that is reinvoked on the
 	// child side of a fork.
 
 	// Finishes initialization of main thread attributes.
 	// Initializes the thread list and add the main thread.
 	// Calls _pthread_set_self() to prepare the main thread for execution.
-	_pthread_main_thread_init(thread);
+	_pthread_main_thread_init(thread, main_th_port);
 
 	struct _pthread_registration_data registration_data;
 	// Set up kernel entry points with __bsdthread_register.
@@ -1842,7 +1857,7 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 #endif // !VARIANT_DYLD
 
 void
-_pthread_main_thread_init(pthread_t p)
+_pthread_main_thread_init(pthread_t p, mach_port_name_t main_thread_port)
 {
 	TAILQ_INIT(&__pthread_head);
 	_pthread_lock_init(&_pthread_list_lock);
@@ -1850,7 +1865,13 @@ _pthread_main_thread_init(pthread_t p)
 	p->__cleanup_stack = NULL;
 	p->tl_join_ctx = NULL;
 	p->tl_exit_gate = MACH_PORT_NULL;
-	_pthread_tsd_slot(p, MACH_THREAD_SELF) = mach_thread_self();
+
+	if (main_thread_port != MACH_PORT_NULL) {
+		_pthread_tsd_slot(p, MACH_THREAD_SELF) = main_thread_port;
+	} else {
+		// Can't get thread port from kernel or we are forking, fallback to mach_thread_self
+		_pthread_tsd_slot(p, MACH_THREAD_SELF) = mach_thread_self();
+	}
 	_pthread_tsd_slot(p, MIG_REPLY) = mach_reply_port();
 	_pthread_tsd_slot(p, MACH_SPECIAL_REPLY) = MACH_PORT_NULL;
 	_pthread_tsd_slot(p, SEMAPHORE_CACHE) = SEMAPHORE_NULL;
@@ -1865,7 +1886,7 @@ _pthread_main_thread_init(pthread_t p)
 void
 _pthread_main_thread_postfork_init(pthread_t p)
 {
-	_pthread_main_thread_init(p);
+	_pthread_main_thread_init(p, MACH_PORT_NULL);
 	_pthread_set_self_internal(p);
 }
 

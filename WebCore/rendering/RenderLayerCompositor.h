@@ -83,7 +83,6 @@ enum class CompositingReason {
     WillChange                             = 1 << 24,
     Root                                   = 1 << 25,
     IsolatesCompositedBlendingDescendants  = 1 << 26,
-    EmbeddedView                           = 1 << 27,
 };
 
 enum class ScrollCoordinationRole {
@@ -179,7 +178,7 @@ public:
 
     // GraphicsLayers buffer state, which gets pushed to the underlying platform layers
     // at specific times.
-    void scheduleRenderingUpdate();
+    void notifyFlushRequired(const GraphicsLayer*) override;
     void flushPendingLayerChanges(bool isFlushRoot = true);
 
     // Called when the GraphicsLayer for the given RenderLayer has flushed changes inside of flushPendingLayerChanges().
@@ -397,7 +396,6 @@ private:
     bool updateCompositingPolicy();
     
     // GraphicsLayerClient implementation
-    void notifyFlushRequired(const GraphicsLayer*) override;
     void paintContents(const GraphicsLayer*, GraphicsContext&, const FloatRect&, GraphicsLayerPaintBehavior) override;
     void customPositionForVisibleRectComputation(const GraphicsLayer*, FloatPoint&) const override;
     bool isTrackingRepaints() const override { return m_isTrackingRepaints; }
@@ -455,6 +453,8 @@ private:
 
     bool needsCompositingForContentOrOverlays() const;
 
+    void scheduleRenderingUpdate();
+
     void ensureRootLayer();
     void destroyRootLayer();
 
@@ -501,7 +501,6 @@ private:
     bool requiresCompositingForScrollableFrame(RequiresCompositingData&) const;
     bool requiresCompositingForPosition(RenderLayerModelObject&, const RenderLayer&, RequiresCompositingData&) const;
     bool requiresCompositingForOverflowScrolling(const RenderLayer&, RequiresCompositingData&) const;
-    bool requiresCompositingForEditableImage(RenderLayerModelObject&) const;
     IndirectCompositingReason computeIndirectCompositingReason(const RenderLayer&, bool hasCompositedDescendants, bool has3DTransformedDescendants, bool paintsIntoProvidedBacking) const;
 
     static ScrollPositioningBehavior layerScrollBehahaviorRelativeToCompositedAncestor(const RenderLayer&, const RenderLayer& compositedAncestor);

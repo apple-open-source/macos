@@ -199,7 +199,7 @@ static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void);
 -(void)ensureOctagonPeerKeys
 {
 #if OCTAGON
-    CKKSLockStateTracker *tracker = [CKKSViewManager manager].lockStateTracker;
+    CKKSLockStateTracker *tracker = [CKKSLockStateTracker globalTracker];
     if (tracker && tracker.isLocked == false) {
         [self.trust ensureOctagonPeerKeys:self.circle_transport];
     }
@@ -900,6 +900,16 @@ static bool Flush(CFErrorRef *error) {
         complete([NSError errorWithDomain:@"com.apple.securityd.watchdog" code:1 userInfo:@{NSLocalizedDescriptionKey : @"failed to lookup SecdWatchdog class from ObjC runtime"}]);
     }
 }
+
+- (void)removeV0Peers:(void (^)(bool, NSError *))reply {
+    [self performTransaction:^(SOSAccountTransaction *txn) {
+        CFErrorRef localError = NULL;
+        bool result = SOSAccountRemoveV0Clients(txn.account, &localError);
+        reply(result, (__bridge NSError *)localError);
+        CFReleaseNull(localError);
+    }];
+}
+
 
 //
 // MARK: Save Block
@@ -2801,7 +2811,8 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                                                      initialState:SOSStateReady
                                                             queue:self.stateMachineQueue
                                                       stateEngine:self
-                                                 lockStateTracker:[CKKSLockStateTracker globalTracker]];
+                                                 lockStateTracker:[CKKSLockStateTracker globalTracker]
+                                              reachabilityTracker:nil];
 
 
     self.performBackups = [[CKKSNearFutureScheduler alloc] initWithName:@"performBackups"

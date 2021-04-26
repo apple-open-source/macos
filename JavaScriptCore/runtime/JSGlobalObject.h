@@ -30,7 +30,6 @@
 #include "GetVM.h"
 #include "InternalFunction.h"
 #include "JSArray.h"
-#include "JSArrayBufferPrototype.h"
 #include "JSClassRef.h"
 #include "JSGlobalLexicalEnvironment.h"
 #include "JSPromise.h"
@@ -136,7 +135,7 @@ constexpr bool typeExposedByDefault = true;
 #define FOR_EACH_SIMPLE_BUILTIN_TYPE_WITH_CONSTRUCTOR(macro) \
     macro(String, string, stringObject, StringObject, String, object, typeExposedByDefault) \
     macro(JSPromise, promise, promise, JSPromise, Promise, object, typeExposedByDefault) \
-    macro(BigInt, bigInt, bigIntObject, BigIntObject, BigInt, object, Options::useBigInt()) \
+    macro(BigInt, bigInt, bigIntObject, BigIntObject, BigInt, object, typeExposedByDefault) \
     macro(WeakObjectRef, weakObjectRef, weakObjectRef, JSWeakObjectRef, WeakRef, object, Options::useWeakRefs()) \
     macro(FinalizationRegistry, finalizationRegistry, finalizationRegistry, JSFinalizationRegistry, FinalizationRegistry, object, Options::useWeakRefs()) \
 
@@ -195,6 +194,12 @@ enum class JSPromiseRejectionOperation : unsigned {
     Handle, // When a handler is added to a rejected promise for the first time.
 };
 
+enum class ScriptExecutionStatus {
+    Running,
+    Suspended,
+    Stopped,
+};
+
 struct GlobalObjectMethodTable {
     typedef bool (*SupportsRichSourceInfoFunctionPtr)(const JSGlobalObject*);
     SupportsRichSourceInfoFunctionPtr supportsRichSourceInfo;
@@ -231,6 +236,13 @@ struct GlobalObjectMethodTable {
 
     typedef void (*ReportUncaughtExceptionAtEventLoopPtr)(JSGlobalObject*, Exception*);
     ReportUncaughtExceptionAtEventLoopPtr reportUncaughtExceptionAtEventLoop;
+
+    // For most contexts this is just the global object. For JSDOMWindow, however, this is the JSDocument.
+    typedef JSObject* (*CurrentScriptExecutionOwnerPtr)(JSGlobalObject*);
+    CurrentScriptExecutionOwnerPtr currentScriptExecutionOwner;
+
+    typedef ScriptExecutionStatus (*ScriptExecutionStatusPtr)(JSGlobalObject*, JSObject* scriptExecutionOwner);
+    ScriptExecutionStatusPtr scriptExecutionStatus;
 
     typedef String (*DefaultLanguageFunctionPtr)();
     DefaultLanguageFunctionPtr defaultLanguage;
@@ -296,12 +308,16 @@ public:
 
     LazyProperty<JSGlobalObject, IntlCollator> m_defaultCollator;
     LazyProperty<JSGlobalObject, Structure> m_collatorStructure;
-    LazyProperty<JSGlobalObject, Structure> m_dateTimeFormatStructure;
     LazyProperty<JSGlobalObject, Structure> m_displayNamesStructure;
+    LazyProperty<JSGlobalObject, Structure> m_listFormatStructure;
     LazyProperty<JSGlobalObject, Structure> m_localeStructure;
-    LazyProperty<JSGlobalObject, Structure> m_numberFormatStructure;
     LazyProperty<JSGlobalObject, Structure> m_pluralRulesStructure;
     LazyProperty<JSGlobalObject, Structure> m_relativeTimeFormatStructure;
+    LazyProperty<JSGlobalObject, Structure> m_segmentIteratorStructure;
+    LazyProperty<JSGlobalObject, Structure> m_segmenterStructure;
+    LazyProperty<JSGlobalObject, Structure> m_segmentsStructure;
+    LazyClassStructure m_dateTimeFormatStructure;
+    LazyClassStructure m_numberFormatStructure;
 
     WriteBarrier<NullGetterFunction> m_nullGetterFunction;
     WriteBarrier<NullSetterFunction> m_nullSetterFunction;
@@ -403,10 +419,7 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_proxyObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_callableProxyObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_proxyRevokeStructure;
-#if ENABLE(SHARED_ARRAY_BUFFER)
-    WriteBarrier<JSArrayBufferPrototype> m_sharedArrayBufferPrototype;
-    WriteBarrier<Structure> m_sharedArrayBufferStructure;
-#endif
+    LazyClassStructure m_sharedArrayBufferStructure;
 
 #define DEFINE_STORAGE_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
     WriteBarrier<capitalName ## Prototype> m_ ## lowerName ## Prototype; \
@@ -470,9 +483,11 @@ public:
     InlineWatchpointSet m_stringIteratorProtocolWatchpointSet;
     InlineWatchpointSet m_mapSetWatchpointSet;
     InlineWatchpointSet m_setAddWatchpointSet;
-    InlineWatchpointSet m_arraySpeciesWatchpointSet;
+    InlineWatchpointSet m_arraySpeciesWatchpointSet { ClearWatchpoint };
     InlineWatchpointSet m_arrayJoinWatchpointSet;
     InlineWatchpointSet m_numberToStringWatchpointSet;
+    InlineWatchpointSet m_arrayBufferSpeciesWatchpointSet { ClearWatchpoint };
+    InlineWatchpointSet m_sharedArrayBufferSpeciesWatchpointSet { ClearWatchpoint };
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayConstructorSpeciesWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayPrototypeConstructorWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayPrototypeSymbolIteratorWatchpoint;
@@ -487,6 +502,8 @@ public:
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_mapPrototypeSetWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_setPrototypeAddWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_numberPrototypeToStringWatchpoint;
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayBufferConstructorSpeciesWatchpoints[2];
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayBufferPrototypeConstructorWatchpoints[2];
 
 public:
     JSCallee* stackOverflowFrameCallee() const { return m_stackOverflowFrameCallee.get(); }
@@ -503,6 +520,17 @@ public:
     {
         RELEASE_ASSERT(Options::useJIT());
         return m_numberToStringWatchpointSet;
+    }
+    InlineWatchpointSet& arrayBufferSpeciesWatchpointSet(ArrayBufferSharingMode sharingMode)
+    {
+        switch (sharingMode) {
+        case ArrayBufferSharingMode::Default:
+            return m_arrayBufferSpeciesWatchpointSet;
+        case ArrayBufferSharingMode::Shared:
+            return m_sharedArrayBufferSpeciesWatchpointSet;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_arrayBufferSpeciesWatchpointSet;
     }
 
     bool isArrayPrototypeIteratorProtocolFastAndNonObservable();
@@ -543,9 +571,7 @@ public:
         
 public:
     using Base = JSSegmentedVariableObject;
-    // Do we realy need OverridesAnyFormOfGetPropertyNames here?
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=212954
-    static constexpr unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable | OverridesGetOwnPropertySlot | OverridesAnyFormOfGetPropertyNames | IsImmutablePrototypeExoticObject;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable | OverridesGetOwnPropertySlot | IsImmutablePrototypeExoticObject;
 
     static constexpr bool needsDestruction = true;
     template<typename CellType, SubspaceAccess mode>
@@ -807,10 +833,19 @@ public:
     Structure* collatorStructure() { return m_collatorStructure.get(this); }
     Structure* dateTimeFormatStructure() { return m_dateTimeFormatStructure.get(this); }
     Structure* displayNamesStructure() { return m_displayNamesStructure.get(this); }
+    Structure* listFormatStructure() { return m_listFormatStructure.get(this); }
     Structure* numberFormatStructure() { return m_numberFormatStructure.get(this); }
     Structure* localeStructure() { return m_localeStructure.get(this); }
     Structure* pluralRulesStructure() { return m_pluralRulesStructure.get(this); }
     Structure* relativeTimeFormatStructure() { return m_relativeTimeFormatStructure.get(this); }
+    Structure* segmentIteratorStructure() { return m_segmentIteratorStructure.get(this); }
+    Structure* segmenterStructure() { return m_segmenterStructure.get(this); }
+    Structure* segmentsStructure() { return m_segmentsStructure.get(this); }
+
+    JSObject* dateTimeFormatConstructor() { return m_dateTimeFormatStructure.constructor(this); }
+    JSObject* dateTimeFormatPrototype() { return m_dateTimeFormatStructure.prototype(this); }
+    JSObject* numberFormatConstructor() { return m_numberFormatStructure.constructor(this); }
+    JSObject* numberFormatPrototype() { return m_numberFormatStructure.prototype(this); }
 
     JS_EXPORT_PRIVATE void setRemoteDebuggingEnabled(bool);
     JS_EXPORT_PRIVATE bool remoteDebuggingEnabled() const;
@@ -819,6 +854,8 @@ public:
 
     RegExpGlobalData& regExpGlobalData() { return m_regExpGlobalData; }
     static ptrdiff_t regExpGlobalDataOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_regExpGlobalData); }
+
+    static ptrdiff_t offsetOfVM() { return OBJECT_OFFSETOF(JSGlobalObject, m_vm); }
 
 #if ENABLE(REMOTE_INSPECTOR)
     Inspector::JSGlobalObjectInspectorController& inspectorController() const { return *m_inspectorController.get(); }
@@ -840,39 +877,43 @@ public:
     JSObject* unhandledRejectionCallback() const { return m_unhandledRejectionCallback.get(); }
 
     static void reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception*);
-
-    JSObject* arrayBufferConstructor() const { return m_arrayBufferStructure.constructor(this); }
+    static JSObject* currentScriptExecutionOwner(JSGlobalObject* global) { return global; }
+    static ScriptExecutionStatus scriptExecutionStatus(JSGlobalObject*, JSObject*) { return ScriptExecutionStatus::Running; }
 
     JSObject* arrayBufferPrototype(ArrayBufferSharingMode sharingMode) const
     {
         switch (sharingMode) {
         case ArrayBufferSharingMode::Default:
             return m_arrayBufferStructure.prototype(this);
-#if ENABLE(SHARED_ARRAY_BUFFER)
         case ArrayBufferSharingMode::Shared:
-            return m_sharedArrayBufferPrototype.get();
-#else
-        default:
-            return m_arrayBufferStructure.prototype(this);
-#endif
+            return m_sharedArrayBufferStructure.prototype(this);
         }
+        RELEASE_ASSERT_NOT_REACHED();
+        return nullptr;
     }
     Structure* arrayBufferStructure(ArrayBufferSharingMode sharingMode) const
     {
         switch (sharingMode) {
         case ArrayBufferSharingMode::Default:
             return m_arrayBufferStructure.get(this);
-#if ENABLE(SHARED_ARRAY_BUFFER)
         case ArrayBufferSharingMode::Shared:
-            return m_sharedArrayBufferStructure.get();
-#else
-        default:
-            return m_arrayBufferStructure.get(this);
-#endif
+            return m_sharedArrayBufferStructure.get(this);
         }
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;
     }
+    JSObject* arrayBufferConstructor(ArrayBufferSharingMode sharingMode) const
+    {
+        switch (sharingMode) {
+        case ArrayBufferSharingMode::Default:
+            return m_arrayBufferStructure.constructor(this);
+        case ArrayBufferSharingMode::Shared:
+            return m_sharedArrayBufferStructure.constructor(this);
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+
 
 #define DEFINE_ACCESSORS_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
     Structure* properName ## Structure() { return m_ ## properName ## Structure.get(); }
@@ -1048,8 +1089,11 @@ public:
     void installNumberPrototypeWatchpoint(NumberPrototype*);
     void installMapPrototypeWatchpoint(MapPrototype*);
     void installSetPrototypeWatchpoint(SetPrototype*);
+    void tryInstallArrayBufferSpeciesWatchpoint(ArrayBufferSharingMode);
 
 protected:
+    void tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& speciesWatchpoint, InlineWatchpointSet& speciesWatchpointSet);
+
     struct GlobalPropertyInfo {
         GlobalPropertyInfo(const Identifier& i, JSValue v, unsigned a)
             : identifier(i)
@@ -1151,7 +1195,7 @@ inline JSObject* JSGlobalObject::globalThis() const
 inline OptionSet<CodeGenerationMode> JSGlobalObject::defaultCodeGenerationMode() const
 {
     OptionSet<CodeGenerationMode> codeGenerationMode;
-    if (hasInteractiveDebugger() || Options::forceDebuggerBytecodeGeneration())
+    if (hasInteractiveDebugger() || Options::forceDebuggerBytecodeGeneration() || Options::debuggerTriggersBreakpointException())
         codeGenerationMode.add(CodeGenerationMode::Debugger);
     if (vm().typeProfiler())
         codeGenerationMode.add(CodeGenerationMode::TypeProfiler);

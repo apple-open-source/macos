@@ -962,16 +962,71 @@ typedef const struct {
 	const CFStringRef	*keyProxy;
 	const CFStringRef	*keyPort;
 	const CFStringRef	*keyURL;
+	const Boolean		multiple_proxies;
 } proxyKeys;
 
-static proxyKeys proxyKeys_FTP    = { "FTP"   , &kSCPropNetProxiesFTPEnable               , &kSCPropNetProxiesFTPProxy   , &kSCPropNetProxiesFTPPort   , NULL                                       };
-static proxyKeys proxyKeys_Gopher = { "Gopher", &kSCPropNetProxiesGopherEnable            , &kSCPropNetProxiesGopherProxy, &kSCPropNetProxiesGopherPort, NULL                                       };
-static proxyKeys proxyKeys_HTTP   = { "HTTP"  , &kSCPropNetProxiesHTTPEnable              , &kSCPropNetProxiesHTTPProxy  , &kSCPropNetProxiesHTTPPort  , NULL                                       };
-static proxyKeys proxyKeys_HTTPS  = { "HTTPS" , &kSCPropNetProxiesHTTPSEnable             , &kSCPropNetProxiesHTTPSProxy , &kSCPropNetProxiesHTTPSPort , NULL                                       };
-static proxyKeys proxyKeys_RTSP   = { "RTSP"  , &kSCPropNetProxiesRTSPEnable              , &kSCPropNetProxiesRTSPProxy  , &kSCPropNetProxiesRTSPPort  , NULL                                       };
-static proxyKeys proxyKeys_SOCKS  = { "SOCKS" , &kSCPropNetProxiesSOCKSEnable             , &kSCPropNetProxiesSOCKSProxy , &kSCPropNetProxiesSOCKSPort , NULL                                       };
-static proxyKeys proxyKeys_PAC    = { ".pac"  , &kSCPropNetProxiesProxyAutoConfigEnable   , NULL                         , NULL                        , &kSCPropNetProxiesProxyAutoConfigURLString };
-static proxyKeys proxyKeys_WPAD   = { "WPAD"  , &kSCPropNetProxiesProxyAutoDiscoveryEnable, NULL                         , NULL                        , NULL                                       };
+static proxyKeys proxyKeys_FTP    = { "FTP",
+				      &kSCPropNetProxiesFTPEnable,
+				      &kSCPropNetProxiesFTPProxy,
+				      &kSCPropNetProxiesFTPPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_Gopher = { "Gopher",
+				      &kSCPropNetProxiesGopherEnable,
+				      &kSCPropNetProxiesGopherProxy,
+				      &kSCPropNetProxiesGopherPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_HTTP   = { "HTTP",
+				      &kSCPropNetProxiesHTTPEnable,
+				      &kSCPropNetProxiesHTTPProxy,
+				      &kSCPropNetProxiesHTTPPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_HTTPS  = { "HTTPS",
+				      &kSCPropNetProxiesHTTPSEnable,
+				      &kSCPropNetProxiesHTTPSProxy,
+				      &kSCPropNetProxiesHTTPSPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_RTSP   = { "RTSP",
+				      &kSCPropNetProxiesRTSPEnable,
+				      &kSCPropNetProxiesRTSPProxy,
+				      &kSCPropNetProxiesRTSPPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_SOCKS  = { "SOCKS",
+				      &kSCPropNetProxiesSOCKSEnable,
+				      &kSCPropNetProxiesSOCKSProxy,
+				      &kSCPropNetProxiesSOCKSPort,
+				      NULL,
+				      FALSE
+				    };
+static proxyKeys proxyKeys_TransportConverter =
+				    { "TransportConverter",
+				      &kSCPropNetProxiesTransportConverterEnable,
+				      &kSCPropNetProxiesTransportConverterProxy,
+				      &kSCPropNetProxiesTransportConverterPort,
+				      NULL,
+				      TRUE
+				    };
+static proxyKeys proxyKeys_PAC    = { ".pac",
+				      &kSCPropNetProxiesProxyAutoConfigEnable,
+				      NULL,
+				      NULL,
+				      &kSCPropNetProxiesProxyAutoConfigURLString,
+				      FALSE};
+static proxyKeys proxyKeys_WPAD   = { "WPAD",
+				      &kSCPropNetProxiesProxyAutoDiscoveryEnable,
+				      NULL,
+				      NULL,
+				      NULL,
+				      FALSE};
 
 static proxyKeys	*currentProxy	= NULL;
 
@@ -995,6 +1050,7 @@ static options proxyOptions[] = {
 	{ "HTTPS"                 , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_HTTPS  },
 	{ "RTSP"                  , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_RTSP   },
 	{ "SOCKS"                 , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_SOCKS  },
+	{ "TransportConverter"    , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_TransportConverter },
 	{ "ProxyAutoConfig"       , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_PAC    },
 	{   ".pac"                , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_PAC    },
 	{ "ProxyAutoDiscovery"    , NULL        , isOther      , NULL                                    , __doProxySelect   , (void *)&proxyKeys_WPAD   },
@@ -1004,6 +1060,8 @@ static options proxyOptions[] = {
 	{ "enable"                , NULL        , isOther      , NULL                                    , __doProxyEnable    , (void *)TRUE              },
 	{ "proxy"                 , NULL        , isOther      , NULL                                    , __doProxyHost      , NULL                      },
 	{   "host"                , NULL        , isOther      , NULL                                    , __doProxyHost      , NULL                      },
+	{ "proxies"               , NULL        , isOther      , NULL                                    , __doProxyHost      , NULL                      },
+	{   "hosts"               , NULL        , isOther      , NULL                                    , __doProxyHost      , NULL                      },
 	{ "port"                  , NULL        , isOther      , NULL                                    , __doProxyPort      , NULL                      },
 	{ "url"                   , NULL        , isOther      , NULL                                    , __doProxyURL       , NULL                      },
 	// (ftp) proxy modifiers
@@ -1035,6 +1093,10 @@ static options proxyOptions[] = {
 	    " set protocol socks {enable|disable}\n"
 	    " set protocol socks host proxy-host\n"
 	    " set protocol socks port proxy-port\n"
+	    "\n"
+	    " set protocol transportconverter {enable|disable}\n"
+	    " set protocol transportconverter host[s] proxy-host[,proxy-host-2]\n"
+	    " set protocol transportconverter port proxy-port\n"
 	    "\n"
 	    " set protocol .pac {enable|disable}\n"
 	    " set protocol .pac url .pac-url\n"
@@ -1163,11 +1225,22 @@ __doProxyHost(CFStringRef key, const char *description, void *info, int argc, ch
 	}
 
 	if (strlen(argv[0]) > 0) {
-		CFStringRef	host;
+		if (!currentProxy->multiple_proxies) {
+			CFStringRef	host;
 
-		host = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-		CFDictionarySetValue(newConfiguration, *(currentProxy->keyProxy), host);
-		CFRelease(host);
+			host = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			CFDictionarySetValue(newConfiguration, *(currentProxy->keyProxy), host);
+			CFRelease(host);
+		} else {
+			CFArrayRef	hosts;
+			CFStringRef	hosts_str;
+
+			hosts_str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			hosts = CFStringCreateArrayBySeparatingStrings(NULL, hosts_str, CFSTR(","));
+			CFDictionarySetValue(newConfiguration, *(currentProxy->keyProxy), hosts);
+			CFRelease(hosts);
+			CFRelease(hosts_str);
+		}
 	} else {
 		CFDictionaryRemoveValue(newConfiguration, *(currentProxy->keyProxy));
 	}

@@ -23,23 +23,12 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <unistd.h>
 #ifdef HAVE_PROJECT_H
 # include <project.h>
 # include <sys/task.h>
+# include <errno.h>
+# include <pwd.h>
 #endif
-#include <errno.h>
-#include <pwd.h>
 
 #include "sudo.h"
 #include "sudo_dso.h"
@@ -66,7 +55,7 @@ set_project(struct passwd *pw)
     struct project proj;
     char buf[PROJECT_BUFSZ];
     int errval;
-    debug_decl(set_project, SUDO_DEBUG_UTIL)
+    debug_decl(set_project, SUDO_DEBUG_UTIL);
 
     /*
      * Collect the default project for the user and settaskid
@@ -80,18 +69,20 @@ set_project(struct passwd *pw)
 	case SETPROJ_ERR_TASK:
 	    switch (errno) {
 	    case EAGAIN:
-		sudo_warnx(U_("resource control limit has been reached"));
+		sudo_warnx("%s", U_("resource control limit has been reached"));
 		break;
 	    case ESRCH:
 		sudo_warnx(U_("user \"%s\" is not a member of project \"%s\""),
 		    pw->pw_name, proj.pj_name);
 		break;
 	    case EACCES:
-		sudo_warnx(U_("the invoking task is final"));
+		sudo_warnx("%s", U_("the invoking task is final"));
 		break;
 	    default:
 		sudo_warnx(U_("could not join project \"%s\""), proj.pj_name);
+		break;
 	    }
+	    break;
 	case SETPROJ_ERR_POOL:
 	    switch (errno) {
 	    case EACCES:
@@ -105,6 +96,7 @@ set_project(struct passwd *pw)
 	    default:
 		sudo_warnx(U_("could not bind to default resource pool for "
 		    "project \"%s\""), proj.pj_name);
+		break;
 	    }
 	    break;
 	default:
@@ -114,6 +106,7 @@ set_project(struct passwd *pw)
 		sudo_warnx(U_("warning, resource control assignment failed for "
 		    "project \"%s\""), proj.pj_name);
 	    }
+	    break;
 	}
     } else {
 	sudo_warn("getdefaultproj");

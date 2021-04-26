@@ -1,3 +1,4 @@
+#include <TargetConditionals.h>
 
 #if TARGET_OS_IPHONE
 // Currently only supported for iOS
@@ -30,6 +31,8 @@
 #include <mach/mach_time.h>
 
 #include <Security/SecRSAKey.h>
+
+#include <utilities/array_size.h>
 
 #include "testlist.h"
 
@@ -480,7 +483,7 @@ static SSLContextRef make_ssl_ref(bool server, bool client_side_auth, bool dh_an
         require_noerr(SSLNewContext(server, &ctx), out);
     require_noerr(SSLSetIOFuncs(ctx,
         (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)sock), out);
+    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
     static const char *peer_domain_name = "localhost";
     require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);

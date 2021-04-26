@@ -56,6 +56,7 @@
 #include "ScriptableDocumentParser.h"
 #include "Settings.h"
 #include "UserGestureIndicator.h"
+#include "WebCoreJITOperations.h"
 #include "WebCoreJSClientData.h"
 #include "npruntime_impl.h"
 #include "runtime_root.h"
@@ -87,6 +88,7 @@ void ScriptController::initializeMainThread()
 #if !PLATFORM(IOS_FAMILY)
     JSC::initialize();
     WTF::initializeMainThread();
+    WebCore::populateJITOperations();
 #endif
 }
 
@@ -579,6 +581,7 @@ JSC::JSValue ScriptController::executeScriptInWorldIgnoringException(DOMWrapperW
 
 ValueOrException ScriptController::executeScriptInWorld(DOMWrapperWorld& world, RunJavaScriptParameters&& parameters)
 {
+#if ENABLE(APP_BOUND_DOMAINS)
     if (m_frame.loader().client().shouldEnableInAppBrowserPrivacyProtections()) {
         if (auto* document = m_frame.document())
             document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user script injection for non-app bound domain.");
@@ -586,6 +589,7 @@ ValueOrException ScriptController::executeScriptInWorld(DOMWrapperWorld& world, 
         return makeUnexpected(ExceptionDetails { "Ignoring user script injection for non-app bound domain"_s });
     }
     m_frame.loader().client().notifyPageOfAppBoundBehavior();
+#endif
 
     UserGestureIndicator gestureIndicator(parameters.forceUserGesture == ForceUserGesture::Yes ? Optional<ProcessingUserGestureState>(ProcessingUserGesture) : WTF::nullopt);
 

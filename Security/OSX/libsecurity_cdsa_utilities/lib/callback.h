@@ -87,24 +87,6 @@ private:
     // note mutex *: we don't want to rely on copy-ability of Mutex objects
     typedef multimap<ModuleCallback, CountingMutex *> CallbackMap;
     mutable CallbackMap callbacks;
-
-    struct Runner : public Thread {
-        Runner(CallbackMap &inCallbacks,
-               CSSM_MODULE_EVENT inEvent,
-               const Guid &inGuid,
-               uint32 inSSId,
-               CSSM_SERVICE_TYPE inServiceType)
-        : callbacks(inCallbacks), event(inEvent), guid(inGuid),
-        subserviceId(inSSId), serviceType(inServiceType) { }
-        
-        CallbackMap callbacks;	// note that we share the CountingMutex * values!
-        const CSSM_MODULE_EVENT event;
-        const Guid guid;
-        const uint32 subserviceId;
-        const CSSM_SERVICE_TYPE serviceType;
-
-        void action();
-    };
 };
 
 } // end namespace Security

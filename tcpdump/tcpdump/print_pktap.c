@@ -188,6 +188,13 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 					  prsep));
 				prsep = ", ";
 			}
+#ifdef PTH_FLAG_WAKE_PKT
+			if ((pktp_hdr->pth_flags & PTH_FLAG_WAKE_PKT)) {
+				ND_PRINT((ndo, "%s" "wk",
+					  prsep));
+				prsep = ", ";
+			}
+#endif /* PTH_FLAG_WAKE_PKT */
 		}
 		ND_PRINT((ndo, ") "));
 	}

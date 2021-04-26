@@ -44,6 +44,9 @@
 #include <utilities/SecFileLocations.h>
 #include "der_plist.h"
 #import "SecItemRateLimit_tests.h"
+#include "ipc/server_security_helpers.h"
+#include <Security/SecEntitlements.h>
+#include "keychain/securityd/SecItemDb.h"
 
 #if USE_KEYSTORE
 
@@ -232,7 +235,16 @@ static void SecDbTestCorruptionHandler(void)
     SecDbCorruptionExitHandler = SecDbTestCorruptionHandler;
     sema = dispatch_semaphore_create(0);
 
-    secd_test_setup_temp_keychain([[NSString stringWithFormat:@"%@-bad", [self nameOfTest]] UTF8String], ^{
+    // Test teardown will want to delete this keychain. Make sure it knows where to look...
+    NSString* corruptedKeychainPath = [NSString stringWithFormat:@"%@-bad", [self nameOfTest]];
+
+    if(self.keychainDirectoryPrefix) {
+        XCTAssertTrue(secd_test_teardown_delete_temp_keychain([self.keychainDirectoryPrefix UTF8String]), "Should be able to delete the temp keychain");
+    }
+
+    self.keychainDirectoryPrefix = corruptedKeychainPath;
+
+    secd_test_setup_temp_keychain([corruptedKeychainPath UTF8String], ^{
         CFStringRef keychain_path_cf = __SecKeychainCopyPath();
 
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
@@ -534,6 +546,249 @@ static void SecDbTestCorruptionHandler(void)
     XCTAssertEqual(CFGetTypeID(decoded), CFDateGetTypeID());
     XCTAssertEqualWithAccuracy(CFDateGetAbsoluteTime(decoded), 0, 60 * 60 * 24);
 }
+
+- (void)testContainersWithBadDateWithDEREncodingRepairProducesDefaultValue {
+    // Wonky time calculation hastily stolen from SecGregorianDateGetAbsoluteTime and tweaked
+    // As of right now this causes CFCalendarDecomposeAbsoluteTime with Zulu calendar to give a seemingly incorrect date which then causes DER date validation issues
+    CFAbsoluteTime absTime = (CFAbsoluteTime)(((-(1902 * 365) + -38) * 24 + 0) * 60 + -1) * 60 + 1;
+    absTime -= 0.0004;
+    CFDateRef date = CFDateCreate(NULL, absTime);
+
+    NSDictionary* dict = @{
+        @"dateset": [NSSet setWithObject:(__bridge id)date],
+        @"datearray": @[(__bridge id)date],
+    };
+
+    CFErrorRef error = NULL;
+    size_t plistSize = der_sizeof_plist((__bridge CFTypeRef)dict, &error);
+    XCTAssertNil((__bridge NSError*)error, "Should be no error checking the size of the plist");
+    XCTAssertGreaterThan(plistSize, 0);
+
+    uint8_t* der = calloc(1, plistSize);
+    uint8_t* der_end = der + plistSize;
+    uint8_t* encoderesult = der_encode_plist_repair((__bridge CFTypeRef)dict, &error, true, der, der_end);
+    XCTAssertNil((__bridge NSError*)error, "Should be no error encoding the plist");
+    XCTAssertEqual(der, encoderesult);
+
+    CFPropertyListRef decoded = NULL;
+    const uint8_t* decoderesult = der_decode_plist(NULL, &decoded, &error, der, der_end);
+    XCTAssertNil((__bridge NSError*)error, "Should be no error decoding the plist");
+    XCTAssertEqual(der_end, decoderesult);
+
+    XCTAssertNotNil((__bridge NSDictionary*)decoded, "Should have decoded some dictionary");
+    if(decoded == nil) {
+        return;
+    }
+
+    XCTAssertEqual(CFGetTypeID(decoded), CFDictionaryGetTypeID());
+    CFDictionaryRef decodedCFDictionary = decoded;
+
+    {
+        CFSetRef decodedCFSet = CFDictionaryGetValue(decodedCFDictionary, CFSTR("dateset"));
+        XCTAssertNotNil((__bridge NSSet*)decodedCFSet, "Should have some CFSet");
+
+        if(decodedCFSet != NULL) {
+            XCTAssertEqual(CFGetTypeID(decodedCFSet), CFSetGetTypeID());
+            XCTAssertEqual(CFSetGetCount(decodedCFSet), 1, "Should have one item in set");
+
+            __block bool dateprocessed = false;
+            CFSetForEach(decodedCFSet, ^(const void *value) {
+                XCTAssertEqual(CFGetTypeID(value), CFDateGetTypeID());
+                XCTAssertEqualWithAccuracy(CFDateGetAbsoluteTime(value), 0, 60 * 60 * 24);
+                dateprocessed = true;
+            });
+
+            XCTAssertTrue(dateprocessed, "Should have processed at least one date in the set");
+        }
+    }
+
+    {
+        CFArrayRef decodedCFArray =  CFDictionaryGetValue(decodedCFDictionary, CFSTR("datearray"));
+        XCTAssertNotNil((__bridge NSArray*)decodedCFArray, "Should have some CFArray");
+
+        if(decodedCFArray != NULL) {
+            XCTAssertEqual(CFGetTypeID(decodedCFArray), CFArrayGetTypeID());
+            XCTAssertEqual(CFArrayGetCount(decodedCFArray), 1, "Should have one item in array");
+
+            __block bool dateprocessed = false;
+            CFArrayForEach(decodedCFArray, ^(const void *value) {
+                XCTAssertEqual(CFGetTypeID(value), CFDateGetTypeID());
+                XCTAssertEqualWithAccuracy(CFDateGetAbsoluteTime(value), 0, 60 * 60 * 24);
+                dateprocessed = true;
+            });
+
+            XCTAssertTrue(dateprocessed, "Should have processed at least one date in the array");
+        }
+    }
+
+    CFReleaseNull(decoded);
+}
+
+- (void)testSecItemCopyMatchingWithBadDateInItem {
+    // Wonky time calculation hastily stolen from SecGregorianDateGetAbsoluteTime and tweaked
+    // As of right now this causes CFCalendarDecomposeAbsoluteTime with Zulu calendar to give a seemingly incorrect date which then causes DER date validation issues
+    CFAbsoluteTime absTime = (CFAbsoluteTime)(((-(1902 * 365) + -38) * 24 + 0) * 60 + -1) * 60 + 1;
+    absTime -= 0.0004;
+    CFDateRef date = CFDateCreate(NULL, absTime);
+
+    NSDictionary* addQuery = @{
+        //(id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrCreationDate : (__bridge id)date,
+        (id)kSecAttrModificationDate : (__bridge id)date,
+
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
+
+        (id)kSecAttrAccessible  : @"ak",
+        (id)kSecAttrTombstone : [NSNumber numberWithInt: 0],
+        (id)kSecAttrMultiUser : [[NSData alloc] init],
+    };
+
+    __block CFErrorRef cferror = NULL;
+    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+        return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, &cferror, ^bool {
+            SecDbItemRef item = SecDbItemCreateWithAttributes(NULL, kc_class_with_name(kSecClassGenericPassword), (__bridge CFDictionaryRef)addQuery, KEYBAG_DEVICE, &cferror);
+
+            bool ret = SecDbItemInsert(item, dbt, false, &cferror);
+
+            XCTAssertTrue(ret, "Should be able to add an item");
+            CFReleaseNull(item);
+
+            return ret;
+        });
+    });
+
+    NSDictionary* findQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
+
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecReturnData: @YES,
+        (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+    };
+
+    CFTypeRef result = NULL;
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), errSecItemNotFound, @"Should not be able to find our misdated item");
+
+    // This is a bit of a mystery: how do these items have a bad date that's not in the item?
+
+    CFReleaseNull(result);
+    CFReleaseNull(date);
+}
+
+- (void)testSecItemCopyMatchingWithBadDateInSQLColumn {
+    NSDictionary* addQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
+
+        (id)kSecAttrAccessible  : @"ak",
+        (id)kSecAttrService : @"",
+
+        (id)kSecUseDataProtectionKeychain: @YES,
+    };
+
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
+    XCTAssertEqual(status, errSecSuccess, "Should be able to add an item to the keychain");
+
+    // Modify the cdat/mdat columns in the keychain db
+    __block CFErrorRef cferror = NULL;
+    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+        return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, &cferror, ^bool {
+            CFErrorRef updateError = NULL;
+
+            // Magic number extracted from testSecItemCopyMatchingWithBadDateInItem
+            SecDbExec(dbt,
+                      (__bridge CFStringRef)@"UPDATE genp SET cdat = -59984755259.0004, mdat = -59984755259.0004;",
+                      &updateError);
+
+            XCTAssertNil((__bridge NSError*)updateError, "Should be no error updating the table");
+            CFReleaseNull(updateError);
+
+            return true;
+        });
+    });
+
+    // Can we find the item?
+    NSDictionary* findQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
+
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecReturnData: @YES,
+        (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+    };
+
+    CFTypeRef result = NULL;
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), errSecSuccess, @"Should be able to find our misdated item");
+
+    CFReleaseNull(result);
+}
+
+- (void)testDurableWriteAPI
+{
+    NSDictionary* addQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+        (id)kSecReturnAttributes : @(YES),
+    };
+
+    NSDictionary* updateQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+
+    CFTypeRef result = NULL;
+
+    // Add the item
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    CFReleaseNull(result);
+
+    // Using the API without the entitlement should fail
+    CFErrorRef cferror = NULL;
+    XCTAssertEqual(SecItemPersistKeychainWritesAtHighPerformanceCost(&cferror), errSecMissingEntitlement, @"Should not be able to persist keychain writes without the entitlement");
+    XCTAssertNotNil((__bridge NSError*)cferror, "Should be an error persisting keychain writes without the entitlement");
+    CFReleaseNull(cferror);
+
+    // But with the entitlement, you're good
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivatePerformanceImpactingAPI, kCFBooleanTrue);
+
+    XCTAssertEqual(SecItemPersistKeychainWritesAtHighPerformanceCost(&cferror), errSecSuccess, @"Should be able to persist keychain writes");
+    XCTAssertNil((__bridge NSError*)cferror, "Should be no error persisting keychain writes");
+
+    // And we can update the item
+    XCTAssertEqual(SecItemUpdate((__bridge CFDictionaryRef)updateQuery,
+                                 (__bridge CFDictionaryRef)@{
+                                     (id)kSecValueData: [@"otherpassword" dataUsingEncoding:NSUTF8StringEncoding],
+                                                           }),
+                   errSecSuccess, "should be able to update item with clean update query");
+
+    XCTAssertEqual(SecItemPersistKeychainWritesAtHighPerformanceCost(&cferror), errSecSuccess, @"Should be able to persist keychain writes after an update");
+    XCTAssertNil((__bridge NSError*)cferror, "Should be no error persisting keychain writes");
+
+    XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)updateQuery), errSecSuccess, "Should be able to delete item");
+    XCTAssertEqual(SecItemPersistKeychainWritesAtHighPerformanceCost(&cferror), errSecSuccess, @"Should be able to persist keychain writes after a delete");
+    XCTAssertNil((__bridge NSError*)cferror, "Should be no error persisting keychain writes");
+}
+
 
 #pragma mark - SecItemRateLimit
 

@@ -129,7 +129,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = EB23C4E9176A49AB0079B83B /* Build configuration list for PBXAggregateTarget "HeimdalEmbeddedExecutables" */;
 			buildPhases = (
-				8CFB9DB12423EB330015AF99 /* Install bats files */,
+				8CB6E81F2577F2E100F83708 /* Install bats files */,
 			);
 			dependencies = (
 				8CFC7298242A821400564653 /* PBXTargetDependency */,
@@ -287,7 +287,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = EB95367C0FFC56EF0013822C /* Build configuration list for PBXAggregateTarget "TestTools" */;
 			buildPhases = (
-				EB670F871C5EDBDE003D49CA /* Install bats files */,
+				8CB6E9292577F5A700F83708 /* Install bats files */,
 			);
 			dependencies = (
 				8C86621D247AF298001442FE /* PBXTargetDependency */,
@@ -557,6 +557,8 @@
 		8C08F2BC23BFE2B200BFB6FE /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		8C105C10247F4DC8000DD060 /* libipc-server.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB95354E0FFBBA7C0013822C /* libipc-server.a */; };
 		8C105C11247F54B9000DD060 /* libipc-server.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB95354E0FFBBA7C0013822C /* libipc-server.a */; };
+		8C1A3A8825B87D740072F880 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
+		8C1A3B0925B87E100072F880 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		8C2265F625093E1600C2724F /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
 		8C2265F725093EEA00C2724F /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0916CC1A4400D75FA0 /* common.h */; };
 		8C2265F825093F1700C2724F /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
@@ -628,6 +630,8 @@
 		8CADD4B6244FA67D0024E8DF /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
 		8CADD4B7244FA8620024E8DF /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
 		8CADD4B8244FA96C0024E8DF /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2970F22B6CD006BD106 /* config.h */; };
+		8CB0B886255353760056CEF0 /* heim-load-test-2.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8CB0B884255353760056CEF0 /* heim-load-test-2.plist */; };
+		8CB0B887255353760056CEF0 /* heim-load-test-1.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8CB0B885255353760056CEF0 /* heim-load-test-1.plist */; };
 		8CB0E361246F727D00C64006 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0916CC1A4400D75FA0 /* common.h */; };
 		8CB25C32247310390080D987 /* krb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */; };
 		8CB25C3B247462A30080D987 /* GSSCredXPCHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CB25C39247462A30080D987 /* GSSCredXPCHelperClient.h */; };
@@ -670,7 +674,7 @@
 		8CEB5AA22421C02B0017B4F0 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEB5AA12421C02B0017B4F0 /* GSS.framework */; };
 		8CEB5AAA2421C75D0017B4F0 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEB5AA92421C75D0017B4F0 /* XCTest.framework */; };
 		8CEB5AAD24225AB80017B4F0 /* CommonAuth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB5F3C6511A38EAD0061142C /* CommonAuth.framework */; };
-		8CFB9DB22423EB470015AF99 /* Heimdal.plist in Install bats files */ = {isa = PBXBuildFile; fileRef = EB670F861C5EDB53003D49CA /* Heimdal.plist */; };
+		8CED36E925B87EBB00E656A8 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
 		8CFB9DCC24257D720015AF99 /* mock_aks.m in Sources */ = {isa = PBXBuildFile; fileRef = 8CFB9DCB24257D720015AF99 /* mock_aks.m */; };
 		8CFB9DCE24257DB80015AF99 /* mock_aks.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CFB9DCD24257DB10015AF99 /* mock_aks.h */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
@@ -2083,7 +2087,6 @@
 		EB670F7F1C5ED326003D49CA /* aks.m in Sources */ = {isa = PBXBuildFile; fileRef = EB670F651C5EB301003D49CA /* aks.m */; };
 		EB670F811C5ED342003D49CA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB670F801C5ED342003D49CA /* Security.framework */; };
 		EB670F831C5ED421003D49CA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB670F821C5ED421003D49CA /* IOKit.framework */; };
-		EB670F881C5EDBEB003D49CA /* Heimdal.plist in Install bats files */ = {isa = PBXBuildFile; fileRef = EB670F861C5EDB53003D49CA /* Heimdal.plist */; };
 		EB67A2171767E1670069F978 /* kdc.c in Sources */ = {isa = PBXBuildFile; fileRef = EB67A2151767E1670069F978 /* kdc.c */; };
 		EB685E7E1756BE3100B97504 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
 		EB6927321079288D00ACB444 /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
@@ -7576,17 +7579,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		8CFB9DB12423EB330015AF99 /* Install bats files */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				8CFB9DB22423EB470015AF99 /* Heimdal.plist in Install bats files */,
-			);
-			name = "Install bats files";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		EB00F42B10444EC600399574 /* OpenSourceLicenses */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -7821,17 +7813,6 @@
 				EB5E1B051E84CCEB00B6EDDD /* GSSCred.8 in Install man8 pages */,
 			);
 			name = "Install man8 pages";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		EB670F871C5EDBDE003D49CA /* Install bats files */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				EB670F881C5EDBEB003D49CA /* Heimdal.plist in Install bats files */,
-			);
-			name = "Install bats files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		EB6FC9E710A4AA7D00D80A61 /* install sandbox */ = {
@@ -8233,10 +8214,15 @@
 		8C98B55E2437CDD500BBAF30 /* MockManagedAppManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MockManagedAppManager.h; path = lib/heimcred/MockManagedAppManager.h; sourceTree = "<group>"; };
 		8C98B55F2437CDD500BBAF30 /* MockManagedAppManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MockManagedAppManager.m; path = lib/heimcred/MockManagedAppManager.m; sourceTree = "<group>"; };
 		8CA1A595241AFA92002FCCEE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		8CB0B884255353760056CEF0 /* heim-load-test-2.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "heim-load-test-2.plist"; path = "lib/heimcred/heim-load-test-2.plist"; sourceTree = "<group>"; };
+		8CB0B885255353760056CEF0 /* heim-load-test-1.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "heim-load-test-1.plist"; path = "lib/heimcred/heim-load-test-1.plist"; sourceTree = "<group>"; };
 		8CB25C39247462A30080D987 /* GSSCredXPCHelperClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GSSCredXPCHelperClient.h; path = lib/heimcred/GSSCredXPCHelperClient.h; sourceTree = "<group>"; };
 		8CB25C3A247462A30080D987 /* GSSCredXPCHelperClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GSSCredXPCHelperClient.m; path = lib/heimcred/GSSCredXPCHelperClient.m; sourceTree = "<group>"; };
 		8CB25C3E247466700080D987 /* GSSCredHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GSSCredHelper.h; path = lib/heimcred/GSSCredHelper.h; sourceTree = "<group>"; };
 		8CB25C3F247466700080D987 /* GSSCredHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GSSCredHelper.m; path = lib/heimcred/GSSCredHelper.m; sourceTree = "<group>"; };
+		8CB6E8202577F3DC00F83708 /* Heimdal-watchos.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "Heimdal-watchos.plist"; path = "packages/mac/bats/Heimdal-watchos.plist"; sourceTree = SOURCE_ROOT; };
+		8CB6E8212577F3DC00F83708 /* Heimdal-tvos.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "Heimdal-tvos.plist"; path = "packages/mac/bats/Heimdal-tvos.plist"; sourceTree = SOURCE_ROOT; };
+		8CB6E8222577F3DD00F83708 /* Heimdal-ios.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "Heimdal-ios.plist"; path = "packages/mac/bats/Heimdal-ios.plist"; sourceTree = SOURCE_ROOT; };
 		8CBCB5522494208B002E1C01 /* heim-ordered-test-1.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "heim-ordered-test-1.plist"; path = "lib/heimcred/heim-ordered-test-1.plist"; sourceTree = "<group>"; };
 		8CC147B223F7407B0090DD37 /* UserManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagement.framework; path = System/Library/PrivateFrameworks/UserManagement.framework; sourceTree = SDKROOT; };
 		8CC66BB824784CF000772CF1 /* kerberosacquirecred.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = kerberosacquirecred.m; path = lib/heimcred/kerberosacquirecred.m; sourceTree = "<group>"; };
@@ -8861,7 +8847,7 @@
 		EB670F791C5ED239003D49CA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		EB670F801C5ED342003D49CA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		EB670F821C5ED421003D49CA /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
-		EB670F861C5EDB53003D49CA /* Heimdal.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Heimdal.plist; path = packages/mac/bats/Heimdal.plist; sourceTree = SOURCE_ROOT; };
+		EB670F861C5EDB53003D49CA /* Heimdal-macos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Heimdal-macos.plist"; path = "packages/mac/bats/Heimdal-macos.plist"; sourceTree = SOURCE_ROOT; };
 		EB67A2151767E1670069F978 /* kdc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kdc.c; path = kuser/kdc.c; sourceTree = "<group>"; };
 		EB67A2161767E1670069F978 /* kvno.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kvno.c; path = kuser/kvno.c; sourceTree = "<group>"; };
 		EB69271C107830E500ACB444 /* TrustEvaluationAgent.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TrustEvaluationAgent.framework; path = /System/Library/PrivateFrameworks/TrustEvaluationAgent.framework; sourceTree = "<absolute>"; };
@@ -10646,6 +10632,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C1A3B0925B87E100072F880 /* Heimdal.framework in Frameworks */,
 				8C431A0D241BE62400BC1F3B /* libbsm.tbd in Frameworks */,
 				EBB92EF51D627E41002DDC48 /* libroken-application.a in Frameworks */,
 				EB670F831C5ED421003D49CA /* IOKit.framework in Frameworks */,
@@ -11504,6 +11491,8 @@
 				8CBCB5522494208B002E1C01 /* heim-ordered-test-1.plist */,
 				8C6230FE24943007004900EE /* heim-ordered-test-2.plist */,
 				8C62310024943596004900EE /* heim-ordered-test-3.plist */,
+				8CB0B885255353760056CEF0 /* heim-load-test-1.plist */,
+				8CB0B884255353760056CEF0 /* heim-load-test-2.plist */,
 				8CCF9CD824205E9300E5F303 /* Info.plist */,
 			);
 			name = GSSCredTests;
@@ -12184,7 +12173,10 @@
 		EB670F841C5EDAE4003D49CA /* bats */ = {
 			isa = PBXGroup;
 			children = (
-				EB670F861C5EDB53003D49CA /* Heimdal.plist */,
+				8CB6E8222577F3DD00F83708 /* Heimdal-ios.plist */,
+				8CB6E8212577F3DC00F83708 /* Heimdal-tvos.plist */,
+				8CB6E8202577F3DC00F83708 /* Heimdal-watchos.plist */,
+				EB670F861C5EDB53003D49CA /* Heimdal-macos.plist */,
 			);
 			name = bats;
 			path = packages/mac/SnowLeopard10A;
@@ -15260,8 +15252,10 @@
 			files = (
 				EB11A83D1D62458000E03538 /* roken-common.h in Headers */,
 				EB11A83E1D62458000E03538 /* roken.h in Headers */,
+				8CED36E925B87EBB00E656A8 /* krb5-types.h in Headers */,
 				EB670F7E1C5ED29E003D49CA /* common.h in Headers */,
 				EB670F7D1C5ED297003D49CA /* heimcred-const.h in Headers */,
+				8C1A3A8825B87D740072F880 /* heimbase.h in Headers */,
 				EB670F7C1C5ED292003D49CA /* heimcred.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -19309,6 +19303,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8CB0B887255353760056CEF0 /* heim-load-test-1.plist in Resources */,
+				8CB0B886255353760056CEF0 /* heim-load-test-2.plist in Resources */,
 				8CBCB554249420FD002E1C01 /* heim-ordered-test-1.plist in Resources */,
 				8C6230FF2494301D004900EE /* heim-ordered-test-2.plist in Resources */,
 				8C623101249435A8004900EE /* heim-ordered-test-3.plist in Resources */,
@@ -19411,6 +19407,42 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh ${SRCROOT}/packages/mac/gssapi-rewrite-headers.sh\n";
+		};
+		8CB6E81F2577F2E100F83708 /* Install bats files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install bats files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/sh -x";
+			shellScript = "# installation type is dependent on the platform\ncase \"$PLATFORM_NAME\" in\n  iphoneos*)\n    mkdir -p \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests\n    cp \"$SRCROOT\"/packages/mac/bats/Heimdal-ios.plist \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests/Heimdal.plist\n    ;;\n  macosx*)\n    mkdir -p \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests\n    cp \"$SRCROOT\"/packages/mac/bats/Heimdal-macos.plist \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests/Heimdal.plist\n    ;;\n  watchos*)\n    mkdir -p \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests\n    cp \"$SRCROOT\"/packages/mac/bats/Heimdal-watchos.plist \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests/Heimdal.plist\n    ;;\n  appletvos*)\n    mkdir -p \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests\n    cp \"$SRCROOT\"/packages/mac/bats/Heimdal-watchos.plist \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests/Heimdal.plist\n    ;;\n  *)\n    echo \"Skipping launchd configuration for platform $PLATFORM_NAME\"\n    exit 0\n    ;;\nesac\n";
+		};
+		8CB6E9292577F5A700F83708 /* Install bats files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install bats files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/sh -x";
+			shellScript = "# installation type is dependent on the platform\ncase \"$PLATFORM_NAME\" in\n  macosx*)\n    mkdir -p \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests\n    cp \"$SRCROOT\"/packages/mac/bats/Heimdal-macos.plist \"$DSTROOT\"/AppleInternal/CoreOS/BATS/unit_tests/Heimdal.plist\n    ;;\n  *)\n    echo \"Skipping launchd configuration for platform $PLATFORM_NAME\"\n    exit 0\n    ;;\nesac\n";
 		};
 		EB081D960FD5FBAA00F8373D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -25464,7 +25496,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -25973,12 +26004,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Release;
 		};
@@ -26045,12 +26074,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Debug;
 		};
@@ -26110,12 +26137,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.GSSCredTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = "Release-Embedded";
 		};
@@ -30314,7 +30339,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -30331,7 +30355,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = "Release-asan";
 		};
@@ -30348,7 +30371,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = "Release-Embedded";
 		};

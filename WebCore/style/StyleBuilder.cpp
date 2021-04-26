@@ -32,6 +32,7 @@
 
 #include "CSSFontSelector.h"
 #include "CSSPaintImageValue.h"
+#include "CSSPendingSubstitutionValue.h"
 #include "CSSValuePool.h"
 #include "HTMLElement.h"
 #include "PaintWorkletGlobalScope.h"
@@ -39,6 +40,8 @@
 #include "StyleBuilderGenerated.h"
 #include "StyleFontSizeFunctions.h"
 #include "StylePropertyShorthand.h"
+
+#include <wtf/SetForScope.h>
 
 namespace WebCore {
 namespace Style {
@@ -215,12 +218,11 @@ void Builder::applyCustomProperty(const String& name)
         }
 
         if (m_state.m_inProgressPropertiesCustom.contains(name)) {
-            m_state.m_linkMatch = index;
+            SetForScope<SelectorChecker::LinkMatchMask> scopedLinkMatchMutation(m_state.m_linkMatch, index);
             applyProperty(CSSPropertyCustom, valueToApply.get(), index);
         }
     }
 
-    m_state.m_linkMatch = SelectorChecker::MatchDefault;
     m_state.m_inProgressPropertiesCustom.remove(name);
     m_state.m_appliedCustomProperties.add(name);
 
@@ -246,7 +248,7 @@ inline void Builder::applyCascadeProperty(const PropertyCascade::Property& prope
 
     auto applyWithLinkMatch = [&](SelectorChecker::LinkMatchMask linkMatch) {
         if (property.cssValue[linkMatch]) {
-            m_state.m_linkMatch = linkMatch;
+            SetForScope<SelectorChecker::LinkMatchMask> scopedLinkMatchMutation(m_state.m_linkMatch, linkMatch);
             applyProperty(property.id, *property.cssValue[linkMatch], linkMatch);
         }
     };
@@ -368,6 +370,12 @@ Ref<CSSValue> Builder::resolveValue(CSSPropertyID propertyID, CSSValue& value)
 
 RefPtr<CSSValue> Builder::resolvedVariableValue(CSSPropertyID propID, const CSSValue& value)
 {
+    if (value.isPendingSubstitutionValue()) {
+        auto& substitutionValue = downcast<CSSPendingSubstitutionValue>(value);
+        CSSParser parser(CSSParserContext(m_state.document(), substitutionValue.baseURL()));
+        return parser.parseValueWithVariableReferences(propID, value, m_state);
+    }
+    
     CSSParser parser(m_state.document());
     return parser.parseValueWithVariableReferences(propID, value, m_state);
 }

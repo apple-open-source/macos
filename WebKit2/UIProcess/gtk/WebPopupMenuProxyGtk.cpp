@@ -255,7 +255,7 @@ void WebPopupMenuProxyGtk::createPopupMenu(const Vector<WebPopupItem>& items, in
     gtk_widget_set_parent(m_popup, m_webView);
 
     auto* controller = gtk_event_controller_key_new();
-    g_signal_connect_swapped(controller, "key-pressed", G_CALLBACK(+[](WebPopupMenuProxyGtk* popupMenu, unsigned keyval, unsigned, GdkModifierType, GtkEventController* controller) {
+    g_signal_connect_swapped(controller, "key-pressed", G_CALLBACK(+[](WebPopupMenuProxyGtk* popupMenu, unsigned keyval, unsigned, GdkModifierType, GtkEventController* controller) -> gboolean {
         auto* event = gtk_event_controller_get_current_event(controller);
         if (popupMenu->typeAheadFind(keyval, gdk_event_get_time(event)))
             return GDK_EVENT_STOP;
@@ -320,7 +320,7 @@ void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection, dou
     auto* monitor = gdk_display_get_monitor_at_window(display, gtk_widget_get_window(m_webView));
 #endif
     GdkRectangle area;
-    gdk_monitor_get_workarea(monitor, &area);
+    monitorWorkArea(monitor, &area);
     int width = std::min(rect.width(), area.width);
     size_t itemCount = std::min<size_t>(items.size(), (area.height / 3) / itemHeight);
 

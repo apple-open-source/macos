@@ -49,7 +49,6 @@ public:
 
     // AudioNode
     void process(size_t framesToProcess) final;
-    void reset() final;
 
     // setBuffer() is called on the main thread.  This is the buffer we use for playback.
     ExceptionOr<void> setBuffer(RefPtr<AudioBuffer>&&);
@@ -99,15 +98,11 @@ private:
     virtual double legacyGainValue() const { return 1.0; }
     virtual bool shouldThrowOnAttemptToOverwriteBuffer() const { return true; }
 
-    enum BufferPlaybackMode {
-        Entire,
-        Partial
-    };
-
-    ExceptionOr<void> startPlaying(BufferPlaybackMode, double when, double grainOffset, double grainDuration);
+    ExceptionOr<void> startPlaying(double when, double grainOffset, Optional<double> grainDuration);
+    void adjustGrainParameters();
 
     // Returns true on success.
-    bool renderFromBuffer(AudioBus*, unsigned destinationFrameOffset, size_t numberOfFrames);
+    bool renderFromBuffer(AudioBus*, unsigned destinationFrameOffset, size_t numberOfFrames, double startFrameOffset);
 
     // Render silence starting from "index" frame in AudioBus.
     inline bool renderSilenceAndFinishIfNotLooping(AudioBus*, unsigned index, size_t framesToProcess);
@@ -139,20 +134,18 @@ private:
     bool m_isGrain { false };
     double m_grainOffset { 0 }; // in seconds
     double m_grainDuration; // in seconds
+    double m_wasGrainDurationGiven { false };
 
     // totalPitchRate() returns the instantaneous pitch rate (non-time preserving).
     // It incorporates the base pitch rate, any sample-rate conversion factor from the buffer, and any doppler shift from an associated panner node.
     double totalPitchRate();
 
-    // m_lastGain provides continuity when we dynamically adjust the gain.
-    float m_lastGain { 1.0 };
-
     // We optionally keep track of a panner node which has a doppler shift that is incorporated into
-    // the pitch rate. We manually manage ref-counting because we want to use RefTypeConnection.
-    PannerNodeBase* m_pannerNode { nullptr };
+    // the pitch rate.
+    AudioConnectionRefPtr<PannerNodeBase> m_pannerNode;
 
     // This synchronizes process() with setBuffer() which can cause dynamic channel count changes.
-    mutable Lock m_processMutex;
+    mutable Lock m_processLock;
 };
 
 } // namespace WebCore

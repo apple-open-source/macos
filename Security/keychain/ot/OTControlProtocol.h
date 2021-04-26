@@ -230,6 +230,10 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 - (void)fetchUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
                                    contextID:(NSString*)contextID
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
+
+- (void)resetAccountCDPContents:(NSString* _Nullable)containerName
+                      contextID:(NSString*)contextID
+                          reply:(void (^)(NSError* _Nullable error))reply;
 @end
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface);

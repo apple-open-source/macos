@@ -67,7 +67,7 @@ static bool useBackslashAsYenSignForFamily(const AtomString& family)
     return set.get().contains(family);
 }
 
-FontCascade::CodePath FontCascade::s_codePath = Auto;
+FontCascade::CodePath FontCascade::s_codePath = CodePath::Auto;
 
 // ============================================================================================
 // FontCascade Implementation (Cross-Platform Portion)
@@ -287,7 +287,7 @@ void FontCascade::update(RefPtr<FontSelector>&& fontSelector) const
 
 GlyphBuffer FontCascade::layoutText(CodePath codePathToUse, const TextRun& run, unsigned from, unsigned to, ForTextEmphasisOrNot forTextEmphasis) const
 {
-    if (codePathToUse != Complex)
+    if (codePathToUse != CodePath::Complex)
         return layoutSimpleText(run, from, to, forTextEmphasis);
 
     return layoutComplexText(run, from, to, forTextEmphasis);
@@ -302,7 +302,7 @@ FloatSize FontCascade::drawText(GraphicsContext& context, const TextRun& run, co
     if (glyphBuffer.isEmpty())
         return FloatSize();
 
-    FloatPoint startPoint = point + FloatSize(glyphBuffer.initialAdvance());
+    FloatPoint startPoint = point + WebCore::size(glyphBuffer.initialAdvance());
     drawGlyphBuffer(context, glyphBuffer, startPoint, customFontNotReadyAction);
     return startPoint - point;
 }
@@ -320,7 +320,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run
     if (glyphBuffer.isEmpty())
         return;
 
-    FloatPoint startPoint = point + FloatSize(glyphBuffer.initialAdvance());
+    FloatPoint startPoint = point + WebCore::size(glyphBuffer.initialAdvance());
     drawEmphasisMarks(context, glyphBuffer, mark, startPoint);
 }
 
@@ -331,8 +331,8 @@ std::unique_ptr<DisplayList::DisplayList> FontCascade::displayListForTextRun(Gra
     
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
     CodePath codePathToUse = codePath(run);
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
-        codePathToUse = Complex;
+    if (codePathToUse != CodePath::Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
+        codePathToUse = CodePath::Complex;
 
     auto glyphBuffer = layoutText(codePathToUse, run, from, destination);
     glyphBuffer.flatten();
@@ -342,10 +342,10 @@ std::unique_ptr<DisplayList::DisplayList> FontCascade::displayListForTextRun(Gra
     
     std::unique_ptr<DisplayList::DisplayList> displayList = makeUnique<DisplayList::DisplayList>();
     GraphicsContext recordingContext([&](GraphicsContext& displayListContext) {
-        return makeUnique<DisplayList::Recorder>(displayListContext, *displayList, context.state(), FloatRect(), AffineTransform());
+        return makeUnique<DisplayList::Recorder>(displayListContext, *displayList, context.state(), FloatRect(), AffineTransform(), nullptr, DisplayList::DrawGlyphsRecorder::DrawGlyphsDeconstruction::DontDeconstruct);
     });
     
-    FloatPoint startPoint = toFloatPoint(FloatSize(glyphBuffer.initialAdvance()));
+    FloatPoint startPoint = toFloatPoint(WebCore::size(glyphBuffer.initialAdvance()));
     drawGlyphBuffer(recordingContext, glyphBuffer, startPoint, customFontNotReadyAction);
     return displayList;
 }
@@ -363,7 +363,7 @@ float FontCascade::widthOfTextRange(const TextRun& run, unsigned from, unsigned 
     float totalWidth = 0;
 
     auto codePathToUse = codePath(run);
-    if (codePathToUse == Complex) {
+    if (codePathToUse == CodePath::Complex) {
         ComplexTextController complexIterator(*this, run, false, fallbackFonts);
         complexIterator.advance(from, nullptr, IncludePartialGlyphs, fallbackFonts);
         offsetBeforeRange = complexIterator.runWidthSoFar();
@@ -398,12 +398,12 @@ float FontCascade::width(const TextRun& run, HashSet<const Font*>* fallbackFonts
         return 0;
 
     CodePath codePathToUse = codePath(run);
-    if (codePathToUse != Complex) {
+    if (codePathToUse != CodePath::Complex) {
         // The complex path is more restrictive about returning fallback fonts than the simple path, so we need an explicit test to make their behaviors match.
         if (!canReturnFallbackFontsForComplexText())
             fallbackFonts = nullptr;
         // The simple path can optimize the case where glyph overflow is not observable.
-        if (codePathToUse != SimpleWithGlyphOverflow && (glyphOverflow && !glyphOverflow->computeBounds))
+        if (codePathToUse != CodePath::SimpleWithGlyphOverflow && (glyphOverflow && !glyphOverflow->computeBounds))
             glyphOverflow = nullptr;
     }
 
@@ -417,7 +417,7 @@ float FontCascade::width(const TextRun& run, HashSet<const Font*>* fallbackFonts
         fallbackFonts = &localFallbackFonts;
 
     float result;
-    if (codePathToUse == Complex)
+    if (codePathToUse == CodePath::Complex)
         result = floatWidthForComplexText(run, fallbackFonts, glyphOverflow);
     else
         result = floatWidthForSimpleText(run, fallbackFonts, glyphOverflow);
@@ -431,7 +431,7 @@ float FontCascade::widthForSimpleText(StringView text, TextDirection textDirecti
 {
     if (text.isNull() || text.isEmpty())
         return 0;
-    ASSERT(codePath(TextRun(text)) != FontCascade::Complex);
+    ASSERT(codePath(TextRun(text)) != CodePath::Complex);
     float* cacheEntry = m_fonts->widthCache().add(text, std::numeric_limits<float>::quiet_NaN());
     if (cacheEntry && !std::isnan(*cacheEntry))
         return *cacheEntry;
@@ -451,7 +451,7 @@ float FontCascade::widthForSimpleText(StringView text, TextDirection textDirecti
     // Same glyph widths but different floating point arithmetic can produce different run width.
     float runWidthDifferenceWithTransformApplied = -runWidth;
     for (size_t i = 0; i < glyphBuffer.size(); ++i)
-        runWidthDifferenceWithTransformApplied += glyphBuffer.advanceAt(i).width();
+        runWidthDifferenceWithTransformApplied += WebCore::width(glyphBuffer.advanceAt(i));
     runWidth += runWidthDifferenceWithTransformApplied;
 
     if (cacheEntry)
@@ -546,7 +546,7 @@ bool FontCascade::fastAverageCharWidthIfAvailable(float& width) const
 void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& selectionRect, unsigned from, Optional<unsigned> to) const
 {
     unsigned destination = to.valueOr(run.length());
-    if (codePath(run, from, to) != Complex)
+    if (codePath(run, from, to) != CodePath::Complex)
         return adjustSelectionRectForSimpleText(run, selectionRect, from, destination);
 
     return adjustSelectionRectForComplexText(run, selectionRect, from, destination);
@@ -554,7 +554,7 @@ void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& sel
 
 int FontCascade::offsetForPosition(const TextRun& run, float x, bool includePartialGlyphs) const
 {
-    if (codePath(run, x) != Complex)
+    if (codePath(run, x) != CodePath::Complex)
         return offsetForPositionForSimpleText(run, x, includePartialGlyphs);
 
     return offsetForPositionForComplexText(run, x, includePartialGlyphs);
@@ -595,7 +595,7 @@ bool FontCascade::shouldUseSmoothing()
     return shouldUseFontSmoothing;
 }
 
-#if !PLATFORM(COCOA)
+#if !USE(CORE_TEXT) || PLATFORM(WIN)
 bool FontCascade::isSubpixelAntialiasingAvailable()
 {
     return false;
@@ -614,13 +614,13 @@ FontCascade::CodePath FontCascade::codePath()
 
 FontCascade::CodePath FontCascade::codePath(const TextRun& run, Optional<unsigned> from, Optional<unsigned> to) const
 {
-    if (s_codePath != Auto)
+    if (s_codePath != CodePath::Auto)
         return s_codePath;
 
 #if !USE(FREETYPE)
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
     if ((enableKerning() || requiresShaping()) && (from.valueOr(0) || to.valueOr(run.length()) != run.length()))
-        return Complex;
+        return CodePath::Complex;
 #else
     UNUSED_PARAM(from);
     UNUSED_PARAM(to);
@@ -630,19 +630,19 @@ FontCascade::CodePath FontCascade::codePath(const TextRun& run, Optional<unsigne
     // Because Font::applyTransforms() doesn't know which features to enable/disable in the simple code path, it can't properly handle feature or variant settings.
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=150791: @font-face features should also cause this to be complex.
     if (m_fontDescription.featureSettings().size() > 0 || !m_fontDescription.variantSettings().isAllNormal())
-        return Complex;
+        return CodePath::Complex;
 
 #else
 
     if (run.length() > 1 && (enableKerning() || requiresShaping()))
-        return Complex;
+        return CodePath::Complex;
 #endif
 
     if (!run.characterScanForCodePath())
-        return Simple;
+        return CodePath::Simple;
 
     if (run.is8Bit())
-        return Simple;
+        return CodePath::Simple;
 
     // Start from 0 since drawing and highlighting also measure the characters before run->from.
     return characterRangeCodePath(run.characters16(), run.length());
@@ -655,28 +655,28 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
     // are not 'combining', but still need to go to the complex path.
     // Alternatively, we may as well consider binary search over a sorted
     // list of ranges.
-    CodePath result = Simple;
+    CodePath result = CodePath::Simple;
     bool previousCharacterIsEmojiGroupCandidate = false;
     for (unsigned i = 0; i < len; i++) {
         const UChar c = characters[i];
         if (c == zeroWidthJoiner && previousCharacterIsEmojiGroupCandidate)
-            return Complex;
+            return CodePath::Complex;
         
         previousCharacterIsEmojiGroupCandidate = false;
         if (c < 0x2E5) // U+02E5 through U+02E9 (Modifier Letters : Tone letters)  
             continue;
         if (c <= 0x2E9) 
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x300) // U+0300 through U+036F Combining diacritical marks
             continue;
         if (c <= 0x36F)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x0591 || c == 0x05BE) // U+0591 through U+05CF excluding U+05BE Hebrew combining marks, Hebrew punctuation Paseq, Sof Pasuq and Nun Hafukha
             continue;
         if (c <= 0x05CF)
-            return Complex;
+            return CodePath::Complex;
 
         // U+0600 through U+109F Arabic, Syriac, Thaana, NKo, Samaritan, Mandaic,
         // Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, 
@@ -684,97 +684,97 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
         if (c < 0x0600) 
             continue;
         if (c <= 0x109F)
-            return Complex;
+            return CodePath::Complex;
 
         // U+1100 through U+11FF Hangul Jamo (only Ancient Korean should be left here if you precompose;
         // Modern Korean will be precomposed as a result of step A)
         if (c < 0x1100)
             continue;
         if (c <= 0x11FF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x135D) // U+135D through U+135F Ethiopic combining marks
             continue;
         if (c <= 0x135F)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x1700) // U+1780 through U+18AF Tagalog, Hanunoo, Buhid, Taghanwa,Khmer, Mongolian
             continue;
         if (c <= 0x18AF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x1900) // U+1900 through U+194F Limbu (Unicode 4.0)
             continue;
         if (c <= 0x194F)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x1980) // U+1980 through U+19DF New Tai Lue
             continue;
         if (c <= 0x19DF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x1A00) // U+1A00 through U+1CFF Buginese, Tai Tham, Balinese, Batak, Lepcha, Vedic
             continue;
         if (c <= 0x1CFF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x1DC0) // U+1DC0 through U+1DFF Comining diacritical mark supplement
             continue;
         if (c <= 0x1DFF)
-            return Complex;
+            return CodePath::Complex;
 
         // U+1E00 through U+2000 characters with diacritics and stacked diacritics
         if (c <= 0x2000) {
-            result = SimpleWithGlyphOverflow;
+            result = CodePath::SimpleWithGlyphOverflow;
             continue;
         }
 
         if (c < 0x20D0) // U+20D0 through U+20FF Combining marks for symbols
             continue;
         if (c <= 0x20FF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x26F9)
             continue;
         if (c < 0x26FA)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x2CEF) // U+2CEF through U+2CF1 Combining marks for Coptic
             continue;
         if (c <= 0x2CF1)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x302A) // U+302A through U+302F Ideographic and Hangul Tone marks
             continue;
         if (c <= 0x302F)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0x3099)
             continue;
         if (c < 0x309D)
-            return Complex; // KATAKANA-HIRAGANA (SEMI-)VOICED SOUND MARKS require character composition
+            return CodePath::Complex; // KATAKANA-HIRAGANA (SEMI-)VOICED SOUND MARKS require character composition
 
         if (c < 0xA67C) // U+A67C through U+A67D Combining marks for old Cyrillic
             continue;
         if (c <= 0xA67D)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0xA6F0) // U+A6F0 through U+A6F1 Combining mark for Bamum
             continue;
         if (c <= 0xA6F1)
-            return Complex;
+            return CodePath::Complex;
 
         // U+A800 through U+ABFF Nagri, Phags-pa, Saurashtra, Devanagari Extended,
         // Hangul Jamo Ext. A, Javanese, Myanmar Extended A, Tai Viet, Meetei Mayek,
         if (c < 0xA800) 
             continue;
         if (c <= 0xABFF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0xD7B0) // U+D7B0 through U+D7FF Hangul Jamo Ext. B
             continue;
         if (c <= 0xD7FF)
-            return Complex;
+            return CodePath::Complex;
 
         if (c <= 0xDBFF) {
             // High surrogate
@@ -791,66 +791,66 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
             if (supplementaryCharacter < 0x10A00)
                 continue;
             if (supplementaryCharacter < 0x10A60) // Kharoshthi
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11000)
                 continue;
             if (supplementaryCharacter < 0x11080) // Brahmi
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x110D0) // Kaithi
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11100)
                 continue;
             if (supplementaryCharacter < 0x11150) // Chakma
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11180) // Mahajani
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x111E0) // Sharada
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11200)
                 continue;
             if (supplementaryCharacter < 0x11250) // Khojki
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x112B0)
                 continue;
             if (supplementaryCharacter < 0x11300) // Khudawadi
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11380) // Grantha
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11400)
                 continue;
             if (supplementaryCharacter < 0x11480) // Newa
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x114E0) // Tirhuta
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11580)
                 continue;
             if (supplementaryCharacter < 0x11600) // Siddham
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11660) // Modi
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11680)
                 continue;
             if (supplementaryCharacter < 0x116D0) // Takri
-                return Complex;
-            if (supplementaryCharacter < 0x11740)
+                return CodePath::Complex;
+            if (supplementaryCharacter < 0x11700)
                 continue;
             if (supplementaryCharacter < 0x11C00) // Ahom, Dogra, Dives Akuru, Nandinagari, Zanabazar Square, Soyombo, Warang Citi, Pau Cin Hau
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11C70) // Bhaiksuki
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x11CC0) // Marchen
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x1E900)
                 continue;
             if (supplementaryCharacter < 0x1E960) // Adlam
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0x1F1E6) // U+1F1E6 through U+1F1FF Regional Indicator Symbols
                 continue;
             if (supplementaryCharacter <= 0x1F1FF)
-                return Complex;
+                return CodePath::Complex;
 
             if (isEmojiFitzpatrickModifier(supplementaryCharacter))
-                return Complex;
+                return CodePath::Complex;
             if (isEmojiGroupCandidate(supplementaryCharacter)) {
                 previousCharacterIsEmojiGroupCandidate = true;
                 continue;
@@ -859,11 +859,11 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
             if (supplementaryCharacter < 0xE0000)
                 continue;
             if (supplementaryCharacter < 0xE0080) // Tags
-                return Complex;
+                return CodePath::Complex;
             if (supplementaryCharacter < 0xE0100) // U+E0100 through U+E01EF Unicode variation selectors.
                 continue;
             if (supplementaryCharacter <= 0xE01EF)
-                return Complex;
+                return CodePath::Complex;
 
             // FIXME: Check for Brahmi (U+11000 block), Kaithi (U+11080 block) and other complex scripts
             // in plane 1 or higher.
@@ -874,12 +874,12 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
         if (c < 0xFE00) // U+FE00 through U+FE0F Unicode variation selectors
             continue;
         if (c <= 0xFE0F)
-            return Complex;
+            return CodePath::Complex;
 
         if (c < 0xFE20) // U+FE20 through U+FE2F Combining half marks
             continue;
         if (c <= 0xFE2F)
-            return Complex;
+            return CodePath::Complex;
     }
     return result;
 }
@@ -1401,7 +1401,7 @@ GlyphBuffer FontCascade::layoutSimpleText(const TextRun& run, unsigned from, uns
     if (!glyphBuffer.isEmpty()) {
         // The initial advance is supposed to point directly to the first glyph's paint position.
         // See the ascii-art diagram in ComplexTextController.h.
-        glyphBuffer.expandInitialAdvance(GlyphBufferAdvance(glyphBuffer.originAt(0).x(), glyphBuffer.originAt(0).y()));
+        glyphBuffer.expandInitialAdvance(makeGlyphBufferAdvance(x(glyphBuffer.originAt(0)), y(glyphBuffer.originAt(0))));
     }
 
     // The glyph buffer is currently in logical order,
@@ -1429,18 +1429,18 @@ GlyphBuffer FontCascade::layoutComplexText(const TextRun& run, unsigned from, un
         // the sum of the layout advances.
         FloatSize initialAdvance = controller.totalAdvance();
         for (unsigned i = 0; i < dummyGlyphBuffer.size(); ++i)
-            initialAdvance -= toFloatSize(dummyGlyphBuffer.advanceAt(i));
+            initialAdvance -= WebCore::size(dummyGlyphBuffer.advanceAt(i));
         for (unsigned i = 0; i < glyphBuffer.size(); ++i)
-            initialAdvance -= toFloatSize(glyphBuffer.advanceAt(i));
+            initialAdvance -= WebCore::size(glyphBuffer.advanceAt(i));
         // FIXME: Shouldn't we subtract the other initial advance?
         glyphBuffer.reverse(0, glyphBuffer.size());
-        glyphBuffer.setInitialAdvance(initialAdvance);
+        glyphBuffer.setInitialAdvance(makeGlyphBufferAdvance(initialAdvance));
     } else {
-        FloatSize initialAdvance = toFloatSize(dummyGlyphBuffer.initialAdvance());
+        FloatSize initialAdvance = WebCore::size(dummyGlyphBuffer.initialAdvance());
         for (unsigned i = 0; i < dummyGlyphBuffer.size(); ++i)
-            initialAdvance += toFloatSize(dummyGlyphBuffer.advanceAt(i));
+            initialAdvance += WebCore::size(dummyGlyphBuffer.advanceAt(i));
         // FIXME: Shouldn't we add the other initial advance?
-        glyphBuffer.setInitialAdvance(initialAdvance);
+        glyphBuffer.setInitialAdvance(makeGlyphBufferAdvance(initialAdvance));
     }
 
     return glyphBuffer;
@@ -1459,8 +1459,8 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
     ASSERT(glyphBuffer.isFlattened());
     const Font* fontData = &glyphBuffer.fontAt(0);
     FloatPoint startPoint = point;
-    float nextX = startPoint.x() + glyphBuffer.advanceAt(0).width();
-    float nextY = startPoint.y() + glyphBuffer.advanceAt(0).height();
+    float nextX = startPoint.x() + WebCore::width(glyphBuffer.advanceAt(0));
+    float nextY = startPoint.y() + height(glyphBuffer.advanceAt(0));
     unsigned lastFrom = 0;
     unsigned nextGlyph = 1;
     while (nextGlyph < glyphBuffer.size()) {
@@ -1475,8 +1475,8 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
             startPoint.setX(nextX);
             startPoint.setY(nextY);
         }
-        nextX += glyphBuffer.advanceAt(nextGlyph).width();
-        nextY += glyphBuffer.advanceAt(nextGlyph).height();
+        nextX += WebCore::width(glyphBuffer.advanceAt(nextGlyph));
+        nextY += height(glyphBuffer.advanceAt(nextGlyph));
         nextGlyph++;
     }
 
@@ -1521,7 +1521,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const GlyphBuffer&
     GlyphBuffer markBuffer;
     for (unsigned i = 0; i + 1 < glyphBuffer.size(); ++i) {
         float middleOfNextGlyph = offsetToMiddleOfGlyphAtIndex(glyphBuffer, i + 1);
-        float advance = glyphBuffer.advanceAt(i).width() - middleOfLastGlyph + middleOfNextGlyph;
+        float advance = WebCore::width(glyphBuffer.advanceAt(i)) - middleOfLastGlyph + middleOfNextGlyph;
         markBuffer.add(glyphBuffer.glyphAt(i) ? markGlyph : spaceGlyph, *markFontData, advance);
         middleOfLastGlyph = middleOfNextGlyph;
     }
@@ -1766,7 +1766,7 @@ std::pair<float, float> GlyphToPathTranslator::extents()
 {
     auto beginning = m_translation.mapPoint(FloatPoint(0, 0));
     auto advance = m_glyphBuffer.advanceAt(m_index);
-    auto end = m_translation.mapSize(FloatSize(advance.width(), advance.height()));
+    auto end = m_translation.mapSize(size(advance));
     return std::make_pair(beginning.x(), beginning.x() + end.width());
 }
 
@@ -1778,7 +1778,7 @@ auto GlyphToPathTranslator::underlineType() -> GlyphUnderlineType
 void GlyphToPathTranslator::advance()
 {
     GlyphBufferAdvance advance = m_glyphBuffer.advanceAt(m_index);
-    m_translation.translate(FloatSize(advance.width(), advance.height()));
+    m_translation.translate(size(advance));
     ++m_index;
     if (m_index < m_glyphBuffer.size())
         m_fontData = &m_glyphBuffer.fontAt(m_index);
@@ -1794,7 +1794,7 @@ DashArray FontCascade::dashesForIntersectionsWithRect(const TextRun& run, const 
     if (!glyphBuffer.size())
         return DashArray();
 
-    FloatPoint origin = textOrigin + FloatSize(glyphBuffer.initialAdvance());
+    FloatPoint origin = textOrigin + WebCore::size(glyphBuffer.initialAdvance());
     GlyphToPathTranslator translator(run, glyphBuffer, origin);
     DashArray result;
     for (unsigned index = 0; translator.containsMorePaths(); ++index, translator.advance()) {

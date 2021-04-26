@@ -33,18 +33,15 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         super(null);
 
         this._identifier = tabInfo.identifier;
-        this._tabBarItem = this.constructor.shouldPinTab() ? WI.PinnedTabBarItem.fromTabContentView(this) : WI.GeneralTabBarItem.fromTabContentView(this);
         this._navigationSidebarPanelConstructor = navigationSidebarPanelConstructor || null;
         this._detailsSidebarPanelConstructors = detailsSidebarPanelConstructors || [];
 
-        const defaultSidebarWidth = 300;
-
         this._navigationSidebarCollapsedSetting = new WI.Setting(this._identifier + "-navigation-sidebar-collapsed", false);
-        this._navigationSidebarWidthSetting = new WI.Setting(this._identifier + "-navigation-sidebar-width", defaultSidebarWidth);
+        this._navigationSidebarWidthSetting = new WI.Setting(this._identifier + "-navigation-sidebar-width", WI.TabContentView.DefaultSidebarWidth);
 
         this._detailsSidebarCollapsedSetting = new WI.Setting(this._identifier + "-details-sidebar-collapsed", !this.detailsSidebarExpandedByDefault);
         this._detailsSidebarSelectedPanelSetting = new WI.Setting(this._identifier + "-details-sidebar-selected-panel", null);
-        this._detailsSidebarWidthSetting = new WI.Setting(this._identifier + "-details-sidebar-width", defaultSidebarWidth);
+        this._detailsSidebarWidthSetting = new WI.Setting(this._identifier + "-details-sidebar-widths", {});
 
         this._cookieSetting = new WI.Setting(this._identifier + "-tab-cookie", {});
 
@@ -84,6 +81,11 @@ WI.TabContentView = class TabContentView extends WI.ContentView
 
     get tabBarItem()
     {
+        // This is created lazily to break a dependency cycle for dynamically-created TabContentViews.
+        // TabContentViews with a non-static tabInfo() must be fully constructed before calling tabInfo().
+        if (!this._tabBarItem)
+            this._tabBarItem = this.constructor.shouldPinTab() ? WI.PinnedTabBarItem.fromTabContentView(this) : WI.GeneralTabBarItem.fromTabContentView(this);
+
         return this._tabBarItem;
     }
 
@@ -121,9 +123,21 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         return false;
     }
 
-    shown()
+    get allowMultipleDetailSidebars()
     {
-        super.shown();
+        // Can be overridden by subclasses.
+        return false;
+    }
+
+    tabInfo()
+    {
+        // Can be overridden by subclasses.
+        return this.constructor.tabInfo();
+    }
+
+    attached()
+    {
+        super.attached();
 
         if (this._shouldRestoreStateWhenShown)
             this.restoreStateFromCookie(WI.StateRestorationType.Delayed);
@@ -131,7 +145,7 @@ WI.TabContentView = class TabContentView extends WI.ContentView
 
     restoreStateFromCookie(restorationType)
     {
-        if (!this.visible) {
+        if (!this.isAttached) {
             this._shouldRestoreStateWhenShown = true;
             return;
         }
@@ -192,3 +206,5 @@ WI.TabContentView = class TabContentView extends WI.ContentView
     get detailsSidebarSelectedPanelSetting() { return this._detailsSidebarSelectedPanelSetting; }
     get detailsSidebarWidthSetting() { return this._detailsSidebarWidthSetting; }
 };
+
+WI.TabContentView.DefaultSidebarWidth = 300;

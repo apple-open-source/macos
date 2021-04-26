@@ -31,6 +31,7 @@
 #include "ContentType.h"
 #include "SourceBufferParserAVFObjC.h"
 #include "SourceBufferParserWebM.h"
+#include <pal/cocoa/MediaToolboxSoftLink.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -43,9 +44,9 @@ MediaPlayerEnums::SupportsType SourceBufferParser::isContentTypeSupported(const 
     return supports;
 }
 
-RefPtr<SourceBufferParser> SourceBufferParser::create(const ContentType& type)
+RefPtr<SourceBufferParser> SourceBufferParser::create(const ContentType& type, bool webMParserEnabled)
 {
-    if (SourceBufferParserWebM::isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported)
+    if (SourceBufferParserWebM::isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported && webMParserEnabled)
         return adoptRef(new SourceBufferParserWebM());
 
     if (SourceBufferParserAVFObjC::isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported)
@@ -54,6 +55,78 @@ RefPtr<SourceBufferParser> SourceBufferParser::create(const ContentType& type)
     return nullptr;
 }
 
+void SourceBufferParser::setMinimumAudioSampleDuration(float)
+{
 }
+
+SourceBufferParser::Segment::Segment(Vector<uint8_t>&& segment)
+    : m_segment(WTFMove(segment))
+{
+}
+
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+SourceBufferParser::Segment::Segment(RetainPtr<MTPluginByteSourceRef>&& segment)
+    : m_segment(WTFMove(segment))
+{
+}
+#endif
+
+size_t SourceBufferParser::Segment::size() const
+{
+    return WTF::switchOn(m_segment,
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+        [](const RetainPtr<MTPluginByteSourceRef>& byteSource)
+        {
+            return clampTo<size_t>(MTPluginByteSourceGetLength(byteSource.get()));
+        },
+#endif
+        [](const Vector<uint8_t>& vector)
+        {
+            return vector.size();
+        }
+    );
+}
+
+size_t SourceBufferParser::Segment::read(size_t position, size_t sizeToRead, uint8_t* destination) const
+{
+    size_t segmentSize = size();
+    sizeToRead = std::min(sizeToRead, segmentSize - std::min(position, segmentSize));
+    return WTF::switchOn(m_segment,
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+        [&](const RetainPtr<MTPluginByteSourceRef>& byteSource) -> size_t
+        {
+            size_t sizeRead = 0;
+            if (MTPluginByteSourceRead(byteSource.get(), sizeToRead, CheckedInt64(position).unsafeGet(), destination, &sizeRead) != noErr)
+                return 0;
+            return sizeRead;
+        },
+#endif
+        [&](const Vector<uint8_t>& vector)
+        {
+            memcpy(destination, vector.data() + position, sizeToRead);
+            return sizeToRead;
+        }
+    );
+}
+
+Vector<uint8_t> SourceBufferParser::Segment::takeVector()
+{
+    return WTF::switchOn(m_segment,
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+        [&](RetainPtr<MTPluginByteSourceRef>&)
+        {
+            Vector<uint8_t> vector(size());
+            vector.shrink(read(0, vector.size(), vector.data()));
+            return vector;
+        },
+#endif
+        [](Vector<uint8_t>& vector)
+        {
+            return std::exchange(vector, { });
+        }
+    );
+}
+
+} // namespace WebCore
 
 #endif // ENABLE(MEDIA_SOURCE)

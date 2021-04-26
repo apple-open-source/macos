@@ -66,6 +66,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TrustedPeersHelperEgoPeerStatus : NSObject <NSSecureCoding>
 @property TPPeerStatus egoStatus;
 @property NSString* _Nullable egoPeerID;
+@property NSString* _Nullable egoPeerMachineID;
 @property (assign) uint64_t numberOfPeersInOctagon;
 
 // Note: this field does not include untrusted peers
@@ -78,6 +79,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property BOOL isLocked;
 
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
+                 egoPeerMachineID:(NSString* _Nullable)egoPeerMachineID
                            status:(TPPeerStatus)egoStatus
         viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
             peerCountsByMachineID:(NSDictionary<NSString*, NSNumber*>*)peerCountsByMachineID
@@ -382,6 +384,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)getSupportAppInfoWithContainer:(NSString *)container
                                context:(NSString *)context
                                  reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
+
+- (void)resetAccountCDPContentsWithContainer:(NSString *)container
+                                    context:(NSString *)context
+                                      reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)removeEscrowCacheWithContainer:(NSString *)container
                                context:(NSString *)context

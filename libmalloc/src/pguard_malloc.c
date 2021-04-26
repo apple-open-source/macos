@@ -28,6 +28,7 @@
 # include <dlfcn.h>  // dladdr()
 #endif
 #include <mach/mach_time.h>  // mach_absolute_time()
+#include <sys/codesign.h>  // csops()
 
 #include "internal.h"
 
@@ -305,14 +306,20 @@ choose_available_slot(pguard_zone_t *zone)
 	return slot;
 }
 
-// Choose a random metadata index.
 static uint32_t
 choose_metadata(pguard_zone_t *zone)
 {
 	if (zone->num_metadata < zone->max_metadata) {
 		return zone->num_metadata++;
 	}
-	return rand_uniform(zone->max_metadata);
+
+	while (true) {
+		uint32_t index = rand_uniform(zone->max_metadata);
+		uint32_t s = zone->metadata[index].slot;
+		if (zone->slots[s].state == ss_freed) {
+			return index;
+		}
+	}
 }
 
 static boolean_t
@@ -907,7 +914,7 @@ static const malloc_zone_t malloc_zone_template = {
 
 
 #pragma mark -
-#pragma mark Zone Configuration
+#pragma mark Configuration Options
 
 static const char *
 env_var(const char *name)
@@ -930,18 +937,72 @@ env_bool(const char *name) {
 	return value[0] == '1';
 }
 
-boolean_t
-pguard_enabled(void)
-{
-	if (env_var("MallocPGuard")) {
-		return env_bool("MallocPGuard");
-	}
 #if CONFIG_FEATUREFLAGS_SIMPLE
-	return os_feature_enabled_simple(libmalloc, PGuardAllProcesses, FALSE) ||
-			(os_feature_enabled_simple(libmalloc, PGuardViaLaunchd, FALSE) && env_bool("MallocPGuardViaLaunchd"));
+# define FEATURE_FLAG(feature, default) os_feature_enabled_simple(libmalloc, feature, default)
 #else
-	return FALSE;
+# define FEATURE_FLAG(feature, default) (default)
 #endif
+
+
+#pragma mark -
+#pragma mark Zone Configuration
+
+static bool
+is_platform_binary(void)
+{
+	uint32_t flags = 0;
+	int err = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (err) {
+		return false;
+	}
+	return (flags & CS_PLATFORM_BINARY);
+}
+
+static bool
+should_activate(bool internal_build)
+{
+	uint32_t activation_rate = (internal_build ? 250 : 1000);
+	return rand_uniform(activation_rate) == 0;
+}
+
+bool
+pguard_enabled(bool internal_build)
+{
+	if (env_var("MallocProbGuard")) {
+		return env_bool("MallocProbGuard");
+	}
+#if TARGET_OS_OSX || TARGET_OS_IOS
+	if (FEATURE_FLAG(ProbGuard, true) && (internal_build || is_platform_binary())) {
+		bool activate = TARGET_OS_OSX ?
+				should_activate(internal_build) :
+				env_bool("MallocProbGuardViaLaunchd");
+		if (activate) {
+			return true;
+		}
+	}
+#endif  // macOS || iOS
+	if (FEATURE_FLAG(ProbGuardAllProcesses, false)) {
+		return true;
+	}
+	return false;
+}
+
+static uint32_t
+choose_memory_budget_in_kb(void)
+{
+	return (TARGET_OS_OSX ? 8 : 2) * 1024;
+}
+
+// TODO(yln): uniform sampling is likely not optimal here, since we will tend to
+// sample around the average of our range, which is probably more frequent than
+// what we want.  We probably want the average to be less frequent, but still be
+// able to reach the "very frequent" end of our range occassionally.  Consider
+// using a geometric (or other weighted distribution) here.
+static uint32_t
+choose_sample_rate(void)
+{
+	uint32_t min = 500, max = 10000;
+	return rand_uniform(max - min) + min;
 }
 
 static const double k_slot_multiplier = 10.0;
@@ -966,22 +1027,9 @@ compute_max_allocations(size_t memory_budget_in_kb)
 	return max_allocations;
 }
 
-static uint32_t
-choose_sample_rate(void)
-{
-#if CONFIG_FEATUREFLAGS_SIMPLE
-	if (os_feature_enabled_simple(libmalloc, PGuardAllProcesses, FALSE)) {
-		return 1000;
-	}
-#endif
-	uint32_t rates[] = {10, 50, 100, 500, 1000, 5000};
-	const uint32_t count = (sizeof(rates) / sizeof(rates[0]));
-	return rates[rand_uniform(count)];
-}
-
 static void
 configure_zone(pguard_zone_t *zone) {
-	uint32_t memory_budget_in_kb = env_uint("MallocPGuardMemoryBudgetInKB", 2 * 1024); // 2MB
+	uint32_t memory_budget_in_kb = env_uint("MallocPGuardMemoryBudgetInKB", choose_memory_budget_in_kb());
 	zone->max_allocations = env_uint("MallocPGuardAllocations", compute_max_allocations(memory_budget_in_kb));
 	zone->num_slots = env_uint("MallocPGuardSlots", k_slot_multiplier * zone->max_allocations);
 	zone->max_metadata = env_uint("MallocPGuardMetadata", k_metadata_multiplier * zone->max_allocations);
@@ -1037,9 +1085,8 @@ setup_zone(pguard_zone_t *zone, malloc_zone_t *wrapped_zone) {
 
 static void install_signal_handler(void *unused);
 malloc_zone_t *
-pguard_create_zone(malloc_zone_t *wrapped_zone, unsigned debug_flags)
+pguard_create_zone(malloc_zone_t *wrapped_zone)
 {
-	// TODO(yln): debug_flags unused
 	pguard_zone_t *zone = (pguard_zone_t *)my_vm_map(sizeof(pguard_zone_t), VM_PROT_READ_WRITE, VM_MEMORY_MALLOC);
 	setup_zone(zone, wrapped_zone);
 	my_vm_protect((vm_address_t)zone, PAGE_MAX_SIZE, VM_PROT_READ);
@@ -1356,7 +1403,6 @@ mark_read_write(vm_address_t page)
 #pragma mark -
 #pragma mark Mach VM Helpers
 
-// TODO(yln): try to replace these helpers with functions from vm.c
 static vm_address_t
 my_vm_map(size_t size, vm_prot_t protection, int tag)
 {

@@ -23,7 +23,6 @@
 
 #include "ActiveDOMObject.h"
 #include "DOMIsoSubspaces.h"
-#include "Document.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -31,7 +30,6 @@
 #include "JSDOMWrapperCache.h"
 #include "JSTestSubObj.h"
 #include "ScriptExecutionContext.h"
-#include "Settings.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
@@ -48,10 +46,9 @@ using namespace JSC;
 
 // Attributes
 
-JSC::EncodedJSValue jsTestEnabledForContextConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestEnabledForContextConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
-JSC::EncodedJSValue jsTestEnabledForContextTestSubObjEnabledForContextConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestEnabledForContextTestSubObjEnabledForContextConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestEnabledForContextConstructor);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestEnabledForContext_TestSubObjEnabledForContextConstructor);
+static JSC_DECLARE_CUSTOM_SETTER(setJSTestEnabledForContext_TestSubObjEnabledForContextConstructor);
 
 class JSTestEnabledForContextPrototype final : public JSC::JSNonFinalObject {
 public:
@@ -85,28 +82,28 @@ private:
 };
 STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestEnabledForContextPrototype, JSTestEnabledForContextPrototype::Base);
 
-using JSTestEnabledForContextConstructor = JSDOMConstructorNotConstructable<JSTestEnabledForContext>;
+using JSTestEnabledForContextDOMConstructor = JSDOMConstructorNotConstructable<JSTestEnabledForContext>;
 
-template<> JSValue JSTestEnabledForContextConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestEnabledForContextDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(vm);
     return globalObject.functionPrototype();
 }
 
-template<> void JSTestEnabledForContextConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestEnabledForContextDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestEnabledForContext::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestEnabledForContext"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
-template<> const ClassInfo JSTestEnabledForContextConstructor::s_info = { "TestEnabledForContext", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEnabledForContextConstructor) };
+template<> const ClassInfo JSTestEnabledForContextDOMConstructor::s_info = { "TestEnabledForContext", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEnabledForContextDOMConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestEnabledForContextPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestEnabledForContextConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestEnabledForContextConstructor) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestEnabledForContextConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
 };
 
 const ClassInfo JSTestEnabledForContextPrototype::s_info = { "TestEnabledForContext", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEnabledForContextPrototype) };
@@ -132,8 +129,8 @@ void JSTestEnabledForContext::finishCreation(VM& vm)
 
     static_assert(!std::is_base_of<ActiveDOMObject, TestEnabledForContext>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
-    if ((downcast<Document>(jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext())->settings().testSettingEnabled() && TestSubObjEnabledForContext::enabledForContext(*jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext())))
-        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().TestSubObjEnabledForContextPublicName(), CustomGetterSetter::create(vm, jsTestEnabledForContextTestSubObjEnabledForContextConstructor, setJSTestEnabledForContextTestSubObjEnabledForContextConstructor), attributesForStructure(static_cast<unsigned>(JSC::PropertyAttribute::DontEnum)));
+    if ((jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->settingsValues().testSettingEnabled && TestSubObjEnabledForContext::enabledForContext(*jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext())))
+        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().TestSubObjEnabledForContextPublicName(), CustomGetterSetter::create(vm, jsTestEnabledForContext_TestSubObjEnabledForContextConstructor, setJSTestEnabledForContext_TestSubObjEnabledForContextConstructor), attributesForStructure(static_cast<unsigned>(JSC::PropertyAttribute::DontEnum)));
 }
 
 JSObject* JSTestEnabledForContext::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -148,7 +145,7 @@ JSObject* JSTestEnabledForContext::prototype(VM& vm, JSDOMGlobalObject& globalOb
 
 JSValue JSTestEnabledForContext::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestEnabledForContextConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestEnabledForContextDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
 void JSTestEnabledForContext::destroy(JSC::JSCell* cell)
@@ -162,7 +159,7 @@ template<> inline JSTestEnabledForContext* IDLAttribute<JSTestEnabledForContext>
     return jsDynamicCast<JSTestEnabledForContext*>(JSC::getVM(&lexicalGlobalObject), JSValue::decode(thisValue));
 }
 
-EncodedJSValue jsTestEnabledForContextConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestEnabledForContextConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -172,40 +169,27 @@ EncodedJSValue jsTestEnabledForContextConstructor(JSGlobalObject* lexicalGlobalO
     return JSValue::encode(JSTestEnabledForContext::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestEnabledForContextConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
-{
-    VM& vm = JSC::getVM(lexicalGlobalObject);
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestEnabledForContextPrototype*>(vm, JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype)) {
-        throwVMTypeError(lexicalGlobalObject, throwScope);
-        return false;
-    }
-    // Shadowing a built-in constructor
-    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
-}
-
-static inline JSValue jsTestEnabledForContextTestSubObjEnabledForContextConstructorGetter(JSGlobalObject& lexicalGlobalObject, JSTestEnabledForContext& thisObject)
+static inline JSValue jsTestEnabledForContext_TestSubObjEnabledForContextConstructorGetter(JSGlobalObject& lexicalGlobalObject, JSTestEnabledForContext& thisObject)
 {
     UNUSED_PARAM(lexicalGlobalObject);
     return JSTestSubObj::getConstructor(JSC::getVM(&lexicalGlobalObject), thisObject.globalObject());
 }
 
-EncodedJSValue jsTestEnabledForContextTestSubObjEnabledForContextConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestEnabledForContext_TestSubObjEnabledForContextConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
-    return IDLAttribute<JSTestEnabledForContext>::get<jsTestEnabledForContextTestSubObjEnabledForContextConstructorGetter>(*lexicalGlobalObject, thisValue, "TestSubObjEnabledForContext");
+    return IDLAttribute<JSTestEnabledForContext>::get<jsTestEnabledForContext_TestSubObjEnabledForContextConstructorGetter>(*lexicalGlobalObject, thisValue, "TestSubObjEnabledForContext");
 }
 
-static inline bool setJSTestEnabledForContextTestSubObjEnabledForContextConstructorSetter(JSGlobalObject& lexicalGlobalObject, JSTestEnabledForContext& thisObject, JSValue value)
+static inline bool setJSTestEnabledForContext_TestSubObjEnabledForContextConstructorSetter(JSGlobalObject& lexicalGlobalObject, JSTestEnabledForContext& thisObject, JSValue value)
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     // Shadowing a built-in constructor.
     return thisObject.putDirect(vm, Identifier::fromString(vm, reinterpret_cast<const LChar*>("TestSubObjEnabledForContext"), strlen("TestSubObjEnabledForContext")), value);
 }
 
-bool setJSTestEnabledForContextTestSubObjEnabledForContextConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+JSC_DEFINE_CUSTOM_SETTER(setJSTestEnabledForContext_TestSubObjEnabledForContextConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue))
 {
-    return IDLAttribute<JSTestEnabledForContext>::set<setJSTestEnabledForContextTestSubObjEnabledForContextConstructorSetter>(*lexicalGlobalObject, thisValue, encodedValue, "TestSubObjEnabledForContext");
+    return IDLAttribute<JSTestEnabledForContext>::set<setJSTestEnabledForContext_TestSubObjEnabledForContextConstructorSetter>(*lexicalGlobalObject, thisValue, encodedValue, "TestSubObjEnabledForContext");
 }
 
 JSC::IsoSubspace* JSTestEnabledForContext::subspaceForImpl(JSC::VM& vm)

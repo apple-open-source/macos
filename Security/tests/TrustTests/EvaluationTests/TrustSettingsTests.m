@@ -13,13 +13,12 @@
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecTrustStore.h>
 #include <utilities/SecCFRelease.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#if TARGET_OS_IPHONE
-#include <Security/SecTrustStore.h>
-#else
+#if !TARGET_OS_IPHONE
 #include <Security/SecKeychain.h>
 #endif
 
@@ -674,6 +673,34 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertFalse([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultFatalTrustFailure);
     [self removeTrustSettingsForCert:(__bridge SecCertificateRef)root persistentRef:persistentRef];
+}
+
+- (void)testSystemTrustStore
+{
+    SecTrustStoreRef systemTS = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
+    id appleRoot = [self SecCertificateCreateFromResource:@"AppleRootCA" subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _trustSettingsRoot, sizeof(_trustSettingsRoot));
+
+    /* system trust store is read-only */
+    XCTAssertEqual(errSecReadOnly, SecTrustStoreSetTrustSettings(systemTS, root, NULL));
+    XCTAssertEqual(errSecReadOnly, SecTrustStoreRemoveCertificate(systemTS, root));
+
+    /* Can't enumerate the trust store */
+    CFArrayRef store = NULL;
+    XCTAssertEqual(errSecUnimplemented, SecTrustStoreCopyAll(systemTS, &store));
+    XCTAssert(store == NULL);
+
+    /* returns correct results for contains */
+    XCTAssert(SecTrustStoreContains(systemTS, (__bridge SecCertificateRef)appleRoot));
+    XCTAssertFalse(SecTrustStoreContains(systemTS, root));
+
+    /* returns constraints for contained CAs */
+    CFArrayRef usageConstraints = NULL;
+    XCTAssertEqual(errSecSuccess, SecTrustStoreCopyUsageConstraints(systemTS, (__bridge SecCertificateRef)appleRoot, &usageConstraints));
+    XCTAssert(usageConstraints != NULL);
+
+    CFReleaseNull(usageConstraints);
+    CFReleaseNull(root);
 }
 
 @end

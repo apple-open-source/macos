@@ -207,15 +207,16 @@ protected:
 protected:
 	class LoadThread : public Thread {
 	public:
-		LoadThread(MachServer &srv) : server(srv) { }
+		LoadThread(MachServer &srv) : Thread("MachServer"), server(srv) { }
 		
 		MachServer &server;
 		
-		void action();		// code implementation
+		void threadAction();		// code implementation
 	};
 	
 	Mutex managerLock;		// lock for thread-global management info below
 	set<Thread *> workers;	// threads running for this server
+    set<Thread *> deadWorkers; // threads that are no longer running and need to be freed
 	UInt32 workerCount;		// number of worker threads (including primary)
 	UInt32 maxWorkerCount;	// administrative limit to workerCount
 	bool useFloatingThread;	// keep a "floating" idle thread (instead of using longTermActivity)
@@ -229,6 +230,7 @@ protected:
 
 	void addThread(Thread *thread); // add thread to worker pool
 	void removeThread(Thread *thread); // remove thread from worker pool
+    void cleanupWorkers();
 	bool processTimer();	// handle one due timer object, if any (return true if there was one)
 
 private:

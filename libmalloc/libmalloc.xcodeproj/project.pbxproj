@@ -329,6 +329,7 @@
 		4DD5962D23E22A3D00D573D2 /* pguard_internals.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pguard_internals.c; sourceTree = "<group>"; tabWidth = 2; };
 		4DF318FF23D796550064A673 /* pguard_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pguard_malloc.c; sourceTree = "<group>"; tabWidth = 2; };
 		4DF3190023D796550064A673 /* pguard_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pguard_malloc.h; sourceTree = "<group>"; };
+		4DFE482725BA55C5004A50E8 /* malloc_zone_unregister_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_zone_unregister_test.c; sourceTree = "<group>"; };
 		875E02E32125B62300A7FE8A /* aligned_alloc_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = aligned_alloc_test.c; sourceTree = "<group>"; };
 		875E02E42125C1D100A7FE8A /* posix_memalign_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = posix_memalign_test.c; sourceTree = "<group>"; };
 		8CB962B01F7E9F610046942E /* asan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = asan.c; sourceTree = "<group>"; };
@@ -638,6 +639,7 @@
 				875E02E32125B62300A7FE8A /* aligned_alloc_test.c */,
 				875E02E42125C1D100A7FE8A /* posix_memalign_test.c */,
 				B6A414EA1FBDF01C0038DC53 /* malloc_claimed_address_tests.c */,
+				4DFE482725BA55C5004A50E8 /* malloc_zone_unregister_test.c */,
 				B6726EC92092473D00E8AF5A /* malloc_heap_check_test.c */,
 				C9F8C2681D70B521008C4044 /* magazine_small_test.c */,
 				B64E100A205311DC004C4BA6 /* malloc_size_test.c */,

@@ -115,6 +115,12 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
             case AUTHORIZATION_COPY_PRELOGIN_USERDB:
                 status = authorization_copy_prelogin_userdb(conn,event,reply);
                 break;
+            case AUTHORIZATION_COPY_PRELOGIN_PREFS:
+                status = authorization_copy_prelogin_pref_value(conn, event, reply);
+                break;
+            case AUTHORIZATION_PRELOGIN_SC_OVERRIDE:
+                status = authorization_prelogin_smartcardonly_override(conn, event, reply);
+                break;
 #if DEBUG
             case AUTHORIZATION_DEV:
                 server_dev();

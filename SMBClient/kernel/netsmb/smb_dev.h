@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2015 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include <sys/unistd.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_conn.h>
 
 #include <sys/kauth.h>
 
@@ -68,17 +69,20 @@
 #define SMB_MAX_IOC_SIZE 4 * 1024
 
 /* Negotiate Ioctl extra flags */
-#define SMB_SHARING_SESSION     0x01	/* We are sharing this session */
-#define SMB_FORCE_NEW_SESSION   0x02	/* Use a new session */
-#define SMB_SMB1_ENABLED        0x04	/* SMB 1 Enabled */
-#define SMB_SMB2_ENABLED        0x08	/* SMB 2 Enabled */
-#define SMB_SIGNING_REQUIRED    0x10
-#define SMB_SMB3_ENABLED        0x20	/* SMB 3 Enabled */
-#define SMB_MATCH_DNS           0x40	/* Try to find mounted srvrs using dns */
-#define SMB_SMB1_SIGNING_REQ    0x80	/* Signing required for SMB 1 */
+#define SMB_SHARING_SESSION      0x01	/* We are sharing this session */
+#define SMB_FORCE_NEW_SESSION    0x02	/* Use a new session */
+#define SMB_SMB1_ENABLED         0x04	/* SMB 1 Enabled */
+#define SMB_SMB2_ENABLED         0x08	/* SMB 2 Enabled */
+#define SMB_SIGNING_REQUIRED     0x10
+#define SMB_SMB3_ENABLED         0x20	/* SMB 3 Enabled */
+#define SMB_MATCH_DNS            0x40	/* Try to find mounted srvrs using dns */
+#define SMB_SMB1_SIGNING_REQ     0x80	/* Signing required for SMB 1 */
 #define SMB_SMB2_SIGNING_REQ    0x100	/* Signing required for SMB 2 */
 #define SMB_SMB3_SIGNING_REQ    0x200   /* Signing required for SMB 3 */
 #define SMB_HIFI_REQUESTED      0x400   /* HiFi mode is being requested */
+#define SMB_MULTICHANNEL_ENABLE 0x800   /* Enable Multi-Channel SMB */
+#define SMB_MC_PREFER_WIRED    0x1000   /* Prefer wired NICs in multichannel */
+#define SMB_DISABLE_311        0x2000   /* Disable SMB v3.1.1 */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -134,6 +138,12 @@ struct smbioc_negotiate {
     char        ioc_dns_name[255] __attribute((aligned(8)));
     struct sockaddr_storage ioc_shared_saddr;   /* Shared server's address */
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+    int32_t     ioc_mc_max_channel;
+    int32_t     ioc_mc_max_rss_channel;
+    uint32_t    ioc_mc_client_if_blacklist[kClientIfBlacklistMaxLen] __attribute((aligned(8)));
+    uint32_t    ioc_mc_client_if_blacklist_len;
+
+    void        *ioc_sessionp;
 };
 
 /*
@@ -268,7 +278,78 @@ struct smbioc_session_properties {
 	uint64_t	txmax;				
 	uint64_t	rxmax;				
 	uint64_t	wxmax;
+    /* mc additions */
+    struct timespec ioc_session_setup_time;
+    uint64_t        ioc_total_rx_bytes;
+    uint64_t        ioc_total_tx_bytes;
+    uint32_t        ioc_session_reconnect_count;
+    uint32_t        ioc_reserved0;
+    struct timespec ioc_session_reconnect_time;
+
     char        model_info[SMB_MAXFNAMELEN * 2] __attribute((aligned(8)));
+
+    char        snapshot_time[32] __attribute((aligned(8)));
+};
+
+struct adress_propreties {
+    uint8_t  addr_family;
+    union {
+        char addr_ipv4[4];
+        char addr_ipv6[16];
+    };
+};
+
+#define MAX_NUM_OF_NICS 16
+#define MAX_ADDRS_FOR_NIC 8
+#define SERVER_NICS 0
+#define CLIENT_NICS 1
+struct smbioc_nic_info {
+    uint32_t    ioc_version;
+    uint32_t    ioc_reserved;
+    uint8_t     flags;  // server or client
+    uint32_t    num_of_nics;
+    struct nic_properties {
+        uint64_t if_index;
+        uint32_t capabilities;
+        uint32_t nic_type;
+        uint64_t speed;
+        uint8_t  ip_types;
+        uint8_t  state;
+        uint32_t num_of_addrs;
+        struct adress_propreties addr_list[MAX_ADDRS_FOR_NIC];
+    } nic_props[MAX_NUM_OF_NICS];
+};
+
+#define MAX_NUM_OF_IODS_IN_QUERY 64
+struct smbioc_multichannel_properties {
+    uint32_t    ioc_version;
+    uint32_t    ioc_reserved;
+    uint32_t    num_of_iod_properties;
+    struct smbioc_iod_prop {
+        uint32_t iod_prop_id;
+        uint32_t iod_flags;
+        uint64_t iod_prop_con_speed;
+        uint64_t iod_prop_c_if;
+        uint32_t iod_prop_c_if_type;
+        uint64_t iod_prop_s_if;
+        uint32_t iod_prop_s_if_caps;
+        uint8_t  iod_prop_state;
+        uint32_t iod_prop_con_port;
+        uint64_t iod_prop_rx;
+        uint64_t iod_prop_tx;
+        struct timespec iod_prop_setup_time;
+        struct adress_propreties  iod_prop_s_addr;
+    } iod_properties[MAX_NUM_OF_IODS_IN_QUERY];
+};
+
+struct smbioc_list_snapshots {
+    uint32_t    ioc_version;
+    uint32_t    ioc_reserved;
+    uint32_t    nmbr_snapshots;
+    uint32_t    nmbr_snapshots_returned;
+    uint32_t    snapshot_array_size;
+    uint32_t    snapshot_buffer_len;
+    SMB_IOC_POINTER(const char *, snapshot_buffer);
 };
 
 /*
@@ -291,6 +372,8 @@ struct smbioc_session_properties {
 #define	SMBIOC_CANCEL_SESSION	_IOR('n', 115, uint16_t)
 #define SMBIOC_SESSION_PROPERTIES	_IOWR('n', 116, struct smbioc_session_properties)
 #define	SMBIOC_GET_OS_LANMAN	_IOR('n', 117, struct smbioc_os_lanman)
+#define SMBIOC_MULTICHANNEL_PROPERTIES    _IOWR('n', 131, struct smbioc_multichannel_properties)
+#define SMBIOC_NIC_INFO         _IOWR('n', 132, struct smbioc_nic_info)
 /* Rest of the IOCTLs are defined in smb_dev_2.h */
 
 /*

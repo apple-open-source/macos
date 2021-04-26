@@ -23,20 +23,12 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
-#include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
 #include <ctype.h>
 
 #include "sudoers.h"
@@ -77,7 +69,7 @@ sudo_read_nss(void)
     bool saw_files = false;
     bool got_match = false;
     static struct sudo_nss_list snl = TAILQ_HEAD_INITIALIZER(snl);
-    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS);
 
     if ((fp = fopen(_PATH_NSSWITCH_CONF, "r")) == NULL)
 	goto nomatch;
@@ -157,7 +149,7 @@ sudo_read_nss(void)
     bool saw_ldap = false;
     bool got_match = false;
     static struct sudo_nss_list snl = TAILQ_HEAD_INITIALIZER(snl);
-    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS);
 
     if ((fp = fopen(_PATH_NETSVC_CONF, "r")) == NULL)
 	goto nomatch;
@@ -238,7 +230,7 @@ struct sudo_nss_list *
 sudo_read_nss(void)
 {
     static struct sudo_nss_list snl = TAILQ_HEAD_INITIALIZER(snl);
-    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_read_nss, SUDOERS_DEBUG_NSS);
 
 #  ifdef HAVE_SSSD
     TAILQ_INSERT_TAIL(&snl, &sudo_nss_sss, entries);
@@ -258,7 +250,7 @@ sudo_read_nss(void)
 bool
 sudo_nss_can_continue(struct sudo_nss *nss, int match)
 {
-    debug_decl(sudo_nss_should_continue, SUDOERS_DEBUG_NSS)
+    debug_decl(sudo_nss_should_continue, SUDOERS_DEBUG_NSS);
 
     /* Handle [NOTFOUND=return] */
     if (nss->ret_if_notfound && match == UNSPEC)

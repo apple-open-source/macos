@@ -53,7 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 + (NSDictionary<NSString*, NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSNumber*)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
 
 @end
 

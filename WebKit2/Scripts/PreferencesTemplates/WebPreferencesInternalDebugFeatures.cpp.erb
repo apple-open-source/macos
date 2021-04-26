@@ -28,32 +28,19 @@
 #include "config.h"
 #include "WebPreferences.h"
 
+#include "WebPreferencesDefinitions.h"
 #include "WebPreferencesKeys.h"
 
 namespace WebKit {
 
-<%- for @pref in @internalDebugFeatures do -%>
-void WebPreferences::set<%= @pref.name %>(const bool& value)
-{
-    if (!m_store.setBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key(), value))
-        return;
-    updateBoolValueForInternalDebugFeatureKey(WebPreferencesKey::<%= @pref.nameLower %>Key(), value);
-}
-
-bool WebPreferences::<%= @pref.nameLower %>() const
-{
-    return m_store.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key());
-}
-
-<%- end -%>
 const Vector<RefPtr<API::Object>>& WebPreferences::internalDebugFeatures()
 {
     static NeverDestroyed<Vector<RefPtr<API::Object>>> features(std::initializer_list<RefPtr<API::Object>> {
-<%- for @pref in @internalDebugFeatures do -%>
+<%- for @pref in @exposedInternalFeatures do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-        API::InternalDebugFeature::create(<%= @pref.humanReadableName %>, "<%= @pref.name %>", <%= @pref.humanReadableDescription %>, <%= @pref.defaultValue %>, <%= @pref.hidden %>),
+        API::InternalDebugFeature::create(<%= @pref.humanReadableName %>, "<%= @pref.name %>", <%= @pref.humanReadableDescription %>, DEFAULT_VALUE_FOR_<%= @pref.name %>, <%= @pref.hidden %>),
 <%- if @pref.condition -%>
 #endif
 <%- end -%>
@@ -71,7 +58,7 @@ bool WebPreferences::isFeatureEnabled(const API::InternalDebugFeature& feature) 
     };
 
     static FeatureGetterMapping getters[] = {
-<%- for @pref in @internalDebugFeatures do -%>
+<%- for @pref in @exposedInternalFeatures do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
@@ -105,7 +92,7 @@ void WebPreferences::setInternalDebugFeatureEnabledForKey(const String& key, boo
     };
 
     static FeatureSetterMapping setters[] = {
-<%- for @pref in @internalDebugFeatures do -%>
+<%- for @pref in @exposedInternalFeatures do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
@@ -126,11 +113,12 @@ void WebPreferences::setInternalDebugFeatureEnabledForKey(const String& key, boo
 
 void WebPreferences::resetAllInternalDebugFeatures()
 {
-<%- for @pref in @internalDebugFeatures do -%>
+    UpdateBatch batch(*this);
+<%- for @pref in @exposedInternalFeatures do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-    set<%= @pref.name %>(<%= @pref.defaultValue %>);
+    set<%= @pref.name %>(DEFAULT_VALUE_FOR_<%= @pref.name %>);
 <%- if @pref.condition -%>
 #endif
 <%- end -%>

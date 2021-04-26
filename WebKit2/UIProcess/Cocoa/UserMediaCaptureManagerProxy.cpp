@@ -52,15 +52,14 @@ using namespace WebCore;
 class UserMediaCaptureManagerProxy::SourceProxy
     : private RealtimeMediaSource::Observer
     , private RealtimeMediaSource::AudioSampleObserver
-    , private RealtimeMediaSource::VideoSampleObserver
-    , public SharedRingBufferStorage::Client {
+    , private RealtimeMediaSource::VideoSampleObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     SourceProxy(RealtimeMediaSourceIdentifier id, Ref<IPC::Connection>&& connection, Ref<RealtimeMediaSource>&& source)
         : m_id(id)
         , m_connection(WTFMove(connection))
         , m_source(WTFMove(source))
-        , m_ringBuffer(makeUniqueRef<SharedRingBufferStorage>(makeUniqueRef<SharedRingBufferStorage>(this)))
+        , m_ringBuffer(makeUniqueRef<SharedRingBufferStorage>(std::bind(&SourceProxy::storageChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
     {
         m_source->addObserver(*this);
         switch (m_source->type()) {
@@ -156,10 +155,7 @@ private:
 
         ASSERT(is<WebAudioBufferList>(audioData));
         m_ringBuffer.store(downcast<WebAudioBufferList>(audioData).list(), numberOfFrames, time.timeValue());
-        uint64_t startFrame;
-        uint64_t endFrame;
-        m_ringBuffer.getCurrentFrameBounds(startFrame, endFrame);
-        m_connection->send(Messages::RemoteCaptureSampleManager::AudioSamplesAvailable(m_id, time, numberOfFrames, startFrame, endFrame), 0);
+        m_connection->send(Messages::RemoteCaptureSampleManager::AudioSamplesAvailable(m_id, time, numberOfFrames), 0);
     }
 
     void videoSampleAvailable(MediaSample& sample) final
@@ -198,7 +194,8 @@ private:
         return m_rotationSession->rotate(sample, rotation, ImageRotationSessionVT::IsCGImageCompatible::No);
     }
 
-    void storageChanged(SharedMemory* storage) final {
+    void storageChanged(SharedMemory* storage, const WebCore::CAAudioStreamDescription& format, size_t frameCount)
+    {
         SharedMemory::Handle handle;
         if (storage)
             storage->createHandle(handle, SharedMemory::Protection::ReadOnly);
@@ -209,7 +206,7 @@ private:
 #else
         uint64_t dataSize = 0;
 #endif
-        m_connection->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, SharedMemory::IPCHandle { WTFMove(handle),  dataSize }, m_description, m_numberOfFrames), 0);
+        m_connection->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, SharedMemory::IPCHandle { WTFMove(handle),  dataSize }, format, frameCount), 0);
     }
 
     bool preventSourceFromStopping()
@@ -260,6 +257,7 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     case WebCore::CaptureDevice::DeviceType::Window:
         sourceOrError = RealtimeMediaSourceCenter::singleton().displayCaptureFactory().createDisplayCaptureSource(device, &constraints);
         break;
+    case WebCore::CaptureDevice::DeviceType::Speaker:
     case WebCore::CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
         break;

@@ -25,6 +25,7 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSKey.h"
+#import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
@@ -91,6 +92,8 @@
 
         [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventReencryptOutgoing zone:self.deps.zoneID.zoneName count:oqes.count];
 
+        CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
+
         for(CKKSOutgoingQueueEntry* oqe in oqes) {
             // If there's already a 'new' item replacing this one, drop the reencryption on the floor
             CKKSOutgoingQueueEntry* newOQE = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid state:SecCKKSStateNew zoneID:oqe.item.zoneID error:&error];
@@ -115,7 +118,8 @@
 
             ckksnotice("ckksreencrypt", self.deps.zoneID, "Reencrypting item %@", oqe);
 
-            NSDictionary* item = [CKKSItemEncrypter decryptItemToDictionary: oqe.item error:&error];
+
+            NSDictionary* item = [CKKSItemEncrypter decryptItemToDictionary:oqe.item keyCache:keyCache error:&error];
             if(error) {
                 if ([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
                     ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't find key in keychain; asking for reset: %@", error);
@@ -130,7 +134,7 @@
             }
 
             // Pick a key whose class matches the keyclass that this item
-            CKKSKey* originalKey = [CKKSKey fromDatabase: oqe.item.parentKeyUUID zoneID:self.deps.zoneID error:&error];
+            CKKSKey* originalKey = [keyCache loadKeyForUUID:oqe.item.parentKeyUUID zoneID:self.deps.zoneID error:&error];
             if(error) {
                 ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't fetch key (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
                 self.error = error;
@@ -138,7 +142,7 @@
                 continue;
             }
 
-            CKKSKey* newkey = [CKKSKey currentKeyForClass: originalKey.keyclass zoneID:self.deps.zoneID error:&error];
+            CKKSKey* newkey = [keyCache currentKeyForClass:originalKey.keyclass zoneID:self.deps.zoneID error:&error];
             [newkey ensureKeyLoaded: &error];
             if(error) {
                 ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't fetch the current key for class %@: %@", originalKey.keyclass, error);
@@ -159,6 +163,7 @@
                                                           dataDictionary:item
                                                         updatingCKKSItem:ckme.item
                                                                parentkey:newkey
+                                                                keyCache:keyCache
                                                                    error:&error];
 
             if(error) {

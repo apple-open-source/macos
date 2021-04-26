@@ -58,6 +58,7 @@
 #include "smartcards.h"
 #include "translocate.h"
 #include "requirement.h"
+#include "fvunlock.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -745,7 +746,16 @@ const command commands[] =
         "<requirements> [<DER certificate file> ...]\n"
         "Evaluates the given requirement string against the given cert chain.",
         "Evaluate a requirement against a cert chain." },
-
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+    { "filevault" , fvunlock,
+        "skip-sc-enforcement <data volume UUID> <operation>\n"
+        "  data volume UUID can by obtained by running diskutil apfs list"
+        "  operation is one of the following:"
+        "     set        Sets SmartCard enforcement to be skipped for the next boot\n"
+        "     reset      Resets any SmartCard overrides\n"
+        "     status     Tells the current state of the SmartCard overrides\n",
+        "Handles FileVault specific settings and overrides."},
+#endif
     {}
 };
 

@@ -149,7 +149,7 @@
     return results;
 }
 
-+ (NSNumber*)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
     __block NSNumber *result = nil;
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
@@ -163,7 +163,6 @@
                                    }
                                         error: error];
     return result;
-
 }
 
 

@@ -29,6 +29,7 @@
 #include "Connection.h"
 #include "WebEvent.h"
 #include <WebCore/PageIdentifier.h>
+#include <WebCore/PlatformWheelEvent.h>
 #include <WebCore/WheelEventDeltaFilter.h>
 #include <memory>
 #include <wtf/HashMap.h>
@@ -51,6 +52,10 @@ namespace WebKit {
 class WebPage;
 class WebWheelEvent;
 
+#if ENABLE(IOS_TOUCH_EVENTS)
+class WebTouchEvent;
+#endif
+
 class EventDispatcher : public IPC::Connection::WorkQueueMessageReceiver {
 public:
     static Ref<EventDispatcher> create();
@@ -68,9 +73,7 @@ public:
 
     void initializeConnection(IPC::Connection*);
 
-#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     void notifyScrollingTreesDisplayWasRefreshed(WebCore::PlatformDisplayID);
-#endif
 
 private:
     EventDispatcher();
@@ -88,8 +91,8 @@ private:
 #endif
 
     // This is called on the main thread.
-    void dispatchWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&);
-    void dispatchWheelEventViaMainThread(WebCore::PageIdentifier, const WebWheelEvent&);
+    void dispatchWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
+    void dispatchWheelEventViaMainThread(WebCore::PageIdentifier, const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
 
 #if ENABLE(IOS_TOUCH_EVENTS)
     void dispatchTouchEvents();

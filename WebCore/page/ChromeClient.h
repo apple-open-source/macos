@@ -23,6 +23,7 @@
 
 #include "AXObjectCache.h"
 #include "AutoplayEvent.h"
+#include "ContactInfo.h"
 #include "Cursor.h"
 #include "DatabaseDetails.h"
 #include "DeviceOrientationOrMotionPermissionState.h"
@@ -39,6 +40,7 @@
 #include "ImageBuffer.h"
 #include "InputMode.h"
 #include "MediaProducer.h"
+#include "PointerCharacteristics.h"
 #include "PopupMenu.h"
 #include "PopupMenuClient.h"
 #include "RegistrableDomain.h"
@@ -112,6 +114,7 @@ class Widget;
 class MediaPlayerRequestInstallMissingPluginsCallback;
 #endif
 
+struct ContactsRequestData;
 struct ContentRuleListResults;
 struct DateTimeChooserParameters;
 struct GraphicsDeviceAdapter;
@@ -177,6 +180,11 @@ public:
     virtual bool runJavaScriptPrompt(Frame&, const String& message, const String& defaultValue, String& result) = 0;
     virtual void setStatusbarText(const String&) = 0;
     virtual KeyboardUIMode keyboardUIMode() = 0;
+
+    virtual bool hoverSupportedByPrimaryPointingDevice() const = 0;
+    virtual bool hoverSupportedByAnyAvailablePointingDevice() const = 0;
+    virtual Optional<PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const = 0;
+    virtual OptionSet<PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const = 0;
 
     virtual bool supportsImmediateInvalidation() { return false; }
     virtual void invalidateRootView(const IntRect&) = 0;
@@ -290,8 +298,13 @@ public:
     virtual bool canShowDataListSuggestionLabels() const = 0;
 #endif
 
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    virtual std::unique_ptr<DateTimeChooser> createDateTimeChooser(DateTimeChooserClient&) = 0;
+#endif
+
     virtual void runOpenPanel(Frame&, FileChooser&) = 0;
     virtual void showShareSheet(ShareDataWithParsedURL&, WTF::CompletionHandler<void(bool)>&& callback) { callback(false); }
+    virtual void showContactPicker(const ContactsRequestData&, WTF::CompletionHandler<void(Optional<Vector<ContactInfo>>&&)>&& callback) { callback(WTF::nullopt); }
     
     // Asynchronous request to load an icon for specified filenames.
     virtual void loadIconForFiles(const Vector<String>&, FileIconLoader&) = 0;
@@ -310,8 +323,11 @@ public:
 
     virtual RefPtr<DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const { return nullptr; }
 
-    virtual std::unique_ptr<ImageBuffer> createImageBuffer(const FloatSize&, ShouldAccelerate, ShouldUseDisplayList, RenderingPurpose, float, ColorSpace) const { return nullptr; }
-    virtual std::unique_ptr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, float, ColorSpace) const { return nullptr; }
+    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, ColorSpace, PixelFormat) const { return nullptr; }
+
+#if ENABLE(WEBGL)
+    virtual RefPtr<GraphicsContextGL> createGraphicsContextGL(const GraphicsContextGLAttributes&, WebCore::PlatformDisplayID) const { return nullptr; }
+#endif
 
     // Pass nullptr as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(Frame&, GraphicsLayer*) = 0;
@@ -319,11 +335,12 @@ public:
     // Sets a flag to specify that the next time content is drawn to the window,
     // the changes appear on the screen in synchrony with updates to GraphicsLayers.
     virtual void setNeedsOneShotDrawingSynchronization() = 0;
-    // Sets a flag to specify that the view needs to be updated, so we need
-    // to do an eager layout before the drawing.
-    virtual void scheduleRenderingUpdate() = 0;
-    virtual bool scheduleTimedRenderingUpdate() { return false; }
-    virtual bool needsImmediateRenderingUpdate() const { return false; }
+
+    // Makes a rendering update happen soon, typically in the current runloop.
+    virtual void triggerRenderingUpdate() = 0;
+    // Schedule a rendering update that coordinates with display refresh. Returns true if scheduled. (This is only used by SVGImageChromeClient.)
+    virtual bool scheduleRenderingUpdate() { return false; }
+
     // Returns whether or not the client can render the composited layer,
     // regardless of the settings.
     virtual bool allowsAcceleratedCompositing() const { return true; }
@@ -364,6 +381,7 @@ public:
     virtual void enterVideoFullscreenForVideoElement(HTMLVideoElement&, HTMLMediaElementEnums::VideoFullscreenMode, bool standby) { UNUSED_PARAM(standby); }
     virtual void setUpPlaybackControlsManager(HTMLMediaElement&) { }
     virtual void clearPlaybackControlsManager() { }
+    virtual void playbackControlsMediaEngineChanged() { }
 #endif
 
 #if ENABLE(MEDIA_USAGE)
@@ -372,7 +390,7 @@ public:
     virtual void removeMediaUsageManagerSession(MediaSessionIdentifier) { }
 #endif
 
-    virtual void exitVideoFullscreenForVideoElement(HTMLVideoElement&) { }
+    virtual void exitVideoFullscreenForVideoElement(HTMLVideoElement&, WTF::CompletionHandler<void(bool)>&& completionHandler = [](bool) { }) { completionHandler(true); }
     virtual void exitVideoFullscreenToModeWithoutAnimation(HTMLVideoElement&, HTMLMediaElementEnums::VideoFullscreenMode) { }
     virtual bool requiresFullscreenForVideoPlayback() { return false; } 
 
@@ -456,16 +474,8 @@ public:
 
     virtual bool shouldUseTiledBackingForFrameView(const FrameView&) const { return false; }
 
-    virtual MonotonicTime timestampForPaintFrequencyTracking() const { return MonotonicTime::now(); }
-
     virtual void isPlayingMediaDidChange(MediaProducer::MediaStateFlags, uint64_t) { }
     virtual void handleAutoplayEvent(AutoplayEvent, OptionSet<AutoplayEventFlags>) { }
-
-#if ENABLE(MEDIA_SESSION)
-    virtual void hasMediaSessionWithActiveMediaElementsDidChange(bool) { }
-    virtual void mediaSessionMetadataDidChange(const MediaSessionMetadata&) { }
-    virtual void focusedContentMediaElementDidChange(uint64_t) { }
-#endif
 
 #if ENABLE(WEB_CRYPTO)
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const { return false; }
@@ -524,10 +534,6 @@ public:
 
     virtual String signedPublicKeyAndChallengeString(unsigned, const String&, const URL&) const { return emptyString(); }
 
-    virtual void associateEditableImageWithAttachment(GraphicsLayer::EmbeddedViewID, const String&) { }
-    virtual void didCreateEditableImage(GraphicsLayer::EmbeddedViewID) { }
-    virtual void didDestroyEditableImage(GraphicsLayer::EmbeddedViewID) { }
-
     virtual void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel) { }
 
     virtual bool userIsInteracting() const { return false; }
@@ -538,6 +544,10 @@ public:
 #endif
 
     virtual void animationDidFinishForElement(const Element&) { }
+
+#if PLATFORM(MAC)
+    virtual void changeUniversalAccessZoomFocus(const IntRect&, const IntRect&) { }
+#endif
 
 protected:
     virtual ~ChromeClient() = default;

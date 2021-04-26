@@ -25,10 +25,12 @@
 
 #pragma once
 
+#include "DataReference.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
-#include "WebSocketIdentifier.h"
 #include <WebCore/NetworkSendQueue.h>
+#include <WebCore/ResourceRequest.h>
+#include <WebCore/ResourceResponse.h>
 #include <WebCore/ThreadableWebSocketChannel.h>
 #include <WebCore/WebSocketChannelInspector.h>
 #include <WebCore/WebSocketFrame.h>
@@ -37,7 +39,6 @@
 namespace IPC {
 class Connection;
 class Decoder;
-class DataReference;
 }
 
 namespace WebKit {
@@ -46,8 +47,6 @@ class WebSocketChannel : public IPC::MessageSender, public IPC::MessageReceiver,
 public:
     static Ref<WebSocketChannel> create(WebCore::Document&, WebCore::WebSocketChannelClient&);
     ~WebSocketChannel();
-
-    WebSocketIdentifier identifier() const { return m_identifier; }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
@@ -98,8 +97,13 @@ private:
     template<typename T> void sendMessage(T&&, size_t byteLength);
     void enqueueTask(Function<void()>&&);
 
+    unsigned long progressIdentifier() const final { return m_inspector.progressIdentifier(); }
+    bool hasCreatedHandshake() const final { return !m_url.isNull(); }
+    bool isConnected() const final { return !m_handshakeResponse.isNull(); }
+    WebCore::ResourceRequest clientHandshakeRequest(const CookieGetter&) const final { return m_handshakeRequest; }
+    const WebCore::ResourceResponse& serverHandshakeResponse() const final { return m_handshakeResponse; }
+
     WeakPtr<WebCore::Document> m_document;
-    WebSocketIdentifier m_identifier;
     WeakPtr<WebCore::WebSocketChannelClient> m_client;
     URL m_url;
     String m_subprotocol;
@@ -110,6 +114,8 @@ private:
     Deque<Function<void()>> m_pendingTasks;
     WebCore::NetworkSendQueue m_messageQueue;
     WebCore::WebSocketChannelInspector m_inspector;
+    WebCore::ResourceRequest m_handshakeRequest;
+    WebCore::ResourceResponse m_handshakeResponse;
 };
 
 } // namespace WebKit

@@ -27,7 +27,7 @@
     passwords.)
  */
 
-#if TARGET_DARWINOS
+#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -1249,14 +1249,30 @@ static SecDbRef kc_dbhandle(CFErrorRef* error)
     return _kc_dbhandle;
 }
 
+static dispatch_queue_t _async_db_dispatch = NULL;
+static dispatch_once_t _async_db_dispatch_onceToken = 0;
+static dispatch_queue_t get_async_db_dispatch() {
+    dispatch_once(&_async_db_dispatch_onceToken, ^{
+        _async_db_dispatch = dispatch_queue_create("sec_async_db", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+    });
+
+    return _async_db_dispatch;
+}
+
 /* whitebox testing only, and I really hope you call DbReset soon */
 void SecKeychainDbForceClose(void)
 {
+    // Wait for any async blocks to finish...
+    dispatch_group_t g = dispatch_group_create();
+    dispatch_group_async(g, get_async_db_dispatch(), ^{});
+    dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
+
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
         if(_kc_dbhandle) {
             SecDbForceClose(_kc_dbhandle);
         }
     });
+    LKAForceClose();
 }
 
 /* For whitebox testing only */
@@ -1588,7 +1604,7 @@ void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sql
     CFRetain(db);
     CFRetain(tablename);
 
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+    dispatch_async(get_async_db_dispatch(), ^{
         __block CFErrorRef localErr = NULL;
         kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt) {
             CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);

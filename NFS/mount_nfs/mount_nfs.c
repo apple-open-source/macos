@@ -352,8 +352,15 @@ int		nfsparsevers(const char *, uint32_t *, uint32_t *);
 int		hexstr2fh(const char *, fhandle_t *);
 char *		fh2hexstr(fhandle_t *);
 enum clnt_stat	ping_rpc_statd(struct sockaddr *);
+void		nfs_err(int, const char *, ...);
 
-#define MAX_IO_SIZE (8 * 64 * PAGE_SIZE)
+/*
+ * Max rwsize supported by kernel/kext is 2MB for Intel and 8MB for Apple Silicon (8 * 64 * PAGE_SIZE) but
+ * TCP socket buffer limits us to ~3.5MB (3727872 bytes).
+ * We are currently limiting is to 2MB for reasons of consistency.
+ * See Radar #73264615 for more info.
+ */
+#define MAX_IO_SIZE (1024 * 1024 * 2)
 
 uint32_t
 strtouint32(const char *str, char **eptr, int base)
@@ -368,6 +375,23 @@ strtouint32(const char *str, char **eptr, int base)
 	return ((uint32_t)num);
 }
 
+void
+nfs_err(int error, const char *fmt,...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	if (options.mntflags & MNT_AUTOMOUNTED) {
+		va_list ap2;
+		va_copy(ap2, ap);
+		vsyslog(LOG_ERR, fmt, ap2);
+		va_end(ap2);
+	}
+
+	verrx(error, fmt, ap);
+	va_end(ap);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -378,16 +402,17 @@ main(int argc, char *argv[])
 	char *p, *xdrbuf = NULL;
 	struct nfs_fs_location *nfsl = NULL;
 
+	bzero(&options, sizeof(options));
+
 	/* set up mopts_switches_no from mopts_switches */
 	mopts_switches_no = malloc(sizeof(mopts_switches));
 	if (!mopts_switches_no)
-		errx(ENOMEM, "memory allocation failed");
+		nfs_err(ENOMEM, "memory allocation failed");
 	bcopy(mopts_switches, mopts_switches_no, sizeof(mopts_switches));
 	for (i=0; i < sizeof(mopts_switches)/sizeof(struct mntopt); i++)
 		mopts_switches_no[i].m_inverse = (mopts_switches[i].m_inverse == 0);
 
 	/* initialize and process options */
-	bzero(&options, sizeof(options));
 	config_read(&config);
 
 	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlmo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
@@ -423,11 +448,11 @@ main(int argc, char *argv[])
 			int fd;
 			ssize_t len;
 			if ((fd = open(optarg, O_RDONLY)) < 0)
-				err(errno, "could not open file containing file system specification: %s", optarg);
+				nfs_err(errno, "could not open file containing file system specification: %s: %s", optarg, strerror(errno));
 			if ((mntfromarg = malloc(MAXPATHLEN)) == NULL)
-				errx(ENOMEM, "memory allocation failed");
+				nfs_err(ENOMEM, "memory allocation failed");
 			if ((len = read(fd, mntfromarg, MAXPATHLEN-1)) < 0)
-				err(errno, "could not read file containing file system specification: %s", optarg);
+				nfs_err(errno, "could not read file containing file system specification: %s: %s", optarg, strerror(errno));
 			mntfromarg[len--] = '\0';
 			while (isspace(mntfromarg[len]))
 				mntfromarg[len--] = '\0';
@@ -474,7 +499,7 @@ main(int argc, char *argv[])
 		case 'p':
 			options.principal = strdup(optarg);
 			if (!options.principal)
-				err(1, "could not set principal");
+				nfs_err(1, "could not set principal: %s", strerror(1));
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
 			break;
 		case 'R':
@@ -581,7 +606,7 @@ main(int argc, char *argv[])
 	 */
 	if ((argc == 1) && !strcmp(argv[0], "configupdate")) {
 		if (geteuid() != 0)
-			errx(1, "Must be superuser to configupdate");
+			nfs_err(1, "Must be superuser to configupdate");
 		config_sysctl();
 		exit(0);
 	}
@@ -595,9 +620,9 @@ main(int argc, char *argv[])
 
 	if (realpath(*argv, mntonname) == NULL) {
 		if (errno) {
-			err(errno, "realpath %s", mntonname);
+			nfs_err(errno, "realpath %s: %s", mntonname, strerror(errno));
 		} else {
-			errx(1, "realpath %s", mntonname);
+			nfs_err(1, "realpath %s", mntonname);
 		}
 	}
 
@@ -605,8 +630,7 @@ main(int argc, char *argv[])
 	if (error || !nfsl) {
 		if (!error)
 			error = EINVAL;
-		warnx("could not parse file system specification");
-		exit(error);
+		nfs_err(error, "could not parse file system specification");
 	}
 
 	if (retrycnt < 0)
@@ -622,7 +646,7 @@ main(int argc, char *argv[])
 				#pragma clang diagnostic push
 				#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 				if (daemon(0, 0))
-					errc(errno, errno, "mount nfs background: fork failed");
+					nfs_err(errno, "mount nfs background: fork failed: %s", strerror(errno));
 				#pragma clang diagnostic pop
 				opflags |= ISBGRND;
 			}
@@ -647,12 +671,12 @@ main(int argc, char *argv[])
 
 		/* assemble mount arguments */
 		if ((error = assemble_mount_args(nfsl, &xdrbuf)))
-			errc(error, error, "error %d assembling mount args\n", error);
+			nfs_err(error, "error %d assembling mount args: %s", strerror(error));
 
 		/* mount the file system */
 		if (verbose > 2)
 			printf("Calling mount(\"nfs\", %8.8x, %p)\n", options.mntflags, xdrbuf);
-#ifdef TARGET_OS_IOS
+#if TARGET_OS_IOS
 		if (options.mntflags & MNT_SYNCHRONOUS)
 		{
 			options.mntflags &= ~MNT_SYNCHRONOUS;
@@ -666,7 +690,7 @@ main(int argc, char *argv[])
 			/* NFSv3: mount_nfs should fail when server is not running rpc.statd */
 			if (!NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION) || options.nfs_version < NFS_VER4) {
 				if (ping_rpc_statd(nfsl->nl_servers->ns_ailist->ai_addr) == RPC_PROGNOTREGISTERED) {
-					errc(error, error, "can't mount with remote locks when server (%s) is not running rpc.statd", nfsl->nl_servers->ns_name);
+					nfs_err(error, "can't mount with remote locks when server (%s) is not running rpc.statd: %s", nfsl->nl_servers->ns_name, strerror(error));
 					/*NOTREACHED*/
 					break;
 				}
@@ -689,7 +713,7 @@ main(int argc, char *argv[])
 				break;
 			default:
 				/* give up */
-				errc(error, error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
+				nfs_err(error, "can't mount %s from %s onto %s: %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname, strerror(error));
 				/*NOTREACHED*/
 				break;
 			}
@@ -707,7 +731,7 @@ main(int argc, char *argv[])
 	}
 
 	if (error)
-		errc(error, error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
+		nfs_err(error, "can't mount %s from %s onto %s: %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname, strerror(error));
 
 	exit(error);
 }
@@ -999,7 +1023,6 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		p = nfsl->nl_path;
 		while (*p && (*p == '/'))
 			p++;
-		numcomps = 0;
 		while (*p) {
 			cp = p;
 			while (*p && (*p != '/'))
@@ -1165,7 +1188,7 @@ setNFSVersion(uint32_t pminvers, uint32_t pmaxvers)
 static int
 get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 {
-	char *flavorlist;
+	char *flavorlist, *tofree;
 	char *flavor;
 	u_int32_t flav_bits;
 
@@ -1176,7 +1199,7 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 #define NONE_BIT  0x00000010
 
 	/* try to make a copy of the string so we don't butcher the original */
-	flavorlist = strdup(flavorlist_orig);
+	tofree = flavorlist = strdup(flavorlist_orig);
 	if (!flavorlist)
 		return (ENOMEM);
 
@@ -1225,7 +1248,7 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 		}
 	}
 
-	free(flavorlist);
+	free(tofree);
 
 	if (sec_flavs->count)
 		return 0;
@@ -1239,7 +1262,7 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 static int
 get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 {
-	char *etype_list;
+	char *etype_list, *tofree;
 	char *etype;
 	uint32_t etype_bits;
 
@@ -1248,7 +1271,7 @@ get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 #define AES256_BIT 0x00000004
 
 	/* try to make a copy of the string so we don't butcher the original */
-	etype_list = strdup(etypes_orig);
+	tofree = etype_list = strdup(etypes_orig);
 	if (!etype_list)
 		return (ENOMEM);
 
@@ -1288,7 +1311,7 @@ get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 			warnx("etype %s is unknown etype. Ignored", etype);
 		}
 	}
-	free(etype_list);
+	free(tofree);
 
 	etypes->selected = etypes->count; /* Nothing has been selected, so set selected to count */
 
@@ -1336,7 +1359,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts, &options.mntflags, &altflags);
 	if (mop == NULL)
-		errx(EINVAL, "getmntops failed: %s", opts);
+		nfs_err(EINVAL, "getmntops failed: %s", opts);
 
 	if (altflags & ALTF_ATTRCACHE_VAL) {
 		if ((p2 = getmntoptstr(mop, "actimeo"))) {
@@ -1650,7 +1673,7 @@ handle_mntopts(char *opts)
 			if (options.principal) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
 			} else
-				err(1, "could not set principal");
+				nfs_err(1, "could not set principal: %s", strerror(1));
 		}
 	}
 	if (altflags & ALTF_REALM) {
@@ -1665,7 +1688,7 @@ handle_mntopts(char *opts)
 			if (options.realm)
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_REALM);
 			else
-				err(1, "could not set realm");
+				nfs_err(1, "could not set realm: %s", strerror(1));
 		}
 	}
 	if (altflags & ALTF_SVCPRINCIPAL) {
@@ -1677,7 +1700,7 @@ handle_mntopts(char *opts)
 			if (options.sprinc)
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SVCPRINCIPAL);
 			else
-				err(1, "could not set server's principal");
+				nfs_err(1, "could not set server's principal: %s", strerror(1));
 		}
 	}
 	if (altflags & ALTF_FH) {
@@ -1694,7 +1717,7 @@ handle_mntopts(char *opts)
 				}
 			}
 			else
-				err(1, "cound not set root file handle");
+				nfs_err(1, "cound not set root file handle: %s", strerror(1));
 		}
 	}
 	freemntopts(mop);
@@ -1703,7 +1726,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches, &dummyflags, &altflags);
 	if (mop == NULL)
-		errx(EINVAL, "getmntops failed: %s", opts);
+		nfs_err(EINVAL, "getmntops failed: %s", opts);
 	if (verbose > 2)
 		printf("altflags=0x%x\n", altflags);
 
@@ -1776,7 +1799,7 @@ handle_mntopts(char *opts)
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches_no, &dummyflags, &altflags);
 	if (mop == NULL)
-		errx(EINVAL, "getmntops failed: %s", opts);
+		nfs_err(EINVAL, "getmntops failed: %s", opts);
 	if (verbose > 2)
 		printf("negative altflags=0x%x\n", altflags);
 
@@ -2143,9 +2166,10 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 	struct nfs_fs_location *nfslhead = NULL;
 	struct nfs_fs_location *nfslprev = NULL;
 	struct nfs_fs_location *nfsl = NULL;
-	struct nfs_fs_server *nfss, *nfssprev;
+	struct nfs_fs_server *nfss = NULL, *nfssprev;
 	struct sockaddr_in6 sin6;
 	char *argcopy, *p, *q, *host, *path, *colon, *colonslash, ch;
+	int error = 0;
 
 	*nfslp = NULL;
 
@@ -2156,16 +2180,20 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 
 	while (*p) {
 		/* allocate a new fs location */
-		if (!((nfsl = malloc(sizeof(*nfsl)))))
-			return (ENOMEM);
+		if (!((nfsl = malloc(sizeof(*nfsl))))) {
+			error = ENOMEM;
+			goto outfree;
+		}
 		bzero(nfsl, sizeof(*nfsl));
 		colon = colonslash = NULL;
 
 		/* parse hosts */
 		nfssprev = NULL;
 		while (*p) {
-			if (!((nfss = malloc(sizeof(*nfss)))))
-				return (ENOMEM);
+			if (!((nfss = malloc(sizeof(*nfss))))) {
+				error = ENOMEM;
+				goto outfree;
+			}
 			bzero(nfss, sizeof(*nfss));
 			host = p;
 			if (*p == '[') {  /* Looks like an IPv6 literal address */
@@ -2199,7 +2227,6 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 					if (!colon)
 						colon = p;
 					if (!colonslash && (*(p+1) == '/')) {
-						colonslash = p;
 						break;
 					}
 				}
@@ -2209,8 +2236,10 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 			}
 			if (!*p) {
 				/* If we hit the end of the string, the host must be the string preceding the colon. */
-				if (!colon) /* No colon?! */
-					return (EINVAL);
+				if (!colon) { /* No colon?! */
+					error = EINVAL;
+					goto outfree;
+				}
 				p = colon;
 			}
 addhost:
@@ -2220,8 +2249,10 @@ addhost:
 			*p = '\0';
 			nfss->ns_name = strdup(host);
 			*p = ch;
-			if (!nfss->ns_name)
-				return (ENOMEM);
+			if (!nfss->ns_name) {
+				error = ENOMEM;
+				goto outfree;
+			}
 			/* Add the host to the list of servers. */
 			if (nfssprev)
 				nfssprev->ns_next = nfss;
@@ -2238,8 +2269,10 @@ addhost:
 		}
 		if (!*p) {
 			/* If we hit the end of the string, the path must be the string following the colon. */
-			if (!colon) /* No colon?! */
-				return (EINVAL);
+			if (!colon) { /* No colon?! */
+				error = EINVAL;
+				goto outfree;
+			}
 			p = colon;
 			p++;
 		}
@@ -2267,8 +2300,8 @@ addhost:
 		nfsl->nl_path = strdup(path);
 		*p = ch;
 		if (!nfsl->nl_path) {
-			free(nfsl);
-			return (ENOMEM);
+			error = ENOMEM;
+			goto outfree;
 		}
 		/* Add the fs location to the list of locations. */
 		if (nfslprev)
@@ -2282,12 +2315,35 @@ addhost:
 			p++;
 	}
 
-	free(argcopy);
-	if (!nfslhead)
-		return (EINVAL);
+	if (!nfslhead) {
+		error = EINVAL;
+		goto outfree;
+	}
 
+	free(argcopy);
 	*nfslp = nfslhead;
 	return (0);
+
+outfree:
+	if (nfsl) {
+		free(nfsl);
+	}
+	if (nfss) {
+		free(nfss);
+	}
+	while (nfslhead) {
+		while (nfslhead->nl_servers) {
+			nfss = nfslhead->nl_servers->ns_next;
+			free(nfslhead->nl_servers);
+			nfslhead->nl_servers = nfss;
+		}
+		nfsl = nfslhead->nl_next;
+		free(nfslhead);
+		nfslhead = nfsl;
+	}
+
+	free(argcopy);
+	return error;
 }
 
 /*
@@ -2328,9 +2384,8 @@ getaddresslist(struct nfs_fs_server *nfss)
 		struct sockaddr_un *un;
 
 		if (*hostname == '<') {
-			hostname = strdup(hostname);
-			if (hostname == NULL)
-				err(1, "No memory to duplicate hostname %s", hostname);
+			strlcpy(namebuf, hostname, sizeof(namebuf));
+			hostname = namebuf;
 			hostname[strlen(hostname)-1] = '\0';
 			hostname += 1;
 		}
@@ -2339,7 +2394,7 @@ getaddresslist(struct nfs_fs_server *nfss)
 			warnx("Can't allocate addrinfo sturcture for local address for %s", hostname);
 			return (ENOMEM);
 		}
-		un = (struct sockaddr_un *)malloc(sizeof (struct sockaddr_un *));
+		un = (struct sockaddr_un *)malloc(sizeof(struct sockaddr_un));
 		if (un == NULL) {
 			free(ailist);
 			warnx("Can't allocate local socket address for %s", hostname);
@@ -2355,7 +2410,9 @@ getaddresslist(struct nfs_fs_server *nfss)
 					warnx("%s overrides port=%s", hostname, options.local_nfs_port);
 				free(options.local_nfs_port);
 			}
-			options.local_nfs_port = hostname;
+			options.local_nfs_port = strdup(hostname);
+			if (options.local_nfs_port == NULL)
+				nfs_err(1, "No memory to duplicate hostname %s: %s", options.local_nfs_port, strerror(1));
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCAL_NFS_PORT);
 			if (verbose > 2)
 				printf("Setting local_nfs_port to %s\n", options.local_nfs_port);
@@ -2468,7 +2525,7 @@ discard:
 
 	/* free up any discarded addresses */
 	if (aidiscard)
-		freeaddrinfo(aidiscard);
+		free(aidiscard);
 
 	nfss->ns_ailist = ailist;
 	return (0);

@@ -21,9 +21,13 @@
 #### Start of system configuration section. ####
 
 srcdir = @srcdir@
-devdir = @devdir@
-top_builddir = @top_builddir@
+abs_srcdir = @abs_srcdir@
 top_srcdir = @top_srcdir@
+abs_top_srcdir = @abs_top_srcdir@
+top_builddir = @top_builddir@
+abs_top_builddir = @abs_top_builddir@
+devdir = @devdir@
+scriptdir = $(top_srcdir)/scripts
 incdir = $(top_srcdir)/include
 cross_compiling = @CROSS_COMPILING@
 
@@ -43,7 +47,7 @@ LT_LIBS = $(top_builddir)/lib/util/libsudo_util.la
 LIBS = $(LT_LIBS)
 
 # C preprocessor flags
-CPPFLAGS = -I$(incdir) -I$(top_builddir) -I$(top_srcdir) @CPPFLAGS@
+CPPFLAGS = -I$(incdir) -I$(top_builddir) @CPPFLAGS@
 
 # Usually -O and/or -g
 CFLAGS = @CFLAGS@
@@ -68,7 +72,7 @@ SSP_CFLAGS = @SSP_CFLAGS@
 SSP_LDFLAGS = @SSP_LDFLAGS@
 
 # cppcheck options, usually set in the top-level Makefile
-CPPCHECK_OPTS = -q --force --enable=warning,performance,portability --suppress=constStatement --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
+CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
 
 # splint options, usually set in the top-level Makefile
 SPLINT_OPTS = -D__restrict= -checks
@@ -117,8 +121,8 @@ VERSION = @PACKAGE_VERSION@
 all: group_file.la
 
 depend:
-	$(top_srcdir)/mkdep.pl --srcdir=$(top_srcdir) \
-	    --builddir=`pwd`/$(top_builddir) plugins/group_file/Makefile.in
+	$(scriptdir)/mkdep.pl --srcdir=$(abs_top_srcdir) \
+	    --builddir=$(abs_top_builddir) plugins/group_file/Makefile.in
 	cd $(top_builddir) && ./config.status --file plugins/group_file/Makefile
 
 Makefile: $(srcdir)/Makefile.in
@@ -149,7 +153,7 @@ pre-install:
 install: install-plugin
 
 install-dirs:
-	$(SHELL) $(top_srcdir)/mkinstalldirs $(DESTDIR)$(plugindir)
+	$(SHELL) $(scriptdir)/mkinstalldirs $(DESTDIR)$(plugindir)
 
 install-binaries:
 
@@ -168,10 +172,10 @@ uninstall:
 	    rm -f $(DESTDIR)$(plugindir)/group_file.so$(INSTALL_BACKUP)
 
 splint:
-	splint $(SPLINT_OPTS) -I$(incdir) -I$(top_builddir) -I$(top_srcdir) $(srcdir)/*.c
+	splint $(SPLINT_OPTS) -I$(incdir) -I$(top_builddir) $(srcdir)/*.c
 
 cppcheck:
-	cppcheck $(CPPCHECK_OPTS) -I$(incdir) -I$(top_builddir) -I$(top_srcdir) $(srcdir)/*.c
+	cppcheck $(CPPCHECK_OPTS) -I$(incdir) -I$(top_builddir) $(srcdir)/*.c
 
 pvs-log-files: $(POBJS)
 
@@ -181,8 +185,8 @@ pvs-studio: $(POBJS)
 check:
 
 clean:
-	-$(LIBTOOL) $(LTFLAGS) --mode=clean rm -f *.lo *.o *.la *.a *.i *.plog \
-	    stamp-* core *.core core.*
+	-$(LIBTOOL) $(LTFLAGS) --mode=clean rm -f *.lo *.o *.la
+	-rm -f *.i *.plog stamp-* core *.core core.*
 
 mostlyclean: clean
 

@@ -41,7 +41,7 @@ public:
     static TestNamedAndIndexedSetterThrowingException* toWrapped(JSC::VM&, JSC::JSValue);
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSC::JSObject*, JSC::JSGlobalObject*, unsigned propertyName, JSC::PropertySlot&);
-    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::EnumerationMode = JSC::EnumerationMode());
+    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::DontEnumPropertiesMode);
     static bool put(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::JSValue, JSC::PutPropertySlot&);
     static bool putByIndex(JSC::JSCell*, JSC::JSGlobalObject*, unsigned propertyName, JSC::JSValue, bool shouldThrow);
     static bool defineOwnProperty(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyName, const JSC::PropertyDescriptor&, bool shouldThrow);
@@ -64,17 +64,17 @@ public:
     static JSC::IsoSubspace* subspaceForImpl(JSC::VM& vm);
     static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 public:
-    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesAnyFormOfGetPropertyNames | JSC::OverridesGetOwnPropertySlot | JSC::ProhibitsPropertyCaching;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertyNames | JSC::OverridesGetOwnPropertySlot | JSC::ProhibitsPropertyCaching;
 protected:
     JSTestNamedAndIndexedSetterThrowingException(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNamedAndIndexedSetterThrowingException>&&);
 
     void finishCreation(JSC::VM&);
 };
 
-class JSTestNamedAndIndexedSetterThrowingExceptionOwner : public JSC::WeakHandleOwner {
+class JSTestNamedAndIndexedSetterThrowingExceptionOwner final : public JSC::WeakHandleOwner {
 public:
-    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**);
-    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**) final;
+    void finalize(JSC::Handle<JSC::Unknown>, void* context) final;
 };
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestNamedAndIndexedSetterThrowingException*)

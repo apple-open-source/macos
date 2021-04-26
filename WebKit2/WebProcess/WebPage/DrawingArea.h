@@ -75,6 +75,8 @@ public:
     DrawingAreaType type() const { return m_type; }
     DrawingAreaIdentifier identifier() const { return m_identifier; }
 
+    static bool supportsGPUProcessRendering(DrawingAreaType);
+
     virtual void setNeedsDisplay() = 0;
     virtual void setNeedsDisplayInRect(const WebCore::IntRect&) = 0;
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) = 0;
@@ -83,7 +85,7 @@ public:
 
     // FIXME: These should be pure virtual.
     virtual void forceRepaint() { }
-    virtual bool forceRepaintAsync(CallbackID) { return false; }
+    virtual void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) = 0;
     virtual void setLayerTreeStateIsFrozen(bool) { }
     virtual bool layerTreeStateIsFrozen() const { return false; }
 
@@ -113,8 +115,7 @@ public:
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
-    virtual void scheduleRenderingUpdate() = 0;
-    virtual void scheduleImmediateRenderingUpdate() = 0;
+    virtual void triggerRenderingUpdate() = 0;
 
     virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
 

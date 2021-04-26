@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -159,6 +159,12 @@ static struct val2str ipsec_espnames[] = {
 	{ SADB_X_EALG_BLOWFISHCBC, "blowfish-cbc", },
 #ifdef SADB_X_EALG_RIJNDAELCBC
 	{ SADB_X_EALG_RIJNDAELCBC, "rijndael-cbc", },
+#endif
+#ifdef SADB_X_EALG_AES_GCM
+	{ SADB_X_EALG_AES_GCM, "aes-gcm", },
+#endif
+#ifdef SADB_X_EALG_CHACHA20POLY1305
+	{ SADB_X_EALG_CHACHA20POLY1305, "chacha20-poly1305", },
 #endif
 	{ -1, NULL },
 };

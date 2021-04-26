@@ -84,6 +84,7 @@
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/SSLKeyGenerator.h>
 #import <WebCore/SerializedCryptoKeyWrap.h>
+#import <WebCore/UniversalAccessZoom.h>
 #import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
 #import <pal/spi/mac/NSViewSPI.h>
@@ -124,7 +125,7 @@ NSString *WebConsoleMessageMediaMessageSource = @"MediaMessageSource";
 NSString *WebConsoleMessageMediaSourceMessageSource = @"MediaSourceMessageSource";
 NSString *WebConsoleMessageWebRTCMessageSource = @"WebRTCMessageSource";
 NSString *WebConsoleMessageITPDebugMessageSource = @"ITPDebugMessageSource";
-NSString *WebConsoleMessageAdClickAttributionMessageSource = @"AdClickAttributionMessageSource";
+NSString *WebConsoleMessagePrivateClickMeasurementMessageSource = @"PrivateClickMeasurementMessageSource";
 NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
 
 NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
@@ -205,7 +206,7 @@ bool WebChromeClient::canTakeFocus(FocusDirection)
 void WebChromeClient::takeFocus(FocusDirection direction)
 {
 #if !PLATFORM(IOS_FAMILY)
-    if (direction == FocusDirectionForward) {
+    if (direction == FocusDirection::Forward) {
         // Since we're trying to move focus out of m_webView, and because
         // m_webView may contain subviews within it, we ask it for the next key
         // view of the last view in its key view loop. This makes m_webView
@@ -403,8 +404,8 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageWebRTCMessageSource;
     case MessageSource::ITPDebug:
         return WebConsoleMessageITPDebugMessageSource;
-    case MessageSource::AdClickAttribution:
-        return WebConsoleMessageAdClickAttributionMessageSource;
+    case MessageSource::PrivateClickMeasurement:
+        return WebConsoleMessagePrivateClickMeasurementMessageSource;
     case MessageSource::Other:
         return WebConsoleMessageOtherMessageSource;
     }
@@ -732,6 +733,14 @@ std::unique_ptr<DataListSuggestionPicker> WebChromeClient::createDataListSuggest
 }
 #endif
 
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+std::unique_ptr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserClient&)
+{
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+#endif
+
 #if ENABLE(POINTER_LOCK)
 bool WebChromeClient::requestPointerLock()
 {
@@ -948,7 +957,7 @@ void WebChromeClient::setNeedsOneShotDrawingSynchronization()
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebChromeClient::scheduleRenderingUpdate()
+void WebChromeClient::triggerRenderingUpdate()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_webView _scheduleUpdateRendering];
@@ -985,14 +994,15 @@ void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& vide
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebChromeClient::exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& videoElement)
+void WebChromeClient::exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& videoElement, CompletionHandler<void(bool)>&& completionHandler)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     if (m_mockVideoPresentationModeEnabled)
         videoElement.didStopBeingFullscreenElement();
     else
         [m_webView _exitVideoFullscreen];
-    END_BLOCK_OBJC_EXCEPTIONS    
+    END_BLOCK_OBJC_EXCEPTIONS
+    completionHandler(true);
 }
 
 void WebChromeClient::exitVideoFullscreenToModeWithoutAnimation(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode targetMode)
@@ -1019,6 +1029,11 @@ void WebChromeClient::setUpPlaybackControlsManager(HTMLMediaElement& element)
 void WebChromeClient::clearPlaybackControlsManager()
 {
     [m_webView _clearPlaybackControlsManager];
+}
+
+void WebChromeClient::playbackControlsMediaEngineChanged()
+{
+    [m_webView _playbackControlsMediaEngineChanged];
 }
 
 #endif
@@ -1156,3 +1171,10 @@ String WebChromeClient::signedPublicKeyAndChallengeString(unsigned keySizeIndex,
         return CallUIDelegate(m_webView, selector);
     return WebCore::signedPublicKeyAndChallengeString(keySizeIndex, challengeString, url);
 }
+
+#if PLATFORM(MAC)
+void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& viewRect, const WebCore::IntRect& selectionRect)
+{
+    WebCore::changeUniversalAccessZoomFocus(viewRect, selectionRect);
+}
+#endif

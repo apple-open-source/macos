@@ -38,7 +38,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
 #include <sys/uio.h>
 #ifndef __TANDEM
 # include <sys/file.h>
@@ -46,12 +45,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <ctype.h>
@@ -63,6 +57,11 @@
 #include <time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#ifdef HAVE_GETOPT_LONG
+# include <getopt.h>
+# else
+# include "compat/getopt.h"
+#endif /* HAVE_GETOPT_LONG */
 
 #include "sudoers.h"
 #include "interfaces.h"
@@ -70,12 +69,6 @@
 #include "sudoers_version.h"
 #include "sudo_conf.h"
 #include <gram.h>
-
-#ifdef HAVE_GETOPT_LONG
-# include <getopt.h>
-# else
-# include "compat/getopt.h"
-#endif /* HAVE_GETOPT_LONG */
 
 struct sudoersfile {
     TAILQ_ENTRY(sudoersfile) entries;
@@ -128,7 +121,7 @@ static struct option long_opts[] = {
     { NULL,		no_argument,		NULL,	'\0' },
 };
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 int
 main(int argc, char *argv[])
@@ -138,7 +131,7 @@ main(int argc, char *argv[])
     const char *export_path = NULL;
     int ch, oldlocale, editor_argc, exitcode = 0;
     bool quiet, strict, fflag;
-    debug_decl(main, SUDOERS_DEBUG_MAIN)
+    debug_decl(main, SUDOERS_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
     {
@@ -228,9 +221,11 @@ main(int argc, char *argv[])
     }
 
     if (export_path != NULL) {
-	/* Backwards compatibility for the time being. */
-	sudo_warnx(U_("the -x option will be removed in a future release"));
-	sudo_warnx(U_("please consider using the cvtsudoers utility instead"));
+	/* Backward compatibility for the time being. */
+	sudo_warnx("%s",
+	    U_("the -x option will be removed in a future release"));
+	sudo_warnx("%s",
+	    U_("please consider using the cvtsudoers utility instead"));
 	execlp("cvtsudoers", "cvtsudoers", "-f", "json", "-o", export_path,
 	    sudoers_file, (char *)0);
 	sudo_fatal(U_("unable to execute %s"), "cvtsudoers");
@@ -251,7 +246,7 @@ main(int argc, char *argv[])
 
     /* Setup defaults data structures. */
     if (!init_defaults())
-	sudo_fatalx(U_("unable to initialize sudoers default values"));
+	sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
 
     if (checkonly) {
 	exitcode = check_syntax(sudoers_file, quiet, strict, fflag) ? 0 : 1;
@@ -263,7 +258,7 @@ main(int argc, char *argv[])
      * errors and to pull in editor and env_editor conf values.
      */
     if ((sudoersin = open_sudoers(sudoers_file, true, NULL)) == NULL)
-	exit(1);
+	exit(EXIT_FAILURE);
     init_parser(sudoers_file, quiet, true);
     sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
     (void) sudoersparse();
@@ -307,37 +302,37 @@ done:
 static char *
 get_editor(int *editor_argc, char ***editor_argv)
 {
-    char *editor_path = NULL, **whitelist = NULL;
+    char *editor_path = NULL, **allowlist = NULL;
     const char *env_editor;
     static char *files[] = { "+1", "sudoers" };
-    unsigned int whitelist_len = 0;
-    debug_decl(get_editor, SUDOERS_DEBUG_UTIL)
+    unsigned int allowlist_len = 0;
+    debug_decl(get_editor, SUDOERS_DEBUG_UTIL);
 
-    /* Build up editor whitelist from def_editor unless env_editor is set. */
+    /* Build up editor allowlist from def_editor unless env_editor is set. */
     if (!def_env_editor) {
 	const char *cp, *ep;
 	const char *def_editor_end = def_editor + strlen(def_editor);
 
-	/* Count number of entries in whitelist and split into a list. */
+	/* Count number of entries in allowlist and split into a list. */
 	for (cp = sudo_strsplit(def_editor, def_editor_end, ":", &ep);
 	    cp != NULL; cp = sudo_strsplit(NULL, def_editor_end, ":", &ep)) {
-	    whitelist_len++;
+	    allowlist_len++;
 	}
-	whitelist = reallocarray(NULL, whitelist_len + 1, sizeof(char *));
-	if (whitelist == NULL)
+	allowlist = reallocarray(NULL, allowlist_len + 1, sizeof(char *));
+	if (allowlist == NULL)
 	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	whitelist_len = 0;
+	allowlist_len = 0;
 	for (cp = sudo_strsplit(def_editor, def_editor_end, ":", &ep);
 	    cp != NULL; cp = sudo_strsplit(NULL, def_editor_end, ":", &ep)) {
-	    whitelist[whitelist_len] = strndup(cp, (size_t)(ep - cp));
-	    if (whitelist[whitelist_len] == NULL)
+	    allowlist[allowlist_len] = strndup(cp, (size_t)(ep - cp));
+	    if (allowlist[allowlist_len] == NULL)
 		sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	    whitelist_len++;
+	    allowlist_len++;
 	}
-	whitelist[whitelist_len] = NULL;
+	allowlist[allowlist_len] = NULL;
     }
 
-    editor_path = find_editor(2, files, editor_argc, editor_argv, whitelist,
+    editor_path = find_editor(2, files, editor_argc, editor_argv, allowlist,
 	&env_editor, true);
     if (editor_path == NULL) {
 	if (def_env_editor && env_editor != NULL) {
@@ -347,10 +342,10 @@ get_editor(int *editor_argc, char ***editor_argv)
 	sudo_fatalx(U_("no editor found (editor path = %s)"), def_editor);
     }
 
-    if (whitelist != NULL) {
-	while (whitelist_len--)
-	    free(whitelist[whitelist_len]);
-	free(whitelist);
+    if (allowlist != NULL) {
+	while (allowlist_len--)
+	    free(allowlist[allowlist_len]);
+	free(allowlist);
     }
 
     debug_return_str(editor_path);
@@ -390,7 +385,7 @@ editor_supports_plus(const char *editor)
     const char *editor_base = strrchr(editor, '/');
     const char *cp;
     char **av;
-    debug_decl(editor_supports_plus, SUDOERS_DEBUG_UTIL)
+    debug_decl(editor_supports_plus, SUDOERS_DEBUG_UTIL);
 
     if (editor_base != NULL)
 	editor_base++;
@@ -431,7 +426,7 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
     off_t orig_size;			/* starting size of sudoers file */
     struct stat sb;			/* stat buffer */
     bool ret = false;			/* return value */
-    debug_decl(edit_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(edit_sudoers, SUDOERS_DEBUG_UTIL);
 
     if (fstat(sp->fd, &sb) == -1)
 	sudo_fatal(U_("unable to stat %s"), sp->path);
@@ -454,7 +449,7 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
 	    (void) lseek(sp->fd, (off_t)0, SEEK_SET);
 	    while ((nread = read(sp->fd, buf, sizeof(buf))) > 0) {
 		if (write(tfd, buf, nread) != nread)
-		    sudo_fatal(U_("write error"));
+		    sudo_fatal("%s", U_("write error"));
 		lastch = buf[nread - 1];
 	    }
 
@@ -462,7 +457,7 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
 	    if (lastch != '\n') {
 		lastch = '\n';
 		if (write(tfd, &lastch, 1) != 1)
-		    sudo_fatal(U_("write error"));
+		    sudo_fatal("%s", U_("write error"));
 	    }
 	}
 	(void) close(tfd);
@@ -482,7 +477,7 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
     ac = editor_argc - 3;
     if (lineno > 0) {
 	(void)snprintf(linestr, sizeof(linestr), "+%d", lineno);
-	editor_argv[ac++] = linestr;
+	editor_argv[ac++] = linestr; // -V507
     }
     editor_argv[ac++] = "--";
     editor_argv[ac++] = sp->tpath;
@@ -495,17 +490,17 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
      *  number of errors during editing (?!?!).
      */
     if (sudo_gettime_real(&times[0]) == -1) {
-	sudo_warn(U_("unable to read the clock"));
+	sudo_warn("%s", U_("unable to read the clock"));
 	goto done;
     }
 
     if (run_command(editor, editor_argv) != -1) {
 	if (sudo_gettime_real(&times[1]) == -1) {
-	    sudo_warn(U_("unable to read the clock"));
+	    sudo_warn("%s", U_("unable to read the clock"));
 	    goto done;
 	}
 	/*
-	 * Sanity checks.
+	 * Check for zero length sudoers file.
 	 */
 	if (stat(sp->tpath, &sb) < 0) {
 	    sudo_warnx(U_("unable to stat temporary file (%s), %s unchanged"),
@@ -557,7 +552,7 @@ done:
 static void
 check_defaults_and_aliases(bool strict, bool quiet)
 {
-    debug_decl(check_defaults_and_aliases, SUDOERS_DEBUG_UTIL)
+    debug_decl(check_defaults_and_aliases, SUDOERS_DEBUG_UTIL);
 
     if (!check_defaults(&parsed_policy, quiet)) {
 	struct defaults *d;
@@ -569,15 +564,13 @@ check_defaults_and_aliases(bool strict, bool quiet)
 	    if (d->error) {
 		/* Defaults parse error, set errorfile/errorlineno. */
 		errorfile = rcstr_addref(d->file);
-		errorlineno = d->lineno;
+		errorlineno = d->line;
 		break;
 	    }
 	}
 	parse_error = true;
-    } else if (check_aliases(strict, quiet) != 0) {
-	rcstr_delref(errorfile);
-	errorfile = NULL;	/* don't know which file */
-	errorlineno = -1;
+    }
+    if (check_aliases(strict, quiet) != 0) {
 	parse_error = true;
     }
     debug_return;
@@ -593,10 +586,10 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
     struct sudoersfile *sp, *last;
     FILE *fp;
     int ch, oldlocale;
-    debug_decl(reparse_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(reparse_sudoers, SUDOERS_DEBUG_UTIL);
 
     /*
-     * Parse the edited sudoers files and do sanity checking
+     * Parse the edited sudoers files.
      */
     while ((sp = TAILQ_FIRST(&sudoerslist)) != NULL) {
 	last = TAILQ_LAST(&sudoerslist, sudoersfile_list);
@@ -607,14 +600,14 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
 
 	/* Clean slate for each parse */
 	if (!init_defaults())
-	    sudo_fatalx(U_("unable to initialize sudoers default values"));
+	    sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
 	init_parser(sp->path, quiet, true);
 
 	/* Parse the sudoers temp file(s) */
 	sudoersrestart(fp);
 	sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
 	if (sudoersparse() && !parse_error) {
-	    sudo_warnx(U_("unabled to parse temporary file (%s), unknown error"),
+	    sudo_warnx(U_("unable to parse temporary file (%s), unknown error"),
 		sp->tpath);
 	    parse_error = true;
 	    rcstr_delref(errorfile);
@@ -693,7 +686,7 @@ install_sudoers(struct sudoersfile *sp, bool oldperms)
 {
     struct stat sb;
     bool ret = false;
-    debug_decl(install_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(install_sudoers, SUDOERS_DEBUG_UTIL);
 
     if (sp->tpath == NULL)
 	goto done;
@@ -754,7 +747,7 @@ install_sudoers(struct sudoersfile *sp, bool oldperms)
     }
 
     /*
-     * Now that sp->tpath is sane (parses ok) it needs to be
+     * Now that we know sp->tpath parses correctly, it needs to be
      * rename(2)'d to sp->path.  If the rename(2) fails we try using
      * mv(1) in case sp->tpath and sp->path are on different file systems.
      */
@@ -806,7 +799,7 @@ static int
 whatnow(void)
 {
     int choice, c;
-    debug_decl(whatnow, SUDOERS_DEBUG_UTIL)
+    debug_decl(whatnow, SUDOERS_DEBUG_UTIL);
 
     for (;;) {
 	(void) fputs(_("What now? "), stdout);
@@ -817,7 +810,7 @@ whatnow(void)
 	switch (choice) {
 	    case EOF:
 		choice = 'x';
-		/* FALLTHROUGH */
+		FALLTHROUGH;
 	    case 'e':
 	    case 'x':
 	    case 'Q':
@@ -838,7 +831,7 @@ static void
 setup_signals(void)
 {
     struct sigaction sa;
-    debug_decl(setup_signals, SUDOERS_DEBUG_UTIL)
+    debug_decl(setup_signals, SUDOERS_DEBUG_UTIL);
 
     /*
      * Setup signal handlers to cleanup nicely.
@@ -860,7 +853,7 @@ run_command(char *path, char **argv)
 {
     int status;
     pid_t pid, rv;
-    debug_decl(run_command, SUDOERS_DEBUG_UTIL)
+    debug_decl(run_command, SUDOERS_DEBUG_UTIL);
 
     switch (pid = sudo_debug_fork()) {
 	case -1:
@@ -892,7 +885,7 @@ check_owner(const char *path, bool quiet)
 {
     struct stat sb;
     bool ok = true;
-    debug_decl(check_owner, SUDOERS_DEBUG_UTIL)
+    debug_decl(check_owner, SUDOERS_DEBUG_UTIL);
 
     if (stat(path, &sb) == 0) {
 	if (sb.st_uid != sudoers_uid || sb.st_gid != sudoers_gid) {
@@ -915,30 +908,30 @@ check_owner(const char *path, bool quiet)
 }
 
 static bool
-check_syntax(const char *sudoers_file, bool quiet, bool strict, bool oldperms)
+check_syntax(const char *file, bool quiet, bool strict, bool oldperms)
 {
     bool ok = false;
     int oldlocale;
-    debug_decl(check_syntax, SUDOERS_DEBUG_UTIL)
+    debug_decl(check_syntax, SUDOERS_DEBUG_UTIL);
 
-    if (strcmp(sudoers_file, "-") == 0) {
+    if (strcmp(file, "-") == 0) {
 	sudoersin = stdin;
-	sudoers_file = "stdin";
-    } else if ((sudoersin = fopen(sudoers_file, "r")) == NULL) {
+	file = "stdin";
+    } else if ((sudoersin = fopen(file, "r")) == NULL) {
 	if (!quiet)
-	    sudo_warn(U_("unable to open %s"), sudoers_file);
+	    sudo_warn(U_("unable to open %s"), file);
 	goto done;
     }
     if (!init_defaults())
-	sudo_fatalx(U_("unable to initialize sudoers default values"));
-    init_parser(sudoers_file, quiet, true);
+	sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
+    init_parser(file, quiet, true);
     sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
     if (sudoersparse() && !parse_error) {
 	if (!quiet)
-	    sudo_warnx(U_("failed to parse %s file, unknown error"), sudoers_file);
+	    sudo_warnx(U_("failed to parse %s file, unknown error"), file);
 	parse_error = true;
 	rcstr_delref(errorfile);
-	if ((errorfile = rcstr_dup(sudoers_file)) == NULL)
+	if ((errorfile = rcstr_dup(file)) == NULL)
 	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     }
     if (!parse_error) {
@@ -949,21 +942,13 @@ check_syntax(const char *sudoers_file, bool quiet, bool strict, bool oldperms)
     sudoers_setlocale(oldlocale, NULL);
     ok = !parse_error;
 
-    if (parse_error) {
-	if (!quiet) {
-	    if (errorlineno != -1)
-		(void) printf(_("parse error in %s near line %d\n"),
-		    errorfile, errorlineno);
-	    else if (errorfile != NULL)
-		(void) printf(_("parse error in %s\n"), errorfile);
-	}
-    } else {
+    if (!parse_error) {
 	struct sudoersfile *sp;
 
 	/* Parsed OK, check mode and owner. */
-	if (oldperms || check_owner(sudoers_file, quiet)) {
+	if (oldperms || check_owner(file, quiet)) {
 	    if (!quiet)
-		(void) printf(_("%s: parsed OK\n"), sudoers_file);
+		(void) printf(_("%s: parsed OK\n"), file);
 	} else {
 	    ok = false;
 	}
@@ -985,7 +970,7 @@ static bool
 lock_sudoers(struct sudoersfile *entry)
 {
     int ch;
-    debug_decl(lock_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(lock_sudoers, SUDOERS_DEBUG_UTIL);
 
     if (!sudo_lock_file(entry->fd, SUDO_TLOCK)) {
 	if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -1002,6 +987,48 @@ lock_sudoers(struct sudoersfile *entry)
 }
 
 /*
+ * Open (and lock) a new sudoers file.
+ * Returns a new struct sudoersfile on success or NULL on failure.
+ */
+static struct sudoersfile *
+new_sudoers(const char *path, bool doedit)
+{
+    struct sudoersfile *entry;
+    struct stat sb;
+    int open_flags;
+    debug_decl(new_sudoersfile, SUDOERS_DEBUG_UTIL);
+
+    if (checkonly)
+	open_flags = O_RDONLY;
+    else
+	open_flags = O_RDWR | O_CREAT;
+
+    entry = calloc(1, sizeof(*entry));
+    if (entry == NULL || (entry->path = strdup(path)) == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    /* entry->tpath = NULL; */
+    /* entry->modified = false; */
+    entry->doedit = doedit;
+    entry->fd = open(entry->path, open_flags, sudoers_mode);
+    if (entry->fd == -1 || fstat(entry->fd, &sb) == -1) {
+	sudo_warn("%s", entry->path);
+	goto bad;
+    }
+    if (!S_ISREG(sb.st_mode)) {
+	sudo_warnx(U_("%s is not a regular file"), entry->path);
+	goto bad;
+    }
+    if (!checkonly && !lock_sudoers(entry))
+	goto bad;
+    debug_return_ptr(entry);
+bad:
+    if (entry->fd != -1)
+	close(entry->fd);
+    free(entry);
+    debug_return_ptr(NULL);
+}
+
+/*
  * Used to open (and lock) the initial sudoers file and to also open
  * any subsequent files #included via a callback from the parser.
  */
@@ -1010,13 +1037,7 @@ open_sudoers(const char *path, bool doedit, bool *keepopen)
 {
     struct sudoersfile *entry;
     FILE *fp;
-    int open_flags;
-    debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL)
-
-    if (checkonly)
-	open_flags = O_RDONLY;
-    else
-	open_flags = O_RDWR | O_CREAT;
+    debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL);
 
     /* Check for existing entry */
     TAILQ_FOREACH(entry, &sudoerslist, entries) {
@@ -1024,19 +1045,7 @@ open_sudoers(const char *path, bool doedit, bool *keepopen)
 	    break;
     }
     if (entry == NULL) {
-	entry = calloc(1, sizeof(*entry));
-	if (entry == NULL || (entry->path = strdup(path)) == NULL)
-	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	/* entry->tpath = NULL; */
-	/* entry->modified = false; */
-	entry->doedit = doedit;
-	entry->fd = open(entry->path, open_flags, sudoers_mode);
-	if (entry->fd == -1) {
-	    sudo_warn("%s", entry->path);
-	    free(entry);
-	    debug_return_ptr(NULL);
-	}
-	if (!checkonly && !lock_sudoers(entry))
+	if ((entry = new_sudoers(path, doedit)) == NULL)
 	    debug_return_ptr(NULL);
 	if ((fp = fdopen(entry->fd, "r")) == NULL)
 	    sudo_fatal("%s", entry->path);
@@ -1058,38 +1067,40 @@ open_sudoers(const char *path, bool doedit, bool *keepopen)
 }
 
 static int
-check_alias(char *name, int type, char *file, int lineno, bool strict, bool quiet)
+check_alias(char *name, int type, char *file, int line, int column,
+    bool strict, bool quiet)
 {
     struct member *m;
     struct alias *a;
     int errors = 0;
-    debug_decl(check_alias, SUDOERS_DEBUG_ALIAS)
+    debug_decl(check_alias, SUDOERS_DEBUG_ALIAS);
 
     if ((a = alias_get(&parsed_policy, name, type)) != NULL) {
 	/* check alias contents */
 	TAILQ_FOREACH(m, &a->members, entries) {
 	    if (m->type != ALIAS)
 		continue;
-	    errors += check_alias(m->name, type, a->file, a->lineno, strict, quiet);
+	    errors += check_alias(m->name, type, a->file, a->line, a->column,
+		strict, quiet);
 	}
 	alias_put(a);
     } else {
 	if (!quiet) {
 	    if (errno == ELOOP) {
 		fprintf(stderr, strict ?
-		    U_("Error: %s:%d cycle in %s \"%s\"") :
-		    U_("Warning: %s:%d cycle in %s \"%s\""),
-		    file, lineno, alias_type_to_string(type), name);
+		    U_("Error: %s:%d:%d: cycle in %s \"%s\"") :
+		    U_("Warning: %s:%d:%d: cycle in %s \"%s\""),
+		    file, line, column, alias_type_to_string(type), name);
 	    } else {
 		fprintf(stderr, strict ?
-		    U_("Error: %s:%d %s \"%s\" referenced but not defined") :
-		    U_("Warning: %s:%d %s \"%s\" referenced but not defined"),
-		    file, lineno, alias_type_to_string(type), name);
+		    U_("Error: %s:%d:%d: %s \"%s\" referenced but not defined") :
+		    U_("Warning: %s:%d:%d: %s \"%s\" referenced but not defined"),
+		    file, line, column, alias_type_to_string(type), name);
 	    }
 	    fputc('\n', stderr);
 	    if (strict && errorfile == NULL) {
 		errorfile = rcstr_addref(file);
-		errorlineno = lineno;
+		errorlineno = line;
 	    }
 	}
 	errors++;
@@ -1111,7 +1122,7 @@ check_aliases(bool strict, bool quiet)
     struct privilege *priv;
     struct userspec *us;
     int errors = 0;
-    debug_decl(check_aliases, SUDOERS_DEBUG_ALIAS)
+    debug_decl(check_aliases, SUDOERS_DEBUG_ALIAS);
 
     used_aliases = alloc_aliases();
     if (used_aliases == NULL) {
@@ -1124,14 +1135,14 @@ check_aliases(bool strict, bool quiet)
 	TAILQ_FOREACH(m, &us->users, entries) {
 	    if (m->type == ALIAS) {
 		errors += check_alias(m->name, USERALIAS,
-		    us->file, us->lineno, strict, quiet);
+		    us->file, us->line, us->column, strict, quiet);
 	    }
 	}
 	TAILQ_FOREACH(priv, &us->privileges, entries) {
 	    TAILQ_FOREACH(m, &priv->hostlist, entries) {
 		if (m->type == ALIAS) {
 		    errors += check_alias(m->name, HOSTALIAS,
-			us->file, us->lineno, strict, quiet);
+			us->file, us->line, us->column, strict, quiet);
 		}
 	    }
 	    TAILQ_FOREACH(cs, &priv->cmndlist, entries) {
@@ -1139,7 +1150,7 @@ check_aliases(bool strict, bool quiet)
 		    TAILQ_FOREACH(m, cs->runasuserlist, entries) {
 			if (m->type == ALIAS) {
 			    errors += check_alias(m->name, RUNASALIAS,
-				us->file, us->lineno, strict, quiet);
+				us->file, us->line, us->column, strict, quiet);
 			}
 		    }
 		}
@@ -1147,13 +1158,13 @@ check_aliases(bool strict, bool quiet)
 		    TAILQ_FOREACH(m, cs->runasgrouplist, entries) {
 			if (m->type == ALIAS) {
 			    errors += check_alias(m->name, RUNASALIAS,
-				us->file, us->lineno, strict, quiet);
+				us->file, us->line, us->column, strict, quiet);
 			}
 		    }
 		}
 		if ((m = cs->cmnd)->type == ALIAS) {
 		    errors += check_alias(m->name, CMNDALIAS,
-			us->file, us->lineno, strict, quiet);
+			us->file, us->line, us->column, strict, quiet);
 		}
 	    }
 	}
@@ -1174,8 +1185,8 @@ check_aliases(bool strict, bool quiet)
 static int
 print_unused(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
 {
-    fprintf(stderr, U_("Warning: %s:%d unused %s \"%s\""),
-	a->file, a->lineno, alias_type_to_string(a->type), a->name);
+    fprintf(stderr, U_("Warning: %s:%d:%d: unused %s \"%s\""),
+	a->file, a->line, a->column, alias_type_to_string(a->type), a->name);
     fputc('\n', stderr);
     return 0;
 }
@@ -1184,7 +1195,7 @@ static void
 parse_sudoers_options(void)
 {
     struct plugin_info_list *plugins;
-    debug_decl(parse_sudoers_options, SUDOERS_DEBUG_UTIL)
+    debug_decl(parse_sudoers_options, SUDOERS_DEBUG_UTIL);
 
     plugins = sudo_conf_plugins();
     if (plugins) {
@@ -1283,7 +1294,7 @@ usage(int fatal)
     (void) fprintf(fatal ? stderr : stdout,
 	"usage: %s [-chqsV] [[-f] sudoers ]\n", getprogname());
     if (fatal)
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 static void
@@ -1298,5 +1309,5 @@ help(void)
 	"  -q, --quiet              less verbose (quiet) syntax error messages\n"
 	"  -s, --strict             strict syntax checking\n"
 	"  -V, --version            display version information and exit\n"));
-    exit(0);
+    exit(EXIT_SUCCESS);
 }

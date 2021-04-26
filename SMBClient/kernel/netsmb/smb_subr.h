@@ -35,7 +35,7 @@
 #ifndef _NETSMB_SMB_SUBR_H_
 #define _NETSMB_SMB_SUBR_H_
 
-#ifndef _KERNEL
+#if (!defined(_KERNEL) && !defined(MC_TESTER))
 #error "This file shouldn't be included from userland programs"
 #endif
 
@@ -44,15 +44,17 @@ MALLOC_DECLARE(M_SMBTEMP);
 #endif
 
 
-#define SMB_NO_LOG_LEVEL		0x00
-#define SMB_LOW_LOG_LEVEL		0x01
-#define SMB_ACL_LOG_LEVEL		0x02
-#define SMB_IO_LOG_LEVEL		0x04
-#define SMB_AUTH_LOG_LEVEL		0x08
-#define SMB_KTRACE_LOG_LEVEL    0x10
-#define SMB_DIR_CACHE_LOG_LEVEL 0x20
-#define SMB_DIR_CACHE_LOG_LEVEL2 0x0040
-#define SMB_UNIT_TEST			0x8000
+#define SMB_NO_LOG_LEVEL		   0x0000
+#define SMB_LOW_LOG_LEVEL		   0x0001
+#define SMB_ACL_LOG_LEVEL		   0x0002
+#define SMB_IO_LOG_LEVEL		   0x0004
+#define SMB_AUTH_LOG_LEVEL		   0x0008
+#define SMB_KTRACE_LOG_LEVEL       0x0010
+#define SMB_DIR_CACHE_LOG_LEVEL    0x0020
+#define SMB_DIR_CACHE_LOG_LEVEL2   0x0040
+#define SMB_MC_LOG_LEVEL           0x0080
+#define SMB_MC_REF_LOG_LEVEL       0x0100
+#define SMB_UNIT_TEST			   0x8000
 
 extern int smbfs_loglevel;
 
@@ -174,6 +176,16 @@ extern int smbfs_loglevel;
     } \
     } while(0)
 
+#define SMB_LOG_MC(format, args...) do { \
+    if (smbfs_loglevel & SMB_MC_LOG_LEVEL) \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_MC_REF(format, args...) do { \
+    if (smbfs_loglevel & SMB_MC_REF_LOG_LEVEL) \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
+
 #define SMB_LOG_UNIT_TEST(format, args...) do { \
 	if (smbfs_loglevel & SMB_UNIT_TEST) \
 		printf("%s: " format, __FUNCTION__ ,## args); \
@@ -242,6 +254,7 @@ struct mbchain;
 struct mdchain;
 struct smb_session;
 struct smb_rq;
+struct smbiod;
 
 #ifdef SMB_DEBUG
 void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inlen);
@@ -278,9 +291,17 @@ int  smb_rq_sign(struct smb_rq *rqp);
 int  smb_rq_verify(struct smb_rq *rqp);
 int  smb2_rq_sign(struct smb_rq *rqp);
 int  smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature);
-int  smb3_derive_keys(struct smb_session *sessionp);
+int  smb3_derive_channel_keys(struct smbiod *iod);
+int  smb3_derive_keys(struct smbiod *iod);
 int  smb3_rq_encrypt(struct smb_rq *rqp);
 int  smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *m);
+int smb3_verify_session_setup(struct smb_session *sessionp, struct smbiod *iod,
+                              uint8_t *sess_setup_reply, size_t sess_setup_len);
+
+int smb311_pre_auth_integrity_hash_init(struct smbiod *iod, uint16_t command, mbuf_t m0);
+int smb311_pre_auth_integrity_hash_update(struct smbiod *iod, mbuf_t m0);
+int smb311_pre_auth_integrity_hash_print(struct smbiod *iod);
+
 #if 0
 void smb_test_crypt_performance(struct smb_session *sessionp, size_t orig_packet_len,
 								size_t orig_mb_len);

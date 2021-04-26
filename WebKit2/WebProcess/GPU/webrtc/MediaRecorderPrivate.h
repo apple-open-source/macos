@@ -46,7 +46,6 @@ namespace WebKit {
 
 class MediaRecorderPrivate final
     : public WebCore::MediaRecorderPrivate
-    , public SharedRingBufferStorage::Client
     , public CanMakeWeakPtr<MediaRecorderPrivate> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -56,17 +55,18 @@ public:
 private:
     // WebCore::MediaRecorderPrivate
     void videoSampleAvailable(WebCore::MediaSample&) final;
-    void fetchData(CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&, const String& mimeType)>&&) final;
+    void fetchData(CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&, const String& mimeType, double)>&&) final;
     void stopRecording() final;
     void startRecording(StartRecordingCallback&&) final;
     void audioSamplesAvailable(const WTF::MediaTime&, const WebCore::PlatformAudioData&, const WebCore::AudioStreamDescription&, size_t) final;
     const String& mimeType() const final;
+    void pauseRecording(CompletionHandler<void()>&&) final;
+    void resumeRecording(CompletionHandler<void()>&&) final;
 
-    // SharedRingBufferStorage::Client
-    void storageChanged(SharedMemory*);
+    void storageChanged(SharedMemory*, const WebCore::CAAudioStreamDescription& format, size_t frameCount);
 
     MediaRecorderIdentifier m_identifier;
-    Ref<MediaStreamPrivate> m_stream;
+    Ref<WebCore::MediaStreamPrivate> m_stream;
     Ref<IPC::Connection> m_connection;
 
     std::unique_ptr<WebCore::CARingBuffer> m_ringBuffer;
@@ -74,6 +74,7 @@ private:
     int64_t m_numberOfFrames { 0 };
     WebCore::MediaRecorderPrivateOptions m_options;
     bool m_hasVideo { false };
+    bool m_isStopped { false };
 };
 
 }

@@ -21,6 +21,8 @@
 #include "WebKitWebsiteDataManager.h"
 
 #include "WebKitCookieManagerPrivate.h"
+#include "WebKitInitialize.h"
+#include "WebKitNetworkProxySettingsPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebsiteDataManagerPrivate.h"
 #include "WebKitWebsiteDataPrivate.h"
@@ -93,11 +95,6 @@ enum {
 };
 
 struct _WebKitWebsiteDataManagerPrivate {
-    ~_WebKitWebsiteDataManagerPrivate()
-    {
-        ASSERT(processPools.isEmpty());
-    }
-
     RefPtr<WebKit::WebsiteDataStore> websiteDataStore;
     GUniquePtr<char> baseDataDirectory;
     GUniquePtr<char> baseCacheDirectory;
@@ -110,9 +107,9 @@ struct _WebKitWebsiteDataManagerPrivate {
     GUniquePtr<char> itpDirectory;
     GUniquePtr<char> swRegistrationsDirectory;
     GUniquePtr<char> domCacheDirectory;
+    WebKitTLSErrorsPolicy tlsErrorsPolicy;
 
     GRefPtr<WebKitCookieManager> cookieManager;
-    Vector<WebProcessPool*> processPools;
 };
 
 WEBKIT_DEFINE_TYPE(WebKitWebsiteDataManager, webkit_website_data_manager, G_TYPE_OBJECT)
@@ -240,10 +237,16 @@ static void webkitWebsiteDataManagerConstructed(GObject* object)
         if (!priv->domCacheDirectory)
             priv->domCacheDirectory.reset(g_build_filename(priv->baseCacheDirectory.get(), "CacheStorage", nullptr));
     }
+
+    priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_FAIL;
+    if (priv->websiteDataStore)
+        priv->websiteDataStore->setIgnoreTLSErrors(false);
 }
 
 static void webkit_website_data_manager_class_init(WebKitWebsiteDataManagerClass* findClass)
 {
+    webkitInitialize();
+
     GObjectClass* gObjectClass = G_OBJECT_CLASS(findClass);
 
     gObjectClass->get_property = webkitWebsiteDataManagerGetProperty;
@@ -485,27 +488,11 @@ WebKit::WebsiteDataStore& webkitWebsiteDataManagerGetDataStore(WebKitWebsiteData
             configuration->setServiceWorkerRegistrationDirectory(FileSystem::stringFromFileSystemRepresentation(priv->swRegistrationsDirectory.get()));
         if (priv->domCacheDirectory)
             configuration->setCacheStorageDirectory(FileSystem::stringFromFileSystemRepresentation(priv->domCacheDirectory.get()));
-        priv->websiteDataStore = WebKit::WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::defaultSessionID());
+        priv->websiteDataStore = WebKit::WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::generatePersistentSessionID());
+        priv->websiteDataStore->setIgnoreTLSErrors(priv->tlsErrorsPolicy == WEBKIT_TLS_ERRORS_POLICY_IGNORE);
     }
 
     return *priv->websiteDataStore;
-}
-
-void webkitWebsiteDataManagerAddProcessPool(WebKitWebsiteDataManager* manager, WebProcessPool& processPool)
-{
-    ASSERT(!manager->priv->processPools.contains(&processPool));
-    manager->priv->processPools.append(&processPool);
-}
-
-void webkitWebsiteDataManagerRemoveProcessPool(WebKitWebsiteDataManager* manager, WebProcessPool& processPool)
-{
-    ASSERT(manager->priv->processPools.contains(&processPool));
-    manager->priv->processPools.removeFirst(&processPool);
-}
-
-const Vector<WebProcessPool*>& webkitWebsiteDataManagerGetProcessPools(WebKitWebsiteDataManager* manager)
-{
-    return manager->priv->processPools;
 }
 
 /**
@@ -906,6 +893,84 @@ gboolean webkit_website_data_manager_get_persistent_credential_storage_enabled(W
     return webkitWebsiteDataManagerGetDataStore(manager).persistentCredentialStorageEnabled();
 }
 
+/**
+ * webkit_website_data_manager_set_tls_errors_policy:
+ * @manager: a #WebKitWebsiteDataManager
+ * @policy: a #WebKitTLSErrorsPolicy
+ *
+ * Set the TLS errors policy of @manager as @policy
+ *
+ * Since: 2.32
+ */
+void webkit_website_data_manager_set_tls_errors_policy(WebKitWebsiteDataManager* manager, WebKitTLSErrorsPolicy policy)
+{
+    g_return_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager));
+
+    if (manager->priv->tlsErrorsPolicy == policy)
+        return;
+
+    manager->priv->tlsErrorsPolicy = policy;
+    webkitWebsiteDataManagerGetDataStore(manager).setIgnoreTLSErrors(policy == WEBKIT_TLS_ERRORS_POLICY_IGNORE);
+}
+
+/**
+ * webkit_website_data_manager_get_tls_errors_policy:
+ * @manager: a #WebKitWebsiteDataManager
+ *
+ * Get the TLS errors policy of @manager
+ *
+ * Returns: a #WebKitTLSErrorsPolicy
+ *
+ * Since: 2.32
+ */
+WebKitTLSErrorsPolicy webkit_website_data_manager_get_tls_errors_policy(WebKitWebsiteDataManager* manager)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager), WEBKIT_TLS_ERRORS_POLICY_FAIL);
+
+    return manager->priv->tlsErrorsPolicy;
+}
+
+/**
+ * webkit_website_data_manager_set_network_proxy_settings:
+ * @manager: a #WebKitWebsiteDataManager
+ * @proxy_mode: a #WebKitNetworkProxyMode
+ * @proxy_settings: (allow-none): a #WebKitNetworkProxySettings, or %NULL
+ *
+ * Set the network proxy settings to be used by connections started in @manager session.
+ * By default %WEBKIT_NETWORK_PROXY_MODE_DEFAULT is used, which means that the
+ * system settings will be used (g_proxy_resolver_get_default()).
+ * If you want to override the system default settings, you can either use
+ * %WEBKIT_NETWORK_PROXY_MODE_NO_PROXY to make sure no proxies are used at all,
+ * or %WEBKIT_NETWORK_PROXY_MODE_CUSTOM to provide your own proxy settings.
+ * When @proxy_mode is %WEBKIT_NETWORK_PROXY_MODE_CUSTOM @proxy_settings must be
+ * a valid #WebKitNetworkProxySettings; otherwise, @proxy_settings must be %NULL.
+ *
+ * Since: 2.32
+ */
+void webkit_website_data_manager_set_network_proxy_settings(WebKitWebsiteDataManager* manager, WebKitNetworkProxyMode proxyMode, WebKitNetworkProxySettings* proxySettings)
+{
+    g_return_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager));
+    g_return_if_fail((proxyMode != WEBKIT_NETWORK_PROXY_MODE_CUSTOM && !proxySettings) || (proxyMode == WEBKIT_NETWORK_PROXY_MODE_CUSTOM && proxySettings));
+
+    auto& dataStore = webkitWebsiteDataManagerGetDataStore(manager);
+    switch (proxyMode) {
+    case WEBKIT_NETWORK_PROXY_MODE_DEFAULT:
+        dataStore.setNetworkProxySettings({ });
+        break;
+    case WEBKIT_NETWORK_PROXY_MODE_NO_PROXY:
+        dataStore.setNetworkProxySettings(WebCore::SoupNetworkProxySettings(WebCore::SoupNetworkProxySettings::Mode::NoProxy));
+        break;
+    case WEBKIT_NETWORK_PROXY_MODE_CUSTOM:
+        auto settings = webkitNetworkProxySettingsGetNetworkProxySettings(proxySettings);
+        if (settings.isEmpty()) {
+            g_warning("Invalid attempt to set custom network proxy settings with an empty WebKitNetworkProxySettings. Use "
+                "WEBKIT_NETWORK_PROXY_MODE_NO_PROXY to not use any proxy or WEBKIT_NETWORK_PROXY_MODE_DEFAULT to use the default system settings");
+        } else
+            dataStore.setNetworkProxySettings(WTFMove(settings));
+        break;
+    }
+}
+
 static OptionSet<WebsiteDataType> toWebsiteDataTypes(WebKitWebsiteDataTypes types)
 {
     OptionSet<WebsiteDataType> returnValue;
@@ -931,8 +996,10 @@ static OptionSet<WebsiteDataType> toWebsiteDataTypes(WebKitWebsiteDataTypes type
         returnValue.add(WebsiteDataType::DeviceIdHashSalt);
     if (types & WEBKIT_WEBSITE_DATA_ITP)
         returnValue.add(WebsiteDataType::ResourceLoadStatistics);
+#if ENABLE(SERVICE_WORKER)
     if (types & WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS)
         returnValue.add(WebsiteDataType::ServiceWorkerRegistrations);
+#endif
     if (types & WEBKIT_WEBSITE_DATA_DOM_CACHE)
         returnValue.add(WebsiteDataType::DOMCache);
     return returnValue;

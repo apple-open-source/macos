@@ -391,6 +391,35 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testEnterWaitForTLKJustAsTrustArrives {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+
+    // The TLKShares are in CK, no worries there...
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+
+    // CKKS _should_ upload itself a share.
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    // We start untrusted, but receive trust just as we fail to unwrap the TLK....
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    [self startCKKSSubsystem];
+
+    [self.keychainView.stateMachine testPauseStateMachineAfterEntering:SecCKKSZoneKeyStateTLKMissing];
+
+    // The CKKS subsystem should not try to write anything to the CloudKit database, but it should enter waitfortlk
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateTLKMissing] wait:20*NSEC_PER_SEC], "Key state should become tlk_missing");
+
+    self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    [self.keychainView.stateMachine testReleaseStateMachinePause:SecCKKSZoneKeyStateTLKMissing];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+}
+
 - (void)testUploadTLKSharesForExistingHierarchy {
     // Test starts with key material locally and in CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];

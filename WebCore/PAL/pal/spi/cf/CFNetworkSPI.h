@@ -145,9 +145,7 @@ CF_ENUM(CFHTTPCookieStorageAcceptPolicy)
 - (id)_initWithCFHTTPCookieStorage:(CFHTTPCookieStorageRef)cfStorage;
 - (CFHTTPCookieStorageRef)_cookieStorage;
 - (void)_saveCookies;
-#if HAVE(FOUNDATION_WITH_SAVE_COOKIES_WITH_COMPLETION_HANDLER)
 - (void)_saveCookies:(dispatch_block_t) completionHandler;
-#endif
 #if HAVE(CFNETWORK_OVERRIDE_SESSION_COOKIE_ACCEPT_POLICY)
 @property (nonatomic, readwrite) BOOL _overrideSessionCookieAcceptPolicy;
 #endif
@@ -200,6 +198,16 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @class _NSHTTPAlternativeServicesStorage;
 #endif
 
+#if HAVE(HSTS_STORAGE)
+@interface _NSHSTSStorage : NSObject
+- (instancetype)initPersistentStoreWithURL:(nullable NSURL*)path;
+- (BOOL)shouldPromoteHostToHTTPS:(NSString *)host;
+- (NSArray<NSString *> *)nonPreloadedHosts;
+- (void)resetHSTSForHost:(NSString *)host;
+- (void)resetHSTSHostsSinceDate:(NSDate *)date;
+@end
+#endif
+
 @interface NSURLSessionConfiguration ()
 @property (assign) _TimingDataOptions _timingDataOptions;
 @property (copy) NSData *_sourceApplicationAuditTokenData;
@@ -227,6 +235,9 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 #if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
 @property (nullable, retain) _NSHTTPAlternativeServicesStorage *_alternativeServicesStorage;
 @property (readwrite, assign) BOOL _allowsHTTP3;
+#endif
+#if HAVE(HSTS_STORAGE)
+@property (nullable, retain) _NSHSTSStorage *_hstsStorage;
 #endif
 @end
 
@@ -323,7 +334,6 @@ CFIndex CFURLCacheMemoryCapacity(CFURLCacheRef);
 void CFURLCacheSetDiskCapacity(CFURLCacheRef, CFIndex);
 CFCachedURLResponseRef CFURLCacheCopyResponseForRequest(CFURLCacheRef, CFURLRequestRef);
 void CFHTTPCookieStorageDeleteAllCookies(CFHTTPCookieStorageRef);
-void _CFHTTPCookieStorageFlushCookieStores();
 CFDataRef _CFCachedURLResponseGetMemMappedData(CFCachedURLResponseRef);
 
 extern CFStringRef const kCFHTTPCookieLocalFileDomain;
@@ -379,10 +389,6 @@ void _CFURLRequestCreateArchiveList(CFAllocatorRef, CFURLRequestRef, CFIndex* ve
 CFMutableURLRequestRef _CFURLRequestCreateFromArchiveList(CFAllocatorRef, CFIndex version, CFTypeRef* objects, CFIndex objectCount, CFDictionaryRef protocolProperties);
 void CFURLRequestSetProxySettings(CFMutableURLRequestRef, CFDictionaryRef);
 
-#if HAVE(HSTS_STORAGE_PATH)
-void _CFNetworkSetHSTSStoragePath(CFStringRef);
-#endif
-
 CFN_EXPORT const CFStringRef kCFStreamPropertyCONNECTProxy;
 CFN_EXPORT const CFStringRef kCFStreamPropertyCONNECTProxyHost;
 CFN_EXPORT const CFStringRef kCFStreamPropertyCONNECTProxyPort;
@@ -395,12 +401,14 @@ CFN_EXPORT void _CFHTTPMessageSetResponseProxyURL(CFHTTPMessageRef, CFURLRef);
 CFDataRef _CFNetworkCopyATSContext(void);
 Boolean _CFNetworkSetATSContext(CFDataRef);
 
+Boolean _CFNetworkIsKnownHSTSHostWithSession(CFURLRef, CFURLStorageSessionRef);
+#if !HAVE(HSTS_STORAGE)
 extern const CFStringRef _kCFNetworkHSTSPreloaded;
 CFDictionaryRef _CFNetworkCopyHSTSPolicies(CFURLStorageSessionRef);
 void _CFNetworkResetHSTS(CFURLRef, CFURLStorageSessionRef);
 void _CFNetworkResetHSTSHostsSinceDate(CFURLStorageSessionRef, CFDateRef);
-Boolean _CFNetworkIsKnownHSTSHostWithSession(CFURLRef, CFURLStorageSessionRef);
 void _CFNetworkResetHSTSHostsWithSession(CFURLStorageSessionRef);
+#endif
 
 CFDataRef CFHTTPCookieStorageCreateIdentifyingData(CFAllocatorRef inAllocator, CFHTTPCookieStorageRef inStorage);
 CFHTTPCookieStorageRef CFHTTPCookieStorageCreateFromIdentifyingData(CFAllocatorRef inAllocator, CFDataRef inData);

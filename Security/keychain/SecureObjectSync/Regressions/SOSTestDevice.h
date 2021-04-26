@@ -49,6 +49,9 @@ CFSetRef SOSViewsCopyTestV2Default(void);
 SOSTestDeviceRef SOSTestDeviceSetPeerIDs(SOSTestDeviceRef td, CFArrayRef peerIDs, CFIndex version, CFSetRef defaultViews);
 void SOSTestDeviceDestroyEngine(CFMutableDictionaryRef testDevices);
 
+void SOSTestDeviceForceCloseDatabase(SOSTestDeviceRef testDevice);
+void SOSTestDeviceForceCloseDatabases(CFMutableDictionaryRef testDevices);
+
 SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute);
 bool SOSTestDeviceIsMute(SOSTestDeviceRef td);
 

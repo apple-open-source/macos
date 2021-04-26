@@ -1546,8 +1546,10 @@ kcm_parse_digest_one(krb5_context context, krb5_storage *sp)
 	heim_release(d);
     }
 
+    HEIMDAL_MUTEX_lock(&cred_mutex);
     c->next = ntlm_head;
     ntlm_head = c;
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
 
  out:
     free(type);
@@ -1577,7 +1579,7 @@ free_cred(struct kcm_ntlm_cred *cred)
 
 
 static struct kcm_ntlm_cred *
-find_ntlm_cred(enum kcm_cred_type type, const char *user, const char *domain, kcm_client *client)
+find_ntlm_cred_locked(enum kcm_cred_type type, const char *user, const char *domain, kcm_client *client)
 {
     struct kcm_ntlm_cred *c;
 
@@ -1646,7 +1648,7 @@ kcm_op_add_ntlm_cred(krb5_context context,
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
     /* search for dups */
-    c = find_ntlm_cred(KCM_NTLM_CRED, cred->user, cred->domain, client);
+    c = find_ntlm_cred_locked(KCM_NTLM_CRED, cred->user, cred->domain, client);
     if (c) {
 	krb5_data hash = c->nthash;
 	c->nthash = cred->nthash;
@@ -1705,7 +1707,7 @@ kcm_op_have_ntlm_cred(krb5_context context,
 
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
-    c = find_ntlm_cred(KCM_NTLM_CRED, user, domain, client);
+    c = find_ntlm_cred_locked(KCM_NTLM_CRED, user, domain, client);
     if (c == NULL)
 	ret = ENOENT;
 
@@ -2103,44 +2105,58 @@ kcm_op_do_ntlm(krb5_context context,
 
     kcm_log(10, "NTLM AUTH with cred %s\\%s", domain, user);
 
-    c = find_ntlm_cred(KCM_NTLM_CRED, user, domain, client);
+    c = find_ntlm_cred_locked(KCM_NTLM_CRED, user, domain, client);
     if (c == NULL) {
+	free(domain);
 	ret = EINVAL;
 	goto error;
     }
 
     ret = krb5_ret_data(request, &type2data);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     ret = krb5_ret_data(request, &cb);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     ret = krb5_ret_data(request, &type1data);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     ret = krb5_ret_stringz(request, &targetname);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     ret = krb5_ret_uint32(request, &type1flags);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     ndata.data = type2data.data;
     ndata.length = type2data.length;
 
     ret = heim_ntlm_decode_type2(&ndata, &type2);
-    if (ret)
+    if (ret) {
+	free(domain);
 	goto error;
+    }
 
     if (!disable_ntlm_reflection_detection) {
 	kcm_log(10, "checking for ntlm mirror attack");
 	ret = check_ntlm_challage(type2.challenge);
 	if (ret) {
 	    kcm_log(0, "ntlm mirror attack detected");
+	    free(domain);
 	    goto error;
 	}
     }
@@ -2153,9 +2169,11 @@ kcm_op_do_ntlm(krb5_context context,
 	    ret = ENOMEM;
 	    goto error;
 	}
+	/* domain is not freed after this point because it points to type2.targetname and is freed with it */
     } else {
 	free(domain);
 	domain = c->domain;
+	/* domain is not freed after this point because it points to c->domain and is persisted with the ntlm cred */
     }
 
     type3.username = c->user;
@@ -2410,7 +2428,7 @@ kcm_op_add_scram_cred(krb5_context context,
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
     /* search for dups */
-    c = find_ntlm_cred(KCM_SCRAM_CRED, cred->user, NULL, client);
+    c = find_ntlm_cred_locked(KCM_SCRAM_CRED, cred->user, NULL, client);
     if (c) {
 	char *pw = c->u.password;
 	c->u.password = cred->u.password;
@@ -2459,7 +2477,7 @@ kcm_op_have_scram_cred(krb5_context context,
 
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
-    c = find_ntlm_cred(KCM_SCRAM_CRED, user, NULL, client);
+    c = find_ntlm_cred_locked(KCM_SCRAM_CRED, user, NULL, client);
     if (c == NULL)
 	ret = ENOENT;
 
@@ -2559,7 +2577,7 @@ kcm_op_do_scram(krb5_context context,
     if (ret)
 	goto out;
     
-    c = find_ntlm_cred(KCM_SCRAM_CRED, user, NULL, client);
+    c = find_ntlm_cred_locked(KCM_SCRAM_CRED, user, NULL, client);
     if (c == NULL) {
 	ret = ENOENT;
 	goto out;
@@ -2656,24 +2674,32 @@ kcm_op_get_scram_user_list(krb5_context context,
     ssize_t sret;
 
     KCM_LOG_REQUEST(context, client, opcode);
-
+    HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
 	if (c->type != KCM_SCRAM_CRED || !kcm_is_same_session(client, c->uid, c->session))
 	    continue;
 
 	ret = krb5_store_uint32(response, 1);
-	if (ret)
+	if (ret) {
+	    HEIMDAL_MUTEX_unlock(&cred_mutex);
 	    return ret;
+	}
 	ret = krb5_store_stringz(response, c->user);
-	if (ret)
+	if (ret) {
+	    HEIMDAL_MUTEX_unlock(&cred_mutex);
 	    return ret;
+	}
 
 	sret = krb5_storage_write(response, c->uuid, sizeof(c->uuid));
 	if (sret != sizeof(c->uuid)) {
+	    HEIMDAL_MUTEX_unlock(&cred_mutex);
 	    ret = ENOMEM;
 	    return ret;
 	}
     }
+
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
+
     return krb5_store_uint32(response, 0);
 }
 
@@ -2695,7 +2721,8 @@ kcm_op_retain_cred(krb5_context context,
 	krb5_clear_error_message(context);
 	return KRB5_CC_IO;
     }
-    
+
+    HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
 	if (!kcm_is_same_session(client, c->uid, c->session))
 	    continue;
@@ -2703,10 +2730,11 @@ kcm_op_retain_cred(krb5_context context,
 	if (memcmp(uuid, c->uuid, sizeof(c->uuid)) == 0) {
 	    c->refcount++;
 	    kcm_data_changed = 1;
+	    HEIMDAL_MUTEX_unlock(&cred_mutex);
 	    return 0;
 	}
     }
-
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
     return 0;
 }
 
@@ -2728,7 +2756,8 @@ kcm_op_release_cred(krb5_context context,
 	krb5_clear_error_message(context);
 	return KRB5_CC_IO;
     }
-    
+
+    HEIMDAL_MUTEX_lock(&cred_mutex);
     for (cp = &ntlm_head; *cp != NULL; cp = &(*cp)->next) {
 	struct kcm_ntlm_cred *c = *cp;
 
@@ -2742,9 +2771,12 @@ kcm_op_release_cred(krb5_context context,
 		free_cred(c);
 	    }
 	    kcm_data_changed = 1;
+	    HEIMDAL_MUTEX_unlock(&cred_mutex);
 	    return 0;
 	}
     }
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
+
     return 0;
 }
 
@@ -2777,6 +2809,7 @@ kcm_op_cred_label_get(krb5_context context,
     s = heim_string_create(label);
     free(label);
 
+    HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
 	if (!kcm_is_same_session(client, c->uid, c->session))
 	    continue;
@@ -2796,6 +2829,8 @@ kcm_op_cred_label_get(krb5_context context,
 	    }
 	}
     }
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
+
     heim_release(s);
 
     if (c == NULL)
@@ -2814,6 +2849,7 @@ kcm_op_cred_label_set(krb5_context context,
     struct kcm_ntlm_cred *c;
     kcmuuid_t uuid;
     krb5_data data;
+    krb5_data_zero(&data);
     char *label = NULL;
     ssize_t sret;
     

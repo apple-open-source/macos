@@ -184,7 +184,9 @@ void WebContextMenuProxyMac::setupServicesMenu()
         auto cgImage = image->makeCGImage();
         auto nsImage = adoptNS([[NSImage alloc] initWithCGImage:cgImage.get() size:image->size()]);
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         auto itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:[nsImage TIFFRepresentation] typeIdentifier:(__bridge NSString *)kUTTypeTIFF]);
+ALLOW_DEPRECATED_DECLARATIONS_END
         items = @[ itemProvider.get() ];
     } else if (!m_context.controlledSelectionData().isEmpty()) {
         auto selectionData = adoptNS([[NSData alloc] initWithBytes:static_cast<const void*>(m_context.controlledSelectionData().data()) length:m_context.controlledSelectionData().size()]);
@@ -415,7 +417,13 @@ static NSString *menuItemIdentifier(const WebCore::ContextMenuAction action)
 
     case ContextMenuItemTagLookUpInDictionary:
         return _WKMenuItemIdentifierLookUp;
-
+#if ENABLE(APP_HIGHLIGHTS)
+    case ContextMenuItemTagAddHighlightToCurrentGroup:
+        return _WKMenuItemIdentifierAddHighlightToCurrentGroup;
+        
+    case ContextMenuItemTagAddHighlightToNewGroup:
+        return _WKMenuItemIdentifierAddHighlightToNewGroup;
+#endif
     case ContextMenuItemTagOpenFrameInNewWindow:
         return _WKMenuItemIdentifierOpenFrameInNewWindow;
 

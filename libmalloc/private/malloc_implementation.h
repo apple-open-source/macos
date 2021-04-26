@@ -31,15 +31,16 @@
 
 /*********	Libsystem initializers ************/
 
-struct _malloc_functions {
+struct _malloc_late_init {
 	unsigned long version;
 	/* The following functions are included in version 1 of this structure */
 	void * (*dlopen) (const char *path, int mode);
 	void * (*dlsym) (void *handle, const char *symbol);
+	bool internal_diagnostics;  /* os_variant_has_internal_diagnostics() */
 };
 
 void __malloc_init(const char *apple[]);
-void __stack_logging_early_finished(const struct _malloc_functions *);
+void __malloc_late_init(const struct _malloc_late_init *);
 
 
 

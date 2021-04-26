@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD: src/usr.bin/compress/compress.c,v 1.23 2010/12/11 08:32:16 j
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/attr.h>
 
 #include <err.h>
 #include <errno.h>
@@ -382,14 +383,21 @@ err:	if (ofp) {
 void
 setfile(const char *name, struct stat *fs)
 {
-	static struct timeval tv[2];
+	struct attrlist ts_req = {};
+	struct {
+		struct timespec mtime;
+		struct timespec atime;
+	} set_ts;
 
 	fs->st_mode &= S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO;
 
-	TIMESPEC_TO_TIMEVAL(&tv[0], &fs->st_atimespec);
-	TIMESPEC_TO_TIMEVAL(&tv[1], &fs->st_mtimespec);
-	if (utimes(name, tv))
-		cwarn("utimes: %s", name);
+	ts_req.bitmapcount = ATTR_BIT_MAP_COUNT;
+	ts_req.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
+	set_ts.mtime = fs->st_mtimespec;
+	set_ts.atime = fs->st_atimespec;
+
+	if (setattrlist(name, &ts_req, &set_ts, sizeof(set_ts), 0))
+		cwarn("setattrlist: %s", name);
 
 	/*
 	 * Changing the ownership probably won't succeed, unless we're root

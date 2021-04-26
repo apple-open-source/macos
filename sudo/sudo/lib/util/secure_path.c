@@ -23,17 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <stdio.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <unistd.h>
-#include <errno.h>
+#include <string.h>
 
 #include "sudo_compat.h"
 #include "sudo_util.h"
@@ -47,7 +38,7 @@ sudo_secure_path(const char *path, unsigned int type, uid_t uid, gid_t gid, stru
 {
     struct stat sb;
     int ret = SUDO_PATH_MISSING;
-    debug_decl(sudo_secure_path, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_secure_path, SUDO_DEBUG_UTIL);
 
     if (path != NULL && stat(path, &sb) == 0) {
 	if ((sb.st_mode & _S_IFMT) != type) {

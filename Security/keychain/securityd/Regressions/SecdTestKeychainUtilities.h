@@ -30,6 +30,7 @@
 
 #define kSecdTestSetupTestCount 1
 void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_before_reset);
+bool secd_test_teardown_delete_temp_keychain(const char* test_prefix);
 
 extern CFStringRef kTestView1;
 extern CFStringRef kTestView2;

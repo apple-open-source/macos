@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "WebEvent.h"
+#include "WebWheelEvent.h"
 #include <wpe/wpe.h>
 
 namespace WebKit {
@@ -51,6 +51,7 @@ public:
 
 private:
     struct {
+        bool active { false };
         uint32_t time { 0 };
         int32_t x { 0 };
         int32_t y { 0 };
@@ -68,6 +69,9 @@ private:
     struct wpe_input_axis_event m_axisEvent;
 #endif
     WebWheelEvent::Phase m_phase { WebWheelEvent::Phase::PhaseNone };
+
+    bool m_xAxisLockBroken { false };
+    bool m_yAxisLockBroken { false };
 };
 
 } // namespace WebKit

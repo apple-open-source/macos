@@ -3,7 +3,9 @@
 #import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
 
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
+#import "keychain/ckks/CKKSKeychainViewState.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/CKKSPeerProvider.h"
 #import "keychain/ckks/CKKSProvideKeySetOperation.h"
@@ -19,12 +21,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSOperationDependencies : NSObject
 
+@property (readonly) NSSet<CKKSKeychainViewState*>* zones;
 @property (readonly) CKRecordZoneID* zoneID;
+
 @property (nullable) CKOperationGroup* ckoperationGroup;
+@property CKDatabase* ckdatabase;
+
+@property (nullable) CKOperationGroup* currentOutgoingQueueOperationGroup;
 
 @property (readonly) CKKSLaunchSequence* launch;
 @property (readonly) id<OctagonStateFlagHandler> flagHandler;
 
+@property (readonly) CKKSAccountStateTracker* accountStateTracker;
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
 @property (readonly) CKKSReachabilityTracker* reachabilityTracker;
 
@@ -44,26 +52,41 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKKSNearFutureScheduler* notifyViewChangedScheduler;
 @property (readonly) CKKSNearFutureScheduler* savedTLKNotifier;
 
+// Trigger this to request that the syncing policy be rechecked and reasserted.
+@property (nullable) CKKSNearFutureScheduler* requestPolicyCheck;
+
 // This might contain some key set provider operations. if you're an operation that knows about keysets, feel free to provide them.
 @property NSHashTable<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetProviderOperations;
 
-- (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
-                  zoneModifier:(CKKSZoneModifier*)zoneModifier
-              ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
-                   flagHandler:(id<OctagonStateFlagHandler>)flagHandler
-                launchSequence:(CKKSLaunchSequence*)launchSequence
-              lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
-           reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
-                 peerProviders:(NSArray<id<CKKSPeerProvider>>*)peerProviders
-              databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
-    notifyViewChangedScheduler:(CKKSNearFutureScheduler*)notifyViewChangedScheduler
-              savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier;
+- (instancetype)initWithViewState:(CKKSKeychainViewState*)viewState
+                     zoneModifier:(CKKSZoneModifier*)zoneModifier
+                       ckdatabase:(CKDatabase*)ckdatabase
+                 ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
+                      flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                   launchSequence:(CKKSLaunchSequence*)launchSequence
+              accountStateTracker:(CKKSAccountStateTracker*)accountStateTracker
+                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                    peerProviders:(NSArray<id<CKKSPeerProvider>>*)peerProviders
+                 databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
+       notifyViewChangedScheduler:(CKKSNearFutureScheduler*)notifyViewChangedScheduler
+                 savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier;
 
 // Convenience method to fetch the trust states from all peer providers
 // Do not call this while on the SQL transaction queue!
 - (NSArray<CKKSPeerProviderState*>*)currentTrustStates;
 
 - (void)provideKeySet:(CKKSCurrentKeySet*)keyset;
+
+// Helper Methods to change on-disk state
+- (bool)intransactionCKRecordChanged:(CKRecord*)record resync:(bool)resync;
+- (bool)intransactionCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
+
+// Call this if you've done a write and received an error. It'll pull out any new records returned as CKErrorServerRecordChanged and pretend we received them in a fetch
+//
+// Note that you need to tell this function the records you wanted to save, so it can determine which record failed from its CKRecordID.
+// I don't know why CKRecordIDs don't have record types, either.
+- (bool)intransactionCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
 
 @end
 

@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 	
 	// create a monitor thread to watch for audit session events
 	AuditMonitor audits(gMainServerPort);
-	audits.run();
+	audits.threadRun();
     
     // install MDS (if needed) and initialize the local CSSM
     server.loadCssm(mdsIsInstalled);
@@ -283,5 +283,5 @@ const CFStringRef kTKLegacyTokendPreferencesKey  = CFSTR("Legacy");
 //
 static void handleSignals(int sig)
 {
-	(void)self_client_handleSignal(gMainServerPort, mach_task_self(), sig);
+	(void)self_client_handleSignal(gMainServerPort, sig);
 }

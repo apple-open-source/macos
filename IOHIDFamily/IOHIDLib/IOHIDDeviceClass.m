@@ -38,6 +38,13 @@
 #import "IOHIDDescriptorParserPrivate.h"
 #import <IOKit/hidsystem/IOHIDLib.h>
 #import "IOHIDFamilyProbe.h"
+#if __has_include(<Rosetta/Rosetta.h>)
+#  include <Rosetta/Rosetta.h>
+#endif
+
+IOHID_DYN_LINK_DYLIB(/usr/lib, Rosetta)
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_is_current_process_translated, dyn_rosetta_is_current_process_translated, bool, false, (void), ())
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_rosetta_convert_to_rosetta_absolute_time, uint64_t, system_time, (uint64_t system_time), (system_time))
 
 #ifndef min
 #define min(a, b) ((a < b) ? a : b)
@@ -805,7 +812,9 @@ static IOReturn _setValue(void *iunknown,
                               NULL);
     free(inputStruct);
     if (ret) {
-        HIDLogError("kIOHIDLibUserClientPostElementValues:%x",ret);
+        uint64_t regID;
+        IORegistryEntryGetRegistryEntryID(_service, &regID);
+        HIDLogError("kIOHIDLibUserClientPostElementValues(%llx):%x", regID, ret);
     } else {
         [element setValueRef:value];
     }
@@ -913,6 +922,10 @@ static IOReturn _getValue(void *iunknown,
     
     // Update our value after kernel call
     timestamp = *((uint64_t *)&(elementValue->timestamp));
+
+    // Convert to the same time base as element.timestamp
+    timestamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_rosetta_absolute_time(timestamp) : timestamp;
     
     // Check if we need to update our value
     if (!element.valueRef ||

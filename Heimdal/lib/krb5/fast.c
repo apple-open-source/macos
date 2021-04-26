@@ -549,6 +549,7 @@ _krb5_fast_wrap_req(krb5_context context,
     krb5_data_zero(&data);
 
  out:
+    free_KrbFastReq(&fastreq);
     free_PA_FX_FAST_REQUEST(&fxreq);
     krb5_data_free(&data);
     krb5_data_free(&aschecksum_data);
@@ -701,6 +702,7 @@ _krb5_fast_unwrap_kdc_rep(krb5_context context, int32_t nonce,
     }
 
  out:
+    free_KrbFastResponse(&fastrep);
     return ret;
 }
 

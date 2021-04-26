@@ -6,9 +6,11 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
     )
 
     list(APPEND WebCore_SOURCES
+        Modules/webaudio/MediaStreamAudioSourceGStreamer.cpp
         platform/graphics/gstreamer/AudioTrackPrivateGStreamer.cpp
         platform/graphics/gstreamer/GLVideoSinkGStreamer.cpp
         platform/graphics/gstreamer/GRefPtrGStreamer.cpp
+        platform/graphics/gstreamer/GStreamerAudioMixer.cpp
         platform/graphics/gstreamer/GStreamerCommon.cpp
         platform/graphics/gstreamer/GstAllocatorFastMalloc.cpp
         platform/graphics/gstreamer/GStreamerRegistryScanner.cpp
@@ -23,6 +25,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/TrackPrivateBaseGStreamer.cpp
         platform/graphics/gstreamer/VideoSinkGStreamer.cpp
         platform/graphics/gstreamer/VideoTrackPrivateGStreamer.cpp
+        platform/graphics/gstreamer/WebKitAudioSinkGStreamer.cpp
         platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
 
         platform/graphics/gstreamer/eme/WebKitClearKeyDecryptorGStreamer.cpp
@@ -37,6 +40,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/mse/SourceBufferPrivateGStreamer.cpp
         platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
 
+        platform/mediastream/libwebrtc/GStreamerVideoCommon.cpp
         platform/mediastream/libwebrtc/GStreamerVideoDecoderFactory.cpp
         platform/mediastream/libwebrtc/GStreamerVideoEncoder.cpp
         platform/mediastream/libwebrtc/GStreamerVideoEncoderFactory.cpp

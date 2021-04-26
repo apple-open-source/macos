@@ -40,6 +40,10 @@
 #define BYTEORDER_IS_HOST(SP) (BYTEORDER_IS((SP), KRB5_STORAGE_BYTEORDER_HOST) || \
 			       krb5_storage_is_flags((SP), KRB5_STORAGE_HOST_BYTEORDER))
 
+#define KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE 2048  //2K limit for string elements
+#define KRB5_STORAGE_DATA_ELEMENT_MAX_SIZE 100*1024  //100K limit for data elements
+#define KRB5_STORAGE_DATA_MAX_SIZE 5*1024*1024  //5mb limit for total data storage
+
 /**
  * Add the flags on a storage buffer by or-ing in the flags to the buffer.
  *
@@ -136,12 +140,14 @@ krb5_storage_set_max_alloc(krb5_storage *sp, size_t size)
 
 /* don't allocate unresonable amount of memory */
 static krb5_error_code
-size_too_large(krb5_storage *sp, off_t size)
+size_too_large(krb5_storage *sp, off_t size, off_t max_size)
 {
-    if (sp->max_alloc && (off_t)sp->max_alloc < size)
+    if (max_size > 0 && size > max_size) {
 	return HEIM_ERR_TOO_BIG;
-    if (size > (off_t)(SIZE_T_MAX / 16))
+    }
+    if (sp->max_alloc && (off_t)sp->max_alloc < size) {
 	return HEIM_ERR_TOO_BIG;
+    }
     return 0;
 }
 
@@ -300,7 +306,7 @@ krb5_storage_to_data(krb5_storage *sp, krb5_data *data)
     if (pos < 0)
 	return HEIM_ERR_NOT_SEEKABLE;
     size = sp->seek(sp, 0, SEEK_END);
-    ret = size_too_large(sp, size);
+    ret = size_too_large(sp, size, KRB5_STORAGE_DATA_ELEMENT_MAX_SIZE);
     if (ret)
 	return ret;
     ret = krb5_data_alloc(data, (size_t)size);
@@ -651,6 +657,14 @@ krb5_store_data(krb5_storage *sp,
 {
     ssize_t sret;
     int ret;
+    krb5_error_code eret;
+
+    eret = size_too_large(sp, data.length, KRB5_STORAGE_DATA_ELEMENT_MAX_SIZE);
+    if (eret) {
+	//do not store values that are too large
+	return eret;
+    }
+
     ret = krb5_store_uint32(sp, (uint32_t)data.length);
     if(ret < 0)
 	return ret;
@@ -684,7 +698,7 @@ krb5_ret_data(krb5_storage *sp,
     ret = krb5_ret_int32(sp, &size);
     if(ret)
 	return ret;
-    ret = size_too_large(sp, size);
+    ret = size_too_large(sp, size, KRB5_STORAGE_DATA_ELEMENT_MAX_SIZE);
     if (ret)
 	return ret;
     ret = krb5_data_alloc (data, size);
@@ -716,6 +730,14 @@ krb5_store_string(krb5_storage *sp, const char *s)
     krb5_data data;
     data.length = strlen(s);
     data.data = rk_UNCONST(s);
+    krb5_error_code eret;
+
+    eret = size_too_large(sp, data.length, KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE);
+    if (eret) {
+	//do not store values that are too large
+	krb5_data_free(&data);
+	return eret;
+    }
     return krb5_store_data(sp, data);
 }
 
@@ -736,10 +758,19 @@ krb5_ret_string(krb5_storage *sp,
 		char **string)
 {
     int ret;
+    krb5_error_code eret;
     krb5_data data;
     ret = krb5_ret_data(sp, &data);
     if(ret)
 	return ret;
+
+    eret = size_too_large(sp, data.length, KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE);
+    if (eret) {
+	//do not store values that are too large
+	krb5_data_free(&data);
+	return eret;
+    }
+
     *string = realloc(data.data, data.length + 1);
     if(*string == NULL){
 	free(data.data);
@@ -766,6 +797,13 @@ krb5_store_stringz(krb5_storage *sp, const char *s)
 {
     size_t len = strlen(s) + 1;
     ssize_t ret;
+    krb5_error_code eret;
+
+    eret = size_too_large(sp, len, KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE);
+    if (eret) {
+	//do not store values that are too large
+	return eret;
+    }
 
     ret = sp->store(sp, s, len);
     if(ret < 0)
@@ -800,7 +838,7 @@ krb5_ret_stringz(krb5_storage *sp,
 	char *tmp;
 
 	len++;
-	eret = size_too_large(sp, len);
+	eret = size_too_large(sp, len, KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE);
 	if (eret) {
 	    free(s);
 	    return eret;
@@ -864,7 +902,7 @@ krb5_ret_stringnl(krb5_storage *sp,
 	}
 
 	len++;
-	eret = size_too_large(sp, len);
+	eret = size_too_large(sp, len, KRB5_STORAGE_STRING_ELEMENT_MAX_SIZE);
 	if (eret) {
 	    free(s);
 	    return eret;

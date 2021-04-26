@@ -39,7 +39,7 @@ public:
 
 private:
 #if ENABLE(WEB_AUDIO)
-    std::unique_ptr<WebCore::AudioDestination> createAudioDestination(WebCore::AudioIOCallback&,
+    Ref<WebCore::AudioDestination> createAudioDestination(WebCore::AudioIOCallback&,
         const String& inputDeviceId, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate) override;
 #endif
 #if PLATFORM(COCOA)
@@ -50,9 +50,6 @@ private:
 #if ENABLE(GPU_PROCESS)
     bool m_useGPUProcess { false };
 #endif
-
 };
 
 } // namespace WebKit
-
-

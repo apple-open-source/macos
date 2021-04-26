@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #include <sys/msfscc.h>
 #include <sys/smb_apple.h>
 #include <libkern/OSAtomic.h>
+#include <sys/random.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_2.h>
@@ -77,10 +78,17 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
 static int
 smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int smb1_req);
 
+static int
+smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
+                                  struct mdchain *mdp,
+                                  uint32_t neg_bytes_parsed,
+                                  uint32_t neg_context_offset,
+                                  uint16_t neg_context_count);
+
 int
 smb2_smb_read_one(struct smb_share *share, struct smb2_rw_rq *readp,
                   user_ssize_t *len, user_ssize_t *rresid,
-                  struct smb_rq **compound_rqp, vfs_context_t context);
+                  struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
 
 static int
 smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
@@ -102,10 +110,11 @@ smb2_smb_read_write_fill(struct smb_share *share,
 int
 smb2_smb_write_one(struct smb_share *share, struct smb2_rw_rq *args,
                    user_ssize_t *len, user_ssize_t *rresid,
-                   struct smb_rq **compound_rqp, vfs_context_t context);
+                   struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
 
 static uint32_t
 smb2_session_maxtransact(struct smb_session *sessionp);
+
 
 /* get any share of a given session
    This function takes a ref count on the share */
@@ -170,13 +179,17 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
     uint32_t lease_state;
 	struct smb_session *sessionp = SS_TO_SESSION(share);
 	uint32_t dur_handle_timeout = 0;
+    struct timespec
+    snapshot_time = {0};
+    uint64_t tm = 0;
 
     if (!(createp->flags & (SMB2_CREATE_GET_MAX_ACCESS |
                             SMB2_CREATE_AAPL_QUERY |
 							SMB2_CREATE_AAPL_RESOLVE_ID |
                             SMB2_CREATE_DUR_HANDLE |
                             SMB2_CREATE_DUR_HANDLE_RECONNECT |
-							SMB2_CREATE_DIR_LEASE))) {
+							SMB2_CREATE_DIR_LEASE |
+                            SMB2_CREATE_ADD_TIME_WARP))) {
         /* No contexts to add */
         context_len = 0;
         *context_len_ptr = htolel(context_len);
@@ -281,6 +294,35 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
             mb_put_uint64le(mbp, resolve_idp->file_id); /* File ID */
         }
         
+        if (createp->flags & SMB2_CREATE_ADD_TIME_WARP) {
+            /* Time Warp Token */
+            if (next_context_ptr != NULL) {
+                /* Set prev context next ptr */
+                *next_context_ptr = htolel(prev_content_size);
+            }
+
+            context_len += 32;
+            prev_content_size = 32;
+
+            next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
+            *next_context_ptr = htolel(0);  /* Assume we are last context */
+            mb_put_uint16le(mbp, 16);       /* Name Offset */
+            mb_put_uint16le(mbp, 4);        /* Name Length */
+            mb_put_uint16le(mbp, 0);        /* Reserved */
+            mb_put_uint16le(mbp, 24);       /* Data Offset */
+            mb_put_uint32le(mbp, 8);        /* Data Length */
+            /* Name is a string constant and thus its not byte swapped uint32 */
+            mb_put_uint32be(mbp, SMB2_CREATE_TIMEWARP_TOKEN);
+            mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
+
+            /* Convert snapshot time to SMB time */
+            snapshot_time.tv_sec = SS_TO_SESSION(share)->snapshot_local_time;
+
+            smb_time_local2NT(&snapshot_time, &tm,
+                              (share->ss_fstype == SMB_FS_FAT));
+            mb_put_uint64le(mbp, tm);       /* Time Warp timestamp */
+        }
+
         if (createp->flags & SMB2_CREATE_GET_MAX_ACCESS) {
             /* Get max access */
             if (next_context_ptr != NULL) {
@@ -636,6 +678,161 @@ bad:
     return (error);
 }
 
+static int
+smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
+                                struct smbiod *iod,
+                                struct mbchain *mbp,
+                                uint16_t *neg_context_countp,
+                                int inReconnect)
+{
+#pragma unused(inReconnect)
+    int error = 0;
+    uint32_t context_len;
+    int pad_bytes = 0;
+    uint32_t *data_len_ptr;
+    size_t name_len = 0;
+    uint16_t neg_context_cnt = 0;
+
+    /*
+     * All Negotiate Contexts start with 8 bytes which is the
+     * ContextType (2), DataLength (2), Reserved (4), then Data (variable len)
+     * Pad bytes to align (usually 4)
+     *
+     * context_len = 8 + context data
+     */
+
+    /*
+     * Add SMB2_PREAUTH_INTEGRITY_CAPABILITIES context first
+     * Generate a new Salt variable for each Negotiate
+     */
+    read_random((void *)&iod->iod_pre_auth_int_salt,
+                sizeof(iod->iod_pre_auth_int_salt));
+
+    context_len = 8;        /* Neg Context Header Len */
+    context_len += 38;      /* This context data len is always 38 */
+
+    mb_put_uint16le(mbp, SMB2_PREAUTH_INTEGRITY_CAPABILITIES);  /* ContextType */
+    mb_put_uint16le(mbp, 38);                                   /* DataLength */
+    mb_put_uint32le(mbp, 0);                                    /* Reserved */
+    mb_put_uint16le(mbp, 1);                                    /* HashAlgorithmCount */
+    mb_put_uint16le(mbp, 32);                                   /* SaltLength */
+    mb_put_uint16le(mbp, SMB2_PREAUTH_INTEGRITY_SHA512);        /* HashAlgorithms */
+    mb_put_mem(mbp, (char *) iod->iod_pre_auth_int_salt,
+               32, MB_MSYSTEM);                                 /* Salt */
+
+    neg_context_cnt += 1;
+
+    /* Add pad bytes if needed */
+    if ((context_len % 8) != 0) {
+        /* Contexts MUST start on next 8 byte boundary! */
+        pad_bytes = 8 - (context_len % 8);
+        mb_put_mem(mbp, NULL, pad_bytes, MB_MZERO);
+    }
+
+    /*
+     * Add SMB2_ENCRYPTION_CAPABILITIES context next
+     * Put the cipher in order of most to least preferred
+     */
+#if 1
+    /*
+     * Right now we only support one cipher until we get the new algorithm
+     * code from corecrypto team
+     */
+    context_len = 8;        /* Neg Context Header Len */
+    context_len += 4;       /* This context data len is currently 4 */
+
+    mb_put_uint16le(mbp, SMB2_ENCRYPTION_CAPABILITIES); /* ContextType */
+    mb_put_uint16le(mbp, 4);                            /* DataLength */
+    mb_put_uint32le(mbp, 0);                            /* Reserved */
+    mb_put_uint16le(mbp, 1);                            /* CipherCount */
+    mb_put_uint16le(mbp, sessionp->session_smb3_encrypt_ciper);  /* SMB 3.1.1 Cipher */
+#else
+    if (inReconnect) {
+        /*
+         * Doing reconnect or alternate channel
+         * Only put in cipher we are using
+         */
+        context_len = 8;        /* Neg Context Header Len */
+        context_len += 4;       /* This context data len is currently 4 */
+
+        mb_put_uint16le(mbp, SMB2_ENCRYPTION_CAPABILITIES); /* ContextType */
+        mb_put_uint16le(mbp, 4);                            /* DataLength */
+        mb_put_uint32le(mbp, 0);                            /* Reserved */
+        mb_put_uint16le(mbp, 1);                            /* CipherCount */
+        mb_put_uint16le(mbp, sessionp->session_smb3_encrypt_ciper);  /* SMB 3.1.1 Cipher */
+    }
+    else {
+        context_len = 8;        /* Neg Context Header Len */
+        context_len += 6;       /* This context data len is currently 4 */
+
+        mb_put_uint16le(mbp, SMB2_ENCRYPTION_CAPABILITIES); /* ContextType */
+        mb_put_uint16le(mbp, 6);                            /* DataLength */
+        mb_put_uint32le(mbp, 0);                            /* Reserved */
+        mb_put_uint16le(mbp, 2);                            /* CipherCount */
+        mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_GCM);  /* SMB 3.1.1 Cipher */
+        mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_CCM);  /* SMB 3.0.2 Cipher */
+    }
+#endif
+
+    neg_context_cnt += 1;
+
+    /* Add pad bytes if needed */
+    if ((context_len % 8) != 0) {
+        /* Contexts MUST start on next 8 byte boundary! */
+        pad_bytes = 8 - (context_len % 8);
+        mb_put_mem(mbp, NULL, pad_bytes, MB_MZERO);
+    }
+
+    /*
+     * Add SMB2_COMPRESSION_CAPABILITIES context next
+     */
+    context_len = 8;        /* Neg Context Header Len */
+    context_len += 10;      /* This context data len is currently 10 */
+
+    mb_put_uint16le(mbp, SMB2_COMPRESSION_CAPABILITIES);    /* ContextType */
+    mb_put_uint16le(mbp, 10);                               /* DataLength */
+    mb_put_uint32le(mbp, 0);                                /* Reserved */
+    mb_put_uint16le(mbp, 1);                                /* CompressionAlgorithmCount */
+    mb_put_uint16le(mbp, 0);                                /* Padding */
+    mb_put_uint32le(mbp, SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE); /* Flags */
+    mb_put_uint16le(mbp, SMB2_COMPRESSION_NONE);            /* CompressionAlgorithms */
+
+    neg_context_cnt += 1;
+
+    /* Add pad bytes if needed */
+    if ((context_len % 8) != 0) {
+        /* Contexts MUST start on next 8 byte boundary! */
+        pad_bytes = 8 - (context_len % 8);
+        mb_put_mem(mbp, NULL, pad_bytes, MB_MZERO);
+    }
+
+    /*
+     * Add SMB2_NETNAME_NEGOTIATE_CONTEXT_ID context next
+     */
+    //context_len = 8;        /* Neg Context Header Len */
+
+    mb_put_uint16le(mbp, SMB2_NETNAME_NEGOTIATE_CONTEXT_ID);    /* ContextType */
+    data_len_ptr = mb_reserve(mbp, sizeof(uint16_t));           /* Reserve space for DataLength */
+    mb_put_uint32le(mbp, 0);                                    /* Reserved */
+    error = smb_put_dmem(mbp,
+                         sessionp->session_srvname,
+                         strlen(sessionp->session_srvname),
+                         NO_SFM_CONVERSIONS, TRUE, &name_len);
+    if (error) {
+        return error;
+    }
+
+    *data_len_ptr = htoles(name_len);        /* Set DataLength */
+
+    //context_len += (uint32_t) name_len;
+
+    neg_context_cnt += 1;
+
+    *neg_context_countp = htoles(neg_context_cnt); /* Set NegContextCount */
+
+    return (error);
+}
+
 static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doingRead,
                                           uint32_t inQuantumSize, uint32_t inQuantumNbr,
                                           struct timeval totalTime, uint64_t totalDataLen)
@@ -645,7 +842,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     uint64_t totalElapsedTimeMicroSecs;     /* time to send totalDataLen amount of data */
     uint64_t bytesPerSec;               /* curr bytes per second */
     uint32_t currQuantumSize;
-    uint32_t newQuantumNumber, newQuantumSize;
+    uint32_t newQuantumNumber = 0, newQuantumSize = 0;
     uint32_t changedQuantumSize = 0;
     uint32_t estimated_credits;
     int32_t check_credits = 0;
@@ -663,16 +860,22 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
         SMBERROR("sessionp is null? \n");
         return;
     }
-    
+
+    struct smbiod *iod = NULL;
+    if (smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__)) { // TBD: Do we need a for loop on all iods?
+        SMBERROR("Invalid iod\n");
+        return;
+    }
+
     /* Paranoid checks */
     if ((totalTime.tv_sec == 0) && (totalTime.tv_usec == 0)) {
         SMBERROR("totalTime is 0? \n");
-        return;
+        goto exit;
     }
     
     if (totalDataLen == 0) {
         SMBERROR("totalDataLen is 0? \n");
-        return;
+        goto exit;
     }
 
     /* calculate bytes per second */
@@ -682,7 +885,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     if (totalElapsedTimeMicroSecs == 0) {
         /* Paranoid check */
         SMBERROR("totalElapsedTimeMicroSecs is 0? \n");
-        return;
+        goto exit;
     }
 
     bytesPerSec = (totalDataLen * 1000000) / totalElapsedTimeMicroSecs;
@@ -690,7 +893,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     if (bytesPerSec == 0) {
         /* Paranoid check */
         SMBERROR("bytesPerSec is 0? \n");
-        return;
+        goto exit;
     }
 
     lck_mtx_lock(&sessionp->iod_quantum_lock);
@@ -723,7 +926,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
             else {
                 SMBERROR("No match for quantumSize %u \n", inQuantumSize);
                 lck_mtx_unlock(&sessionp->iod_quantum_lock);
-                return;
+                goto exit;
             }
         }
     }
@@ -774,16 +977,17 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     if (check_credits == 1) {
         estimated_credits = (newQuantumSize * newQuantumNumber) / (64 * 1024);
         
-        if (estimated_credits > sessionp->session_credits_max) {
+        if (estimated_credits > iod->iod_credits_max) {
             /* Should never happen */
             SMBERROR("est credits %d > max credits %d??? \n",
-                     estimated_credits, sessionp->session_credits_max);
+                      estimated_credits, iod->iod_credits_max);
+
             throttle = 1;
         }
         else {
-            if ((sessionp->session_credits_max - estimated_credits) < kCREDIT_QUANTUM_RESERVE) {
+            if ((iod->iod_credits_max - estimated_credits) < kCREDIT_QUANTUM_RESERVE) {
                 SMBERROR("remaining credits %d < low Quantum credits %d \n",
-                           (sessionp->session_credits_max - estimated_credits),
+                           (iod->iod_credits_max - estimated_credits),
                            kCREDIT_QUANTUM_RESERVE);
                 throttle = 1;
             }
@@ -796,7 +1000,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
              * granted so dont increase quantum size.
              */
             SMBERROR("Skip quantum size increase due to throttle \n");
-            return;
+            goto exit;
         }
     }
 
@@ -822,6 +1026,9 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
 
         lck_mtx_unlock(&sessionp->iod_quantum_lock);
     }
+exit:
+    smb_iod_rel(iod, NULL, __FUNCTION__);
+    return;
 }
 
 static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_t len, int32_t doingRead,
@@ -914,26 +1121,36 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
  * The calling routine must hold a reference on the share
  */
 int
-smb2_smb_change_notify(struct smb_share *share, void *args_ptr, 
+smb2_smb_change_notify(struct smb_share *share, struct smb2_change_notify_rq *changep,
                        struct smb_rq **in_rqp, vfs_context_t context)
 {
-    struct smb2_change_notify_rq *changep = args_ptr;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	int error;
     SMB2FID smb2_fid;
-    
+    struct smbiod *iod = NULL;
+
+    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    if (error) {
+        return error;
+    }
+
     /* 
      * Allocate request and header for a Change Notify 
      * Win 7 Client sends this as a Sync request, so match their behavior
      */
     error = smb2_rq_alloc(SSTOCP(share), SMB2_CHANGE_NOTIFY, 
                           &changep->output_buffer_len, 
-                          context, &rqp);
+                          context, iod, &rqp);
     if (error) {
-        return error;
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        goto bad;
     }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     /* Set up the async call back */
     rqp->sr_flags |= SMBR_ASYNC;
     rqp->sr_callback = changep->fn_callback;
@@ -989,10 +1206,9 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int 
-smb2_smb_close(struct smb_share *share, void *arg_ptr,
-               struct smb_rq **compound_rqp, vfs_context_t context)
+smb2_smb_close(struct smb_share *share, struct smb2_close_rq *closep,
+               struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context)
 {
-    struct smb2_close_rq *closep = arg_ptr;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -1000,7 +1216,7 @@ smb2_smb_close(struct smb_share *share, void *arg_ptr,
     uint16_t flags;
     SMB2FID smb2_fid;
     uint8_t cmd = SMB2_CLOSE;
-    
+
     if (closep->flags & SMB2_CMD_NO_BLOCK) {
         /* Dont wait for credits, but return an error instead */
         closep->flags &= ~SMB2_CMD_NO_BLOCK;
@@ -1008,13 +1224,27 @@ smb2_smb_close(struct smb_share *share, void *arg_ptr,
     }
 
 resend:
-    /* Allocate request and header for a Close */
-    error = smb2_rq_alloc(SSTOCP(share), cmd, NULL, context, &rqp);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for a Close */
+    error = smb2_rq_alloc(SSTOCP(share), cmd, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
-	rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
 	smb_rq_getrequest(rqp, &mbp);
     
@@ -1034,6 +1264,11 @@ resend:
     mb_put_uint64le(mbp, smb2_fid.fid_persistent); /* FID */
     mb_put_uint64le(mbp, smb2_fid.fid_volatile);   /* FID */
     
+    if (closep->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     if (compound_rqp != NULL) {
         /* 
          * building a compound request, add padding to 8 bytes and just
@@ -1049,9 +1284,16 @@ resend:
     closep->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", rqp->sr_messageid, rqp->sr_command, rqp->sr_flags);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                closep->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -1074,6 +1316,7 @@ int
 smb2_smb_close_fid(struct smb_share *share, 
                    SMBFID fid, struct smb_rq **compound_rqp, 
                    struct smb2_close_rq **in_closep,
+                   struct smbiod *iod,
                    vfs_context_t context)
 {
 	int error;
@@ -1093,8 +1336,9 @@ smb2_smb_close_fid(struct smb_share *share,
     closep->share = share;
     closep->flags = 0;  /* dont want any returned attributes */
     closep->fid = fid;
+    closep->mc_flags = 0;
     
-    error = smb2_smb_close(share, closep, compound_rqp, context);
+    error = smb2_smb_close(share, closep, compound_rqp, iod, context);
     if (error) {
         SMBDEBUG("smb2_smb_close failed %d ntstatus 0x%x\n",
                  error,
@@ -1119,11 +1363,10 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int 
-smb2_smb_create(struct smb_share *share, void *arg_ptr, 
+smb2_smb_create(struct smb_share *share, struct smb2_create_rq *createp,
                 struct smb_rq **compound_rqp, vfs_context_t context)
 {
 	int error;
-    struct smb2_create_rq *createp = arg_ptr;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -1132,6 +1375,7 @@ smb2_smb_create(struct smb_share *share, void *arg_ptr,
     uint8_t sep_char = '\\';
     uint8_t cmd = SMB2_CREATE;
     vnode_t par_vp = NULL;
+    struct smbiod *iod = NULL;
 
     if (createp->flags & SMB2_CMD_NO_BLOCK) {
         /* Dont wait for credits, but return an error instead */
@@ -1139,14 +1383,30 @@ smb2_smb_create(struct smb_share *share, void *arg_ptr,
         cmd |= SMB2_NO_BLOCK;
     }
 
+    /* Snapshot mounts are always read only */
+    if ((SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_SNAPSHOT) &&
+        (strcmp(share->ss_name, "IPC$") != 0)) {
+        createp->flags |= SMB2_CREATE_ADD_TIME_WARP;
+    }
+
 resend:
-    /* Allocate request and header for a Create */
-    error = smb2_rq_alloc(SSTOCP(share), cmd, NULL, context, &rqp);
+    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for a Create */
+    error = smb2_rq_alloc(SSTOCP(share), cmd, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
-	rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
 	smb_rq_getrequest(rqp, &mbp);
     
@@ -1297,24 +1557,37 @@ resend:
         goto bad;
     }
     
+    if (createp->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     if (compound_rqp != NULL) {
         /*
          * building a compound request, add padding to 8 bytes and just
          * return this built request.
+         * do not release the iod as of yet.
          */
         smb2_rq_align8(rqp);
         rqp->sr_flags |= SMBR_COMPOUND_RQ;
         *compound_rqp = rqp;
         return (0);
     }
-    
+
     error = smb_rq_simple(rqp);
     createp->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", rqp->sr_messageid, rqp->sr_command, rqp->sr_flags);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                createp->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
 
@@ -1451,20 +1724,28 @@ smb2_smb_dur_handle_free(struct smb2_durable_handle *dur_handlep)
 }
 
 static int
-smb2_smb_echo(struct smb_session *sessionp, int timeout, vfs_context_t context)
+smb2_smb_echo(struct smbiod *iod, int timeout, vfs_context_t context)
 {
     struct smb_rq *rqp;
     struct mbchain *mbp;
     int error;
     
+    /* take a ref for the iod, so that smb_rq_done can release */
+    smb_iod_ref(iod, __FUNCTION__);
+
     /* Allocate request and header for an Echo */
-    error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_ECHO, NULL, context, &rqp);
+    error = smb2_rq_alloc(SESSION_TO_CP(iod->iod_session), SMB2_ECHO, NULL, context, iod, &rqp);
     if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
         return error;
     }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     SMB_LOG_KTRACE(SMB_DBG_SMB_ECHO | DBG_FUNC_START,
-                   /* channelID */ 0, 0, 0, 0, 0);
+                   iod->iod_id, 0, 0, 0, 0);
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -1506,13 +1787,14 @@ bad:
  * if we ever get the request queue to work async.
  */
 int
-smb_smb_echo(struct smb_session *sessionp, int timeout, uint32_t EchoCount,
+smb_smb_echo(struct smbiod *iod, int timeout, uint32_t EchoCount,
              vfs_context_t context)
 {
+    struct smb_session *sessionp = iod->iod_session;
     int error;
     
     if (sessionp->session_flags & SMBV_SMB2) {
-        error = smb2_smb_echo(sessionp, timeout, context);
+        error = smb2_smb_echo(iod, timeout, context);
     }
     else {
         error = smb1_echo(sessionp, timeout, EchoCount, context);
@@ -1532,14 +1814,26 @@ smb2_smb_flush(struct smb_share *share, SMBFID fid, uint32_t full_sync,
     uint16_t reserved_uint16;
     uint16_t length;
     SMB2FID smb2_fid;
-    
+    struct smbiod *iod = NULL;
+    bool   replay = false;
+
 resend:
-    /* Allocate request and header for a Flush */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_FLUSH, NULL, context, &rqp);
+    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for a Flush */
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_FLUSH, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     smb_rq_getrequest(rqp, &mbp);
     
     /*
@@ -1562,13 +1856,25 @@ resend:
     }
     mb_put_uint64le(mbp, smb2_fid.fid_persistent);   /* FID */
     mb_put_uint64le(mbp, smb2_fid.fid_volatile);     /* FID */
-    
+
+    if (replay) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", rqp->sr_messageid, rqp->sr_command, rqp->sr_flags);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
 
@@ -1657,10 +1963,13 @@ smb2_smb_get_client_capabilities(struct smb_session *sessionp)
         capabilities |= SMB2_GLOBAL_CAP_DFS |
                         SMB2_GLOBAL_CAP_LEASING |
                         SMB2_GLOBAL_CAP_LARGE_MTU |
-                        //SMB2_GLOBAL_CAP_MULTI_CHANNEL |       // TODO: add dependency on runtime flag
                         SMB2_GLOBAL_CAP_PERSISTENT_HANDLES |
                         SMB2_GLOBAL_CAP_DIRECTORY_LEASING |
                         SMB2_GLOBAL_CAP_ENCRYPTION;
+
+        if (sessionp->session_flags & SMBV_MULTICHANNEL_ON) {
+            capabilities |= SMB2_GLOBAL_CAP_MULTI_CHANNEL;
+        }
     }
 
 out:
@@ -1686,21 +1995,30 @@ smb2_smb_get_client_dialects(struct smb_session *sessionp, int inReconnect,
          */
 		if ((sessionp->session_misc_flags & SMBV_NEG_SMB3_ENABLED) &&
 			(sessionp->session_misc_flags & SMBV_NEG_SMB2_ENABLED)) {
-			/* SMB 2/3 - four dialects at this time */
-			*dialect_cnt = 4;
-			
-			dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
+			/* SMB 2/3 - five dialects at this time */
+            if (sessionp->session_flags & SMBV_DISABLE_311) {
+                /* SMB v3.1.1 is disabled */
+                SMBWARNING("SMB311 is disabled \n");
+                *dialect_cnt = 4;
+            }
+            else {
+                *dialect_cnt = 5;
+            }
+            
+            dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
 			dialects[1] = SMB2_DIALECT_0210;        /* 2.1 Dialect */
 			dialects[2] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
-			dialects[3] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+            dialects[3] = SMB2_DIALECT_0302;        /* 3.0.2 Dialect */
+            dialects[4] = SMB2_DIALECT_0311;        /* 3.1.1 Dialect */
 		}
 		else if ((sessionp->session_misc_flags & SMBV_NEG_SMB3_ENABLED) &&
 				 !(sessionp->session_misc_flags & SMBV_NEG_SMB2_ENABLED)) {
-			/* only support two dialects of SMB 3 */
-			*dialect_cnt = 2;
+			/* only support three dialects of SMB 3 */
+			*dialect_cnt = 3;
 			
 			dialects[0] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
-			dialects[1] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+            dialects[1] = SMB2_DIALECT_0302;        /* 3.0.2 Dialect */
+            dialects[2] = SMB2_DIALECT_0311;        /* 3.1.1 Dialect */
 		}
 		else if (!(sessionp->session_misc_flags & SMBV_NEG_SMB3_ENABLED) &&
 				 (sessionp->session_misc_flags & SMBV_NEG_SMB2_ENABLED)) {
@@ -1720,8 +2038,11 @@ smb2_smb_get_client_dialects(struct smb_session *sessionp, int inReconnect,
         /*
          * In reconnect, stay with whatever version we had before.
          */
-        if (sessionp->session_flags & SMBV_SMB302) {
-            dialects[0] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+        if (sessionp->session_flags & SMBV_SMB311) {
+            dialects[0] = SMB2_DIALECT_0311;        /* 3.1.1 Dialect */
+        }
+        else if (sessionp->session_flags & SMBV_SMB302) {
+            dialects[0] = SMB2_DIALECT_0302;        /* 3.0.2 Dialect */
         }
         else if (sessionp->session_flags & SMBV_SMB30) {
             dialects[0] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
@@ -1761,12 +2082,14 @@ smb2_smb_get_client_security_mode(struct smb_session *sessionp)
     return (security_mode);
 }
 
+/* Send out an session_setup request and process the response */
 int
-smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
+smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
                            vfs_context_t context)
 {
+    struct smb_session *sessionp = iod->iod_session;
 	struct smb_rq *rqp = NULL;
-	struct smb_gss *gp = &sessionp->session_gss;
+	struct smb_gss *gp = &iod->iod_gss;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	int error;
@@ -1789,18 +2112,26 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
     
 	tokenptr = gp->gss_token;	/* Get the start of the Kerberos blob */
     
-    do {        
+    do {
         if (rqp) {	/* If looping release curr rqp, before getting another */
             smb_rq_done(rqp);
+            rqp = NULL;
         }
+        /* we need to take a ref to the iod here, smb_rq_done will release */
+        smb_iod_ref(iod, __FUNCTION__);
         
         /* Allocate request and header for a Session Setup */
         error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_SESSION_SETUP, NULL, 
-                              context, &rqp);
+                              context, iod, &rqp);
         if (error) {
+            SMBDEBUG("id %d alloc error %d.\n", iod->iod_id, error);
             break;
         }
-        
+
+        SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                       iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                       iod->iod_ref_cnt);
+
         /* 
          * Fill in Session Setup part 
          * Cant use a struct ptr due to var length security blob that
@@ -1809,8 +2140,32 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
         smb_rq_getrequest(rqp, &mbp);
         
         mb_put_uint16le(mbp, 25);       /* Struct size */
-        mb_put_uint8(mbp, 0);           /* Session Number */
-        
+
+        if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+            /*
+             * Alt Channel must:
+             * 1. Be signed ([MS-SMB2] 3.3.5.5) using signing key from original
+             *    session.
+             * 2. Have session binding flag set
+             * 3. Session ID must not be 0 (means we are in reconnect)
+             *
+             */
+            rqp->sr_flags |= SMBR_SIGNED;
+
+            mb_put_uint8(mbp, SMB2_SESSION_FLAG_BINDING);   /* Flags */
+
+            if (rqp->sr_rqsessionid == 0) {
+                SMBDEBUG("id %d Cancelling Session Binding due to reconnect \n",
+                         iod->iod_id);
+                error = EAUTH;
+                goto bad;
+            }
+        }
+        else {
+            /* Main channel */
+            mb_put_uint8(mbp, 0);                           /* Flags */
+        }
+
         /* Security Mode (UInt8 in SessSetup instead of UInt16 in Neg) */
         security_mode = smb2_smb_get_client_security_mode(sessionp);
         security_mode_byte = security_mode;
@@ -1830,17 +2185,23 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
         error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
         
         if ((error) && (rqp->sr_flags & SMBR_RECONNECTED)) {
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                SMBERROR("id %d An alternate channel got disconnected during session setup. error out",
+                         iod->iod_id);
+                goto bad;
+            }
+
             /* Rebuild and try sending again */
             continue;
         }
         
-		/*
-		 * This is the first Session Setup Response packet here
-		 */
-		if (sessionp->session_session_id == 0) {
-			sessionp->session_session_id = rqp->sr_rspsessionid;
-		}
-		
+        if (!(iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+            /* This is the first Session Setup Response packet here */
+            if (sessionp->session_session_id == 0) {
+                sessionp->session_session_id = rqp->sr_rspsessionid;
+            }
+        }
+
         /* Move the pointer to the next offset in the blob */
         tokenptr += tokenlen;
         /* Subtract the size we have already sent */
@@ -1852,13 +2213,14 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
     gp->gss_token = NULL;
 	gp->gss_tokenlen = 0;
 	gp->gss_smb_error = error;	/* Hold on to the last smb error returned */
-	/* EAGAIN is not  really an  error, reset it to no error */
+	/* EAGAIN is not really an error, reset it to no error */
 	if (error == EAGAIN) {
 		error = 0;
 	}
 	/* At this point error should have the correct error, we only support NTStatus code with extended security */
 	if (error) {
-		SMB_LOG_AUTH("Extended security authorization failed! %d\n", error);
+		SMB_LOG_AUTH("id %d Extended security authorization failed! %d\n",
+                     iod->iod_id, error);
 		goto bad;
 	}
     
@@ -1868,7 +2230,9 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
 	 * the same one every time. We assume here the last one is the one we 
 	 * should always use. Seems to make Samba work correctly.
 	 */
-	sessionp->session_smbuid = rqp->sr_rpuid;
+    if (!(iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+        sessionp->session_smbuid = rqp->sr_rpuid;
+    }
 	
 	/* Get the reply  and decode the result */
 	smb_rq_getreply(rqp, &mdp);
@@ -1893,7 +2257,7 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
     }
     
     /* Get Session Flags and return them */
-    error = md_get_uint16le(mdp, sess_flags);
+    error = md_get_uint16le(mdp, reply_flags);
     if (error) {
         goto bad;
     }
@@ -1941,15 +2305,19 @@ smb2_smb_gss_session_setup(struct smb_session *sessionp, uint16_t *sess_flags,
         gp->gss_token = NULL;
     }
     
-bad:	
-	smb_rq_done(rqp);
+bad:
+    if (rqp) {
+        smb_rq_done(rqp);
+    }
     
     if (error) {
         /*
          * If Session Setup failed, then the session_id is no longer valid
          * and have to get a new one to use
          */
-        sessionp->session_session_id = 0;
+        if (!(iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+            sessionp->session_session_id = 0;
+        }
     }
     
 	return (error);
@@ -1959,10 +2327,9 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int 
-smb2_smb_ioctl(struct smb_share *share, void *arg_ptr,
+smb2_smb_ioctl(struct smb_share *share, struct smbiod *iod, struct smb2_ioctl_rq *ioctlp,
                struct smb_rq **compound_rqp, vfs_context_t context)
 {
-    struct smb2_ioctl_rq *ioctlp = arg_ptr;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -1985,12 +2352,26 @@ smb2_smb_ioctl(struct smb_share *share, void *arg_ptr,
     }
     
 resend:
-    /* Allocate request and header for an IOCTL */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_IOCTL, NULL, context, &rqp);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for an IOCTL */
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_IOCTL, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     smb_rq_getrequest(rqp, &mbp);
     
     /*
@@ -2082,6 +2463,9 @@ resend:
             break;
 
         case FSCTL_GET_REPARSE_POINT:
+        case FSCTL_SRV_ENUMERATE_SNAPSHOTS:
+        case FSCTL_SRV_REQUEST_RESUME_KEY:
+        case FSCTL_QUERY_NETWORK_INTERFACE_INFO:
             mb_put_uint32le(mbp, 0);                    /* Input offset */
             mb_put_uint32le(mbp, 0);                    /* Input count */
             mb_put_uint32le(mbp, 0);                    /* Max input resp */
@@ -2226,17 +2610,6 @@ resend:
             }
             break;
             
-        case FSCTL_SRV_REQUEST_RESUME_KEY:
-            mb_put_uint32le(mbp, 0);                    /* Input offset */
-            mb_put_uint32le(mbp, 0);                    /* Input count */
-            mb_put_uint32le(mbp, 0);                    /* Max input resp */
-            mb_put_uint32le(mbp, 0);                    /* Output offset */
-            mb_put_uint32le(mbp, 0);                    /* Output count */
-            mb_put_uint32le(mbp, ioctlp->rcv_output_len); /* Max output resp */
-            mb_put_uint32le(mbp, SMB2_IOCTL_IS_FSCTL);  /* Flags */
-            mb_put_uint32le(mbp, 0);
-            break;
-
         case FSCTL_VALIDATE_NEGOTIATE_INFO:
             /* This request must be signed */
             rqp->sr_flags |= SMBR_SIGNED;
@@ -2272,24 +2645,16 @@ resend:
             }
             
             break;
-            
-        case FSCTL_QUERY_NETWORK_INTERFACE_INFO:
-            /* FIll in pkt header */
-            mb_put_uint32le(mbp, 0);                      /* Input offset */
-            mb_put_uint32le(mbp, 0);                      /* Input count */
-            mb_put_uint32le(mbp, 0);                      /* Max input resp */
-            mb_put_uint32le(mbp, 0);                      /* Output offset */
-            mb_put_uint32le(mbp, 0);                      /* Output count */
-            mb_put_uint32le(mbp, ioctlp->rcv_output_len); /* Max output resp */
-            mb_put_uint32le(mbp, SMB2_IOCTL_IS_FSCTL);    /* Flags */
-            mb_put_uint32le(mbp, 0);                      /* Reserved2 */
-            
-            break;
 
         default:
             SMBERROR("Unsupported ioctl: %d\n", ioctlp->ctl_code);
             error = EBADRPC;
             goto bad;
+    }
+
+    if (ioctlp->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
     }
 
     if (compound_rqp != NULL) {
@@ -2331,7 +2696,14 @@ resend:
                 auio = NULL;
             }
 
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                ioctlp->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             smb_rq_done(rqp);
+            iod = NULL;
             rqp = NULL;
             goto resend;
         }
@@ -2374,8 +2746,10 @@ bad:
 }
 
 int
-smb2_smb_lease_break_ack(struct smb_share *share, uint64_t lease_key_hi, uint64_t lease_key_low,
-                         uint32_t lease_state, uint32_t *ret_lease_state, vfs_context_t context)
+smb2_smb_lease_break_ack(struct smb_share *share, struct smbiod *iod,
+                         uint64_t lease_key_hi, uint64_t lease_key_low,
+                         uint32_t lease_state, uint32_t *ret_lease_state,
+                         vfs_context_t context)
 {
     struct smb_rq *rqp;
     struct mbchain *mbp;
@@ -2383,16 +2757,30 @@ smb2_smb_lease_break_ack(struct smb_share *share, uint64_t lease_key_hi, uint64_
     int error;
     uint16_t length;
     uint64_t rsp_lease_key_hi, rsp_lease_key_low;
+    bool replay = false;
 
 resend:
     *ret_lease_state = 0;
-
-    /* Allocate request and header for a Lease Break Acknowledgement */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_OPLOCK_BREAK, NULL, context, &rqp);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for a Lease Break Acknowledgement */
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_OPLOCK_BREAK, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     smb_rq_getrequest(rqp, &mbp);
     
     /*
@@ -2405,13 +2793,25 @@ resend:
     mb_put_uint64le(mbp, lease_key_low);        /* Lease Key Low */
     mb_put_uint32le(mbp, lease_state);         /* Lease State */
     mb_put_uint64le(mbp, 0);                    /* Lease Duration (unused) */
-    
+
+    if (replay) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -2497,7 +2897,9 @@ smb2_smb_lock(struct smb_share *share, int op, SMBFID fid,
     SMB2FID smb2_fid;
     uint32_t flags = SMB2_LOCKFLAG_FAIL_IMMEDIATELY; /* %%% Correct ??? */
     uint16_t len, reserved_uint16;
-    
+    struct smbiod *iod = NULL;
+    bool replay = false;
+
     switch (op) {
         case SMB_LOCK_EXCL:
             flags |= SMB2_LOCKFLAG_EXCLUSIVE_LOCK;
@@ -2519,13 +2921,23 @@ smb2_smb_lock(struct smb_share *share, int op, SMBFID fid,
     }
 
 resend:
-    /* Allocate request and header for a Lock */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_LOCK, NULL, context, &rqp);
+    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
     if (error) {
         return error;
     }
 
-	rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
+    /* Allocate request and header for a Lock */
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_LOCK, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
+
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2549,12 +2961,24 @@ resend:
     mb_put_uint32le(mbp, flags);                        /* Flags */
     mb_put_uint32le(mbp, 0);                            /* Reserved */
 
+    if (replay) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
 
@@ -2601,14 +3025,27 @@ smb2_smb_logoff(struct smb_session *sessionp, vfs_context_t context)
 	struct mdchain *mdp;
 	int error;
 	uint16_t length;
-    
+    struct smbiod *iod = NULL;
+    bool replay = false;
+
 resend:
+    error = smb_iod_get_any_iod(sessionp, &iod, __FUNCTION__);
+    if (error) {
+        return error;
+    }
+
     /* Allocate request and header for a Logoff */
-	error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_LOGOFF, NULL, context, &rqp);
-	if (error)
+	error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_LOGOFF, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
 		return error;
+    }
     
-    /* 
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    /*
      * Fill in Logoff part 
      * Dont use struct ptr since its only 4 bytes long
      */
@@ -2616,13 +3053,25 @@ resend:
     
     mb_put_uint16le(mbp, 4);       /* Struct size */
     mb_put_uint16le(mbp, 0);       /* Reserved */
-    
+
+    if (replay) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
 
@@ -2677,70 +3126,102 @@ smb_smb_ssnclose(struct smb_session *sessionp, vfs_context_t context)
 }
 
 int
-smb2_smb_negotiate(struct smb_session *sessionp, struct smb_rq *in_rqp, int inReconnect,
+smb2_smb_negotiate(struct smbiod *iod, struct smb_rq *in_rqp, int inReconnect,
                    vfs_context_t user_context, vfs_context_t context)
 {
+    struct smb_session *sessionp = NULL;
 	struct smb_sopt *sp = NULL;
 	struct smb_rq *rqp = NULL;
 	struct mbchain *mbp;
 	int error;
-	uint32_t original_caps;
+    uint32_t original_caps, neg_len = 0;
     uint8_t *guidp;
     int i;
-    
-    /*
-     * Init some vars
-     */
-    sessionp->session_hflags = SMB_FLAGS_CASELESS;
-	/* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */ 
-	sessionp->session_hflags2 |= SMB_FLAGS2_ERR_STATUS;
-	sp = &sessionp->session_sopt;
-	original_caps = sp->sv_caps;
-    
-    if (in_rqp != NULL) {
-        /* 
-         * Auto Negotiate from SMB 1
-         * Parse SMB 2/3 Neg Response that we got from our SMB 1 Neg Request
-         */
-        error = smb2_smb_parse_negotiate(sessionp, in_rqp, 1);
-        if (error) {
-            SMBERROR("smb2_smb_negotiate_parse for SMB 1 failed %d\n", error);
-            goto bad;
-        }
-        
-        /* See if we got SMB 2.002 or SMB 2.1 */
-        if ((sp->sv_dialect == SMB2_DIALECT_0202) ||
-            (sp->sv_dialect == SMB2_DIALECT_0210)) {
-            /*
-             * For SMB 2.002 or 2.1, we are done with the Neg and can go
-             * directly to the SessionSetup phase
-             */
-            if (sp->sv_dialect == SMB2_DIALECT_0202) {
-                sessionp->session_flags |= SMBV_SMB2002;
-                SMBDEBUG("SMB 2.002 DIALECT\n");
-            }
-            else {
-                sessionp->session_flags |= SMBV_SMB21;
-                SMBDEBUG("SMB 2.1 DIALECT\n");
-            }
-            
-            goto do_session_setup;
-        }
-        
-        /*
-         * For SMB2.1 and later, start over with a SMB2 Negotiate request from
-         * client since the client SMB2 Negotiate will have information that
-         * server will need.
-         */
+    uint32_t *neg_context_offsetp;
+    uint16_t *neg_context_countp;
+    int pad_bytes = 0;
+    int add_neg_contexts = 0;
+
+    /* Sanity checks */
+    if (iod == NULL) {
+        SMBERROR(" iod is null? \n");
+        error = EINVAL;
+        goto bad;
     }
-    
+    sessionp = iod->iod_session;
+
+    if (sessionp == NULL) {
+        SMBERROR(" sessionp is null? \n");
+        error = EINVAL;
+        goto bad;
+    }
+    sp = &sessionp->session_sopt;
+
+    if (sp == NULL) {
+        SMBERROR(" sp is null? \n");
+        error = EINVAL;
+        goto bad;
+    }
+    original_caps = sp->sv_caps;
+
+    if (!(iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+        /* Main channel: Init some session vars */
+        sessionp->session_hflags = SMB_FLAGS_CASELESS;
+        /* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */
+        sessionp->session_hflags2 |= SMB_FLAGS2_ERR_STATUS;
+
+        if (in_rqp != NULL) {
+            /*
+             * Auto Negotiate from SMB 1
+             * Parse SMB 2/3 Neg Response that we got from our SMB 1 Neg Request
+             */
+            error = smb2_smb_parse_negotiate(sessionp, in_rqp, 1);
+            if (error) {
+                SMBERROR("smb2_smb_negotiate_parse for SMB 1 failed %d\n", error);
+                goto bad;
+            }
+
+            /* See if we got SMB 2.002 or SMB 2.1 */
+            if ((sp->sv_dialect == SMB2_DIALECT_0202) ||
+                (sp->sv_dialect == SMB2_DIALECT_0210)) {
+                /*
+                 * For SMB 2.002 or 2.1, we are done with the Neg and can go
+                 * directly to the SessionSetup phase
+                 */
+                if (sp->sv_dialect == SMB2_DIALECT_0202) {
+                    sessionp->session_flags |= SMBV_SMB2002;
+                    SMBDEBUG("SMB 2.002 DIALECT\n");
+                }
+                else {
+                    sessionp->session_flags |= SMBV_SMB21;
+                    SMBDEBUG("SMB 2.1 DIALECT\n");
+                }
+
+                goto do_session_setup;
+            }
+
+            /*
+             * For SMB2.1 and later, start over with a SMB2 Negotiate request from
+             * client since the client SMB2 Negotiate will have information that
+             * server will need.
+             */
+        }
+    }
+
 resend:
+    /* take a reference on the iod, smb_rq_done will release */
+    smb_iod_ref(iod, __FUNCTION__);
+    
     /* Allocate request and header for a Negotiate */
-    error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_NEGOTIATE, NULL, context, &rqp);
+    error = smb2_rq_alloc(SESSION_TO_CP(sessionp), SMB2_NEGOTIATE, NULL, context, iod, &rqp);
     if (error) {
         return error;
     }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     smb_rq_getrequest(rqp, &mbp);
     
     /*
@@ -2749,18 +3230,34 @@ resend:
 	mb_put_uint16le(mbp, 36);                               /* Struct Size */
 
     /* Get dialect count */
-    error = smb2_smb_get_client_dialects(sessionp,
-                                         inReconnect,
-                                         &sessionp->neg_dialect_count,
-                                         sessionp->neg_dialects,
-                                         sizeof(sessionp->neg_dialects));
+    if ((inReconnect) ||
+        (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+        /*
+         * Alt channel: Only one dialect and dont update session dialects
+         * We do want to update the sessionp neg dialect fields so that
+         * subsequent Validate Neg will work properly.
+         */
+        error = smb2_smb_get_client_dialects(sessionp,
+                                             TRUE,
+                                             &sessionp->neg_dialect_count,
+                                             sessionp->neg_dialects,
+                                             sizeof(sessionp->neg_dialects));
+    }
+    else {
+        /* Main channel: Get all the possible dialects */
+        error = smb2_smb_get_client_dialects(sessionp,
+                                             inReconnect,
+                                             &sessionp->neg_dialect_count,
+                                             sessionp->neg_dialects,
+                                             sizeof(sessionp->neg_dialects));
+    }
     if (error) {
         return error;
     }
 
-    mb_put_uint16le(mbp, sessionp->neg_dialect_count);  /* Dialect Count */
+    mb_put_uint16le(mbp, sessionp->neg_dialect_count);      /* Dialect Count */
 
-	/* Security Mode */
+    /* Security Mode */
     sessionp->neg_security_mode = smb2_smb_get_client_security_mode(sessionp);
     mb_put_uint16le(mbp, sessionp->neg_security_mode);
     
@@ -2774,17 +3271,73 @@ resend:
     
     guidp = (uint8_t *) mb_reserve(mbp, 16);                /* Client GUID */
     memcpy(guidp, sessionp->session_client_guid, 16);
-    
-	mb_put_uint64le(mbp, 0);                                /* Start Time */
 
-    for (i = 0; i < sessionp->neg_dialect_count; i++) {     /* Dialects */
+    neg_context_offsetp = mb_reserve(mbp, sizeof(uint32_t));    /* Reserve space for NegContextOffset */
+    neg_context_countp = mb_reserve(mbp, sizeof(uint16_t));     /* Reserve space for NegContextCount */
+    mb_put_uint16le(mbp, 0);                                /* Reserved */
+
+    for (i = 0; i < sessionp->neg_dialect_count; i++) { /* Dialects */
         mb_put_uint16le(mbp, sessionp->neg_dialects[i]);
     }
-    
-    /* Send the Negotiate Request */
+
+    neg_len = 36 + (2 * sessionp->neg_dialect_count);
+
+    if (!(sessionp->session_flags & SMBV_DISABLE_311)) {
+        /* If its SMB 3.1.1 (and its enabled), add in the Negotiate Contexts */
+        if ((neg_len % 8) != 0) {
+            /* Contexts MUST start on next 8 byte boundary! */
+            pad_bytes = 8 - (neg_len % 8);
+            mb_put_mem(mbp, NULL, pad_bytes, MB_MZERO);
+            neg_len += pad_bytes;
+        }
+
+        if ((inReconnect) ||
+            (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+            /* Is the one dialect SMB 3.1.1? */
+            if (sessionp->neg_dialects[0] == SMB2_DIALECT_0311) {
+                add_neg_contexts = 1;
+            }
+        }
+        else {
+            if (sessionp->session_misc_flags & SMBV_NEG_SMB3_ENABLED) {
+                add_neg_contexts = 1;
+            }
+        }
+    }
+
+    if (add_neg_contexts) {
+        /* Neg context offset is HdrLen (64) + NegLen */
+        *neg_context_offsetp = htolel(neg_len + 64); /* Set NegContextOffset */
+
+        if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+            /* Alt channel: add only one crypto cipher */
+            error = smb2_smb_add_negotiate_contexts(sessionp, iod, mbp,
+                                                    neg_context_countp,
+                                                    TRUE);
+        }
+        else {
+            /* Main channel: Add all crypto ciphers we support */
+           error = smb2_smb_add_negotiate_contexts(sessionp, iod, mbp,
+                                                    neg_context_countp,
+                                                    inReconnect);
+        }
+        if (error) {
+            SMBERROR("smb2_smb_add_negotiate_contexts failed %d \n", error);
+            goto bad;
+        }
+    }
+    else {
+        /* If not including SMB 3.1.1 dialect, then set these to 0 */
+        *neg_context_offsetp = 0;
+        *neg_context_countp = 0;
+    }
+
+    /* Send the Negotiate Request and wait for a reply */
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
@@ -2793,8 +3346,8 @@ resend:
         
         goto bad;
     }
-    
-    /* 
+
+    /*
      * Parse SMB 2/3 Negotiate Response
      */
     error = smb2_smb_parse_negotiate(sessionp, rqp, 0);
@@ -2824,31 +3377,36 @@ do_session_setup:
 		goto bad;
 	}
 
-    /* If no token then say we have no length */
-    if (sessionp->negotiate_token == NULL) {
-        sessionp->negotiate_tokenlen = 0;
-    }
-    error = smb_gss_negotiate(sessionp, user_context);
-    if (error) {
-        SMBERROR("smb_gss_negotiate error %d\n", error);
-        goto bad;
+    if (!(iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
+        /*
+         * Main channel
+         */
+
+        /* If no token then say we have no length */
+        if (iod->negotiate_token == NULL) {
+            iod->negotiate_tokenlen = 0;
+        }
+        error = smb_gss_negotiate(iod, user_context);
+        if (error) {
+            SMBERROR("smb_gss_negotiate error %d\n", error);
+            goto bad;
+        }
+
+        sessionp->session_rxmax = smb2_session_maxread(sessionp, smb_maxread);
+        sessionp->session_wxmax = smb2_session_maxwrite(sessionp, smb_maxwrite);
+        sessionp->session_txmax = smb2_session_maxtransact(sessionp);
+
+        /* When doing a reconnect we never allow them to change the encode */
+        if (inReconnect) {
+            /* this is set via AAPL, so clear it from the original_caps */
+            original_caps &= ~SMB_CAP_UNIX;
+
+            if (original_caps != sp->sv_caps)
+                SMBWARNING("Reconnecting with different sv_caps %x != %x\n",
+                           original_caps, sp->sv_caps);
+        }
     }
 
-    /* Check max read/write sizes */
-    sessionp->session_rxmax = smb2_session_maxread(sessionp, smb_maxread);
-    sessionp->session_wxmax = smb2_session_maxwrite(sessionp, smb_maxwrite);
-    sessionp->session_txmax = smb2_session_maxtransact(sessionp);
-    
-	/* When doing a reconnect we never allow them to change the encode */
-	if (inReconnect) {
-        /* this is set via AAPL, so clear it from the original_caps */
-        original_caps &= ~SMB_CAP_UNIX;
-        
-		if (original_caps != sp->sv_caps)
-			SMBWARNING("Reconnecting with different sv_caps %x != %x\n",
-                       original_caps, sp->sv_caps);
-	}
-    
 bad:
 	if (rqp != NULL) {
         smb_rq_done(rqp);  
@@ -2857,29 +3415,29 @@ bad:
 }
 
 int
-smb_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
+smb_smb_negotiate(struct smbiod *iod, vfs_context_t user_context,
                   int inReconnect, vfs_context_t context)
 {
     int error = EINVAL;
+    struct smb_session *sessionp = iod->iod_session;
     
     if (inReconnect) {
-        /* Doing reconnect:
+        /* Doing reconnect or alternate channel:
          * If using SMB 2/3, then stay with SMB 2/3
          * If SMB 1, then stay with SMB 1
          */
         if (sessionp->session_flags & SMBV_SMB2) {
-            SMBDEBUG("Reconnecting SMB 2/3 only\n");
+            SMBDEBUG("id %d Connecting SMB 2/3.\n", iod->iod_id);
             /*
              * For SMB 2/3 Only Negotiate and not the Multi Protocol
              * Negotiate, message_id has to start with 0.
              */
-            sessionp->session_message_id = 0;
-            error = smb2_smb_negotiate(sessionp, NULL, inReconnect,
+            iod->iod_message_id = 0;
+            error = smb2_smb_negotiate(iod, NULL, inReconnect,
                                        user_context, context);
         }
         else {
-            SMBDEBUG("Reconnecting SMB 1 only\n");
-            error = smb1_smb_negotiate(sessionp, user_context, inReconnect, 1, 
+            error = smb1_smb_negotiate(sessionp, user_context, inReconnect, 1,
                                        context);
         }
     }
@@ -2902,8 +3460,8 @@ smb_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 			 */
 			if (!(sessionp->session_misc_flags & SMBV_NEG_SMB1_ENABLED)) {
 				/* Only SMB 2/3 is allowed */
-				sessionp->session_message_id = 0;
-				error = smb2_smb_negotiate(sessionp, NULL, inReconnect,
+				iod->iod_message_id = 0;
+				error = smb2_smb_negotiate(iod, NULL, inReconnect,
 										   user_context, context);
 			}
 			else {
@@ -3671,54 +4229,57 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 						goto bad;
 					}
 					
-					/* Did we request a Lease V2? */
-					if (!(dur_handlep->flags & SMB2_LEASE_V2)) {
-						/* We got a V2 response, but we sent a V1 request? */
-						SMBERROR("Received lease V2 response for a lease V1 request \n");
-						dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
-					}
-					
-					/* 
-					 * Was this a response to
-					 * SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2?
-					 *
-					 * The response to a Durable Handle Reconnect V2 seems to
-					 * be ONLY a Lease reply, so need this code below
-					 */
-					if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
-						/* We asked for a persistent handle */
-						dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
-						dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_RECONNECT;
-					}
-					else {
-						if (dur_handlep->flags & SMB2_DURABLE_HANDLE_RECONNECT) {
-							/* We asked for a durable handle */
-							dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
-							dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_RECONNECT;
-						}
-						
-						/* Could just be a dir lease response */
-					}
-				}
-				else {
-					/* Must be Lease V1 response */
-					dur_handlep->lease_state = new_lease_state;
-					
-					/* Did we request a Lease V1? */
-					if (dur_handlep->flags & SMB2_LEASE_V2) {
-						/* We got a V1 response, but we sent a V2 request? */
-						SMBERROR("Received lease V1 response for a lease V2 request \n");
-						dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
-					}
-				}
-				
+                    /* Did we request a Lease V2? */
+                    if (!(dur_handlep->flags & SMB2_LEASE_V2)) {
+                        /* We got a V2 response, but we sent a V1 request? */
+                        SMBERROR("Received lease V2 response for a lease V1 request \n");
+                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                    }
+                }
+                else {
+                    /* Must be Lease V1 response */
+                    dur_handlep->lease_state = new_lease_state;
+                    
+                    /* Did we request a Lease V1? */
+                    if (dur_handlep->flags & SMB2_LEASE_V2) {
+                        /* We got a V1 response, but we sent a V2 request? */
+                        SMBERROR("Received lease V1 response for a lease V2 request \n");
+                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                    }
+                }
+                
+                /*
+                 * For SMB2_CREATE_DURABLE_HANDLE_RECONNECT, the response MAY
+                 * only contain a lease reply [MS-SMB2] 3.3.5.9.7
+                 *
+                 * For SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2, the response is
+                 * only a lease reply [MS-SMB2] 3.3.5.9.12
+                 *
+                 * For both durable handle reconnect types, need to set that
+                 * we got the durable handle
+                 */
+                if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
+                    /* We asked for a persistent handle */
+                    dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
+                    dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_RECONNECT;
+                }
+                else {
+                    if (dur_handlep->flags & SMB2_DURABLE_HANDLE_RECONNECT) {
+                        /* We asked for a durable handle */
+                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
+                        dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_RECONNECT;
+                    }
+                    
+                    /* Could just be a dir lease response */
+                }
+
                 dur_handlep->flags |= SMB2_LEASE_GRANTED;
-				
-				/* Unlock the dur handle */
-				lck_mtx_unlock(&dur_handlep->lock);
-				
+                
+                /* Unlock the dur handle */
+                lck_mtx_unlock(&dur_handlep->lock);
+                
                 break;
-				
+
             case SMB2_CREATE_DURABLE_HANDLE_REQUEST:    /* DHnQ */
                 dur_handlep = createp->create_contextp;
                 if (dur_handlep == NULL) {
@@ -5335,6 +5896,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             
         case FSCTL_DFS_GET_REFERRALS:
         case FSCTL_PIPE_TRANSCEIVE:
+        case FSCTL_SRV_ENUMERATE_SNAPSHOTS:
             /* validate some return values */
             if (ioctlp->ret_input_len != 0) {
                 SMBDEBUG("input_count is supposed to be 0: %u\n",
@@ -5513,7 +6075,7 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
     
     smb_rq_getreply(&rqp, &mdp);
     md_initm(mdp, m);
-    
+
     error = smb2_rq_parse_header(&rqp, &mdp);
     if (error) {
         SMBERROR("smb2_rq_parse_header failed %d for lease break \n", error);
@@ -5603,121 +6165,155 @@ bad:
 static int
 smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int smb1_req)
 {
-	uint16_t length;
-	uint16_t sec_buf_offset;
-	uint16_t sec_buf_len;
-	uint8_t curr_time[8], boot_time[8];
-	uint16_t reserved16;
-	uint32_t reserved;
-	struct smb_sopt *sp = &sessionp->session_sopt;
-	struct mdchain *mdp;
-	int error;
-    
+    struct smb_sopt *sp = &sessionp->session_sopt;
+    struct smbiod *iod = rqp->sr_iod;
+    uint16_t sec_buf_offset;
+    uint16_t sec_buf_len;
+    uint8_t curr_time[8], boot_time[8];
+    int error;
+    struct mdchain *mdp;
+    uint16_t neg_context_count;
+    uint32_t neg_context_offset = 0, neg_bytes_parsed = 0;
+    uint16_t temp16;
+    uint32_t temp32;
+    uint8_t temp_guid[16];
+
     /* Now get pointer to response data */
     smb_rq_getreply(rqp, &mdp);
-    
+
     /*
      * Parse SMB 2/3 Negotiate Response
      * We are already pointing to begining of Response data
      */
-    
+
     /* Check structure size is 65 */
-    error = md_get_uint16le(mdp, &length);
+    error = md_get_uint16le(mdp, &temp16);
     if (error) {
         goto bad;
     }
-    if (length != 65) {
-        SMBERROR("Bad struct size: %u\n", (uint32_t)length);
+    if (temp16 != 65) {
+        SMBERROR("Bad struct size: %u\n", (uint32_t) temp16);
         error = EBADRPC;
         goto bad;
     }
-    
+
     /* Get Security Mode */
-    error = md_get_uint16le(mdp, &sp->sv_security_mode);
+    error = md_get_uint16le(mdp, &temp16);
     if (error) {
         goto bad;
     }
-    
-    /* Save some signing related flags about what the server supports */
-    if (sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_ENABLED)
-        sessionp->session_flags |= SMBV_SIGNING;
-    
-    if (sp->sv_security_mode & (SMB2_NEGOTIATE_SIGNING_REQUIRED))
-        sessionp->session_flags |= SMBV_SIGNING_REQUIRED;
-    
-    /* Turn on signing if either Server or client requires it */
-    if ((sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_REQUIRED) ||
-        (sessionp->session_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED)) {
-        sessionp->session_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
+
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp16 != sp->sv_security_mode) {
+            SMBERROR("sv_security_mode mismatch (0x%x 0x%x).\n",
+                     temp16, sp->sv_security_mode);
+            error = EINVAL;
+            goto bad;
+        }
     }
-    
-    /* always set User Level Access and supports challenge/resp */
-    sessionp->session_flags |= SMBV_USER_SECURITY | SMBV_ENCRYPT_PASSWORD;
-    
+    else {
+        /* Main Channel: save value */
+        sp->sv_security_mode = temp16;
+
+        /* Save some signing related flags about what the server supports */
+        if (sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_ENABLED)
+            sessionp->session_flags |= SMBV_SIGNING;
+
+        if (sp->sv_security_mode & (SMB2_NEGOTIATE_SIGNING_REQUIRED))
+            sessionp->session_flags |= SMBV_SIGNING_REQUIRED;
+
+        /* Turn on signing if either Server or client requires it */
+        if ((sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_REQUIRED) ||
+            (sessionp->session_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED)) {
+            sessionp->session_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
+        }
+
+        /* always set User Level Access and supports challenge/resp */
+        sessionp->session_flags |= SMBV_USER_SECURITY | SMBV_ENCRYPT_PASSWORD;
+    }
+
     /*
      * Get Dialect.
      * if the server responded without an error then they must support one of
      * our dialects.
      */
-    error = md_get_uint16le(mdp, &sp->sv_dialect);
+    error = md_get_uint16le(mdp, &temp16);
     if (error) {
         goto bad;
     }
     
-    /* What dialect did we get? */
-    switch (sp->sv_dialect) {
-        case SMB2_DIALECT_0302:
-            sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB302;
-            break;
-        case SMB2_DIALECT_0300:
-            sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB30;
-            break;
-        case SMB2_DIALECT_0210:
-            sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB21;
-            break;
-        case SMB2_DIALECT_02ff:
-            /* not sure what dialect yet, still have to negotiate some more */
-            sessionp->session_flags |= SMBV_SMB2;
-            break;
-        case SMB2_DIALECT_0202:
-            sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB2002;
-            break;
-            
-        default:
-            SMBERROR("Unknown dialect 0x%x\n", sp->sv_dialect);
-            error = ENOTSUP;
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp16 != sp->sv_dialect) {
+            SMBERROR("sv_dialect mismatch (0x%x 0x%x).\n",
+                     temp16, sp->sv_dialect);
+            error = EINVAL;
             goto bad;
+        }
     }
-    
-    if ((sp->sv_dialect != SMB2_DIALECT_0202) &&
-        (sp->sv_dialect != SMB2_DIALECT_0210) &&
-        (smb1_req == 1)) {
-        /*
-         * We started with SMB1 Negotiate requst and got back a SMB 2/3
-         * Negotiate response and that is the response we are parsing right now.
-         *
-         * For SMB 2.002 and 2.1, we need to continue parsing the SMB 2/3
-         * Negotiate response as we are going directly to the Session Setup
-         * exchange next.
-         *
-         * Any other dialect from the server, we will start over with a
-         * SMB 2/3 Negotiate request from the client. The SMB 2/3 Negotiate
-         * request will have information about the client that the server will
-         * need. In this case, we dont have to finish parsing the SMB 1
-         * response and can just skip out.
-         *
-         * NOTE: If the server is replying with SMB 2.1 to a SMB 1 Negotiate
-         * request, then this is wrong according to [MS-SMB2] sections 3.3.5.3.1
-         * and 4.2 where it states the server should be returning SMB 2.??.
-         * Windows 8 Client handles this by going directly to the Session Setup
-         * and that is the behavior we are following.
-         */
-        error = 0;
-        goto bad;
+    else {
+        /* Main Channel: save value */
+        sp->sv_dialect = temp16;
+
+        /* What dialect did we get? */
+        switch (sp->sv_dialect) {
+            case SMB2_DIALECT_0311:
+                sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB311;
+                break;
+            case SMB2_DIALECT_0302:
+                sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB302;
+                break;
+            case SMB2_DIALECT_0300:
+                sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB30;
+                break;
+            case SMB2_DIALECT_0210:
+                sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB21;
+                break;
+            case SMB2_DIALECT_02ff:
+                /* not sure what dialect yet, still have to negotiate some more */
+                sessionp->session_flags |= SMBV_SMB2;
+                break;
+            case SMB2_DIALECT_0202:
+                sessionp->session_flags |= SMBV_SMB2 | SMBV_SMB2002;
+                break;
+
+            default:
+                SMBERROR("Unknown dialect 0x%x\n", sp->sv_dialect);
+                error = ENOTSUP;
+                goto bad;
+        }
+
+        if ((sp->sv_dialect != SMB2_DIALECT_0202) &&
+            (sp->sv_dialect != SMB2_DIALECT_0210) &&
+            (smb1_req == 1)) {
+            /*
+             * We started with SMB1 Negotiate requst and got back a SMB 2/3
+             * Negotiate response and that is the response we are parsing right now.
+             *
+             * For SMB 2.002 and 2.1, we need to continue parsing the SMB 2/3
+             * Negotiate response as we are going directly to the Session Setup
+             * exchange next.
+             *
+             * Any other dialect from the server, we will start over with a
+             * SMB 2/3 Negotiate request from the client. The SMB 2/3 Negotiate
+             * request will have information about the client that the server will
+             * need. In this case, we dont have to finish parsing the SMB 1
+             * response and can just skip out.
+             *
+             * NOTE: If the server is replying with SMB 2.1 to a SMB 1 Negotiate
+             * request, then this is wrong according to [MS-SMB2] sections 3.3.5.3.1
+             * and 4.2 where it states the server should be returning SMB 2.??.
+             * Windows 8 Client handles this by going directly to the Session Setup
+             * and that is the behavior we are following.
+             */
+            error = 0;
+            goto bad;
+        }
     }
-    
-    /* Get UInt16 Reserved bytes */
-    error = md_get_uint16le(mdp, &reserved16);
+
+    /* Get NegContextCount if SMB 3.1.1 */
+    error = md_get_uint16le(mdp, &neg_context_count);
     if (error) {
         goto bad;
     }
@@ -5725,62 +6321,133 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
     /*
      * Get Server GUID
      */
-    error = md_get_mem(mdp, (caddr_t)&sp->sv_guid, 16, MB_MSYSTEM);
+    error = md_get_mem(mdp, (caddr_t)&temp_guid, 16, MB_MSYSTEM);
     if (error) {
         goto bad;
     }
     
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (memcmp(temp_guid, sp->sv_guid, 16)) {
+            SMBERROR("server_guid mismatch.\n");
+            error = EINVAL;
+            goto bad;
+        }
+    }
+    else {
+        /* Main Channel: save value */
+        memcpy(sp->sv_guid, temp_guid, 16);
+    }
+
     /* Get Server Capabilities */
-    error = md_get_uint32le(mdp, &sp->sv_capabilities);
+    error = md_get_uint32le(mdp, &temp32);
     if (error) {
         goto bad;
     }
     
-    /*
-     * %%% To Do - too many places are looking at sv_capabilities
-     * so for now, prefill it in.  Later we should use the
-     * sv_capabilities for SMB 2/3.
-     */
-    sp->sv_caps = (SMB_CAP_UNICODE |
-                   SMB_CAP_LARGE_FILES |
-                   /* SMB_CAP_NT_SMBS <not used> */
-                   SMB_CAP_RPC_REMOTE_APIS |
-                   SMB_CAP_STATUS32 |
-                   /* SMB_CAP_LEVEL_II_OPLOCKS <not used> */
-                   SMB_CAP_LOCK_AND_READ |
-                   /* SMB_CAP_NT_FIND <not used> */
-                   /* SMB_CAP_INFOLEVEL_PASSTHRU <not used> */
-                   SMB_CAP_LARGE_READX |
-                   SMB_CAP_LARGE_WRITEX |
-                   SMB_CAP_EXT_SECURITY);
-    
-    if (sp->sv_capabilities & SMB2_GLOBAL_CAP_DFS) {
-        sp->sv_caps |= SMB_CAP_DFS;
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp32 != sp->sv_capabilities) {
+            SMBERROR("sv_capabilities mismatch (0x%x 0x%x).\n",
+                     temp32, sp->sv_capabilities);
+            error = EINVAL;
+            goto bad;
+        }
     }
-    
-    if ((SMBV_SMB3_OR_LATER(sessionp)) &&
-        (sp->sv_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL) &&
-        (sessionp->neg_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL)  )
-    {
-        sessionp->session_flags |= SMBV_MULTICHANNEL_ON;
+    else {
+        /* Main Channel: save value */
+        sp->sv_capabilities = temp32;
+
+        /*
+         * %%% To Do - too many places are looking at sv_capabilities
+         * so for now, prefill it in.  Later we should use the
+         * sv_capabilities for SMB 2/3.
+         */
+        sp->sv_caps = (SMB_CAP_UNICODE |
+                       SMB_CAP_LARGE_FILES |
+                       /* SMB_CAP_NT_SMBS <not used> */
+                       SMB_CAP_RPC_REMOTE_APIS |
+                       SMB_CAP_STATUS32 |
+                       /* SMB_CAP_LEVEL_II_OPLOCKS <not used> */
+                       SMB_CAP_LOCK_AND_READ |
+                       /* SMB_CAP_NT_FIND <not used> */
+                       /* SMB_CAP_INFOLEVEL_PASSTHRU <not used> */
+                       SMB_CAP_LARGE_READX |
+                       SMB_CAP_LARGE_WRITEX |
+                       SMB_CAP_EXT_SECURITY);
+
+        if (sp->sv_capabilities & SMB2_GLOBAL_CAP_DFS) {
+            sp->sv_caps |= SMB_CAP_DFS;
+        }
+
+        if ((SMBV_SMB3_OR_LATER(sessionp)) &&
+            (sp->sv_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL) &&
+            (sessionp->neg_capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL)) {
+            sessionp->session_flags |= SMBV_MULTICHANNEL_ON;
+        }
+        else {
+            sessionp->session_flags &= ~SMBV_MULTICHANNEL_ON;
+        }
     }
-    
+
     /* Get Max Transact/Read/Write sizes */
-    error = md_get_uint32le(mdp, &sp->sv_maxtransact);
+    error = md_get_uint32le(mdp, &temp32);
+    if (error) {
+        goto bad;
+    }
+
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp32 != sp->sv_maxtransact) {
+            SMBERROR("sv_maxtransact mismatch (0x%x 0x%x).\n",
+                     temp32, sp->sv_maxtransact);
+            error = EINVAL;
+            goto bad;
+        }
+    }
+    else {
+        /* Main Channel: save value */
+        sp->sv_maxtransact = temp32;
+    }
+
+    error = md_get_uint32le(mdp, &temp32);
     if (error) {
         goto bad;
     }
     
-    error = md_get_uint32le(mdp, &sp->sv_maxread);
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp32 != sp->sv_maxread) {
+            SMBERROR("sv_maxread mismatch (0x%x 0x%x).\n",
+                     temp32, sp->sv_maxread);
+            error = EINVAL;
+            goto bad;
+        }
+    }
+    else {
+        /* Main Channel: save value */
+        sp->sv_maxread = temp32;
+    }
+
+    error = md_get_uint32le(mdp, &temp32);
     if (error) {
         goto bad;
     }
     
-    error = md_get_uint32le(mdp, &sp->sv_maxwrite);
-    if (error) {
-        goto bad;
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alt Channel: validate */
+        if (temp32 != sp->sv_maxwrite) {
+            SMBERROR("sv_maxwrite mismatch (0x%x 0x%x).\n",
+                     temp32, sp->sv_maxwrite);
+            error = EINVAL;
+            goto bad;
+        }
     }
-    
+    else {
+        /* Main Channel: save value */
+        sp->sv_maxwrite = temp32;
+    }
+
     /*
      * Get Server system time and start time
      * %%% To Do - Do something with these times???
@@ -5805,12 +6472,14 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
         goto bad;
     }
     
-    /* Get Reserved bytes */
-    error = md_get_uint32le(mdp, &reserved);
+    /* Get NegotiateContextOffset if SMB 3.1.1 */
+    error = md_get_uint32le(mdp, &neg_context_offset);
     if (error) {
         goto bad;
     }
     
+    neg_bytes_parsed = 64;
+
     /*
      * Security buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
@@ -5823,28 +6492,252 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
         if (error) {
             goto bad;
         }
+
+        neg_bytes_parsed += sec_buf_offset;
     }
     
     /* Its ok if the sec_buf_len is 0 */
     if (sec_buf_len > 0) {
-        SMB_MALLOC(sessionp->negotiate_token, uint8_t *, sec_buf_len, M_SMBTEMP, M_WAITOK);
-        if (sessionp->negotiate_token) {
-            sessionp->negotiate_tokenlen = sec_buf_len;
+        SMB_MALLOC(iod->negotiate_token, uint8_t *, sec_buf_len, M_SMBTEMP, M_WAITOK);
+        if (iod->negotiate_token) {
+            iod->negotiate_tokenlen = sec_buf_len;
             error = md_get_mem(mdp,
-                               (void *)sessionp->negotiate_token,
-                               sessionp->negotiate_tokenlen,
+                               (void *)iod->negotiate_token,
+                               iod->negotiate_tokenlen,
                                MB_MSYSTEM);
             if (error) {
                 goto bad;
             }
+
+            neg_bytes_parsed += sec_buf_len;
         }
         else {
             error = ENOMEM;
         }
     }
     
+    if (sessionp->session_flags & SMBV_SMB311) {
+        error = smb2_smb_parse_negotiate_contexts(iod,
+                                                  mdp,
+                                                  neg_bytes_parsed,
+                                                  neg_context_offset,
+                                                  neg_context_count);
+
+    }
+
 bad:
 	return error;
+}
+
+static int
+smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
+                                  struct mdchain *mdp,
+                                  uint32_t neg_bytes_parsed,
+                                  uint32_t neg_context_offset,
+                                  uint16_t neg_context_count)
+{
+    struct smb_session *sessionp = NULL;
+    int error = 0;
+    uint16_t context_type, context_data_len;
+    uint16_t hash_algorithm_cnt, salt_len, hash_algoritms;
+    uint16_t cipher_cnt, cipher_algoritm;
+    uint16_t compression_algorithm_cnt, compression_algoritms;
+    uint32_t compression_flags;
+    int i;
+    int pad_bytes = 0;
+    struct mdchain md_context_shadow;
+
+    if (iod == NULL) {
+        SMBERROR("iod is null? \n");
+        return(EINVAL);
+    }
+    sessionp = iod->iod_session;
+
+    if (neg_context_offset > 0) {
+        neg_context_offset -= SMB2_HDRLEN;
+        neg_context_offset -= neg_bytes_parsed;
+
+        error = md_get_mem(mdp, NULL, neg_context_offset, MB_MSYSTEM);
+        if (error) {
+            goto bad;
+        }
+    }
+
+    do {
+        /*
+         * Offsets are from the beginning of the context, so save a
+         * copy of the beginning of the context.
+         */
+        md_shadow_copy(mdp, &md_context_shadow);
+
+        /*
+         * Parse the Context header
+         */
+
+        /* Get ContextType */
+        error = md_get_uint16le(&md_context_shadow, &context_type);
+        if (error) {
+            goto bad;
+        }
+
+        /* Get DataLength */
+        error = md_get_uint16le(&md_context_shadow, &context_data_len);
+        if (error) {
+            goto bad;
+        }
+
+        /* Get reserve bytes and ignore them */
+        error = md_get_uint32le(&md_context_shadow, NULL);
+        if (error) {
+            goto bad;
+        }
+
+        /*
+         * Notes
+         * 1. SMB2_ENCRYPTION_CAPABILITIES must return one cipher
+         * 2. SMB2_COMPRESSION_CAPABILITIES. We do not support compression, so
+         *    can ignore this reply
+         * 2. SMB2_NETNAME_NEGOTIATE_CONTEXT_ID has no response context
+         * 3. SMB2_RDMA_TRANSFORM_CAPABILITIES we never use, so can ignore
+         */
+        switch (context_type) {
+            case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+                /*
+                 * At this time there is no other pre auth integrity hash
+                 * algorithm defined and the salt value is automatically
+                 * included in the hash, so nothing for us to do with this
+                 * response.
+                 */
+
+                /* Get HashAlgorithmCount */
+                error = md_get_uint16le(&md_context_shadow, &hash_algorithm_cnt);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get SaltLength */
+                error = md_get_uint16le(&md_context_shadow, &salt_len);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get HashAlgorithms */
+                for (i = 0; i < hash_algorithm_cnt; i++) {
+                    error = md_get_uint16le(&md_context_shadow, &hash_algoritms);
+                    if (error) {
+                        goto bad;
+                    }
+                }
+
+                /* Get Salt and ignore them */
+                error = md_get_mem(&md_context_shadow, NULL, salt_len, MB_MSYSTEM);
+                if (error) {
+                    goto bad;
+                }
+
+               break;
+
+            case SMB2_ENCRYPTION_CAPABILITIES:
+                /* Get CipherCount */
+                error = md_get_uint16le(&md_context_shadow, &cipher_cnt);
+                if (error) {
+                    goto bad;
+                }
+                if (cipher_cnt != 1) {
+                    SMBERROR("CipherCount is supposed to be 1 (%d) \n",
+                             cipher_cnt);
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+               /* Get Cipher to use for encryption */
+                error = md_get_uint16le(&md_context_shadow, &cipher_algoritm);
+                if (error) {
+                    goto bad;
+                }
+
+                if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+                    /* Alt Channel: validate */
+                    if (cipher_algoritm != sessionp->session_smb3_encrypt_ciper) {
+                        SMBERROR("cipher algorithm mismatch (0x%x 0x%x).\n",
+                                 cipher_algoritm, sessionp->session_smb3_encrypt_ciper);
+                        error = EINVAL;
+                        goto bad;
+                    }
+                }
+                else {
+                    /* Main Channel: save value */
+                    sessionp->session_smb3_encrypt_ciper = cipher_algoritm;
+                }
+
+                break;
+
+            case SMB2_COMPRESSION_CAPABILITIES:
+                /* Get CompressionAlgorithmCount */
+                error = md_get_uint16le(&md_context_shadow, &compression_algorithm_cnt);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Padding and ignore it */
+                error = md_get_uint16le(&md_context_shadow, NULL);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Flags */
+                error = md_get_uint32le(&md_context_shadow, &compression_flags);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get CompressionAlgorithms */
+                for (i = 0; i < compression_algorithm_cnt; i++) {
+                    error = md_get_uint16le(&md_context_shadow, &compression_algoritms);
+                    if (error) {
+                        goto bad;
+                    }
+                }
+
+                break;
+
+            case SMB2_TRANSPORT_CAPABILITIES:
+               /* Ignore this for now */
+                break;
+
+            case SMB2_RDMA_TRANSFORM_CAPABILITIES:
+                /* Ignore this for now */
+                break;
+
+            default:
+                /* Unknown contexts are just ignored */
+                SMBERROR("Unknown context type: 0x%x\n", context_type);
+                break;
+        } /* end of switch */
+
+        neg_context_count -= 1;
+
+        /* Move to the next context in the main mdp chain */
+        if (neg_context_count > 0) {
+            /* Add in the ContextType, DataLength, Reserved bytes */
+            context_data_len += 8;
+
+            /* Align to 8 byte boundary */
+            if ((context_data_len % 8) != 0) {
+                /* Contexts MUST start on next 8 byte boundary! */
+                pad_bytes = 8 - (context_data_len % 8);
+                context_data_len += pad_bytes;
+            }
+
+            error = md_get_mem(mdp, NULL, context_data_len, MB_MSYSTEM);
+            if (error) {
+                goto bad;
+            }
+        }
+    } while (neg_context_count != 0);
+
+bad:
+    return error;
 }
 
 int
@@ -6862,10 +7755,11 @@ bad:
 }
 
 int
-smb2_smb_query_dir(struct smb_share *share, void *args_ptr,
-                   struct smb_rq **compound_rqp, vfs_context_t context)
+smb2_smb_query_dir(struct smb_share *share, struct smb2_query_dir_rq *queryp,
+                   struct smb_rq **compound_rqp,
+                   struct smbiod *iod,
+                   vfs_context_t context)
 {
-    struct smb2_query_dir_rq *queryp = args_ptr;
     struct smb_rq *rqp;
     struct mbchain *mbp;
     struct mdchain *mdp;
@@ -6873,16 +7767,32 @@ smb2_smb_query_dir(struct smb_share *share, void *args_ptr,
     uint16_t *name_len, name_offset;
     uint8_t sep_char = '\\';
     SMB2FID smb2_fid;
-    
+
     /* Allocate request and header for a Query Directory */
 resend:
     queryp->ret_rqp = NULL;
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_QUERY_DIRECTORY, 
-                          &queryp->output_buffer_len, 
-                          context, &rqp);
+
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
+
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_QUERY_DIRECTORY,
+                          &queryp->output_buffer_len, 
+                          context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
+
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     queryp->ret_rqp = rqp;
     
     smb_rq_getrequest(rqp, &mbp);
@@ -6959,6 +7869,11 @@ resend:
         mb_put_uint16le(mbp, 0);    /* fill in blank name 0x0000 */
     }
     
+    if (queryp->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     if (compound_rqp != NULL) {
         /* 
          * building a compound request, add padding to 8 bytes and just
@@ -6974,9 +7889,16 @@ resend:
     queryp->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                queryp->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -6994,7 +7916,7 @@ resend:
 bad:
     /* 
      * Note: smb_rq_done will be done in smb2fs_smb_findnext or 
-     * smbfs_smb_findclose 
+     * smbfs_smb_findclose
      */
     return error;
 }
@@ -7003,10 +7925,9 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int
-smb2_smb_query_info(struct smb_share *share, void *args_ptr, 
-                    struct smb_rq **compound_rqp, vfs_context_t context)
+smb2_smb_query_info(struct smb_share *share, struct smb2_query_info_rq *queryp,
+                    struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context)
 {
-    struct smb2_query_info_rq *queryp = args_ptr;
 	struct smb_rq *rqp = NULL;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -7014,7 +7935,7 @@ smb2_smb_query_info(struct smb_share *share, void *args_ptr,
 	int error;
     SMB2FID smb2_fid;
     uint8_t cmd = SMB2_QUERY_INFO;
-   
+
     /* Validate info_type and file_info_class */
     switch (queryp->info_type) {
         case SMB2_0_INFO_FILE:
@@ -7069,14 +7990,28 @@ smb2_smb_query_info(struct smb_share *share, void *args_ptr,
     }
 
 resend:
-    /* Allocate request and header for a Query Info */
-    error = smb2_rq_alloc(SSTOCP(share), cmd,
-                          &queryp->output_buffer_len, 
-                          context, &rqp);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
+
+    /* Allocate request and header for a Query Info */
+    error = smb2_rq_alloc(SSTOCP(share), cmd,
+                          &queryp->output_buffer_len, 
+                          context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     smb_rq_getrequest(rqp, &mbp);
     
     /*
@@ -7116,6 +8051,11 @@ resend:
                    MB_MSYSTEM);
     }
 
+    if (queryp->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        /* This message is replayed - sent after a channel has been disconnected */
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     if (compound_rqp != NULL) {
         /* 
          * building a compound request, add padding to 8 bytes and just
@@ -7131,9 +8071,16 @@ resend:
     queryp->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                queryp->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -7157,9 +8104,8 @@ bad:
 }
 
 int
-smb2_smb_read(struct smb_share *share, void *arg_ptr, vfs_context_t context)
+smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp, vfs_context_t context)
 {
-    struct smb2_rw_rq *readp = arg_ptr;
 	user_ssize_t total_size, len, resid = 0;
 	int error = 0;
     
@@ -7213,6 +8159,7 @@ smb2_smb_read_one(struct smb_share *share,
                   user_ssize_t *len,
                   user_ssize_t *rresid,
                   struct smb_rq **compound_rqp,
+                  struct smbiod *iod,
                   vfs_context_t context)
 {
 	struct smb_rq *rqp;
@@ -7237,14 +8184,29 @@ smb2_smb_read_one(struct smb_share *share,
     }
     
 resend:
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        // Multichannel: use any iod to send
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
+    if (error) {
+        return error;
+    }
+
     /*
      * Allocate request and header for a Read
      * Available credits may reduce the read size
      */
-    error = smb2_rq_alloc(SSTOCP(share), cmd, &len32, context, &rqp);
+    error = smb2_rq_alloc(SSTOCP(share), cmd, &len32, context, iod, &rqp);
     if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
         return error;
     }
+
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
 
     if (do_short_read == 0) {
         /* Just doing a normal read */
@@ -7299,6 +8261,10 @@ resend:
     mb_put_uint32le(mbp, 0);                        /* Channel offset/len */
     mb_put_uint8(mbp, 0);                           /* Buffer */
 
+    if (readp->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
+
     if (compound_rqp != NULL) {
         /* 
          * building a compound request, add padding to 8 bytes and just
@@ -7314,11 +8280,18 @@ resend:
     readp->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                readp->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             remaining += len32;
             
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -7340,8 +8313,12 @@ resend:
     if (tmp_resid != len32) {
         SMBWARNING("IO Mismatched. Requested %u but got %lld\n",
                    len32, tmp_resid);
-
-        if (tmp_resid < len32) {
+        /*
+         * <72062477> skip the short read if its a named pipe being used.
+         * Named pipes are always on the share IPC$.
+         */
+        if ((tmp_resid < len32) &&
+            (strcmp(share->ss_name, "IPC$") != 0)) {
             /*
              * <63197657> Need to reissue a read for the missing
              * bytes.
@@ -7359,6 +8336,7 @@ resend:
 
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
        }
     }
@@ -7391,6 +8369,7 @@ smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
     readp->write_flags = 0;
     readp->fid = fid;
     readp->auio = uio;
+    readp->mc_flags = 0;
     
     error = smb2_smb_read(share, readp, context);
     
@@ -7458,8 +8437,8 @@ smb2_smb_read_write_async(struct smb_share *share,
         if ((*len <= max_io_size) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single read */
-            error = smb2_smb_read_one(share, in_read_writep, len, rresid, NULL,
-                                      context);
+            error = smb2_smb_read_one(share, in_read_writep, len, rresid,
+                                      NULL, NULL, context);
             goto done;
         }
 
@@ -7471,8 +8450,8 @@ smb2_smb_read_write_async(struct smb_share *share,
         if ((*len <= max_io_size) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single write */
-            error = smb2_smb_write_one(share, in_read_writep, len, rresid, NULL,
-                                       context);
+            error = smb2_smb_write_one(share, in_read_writep, len, rresid,
+                                       NULL, NULL, context);
             goto done;
         }
 
@@ -7537,6 +8516,7 @@ resend:
     tmp_read_write.remaining = in_read_writep->remaining;
     tmp_read_write.write_flags = in_read_writep->write_flags;
     tmp_read_write.fid = in_read_writep->fid;
+    tmp_read_write.mc_flags = 0;
     tmp_read_write.io_len = in_read_writep->io_len;
     tmp_read_write.auio = uio_duplicate(in_read_writep->auio);
     if (tmp_read_write.auio == NULL) {
@@ -7741,9 +8721,13 @@ resend:
                 if (rw_pb[j].resid != rw_pb[j].read_writep->io_len) {
                     SMBWARNING("IO Mismatched. Requested %lld but got %lld\n",
                                rw_pb[j].read_writep->io_len, rw_pb[j].resid);
-
+                    /*
+                     * <72062477> skip the short read if its a named pipe being
+                     * used. Named pipes are always on the share IPC$.
+                     */
                     if ((do_read) &&
-                        (rw_pb[j].resid < rw_pb[j].read_writep->io_len)) {
+                        (rw_pb[j].resid < rw_pb[j].read_writep->io_len) &&
+                        (strcmp(share->ss_name, "IPC$") != 0)) {
                         /*
                          * <63197657> Need to reissue a read for the missing
                          * bytes.
@@ -8016,12 +9000,10 @@ smb2_smb_read_write_fill(struct smb_share *share,
     read_writep->ret_len = 0;
     
     if (do_read) {
-        error = smb2_smb_read_one(share, read_writep, &len, &resid, rqp,
-                                  context);
+        error = smb2_smb_read_one(share, read_writep, &len, &resid, rqp, NULL, context);
     }
     else {
-        error = smb2_smb_write_one(share, read_writep, &len, &resid, rqp,
-                                   context);
+        error = smb2_smb_write_one(share, read_writep, &len, &resid, rqp, NULL, context);
     }
     
     if (error) {
@@ -8074,10 +9056,10 @@ smb_smb_read(struct smb_share *share, SMBFID fid, uio_t uio, vfs_context_t conte
 }
 
 int
-smb2_smb_set_info(struct smb_share *share, void *args_ptr, 
-                  struct smb_rq **compound_rqp, vfs_context_t context)
+smb2_smb_set_info(struct smb_share *share, struct smb2_set_info_rq *infop,
+                  struct smb_rq **compound_rqp,
+                  struct smbiod *iod, vfs_context_t context)
 {
-    struct smb2_set_info_rq *infop = args_ptr;
     struct smb_rq *rqp;
     struct mbchain *mbp;
     struct mdchain *mdp;
@@ -8096,18 +9078,32 @@ smb2_smb_set_info(struct smb_share *share, void *args_ptr,
     uint16_t control_flags;
 	uint32_t offset;
 	struct ntsecdesc ntsd;
-    
+
 resend:
     /*
      * Allocate request and header for a Set Info 
      * NOTE: at this time, all the Set Infos are < 64K which fits in 1 credit
      */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_SET_INFO, NULL, context, &rqp);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
 
-	smb_rq_getrequest(rqp, &mbp);
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_SET_INFO, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return error;
+    }
+
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    smb_rq_getrequest(rqp, &mbp);
     
     /*
      * Build the SMB 2/3 Set Info Request
@@ -8309,6 +9305,10 @@ resend:
             mb_put_mem(mbp, (caddr_t)sec_infop->dacl, acllen(sec_infop->dacl),
                        MB_MSYSTEM);
     }
+
+    if (infop->mc_flags & SMB2_MC_REPLAY_FLAG) {
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
     
     if (compound_rqp != NULL) {
         /* 
@@ -8324,9 +9324,16 @@ resend:
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                infop->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -8359,16 +9366,33 @@ smb2_smb_tree_connect(struct smb_session *sessionp, struct smb_share *share,
     uint16_t structure_size;
     uint8_t share_type;
     uint8_t reserved;
-    
 	share->ss_tree_id = SMB2_TID_UNKNOWN;
-    
+    struct smbiod *iod = NULL;
+    bool replay = false;
+
 resend:
+    /*
+     * Tree-connect uses main_iod and not any_iod,
+     * because it may be needed during reconnect as
+     * well.
+     */
+    error = smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__);
+    if (error) {
+        return error;
+    }
+
     /* Allocate request and header for a Tree Connect */
-	error = smb2_rq_alloc(SSTOCP(share), SMB2_TREE_CONNECT, NULL, context, &rqp);
-	if (error)
+	error = smb2_rq_alloc(SSTOCP(share), SMB2_TREE_CONNECT, NULL, context, iod, &rqp);
+    if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
 		goto treeconnect_exit;
+    }
     
-    /* 
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
+    /*
      * Build the Tree Connect Request
      * Cant use struct cast because of the var length path name
      */
@@ -8435,13 +9459,31 @@ resend:
 	}		
     
 	smb_rq_bend(rqp);           /* now fill in the actual Path Length */
+
+    if (replay) {
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
     
-	error = smb_rq_simple(rqp);
+    if (sessionp->session_flags & SMBV_SMB311) {
+        /*
+         * To finish the pre auth integrity check the client has to send
+         * a signed Tree Connect when the server does not require signing.
+         */
+        rqp->sr_flags |= SMBR_SIGNED;
+    }
+
+    error = smb_rq_simple(rqp);
 	if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -8520,6 +9562,8 @@ smb2_smb_tree_disconnect(struct smb_share *share, vfs_context_t context)
 	struct mdchain *mdp;
 	int error;
 	uint16_t length;
+    struct smbiod *iod = NULL;
+    bool replay = false;
 
 	if (share->ss_tree_id == SMB2_TID_UNKNOWN) {
         /* no valid tree id to disconnect on, just ignore */
@@ -8527,13 +9571,23 @@ smb2_smb_tree_disconnect(struct smb_share *share, vfs_context_t context)
     }
     
 resend:
+    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    if (error) {
+        return error;
+    }
+
     /* Allocate request and header for a Tree Disconnect */
 	error = smb2_rq_alloc(SSTOCP(share), SMB2_TREE_DISCONNECT, NULL, 
-                          context, &rqp);
+                          context, iod, &rqp);
 	if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
 		return error;
     }
     
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     /* 
      * Fill in Tree Disconnect part 
      * Dont use struct ptr since its only 4 bytes long
@@ -8542,14 +9596,25 @@ resend:
     
     mb_put_uint16le(mbp, 4);       /* Struct size */
     mb_put_uint16le(mbp, 0);       /* Reserved */
+
+    if (replay) {
+        *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
+    }
     
     error = smb_rq_simple(rqp);
 	share->ss_tree_id = SMB2_TID_UNKNOWN;   /* dont care if got error or not */
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                replay = true;
+            }
+
             /* Rebuild and try sending again */
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -8596,9 +9661,8 @@ smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
 }
 
 int
-smb2_smb_write(struct smb_share *share, void *arg_ptr, vfs_context_t context)
+smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep, vfs_context_t context)
 {
-    struct smb2_rw_rq *writep = arg_ptr;
 	int error = 0;
 	user_ssize_t orig_resid, len, total_size, resid = 0;
 	off_t orig_offset;
@@ -8651,6 +9715,7 @@ smb2_smb_write_one(struct smb_share *share,
                    user_ssize_t *len,
                    user_ssize_t *rresid,
                    struct smb_rq **compound_rqp,
+                   struct smbiod *iod,
                    vfs_context_t context)
 {
 	struct smb_rq *rqp;
@@ -8666,14 +9731,30 @@ smb2_smb_write_one(struct smb_share *share,
 	len32 = (uint32_t) MIN(SS_TO_SESSION(share)->session_wxmax, *len);
 
 resend:
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    } else {
+        // Multichannel: use any iod to send
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
+    if (error) {
+        return error;
+    }
+
     /*
      * Allocate request and header for a Write
      * Available credits may reduce the write size
      */
-    error = smb2_rq_alloc(SSTOCP(share), SMB2_WRITE, &len32, context, &rqp);
+    error = smb2_rq_alloc(SSTOCP(share), SMB2_WRITE, &len32, context, iod, &rqp);
     if (error) {
+        smb_iod_rel(iod, NULL, __FUNCTION__);
         return error;
     }
+
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+
     *len = len32;
     
     if (remaining > len32) {
@@ -8720,7 +9801,9 @@ resend:
     if (error) {
         goto bad;
     }
-    
+
+    *rqp->sr_flagsp |= (writep->mc_flags & SMB2_MC_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     if (compound_rqp != NULL) {
         /*
          * building a compound request, add padding to 8 bytes and just
@@ -8749,6 +9832,12 @@ resend:
     writep->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
+            SMB_LOG_MC("resending messageid %llu cmd %u.\n", rqp->sr_messageid, rqp->sr_command);
+            if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+                /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+                writep->mc_flags |= SMB2_MC_REPLAY_FLAG;
+            }
+
             /* Rebuild and try sending again */
             if (auio != NULL) {
                 uio_free(auio);
@@ -8759,6 +9848,7 @@ resend:
             
             smb_rq_done(rqp);
             rqp = NULL;
+            iod = NULL;
             goto resend;
         }
         
@@ -8826,6 +9916,7 @@ again:
     writep->write_flags = write_mode;
     writep->fid = fid;
     writep->auio = temp_uio;
+    writep->mc_flags = 0;
     
     error = smb2_smb_write(share, writep, context);
 	
@@ -8901,10 +9992,11 @@ smb2_session_maxread(struct smb_session *sessionp, uint32_t max_read)
 {
 	uint32_t socksize = sessionp->session_sopt.sv_maxread;
 	uint32_t srvr_max_read = sessionp->session_sopt.sv_maxread;
-	uint32_t maxmsgsize;
+	uint32_t maxmsgsize = 0;
+    struct smbiod *iod = sessionp->session_iod;
 
 	/* Make sure we never use a size bigger than the socket can support */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_RCVSZ, &socksize);
+	SMB_TRAN_GETPARAM(iod, SMBTP_RCVSZ, &socksize);
 	
 	maxmsgsize = MIN(srvr_max_read, socksize);
 	
@@ -8952,10 +10044,11 @@ static uint32_t
 smb2_session_maxtransact(struct smb_session *sessionp)
 {
 	uint32_t socksize = sessionp->session_sopt.sv_maxtransact;
-	uint32_t maxmsgsize;
-    
+	uint32_t maxmsgsize = 0;
+    struct smbiod *iod = sessionp->session_iod;
+
 	/* Make sure we never use a size bigger than the socket can support */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_SNDSZ, &socksize);
+	SMB_TRAN_GETPARAM(iod, SMBTP_SNDSZ, &socksize);
     
     maxmsgsize = MIN(sessionp->session_sopt.sv_maxtransact, socksize);
 
@@ -8971,9 +10064,10 @@ smb2_session_maxwrite(struct smb_session *sessionp, uint32_t max_write)
 	uint32_t socksize = sessionp->session_sopt.sv_maxwrite;
 	uint32_t srvr_max_write = sessionp->session_sopt.sv_maxwrite;
 	uint32_t maxmsgsize;
-		
+    struct smbiod *iod = sessionp->session_iod;
+
 	/* Make sure we never use a size bigger than the socket can support */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_SNDSZ, &socksize);
+	SMB_TRAN_GETPARAM(iod, SMBTP_SNDSZ, &socksize);
 	
 	maxmsgsize = MIN(srvr_max_write, socksize);
     
@@ -9016,3 +10110,4 @@ smb2_session_maxwrite(struct smb_session *sessionp, uint32_t max_write)
 
     return maxmsgsize;
 }
+

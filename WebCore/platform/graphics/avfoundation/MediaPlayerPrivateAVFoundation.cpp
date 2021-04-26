@@ -106,7 +106,7 @@ MediaPlayerPrivateAVFoundation::MediaRenderingMode MediaPlayerPrivateAVFoundatio
 
 MediaPlayerPrivateAVFoundation::MediaRenderingMode MediaPlayerPrivateAVFoundation::preferredRenderingMode() const
 {
-    if (!m_player->visible() || assetStatus() == MediaPlayerAVAssetStatusUnknown)
+    if (!m_visible || assetStatus() == MediaPlayerAVAssetStatusUnknown)
         return MediaRenderingNone;
 
     if (supportsAcceleratedRendering() && m_player->renderingCanBeAccelerated())
@@ -181,7 +181,7 @@ void MediaPlayerPrivateAVFoundation::load(const String& url)
 }
 
 #if ENABLE(MEDIA_SOURCE)
-void MediaPlayerPrivateAVFoundation::load(const String&, MediaSourcePrivateClient*)
+void MediaPlayerPrivateAVFoundation::load(const URL&, const ContentType&, MediaSourcePrivateClient*)
 {
     setNetworkState(MediaPlayer::NetworkState::FormatError);
 }
@@ -434,7 +434,7 @@ bool MediaPlayerPrivateAVFoundation::isReadyForVideoSetup() const
     // AVFoundation will not return true for firstVideoFrameAvailable until
     // an AVPlayerLayer has been added to the AVPlayerItem, so allow video setup
     // here if a video track to trigger allocation of a AVPlayerLayer.
-    return (m_isAllowedToRender || m_cachedHasVideo) && m_readyState >= MediaPlayer::ReadyState::HaveMetadata && m_player->visible();
+    return (m_isAllowedToRender || m_cachedHasVideo) && m_readyState >= MediaPlayer::ReadyState::HaveMetadata && m_visible;
 }
 
 void MediaPlayerPrivateAVFoundation::prepareForRendering()
@@ -697,10 +697,8 @@ void MediaPlayerPrivateAVFoundation::setPreload(MediaPlayer::Preload preload)
 
     setDelayCallbacks(true);
 
-    if (m_preload >= MediaPlayer::Preload::MetaData && assetStatus() == MediaPlayerAVAssetStatusDoesNotExist) {
+    if (m_preload >= MediaPlayer::Preload::MetaData && assetStatus() == MediaPlayerAVAssetStatusDoesNotExist)
         createAVAssetForURL(m_assetURL);
-        checkPlayability();
-    }
 
     // Don't force creation of the player and player item unless we already know that the asset is playable. If we aren't
     // there yet, or if we already know it is not playable, creating them now won't help.

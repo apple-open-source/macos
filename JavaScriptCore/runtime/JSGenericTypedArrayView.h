@@ -88,7 +88,7 @@ enum class CopyType {
     Unobservable,
 };
 
-static const ASCIILiteral typedArrayBufferHasBeenDetachedErrorMessage { "Underlying ArrayBuffer has been detached from the view"_s };
+extern const ASCIILiteral typedArrayBufferHasBeenDetachedErrorMessage;
 
 template<typename Adaptor>
 class JSGenericTypedArrayView final : public JSArrayBufferView {
@@ -96,7 +96,7 @@ public:
     using Base = JSArrayBufferView;
     typedef typename Adaptor::Type ElementType;
 
-    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesAnyFormOfGetPropertyNames | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetOwnPropertyNames | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero;
 
     static constexpr unsigned elementSize = sizeof(typename Adaptor::Type);
 
@@ -171,12 +171,7 @@ public:
         typename Adaptor::Type value = toNativeFromValue<Adaptor>(globalObject, jsValue);
         RETURN_IF_EXCEPTION(scope, false);
 
-        if (isNeutered()) {
-            throwTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
-            return false;
-        }
-
-        if (i >= m_length)
+        if (isDetached() || i >= m_length)
             return false;
 
         setIndexQuicklyToNativeValue(i, value);
@@ -189,7 +184,7 @@ public:
 
     void sort()
     {
-        RELEASE_ASSERT(!isNeutered());
+        RELEASE_ASSERT(!isDetached());
         switch (Adaptor::typeValue) {
         case TypeFloat32:
             sortFloat<int32_t>();
@@ -292,13 +287,13 @@ public:
 
     // This is the default DOM unwrapping. It calls toUnsharedNativeTypedView().
     static RefPtr<typename Adaptor::ViewType> toWrapped(VM&, JSValue);
+    // [AllowShared] annotation allows accepting TypedArray originated from SharedArrayBuffer.
+    static RefPtr<typename Adaptor::ViewType> toWrappedAllowShared(VM&, JSValue);
     
 private:
     friend struct TypedArrayClassInfos;
 
     JSGenericTypedArrayView(VM&, ConstructionContext&);
-
-    static EncodedJSValue throwNeuteredTypedArrayTypeError(JSGlobalObject*, EncodedJSValue, PropertyName);
 
     static bool getOwnPropertySlot(JSObject*, JSGlobalObject*, PropertyName, PropertySlot&);
     static bool put(JSCell*, JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
@@ -309,7 +304,7 @@ private:
     static bool putByIndex(JSCell*, JSGlobalObject*, unsigned propertyName, JSValue, bool shouldThrow);
     static bool deletePropertyByIndex(JSCell*, JSGlobalObject*, unsigned propertyName);
     
-    static void getOwnPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, EnumerationMode);
+    static void getOwnPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, DontEnumPropertiesMode);
 
     static size_t estimatedSize(JSCell*, VM&);
     static void visitChildren(JSCell*, SlotVisitor&);
@@ -398,5 +393,12 @@ RefPtr<typename Adaptor::ViewType> JSGenericTypedArrayView<Adaptor>::toWrapped(V
 {
     return JSC::toUnsharedNativeTypedView<Adaptor>(vm, value);
 }
+
+template<typename Adaptor>
+RefPtr<typename Adaptor::ViewType> JSGenericTypedArrayView<Adaptor>::toWrappedAllowShared(VM& vm, JSValue value)
+{
+    return JSC::toPossiblySharedNativeTypedView<Adaptor>(vm, value);
+}
+
 
 } // namespace JSC

@@ -963,6 +963,8 @@ class Container: NSObject {
         let viablePeerCountsByModelID = self.model.viablePeerCountsByModelID()
         let peerCountsByMachineID = self.model.peerCountsByMachineID()
         if let egoPeerID = self.containerMO.egoPeerID {
+            let egoPermanentInfo = self.model.peer(withID: egoPeerID)?.permanentInfo
+
             var status = self.model.statusOfPeer(withID: egoPeerID)
             var isExcluded: Bool = (status == .excluded)
 
@@ -985,6 +987,7 @@ class Container: NSObject {
                     }
 
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
+                                                                    egoPeerMachineID: egoPermanentInfo?.machineID,
                                                                     status: status,
                                                                     viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                     peerCountsByMachineID: peerCountsByMachineID,
@@ -998,6 +1001,7 @@ class Container: NSObject {
                 guard egoPeerKeys != nil else {
                     os_log("trust status: No error but Ego Peer Keys are nil", log: tplogDebug, type: .default)
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
+                                                                    egoPeerMachineID: egoPermanentInfo?.machineID,
                                                                     status: .excluded,
                                                                     viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                     peerCountsByMachineID: peerCountsByMachineID,
@@ -1009,6 +1013,7 @@ class Container: NSObject {
                 }
 
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
+                                                                egoPeerMachineID: egoPermanentInfo?.machineID,
                                                                 status: status,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 peerCountsByMachineID: peerCountsByMachineID,
@@ -1022,6 +1027,7 @@ class Container: NSObject {
             if self.model.allPeerIDs().isEmpty {
                 os_log("No existing peers in account", log: tplogDebug, type: .debug)
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                                egoPeerMachineID: nil,
                                                                 status: .unknown,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 peerCountsByMachineID: peerCountsByMachineID,
@@ -1032,6 +1038,7 @@ class Container: NSObject {
             } else {
                 os_log("Existing peers in account, but we don't have a peer ID. We are excluded.", log: tplogDebug, type: .debug)
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                                egoPeerMachineID: nil,
                                                                 status: .excluded,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 peerCountsByMachineID: peerCountsByMachineID,
@@ -1064,6 +1071,7 @@ class Container: NSObject {
                         }
 
                         let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                                        egoPeerMachineID: nil,
                                                                         status: .unknown,
                                                                         viablePeerCountsByModelID: [:],
                                                                         peerCountsByMachineID: [:],
@@ -3341,6 +3349,30 @@ class Container: NSObject {
             }
 
             reply(data, nil)
+        }
+    }
+
+    func resetCDPAccountData(reply: @escaping (Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Error?) -> Void = {
+            os_log("resetCDPAccountData complete: %{public}@", log: tplogTrace, type: .info, traceError($0))
+            self.semaphore.signal()
+            reply($0)
+        }
+
+        let request = ResetAccountCDPContentsRequest.with {
+            $0.resetReason = .testGenerated
+        }
+        self.cuttlefish.resetAccountCdpcontents(request){ response, error in
+            guard let _ = response, error == nil else {
+                os_log("resetCDPAccountData failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                reply(error ?? ContainerError.cloudkitResponseMissing)
+                return
+            }
+            self.moc.performAndWait {
+                self.onQueueRemoveEscrowCache()
+            }
+            reply(nil)
         }
     }
 

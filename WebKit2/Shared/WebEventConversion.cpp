@@ -26,7 +26,10 @@
 #include "config.h"
 #include "WebEventConversion.h"
 
-#include "WebEvent.h"
+#include "WebKeyboardEvent.h"
+#include "WebMouseEvent.h"
+#include "WebTouchEvent.h"
+#include "WebWheelEvent.h"
 
 #if ENABLE(MAC_GESTURE_EVENTS)
 #include "WebGestureEvent.h"
@@ -120,6 +123,9 @@ public:
             m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::AltKey);
         if (webEvent.metaKey())
             m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::MetaKey);
+
+        m_pointerId = webEvent.pointerId();
+        m_pointerType = webEvent.pointerType();
     }
 };
 
@@ -161,8 +167,10 @@ public:
         m_phase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.phase());
         m_momentumPhase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.momentumPhase());
 #endif
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE)
         m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
+#endif
+#if PLATFORM(COCOA)
         m_scrollCount = webEvent.scrollCount();
         m_unacceleratedScrollingDeltaX = webEvent.unacceleratedScrollingDelta().width();
         m_unacceleratedScrollingDeltaY = webEvent.unacceleratedScrollingDelta().height();

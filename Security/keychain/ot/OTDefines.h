@@ -98,6 +98,7 @@ typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
     TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
+    TrustedPeersHelperErrorUnknownCloudKitError   = 36,
     TrustedPeersHelperErrorNoPeersPreapprovedBySelf = 47,
 };
 
@@ -129,6 +130,13 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorIneligibleExclusionDenied = 1035,
     CuttlefishErrorMultiplePreapprovedJoinDenied = 1036,
     CuttlefishErrorUpdateTrustPeerNotFound = 1037,
+    CuttlefishErrorEscrowProxyFailure = 1038,
+    CuttlefishErrorResetFailed = 1039,
+    CuttlefishErrorViewZoneDeletionFailed = 1040,
+
+    // For testing error handling. Never returned from actual cuttlefish.
+    // Should not be retried.
+    CuttlefishErrorTestGeneratedFailure = 9999,
 };
 
 NS_ASSUME_NONNULL_END

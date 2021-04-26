@@ -199,7 +199,7 @@
                 return CKKSDatabaseTransactionCommit;
             }];
         };
-        [ckks.database addOperation: fetch];
+        [ckks.operationDependencies.ckdatabase addOperation:fetch];
         [self dependOnBeforeGroupFinished:fetch];
         [self dependOnBeforeGroupFinished:doneOp];
 
@@ -288,7 +288,7 @@
             [self runBeforeGroupFinished:doneOp];
         };
 
-        [ckks.database addOperation: fetch];
+        [ckks.operationDependencies.ckdatabase addOperation:fetch];
         [self dependOnBeforeGroupFinished:fetch];
         [self dependOnBeforeGroupFinished:doneOp];
 

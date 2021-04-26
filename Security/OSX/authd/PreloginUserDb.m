@@ -14,8 +14,10 @@
 #import <SoftLinking/SoftLinking.h>
 #import "debugging.h"
 #import <Security/Authorization.h>
+#import <Security/AuthorizationPriv.h>
 #import <Security/AuthorizationTagsPriv.h>
 #import <libaks_filevault.h>
+#import "authutilities.h"
 
 AUTHD_DEFINE_LOG
 
@@ -53,8 +55,16 @@ static NSString *kUsersGUID = @"UserIdent";
 static NSString *kUsersNameSection = @"UserNamesData";
 static NSString *kUsersSection = @"CryptoUsers";
 
+static NSString *globalConfigPath = @"%@/%@/Library/Preferences";
+static NSString *managedConfigPath = @"%@/%@/Library/Managed Preferences";
+static NSString *homeDirPath = @"%@/%@/Users";
 
-@interface PreloginUserDb : NSObject
+static NSString *fvunlockOverrideScEnforcementPrefsName = @"com.apple.smartcard.fvunlock";
+static NSString *fvunlockOverrideScEnforcementFileName = @"%@/%@/var/db/.scnotenforced";
+
+@interface PreloginUserDb : NSObject {
+    Boolean scEnforcementOverriden;
+}
 
 - (instancetype)init;
 
@@ -62,7 +72,9 @@ static NSString *kUsersSection = @"CryptoUsers";
 
 - (NSArray<NSDictionary *> *) users;
 - (NSArray<NSDictionary *> *) users:(NSString *)volumeUuid;
-
+- (NSDictionary *) globalPrefs:(NSString *)uuid domain:(NSString *)domain;
+- (NSDictionary *) managedPrefs:(NSString *)uuid domain:(NSString *)domain;
+- (NSDictionary *) userPrefs:(NSString *)uuid user:(NSString *)user domain:(NSString *)domain;
 @end
 
 typedef void (^AIRDBDACommonCompletionHandler)(DADissenterRef dissenter);
@@ -72,11 +84,16 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
 	handler(dissenter);
 }
 
+OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
+
 @implementation PreloginUserDb {
 	DMManager *_diskMgr;
 	id _daSession;
-	NSMutableDictionary<NSString*, NSMutableArray*> *_dbDataDict; // NSDictionary indexed by volume UUID (NSString*)
-    NSMutableDictionary<NSString*, NSString*> *_dbVolumeGroupMap;
+    NSMutableDictionary<NSString *, NSDictionary *> *_globalPrefs; // NSString *prefDomain indexed by volume UUID (NSString *)
+    NSMutableDictionary<NSString *, NSDictionary *> *_userPrefs; // NSString *username indexed by volume UUID (NSString *)
+    NSMutableDictionary<NSString *, NSDictionary *> *_managedPrefs; // NSString *prefDomain indexed by volume UUID (NSString *)
+	NSMutableDictionary<NSString *, NSMutableArray *> *_dbDataDict; // NSDictionary indexed by volume UUID (NSString *)
+    NSMutableDictionary<NSString *, NSString *> *_dbVolumeGroupMap;
 	dispatch_queue_t _queue;
 }
 
@@ -103,6 +120,12 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
 
         soft_DASessionSetDispatchQueue((__bridge DASessionRef _Nullable)_daSession, _queue);
         [_diskMgr setDefaultDASession:(__bridge DASessionRef _Nullable)(_daSession)];
+        
+        _dbDataDict = [NSMutableDictionary new];
+        _dbVolumeGroupMap = [NSMutableDictionary new];
+        _userPrefs = [NSMutableDictionary new];
+        _globalPrefs = [NSMutableDictionary new];
+        _managedPrefs = [NSMutableDictionary new];
 	}
 	return self;
 }
@@ -110,7 +133,7 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
 - (BOOL)loadWithError:(NSError **)err
 {
     // get all preboot volumes
-    NSArray* prebootVolumes = [self allPrebootVolumes];
+    NSArray *prebootVolumes = [self allPrebootVolumes];
     if (prebootVolumes.count == 0) {
         os_log_error(AUTHD_LOG, "Failed to get preboot volumes for Prelogin userDB");
         if (err) {
@@ -121,15 +144,18 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
 
     NSUUID *uuid = [self currentRecoveryVolumeUUID];
     os_log_info(AUTHD_LOG, "Current Recovery Volume UUID: %{public}@", uuid);
+    
+    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
+        [self processVolumeData:volumeUuid mountPoint:mountPoint];
+        return noErr;
+    };
 
-    _dbDataDict = [NSMutableDictionary new];
-    _dbVolumeGroupMap = [NSMutableDictionary new];
-    [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:uuid];
+    [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:uuid worker:volumeWorker];
 
     if (_dbDataDict.count == 0 && uuid != nil) {
         os_log(AUTHD_LOG, "No admins found. Try to load all preboot partitions");
         _dbDataDict = [NSMutableDictionary new];
-        [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:nil]; // load admins from ALL preboot partitions
+        [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:nil worker:volumeWorker]; // load admins from ALL preboot partitions
     }
 
     if (err) {
@@ -143,7 +169,7 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
     return [self users:nil];
 }
 
-- (NSArray<NSDictionary *> *) users:(NSString *)requestedUuid
+- (NSArray<NSDictionary *> *)users:(NSString *)requestedUuid
 {
     if (!_dbDataDict.allValues) {
         return nil;
@@ -178,9 +204,128 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
     }
     return allUsers;
 }
+
+- (NSDictionary *)globalPrefs:(NSString *)uuid domain:(NSString *)domain
+{
+    NSDictionary *volumeGlobalPrefs = _globalPrefs[uuid];
+    if (!volumeGlobalPrefs) {
+        os_log_debug(AUTHD_LOG, "No global prefs for volume %{public}@ were found", uuid);
+        return nil;
+    }
+    return volumeGlobalPrefs[domain];
+}
+
+- (NSDictionary *)managedPrefs:(NSString *)uuid domain:(NSString *)domain
+{
+    NSDictionary *volumeManagedPrefs = _managedPrefs[uuid];
+    if (!volumeManagedPrefs) {
+        return nil;
+    }
+    return volumeManagedPrefs[domain];
+}
+
+- (NSDictionary *)userPrefs:(NSString *)uuid user:(NSString *)user domain:(NSString *)domain
+{
+    NSDictionary *volumeUserPrefs = _userPrefs[uuid];
+    if (!volumeUserPrefs) {
+        os_log_debug(AUTHD_LOG, "No user prefs for volume %{public}@ were found", uuid);
+        return nil;
+    }
+    NSDictionary *userPrefs = volumeUserPrefs[user];
+    if (!userPrefs) {
+        os_log_debug(AUTHD_LOG, "No user prefs for volume %{public}@ and user %{public}@ were found", uuid, user);
+        return nil;
+    }
+    return userPrefs[domain];
+}
+
+- (OSStatus)setEnforcedSmartcardOverride:(NSUUID *)uuid operation:(unsigned char)operation status:(Boolean *)status internal:(Boolean)internal
+{
+    if (!isInFVUnlock()) {
+        if (operation == kAuthorizationOverrideOperationQuery && !internal) {
+            if (status) {
+                *status = scEnforcementOverriden;
+            }
+            return noErr;
+        } else if (!internal) {
+            os_log_error(AUTHD_LOG, "SmartCard enforcement can be set only from Recovery");
+            return errSecNotAvailable;
+        }
+    }
+    
+    NSArray *prebootVolumes = [self allPrebootVolumes];
+    __block OSStatus retval = errAuthorizationInternal;
+    
+    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
+
+        NSString *usersPath = [NSString stringWithFormat:kUsersFile, mountPoint, volumeUuid.UUIDString];
+        if (access(usersPath.UTF8String, F_OK)) {
+            os_log_info(AUTHD_LOG, "This preboot volume is not usable for FVUnlock");
+            return errSecInvalidItemRef;
+        }
+        os_log_info(AUTHD_LOG, "Preboot volume %{public}@ is usable for FVUnlock", volumeUuid);
+
+        NSString *filePath = [NSString stringWithFormat:fvunlockOverrideScEnforcementFileName, mountPoint, volumeUuid.UUIDString];
+        BOOL overrideFileExists = !access(filePath.UTF8String, F_OK);
+
+        switch(operation) {
+            case kAuthorizationOverrideOperationSet: // set
+            {
+                if (overrideFileExists) {
+                    os_log(AUTHD_LOG, "SmartCard enforcement override is already active.");
+                    retval = noErr;
+                } else {
+                    mode_t mode = S_IRUSR | S_IWUSR;
+                    int fd = creat(filePath.UTF8String, mode);
+                    if (fd != -1) {
+                        os_log(AUTHD_LOG, "SmartCard enforcement override turned on");
+                        retval = noErr;
+                        close(fd);
+                    } else {
+                        os_log_error(AUTHD_LOG, "Unable to write override file: %d", errno);
+                        retval = errno;
+                    }
+                }
+                break;
+            }
+            case kAuthorizationOverrideOperationReset: // reset
+            {
+                if (!overrideFileExists) {
+                    os_log(AUTHD_LOG, "SmartCard enforcement override not active.");
+                    retval = errSecNoSuchAttr;
+                } else {
+                    os_log(AUTHD_LOG, "SmartCard enforcement override turned off");
+                    retval = (OSStatus)remove(filePath.UTF8String);
+                }
+                break;
+            }
+            case kAuthorizationOverrideOperationQuery: // status
+            {
+                if (!status) {
+                    break;
+                }
+                
+                *status = overrideFileExists;
+                os_log_debug(AUTHD_LOG, "SmartCard enforcement override status %d", overrideFileExists);
+                retval = noErr;
+                break;
+            }
+            default: {
+                os_log_error(AUTHD_LOG, "Unknown operation %d", operation);
+            }
+        }
+        
+        return retval;
+    };
+
+    [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:uuid worker:volumeWorker];
+    
+    return retval;
+}
+
 #pragma mark - Private Methods
 
-- (void)processPrebootVolumes:(NSArray*)prebootVolumes currentRecoveryVolumeUUID:(NSUUID *)currentRecoveryVolumeUUID
+- (void)processPrebootVolumes:(NSArray*)prebootVolumes currentRecoveryVolumeUUID:(NSUUID *)currentRecoveryVolumeUUID worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock
 {
     // process each preboot volume
     for (id prebootVolume in prebootVolumes) {
@@ -189,8 +334,9 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
         Boolean mounted = [self mountPrebootVolume:prebootVolume];
 
         // get a mount point of the preboot volume
-        NSString* mountPoint = [self mountPointForPrebootVolume:prebootVolume];
+        NSString *mountPoint = [self mountPointForPrebootVolume:prebootVolume];
         if (!mountPoint) {
+            os_log_info(AUTHD_LOG, "Volume %{public}@ has no mountpoint", prebootVolume);
             continue;
         }
 
@@ -204,7 +350,7 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
                 continue;
             }
 
-            NSUUID* volumeUUID =  [[NSUUID alloc] initWithUUIDString:url.lastPathComponent]; // the dir has the name as UUID
+            NSUUID *volumeUUID = [[NSUUID alloc] initWithUUIDString:url.lastPathComponent]; // the dir has the name as UUID
             if (!volumeUUID) {
                 os_log_info(AUTHD_LOG, "Ignoring folder %{public}@ (not UUID)", url);
                 continue;
@@ -215,7 +361,9 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
                 continue;
             }
 
-            [self processVolumeData:volumeUUID mountPoint:mountPoint];
+            if (workerBlock) {
+                workerBlock(volumeUUID, mountPoint);
+            }
         }
 
         // unmount the preboot volume
@@ -234,7 +382,7 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
     NSString *key = [NSString stringWithFormat:@"%@:%@", LANVRAMNamespaceStartupManager, @kEFISystemVolumeUUIDVariableName];
     
     io_registry_entry_t match = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
-    if (match)  {
+    if (match) {
         CFTypeRef entry = IORegistryEntryCreateCFProperty(match, (__bridge CFStringRef)key, kCFAllocatorDefault, 0);
         IOObjectRelease(match);
         
@@ -484,10 +632,7 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
             dict[@PLUDB_SCUNLOCK_DATA] = userData[kSCUnlockDataItemName];
         }
         if ([userData.allKeys containsObject:kSCEnforcementItemName]) {
-            dict[@PLUDB_SCUNLOCK_DATA] = userData[kSCEnforcementItemName];
-        }
-        if ([userData.allKeys containsObject:kSCUnlockDataItemName]) {
-            dict[@PLUDB_SCUNLOCK_DATA] = userData[kSCUnlockDataItemName];
+            dict[@PLUDB_SCENF] = userData[kSCEnforcementItemName];
         }
         if ([userData.allKeys containsObject:kSCUacItemName]) {
             dict[@PLUDB_SCUAC] = userData[kSCUacItemName];
@@ -509,21 +654,124 @@ static void _commonDACompletionCallback(DADiskRef disk, DADissenterRef dissenter
         os_log_info(AUTHD_LOG, "Prelogin UserDB added entry: %{public}@", dict);
         [array addObject:dict];
     }
+    
+    // check for SC override
+    scEnforcementOverriden = NO;
+    [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverriden internal:YES];
+    os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverriden);
+
+    if (!isInFVUnlock()) {
+        os_log_debug(AUTHD_LOG, "Not processing prefs");
+        
+        // remove SCenforcement override flag
+        if (scEnforcementOverriden) {
+            [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationReset status:nil internal:YES];
+        }
+        return; // do not process prefs when not in FVUnlock
+    }
+    
+    // process preferences
+    // global prefs
+    NSMutableDictionary *global = @{}.mutableCopy;
+    NSString *filePath = [NSString stringWithFormat:globalConfigPath, mountPoint, volumeUuid.UUIDString];
+
+    NSDirectoryEnumerator *dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:filePath isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
+    for (NSURL *url in dirEnumerator) {
+        BOOL isDir = NO;
+        [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
+        if (isDir) {
+            os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", url.path);
+            continue;
+        }
+        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:url.path];
+        if (prefs) {
+            NSString *prefName = url.URLByDeletingPathExtension.lastPathComponent;
+            global[prefName] = prefs;
+        }
+    }
+    
+    if (scEnforcementOverriden) {
+        os_log_info(AUTHD_LOG, "SC enforcement overriden for this boot");
+        global[fvunlockOverrideScEnforcementPrefsName] = @{ @"overrideScEnforcement": @YES };
+    }
+
+    if (global.count) {
+        _globalPrefs[volumeUuid.UUIDString] = global;
+    }
+    
+    // managed prefs
+    NSMutableDictionary *managed = @{}.mutableCopy;
+    filePath = [NSString stringWithFormat:managedConfigPath, mountPoint, volumeUuid.UUIDString];
+
+    dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:filePath isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
+    for (NSURL *url in dirEnumerator) {
+        BOOL isDir = NO;
+        [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
+        if (isDir) {
+            os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", url.path);
+            continue;
+        }
+        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:url.path];
+        if (prefs) {
+            NSString *prefName = url.URLByDeletingPathExtension.lastPathComponent;
+            managed[prefName] = prefs;
+        }
+    }
+    if (managed.count) {
+        _managedPrefs[volumeUuid.UUIDString] = managed;
+    }
+    
+    // per user prefs
+    NSMutableDictionary *user = @{}.mutableCopy;
+    filePath = [NSString stringWithFormat:homeDirPath, mountPoint, volumeUuid.UUIDString];
+
+    dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:filePath isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
+    for (NSURL *url in dirEnumerator) {
+        BOOL isDir = NO;
+        [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
+        if (!isDir) {
+            os_log_info(AUTHD_LOG, "Skipping file %{public}@ (not a directory)", url.path);
+            continue;
+        }
+
+        NSMutableDictionary *userPrefs = @{}.mutableCopy;
+        NSString *userName = url.lastPathComponent;
+        NSString *userPrefPath = [NSString stringWithFormat:@"%@/Library/Preferences", url.path];
+        NSDirectoryEnumerator *dirEnumerator2 = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:userPrefPath isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
+        for (NSURL *userUrl in dirEnumerator2) {
+            isDir = NO;
+            [[NSFileManager defaultManager] fileExistsAtPath:userUrl.path isDirectory:&isDir];
+            if (isDir) {
+                os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", userUrl.path);
+                continue;
+            }
+            NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:userUrl.path];
+            if (prefs) {
+                NSString *prefName = userUrl.URLByDeletingPathExtension.lastPathComponent;
+                userPrefs[prefName] = prefs;
+            }
+        }
+        
+        if (userPrefs.count) {
+            user[userName] = userPrefs;
+        }
+    }
+    if (user.count) {
+        _userPrefs[volumeUuid.UUIDString] = user;
+    }
+    os_log_debug(AUTHD_LOG, "Global prefs for volume %@: %@", volumeUuid.UUIDString, global);
+    os_log_debug(AUTHD_LOG, "Managed prefs for volume %@: %@", volumeUuid.UUIDString, managed);
+    os_log_debug(AUTHD_LOG, "User prefs for volume %@: %@", volumeUuid.UUIDString, user);
 }
 
 @end
 
-OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *output)
+OSStatus preloginDb(PreloginUserDb **db)
 {
-    if (!output) {
-        return errAuthorizationBadAddress;
-    }
     static PreloginUserDb *database;
     static OSStatus loadError = errAuthorizationSuccess;
     static dispatch_once_t onceToken;
-    
     dispatch_once(&onceToken, ^{
-        
         os_log_info(AUTHD_LOG, "Going to load User DB");
 
         database = [[PreloginUserDb alloc] init];
@@ -540,9 +788,97 @@ OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *out
     if (loadError) {
         return loadError;
     }
+    if (db) {
+        *db = database;
+    }
+    return noErr;
+}
+
+OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *output)
+{
+    if (!output) {
+        return errAuthorizationBadAddress;
+    }
+    PreloginUserDb *database;
+    OSStatus retval = preloginDb(&database);
+    if (retval) {
+        os_log_error(AUTHD_LOG, "Unable to read db");
+        return retval;
+    }
     
     os_log_debug(AUTHD_LOG, "Processing user db for volume %{public}s with flags %d", uuid, flags);
 
     *output = CFBridgingRetain([database users:uuid ? [NSString stringWithUTF8String:uuid]  : nil]);
     return errAuthorizationSuccess;
 }
+
+OSStatus prelogin_copy_pref_value(const char * _Nullable uuid, const char *user, const char *domain, const char *item, CFTypeRef *output)
+{
+    if (!output || !uuid) {
+        return errAuthorizationBadAddress;
+    }
+    PreloginUserDb *database;
+    OSStatus retval = preloginDb(&database);
+    if (retval) {
+        os_log_error(AUTHD_LOG, "Unable to read db");
+        return retval;
+    }
+    
+    NSDictionary *prefs;
+    NSDictionary *managed;
+    NSString *_domain = [NSString stringWithUTF8String:domain];
+    NSString *_uuid = [NSString stringWithUTF8String:uuid];
+    if (user) {
+        os_log_debug(AUTHD_LOG, "Reading user pref volume %{public}s %{public}s/%{public}s for user %s", uuid, domain, item, user);
+        prefs = [database userPrefs:_uuid user:[NSString stringWithUTF8String:user] domain:_domain];
+    } else {
+        os_log_debug(AUTHD_LOG, "Reading global pref volume %{public}s %{public}s/%{public}s", uuid, domain, item);
+        managed = [database managedPrefs:_uuid domain:_domain];
+        prefs = [database globalPrefs:_uuid domain:_domain];
+    }
+    
+    if (!prefs) {
+        os_log_debug(AUTHD_LOG, "No pref found");
+        return errAuthorizationInvalidSet;
+    }
+    
+    id value = managed[[NSString stringWithUTF8String:item]];
+    if (value) {
+        os_log_info(AUTHD_LOG, "Using managed prefs for %{public}s", item);
+    } else {
+        os_log_debug(AUTHD_LOG, "Using global prefs for %{public}s", item);
+        value = prefs[[NSString stringWithUTF8String:item]];
+    }
+    if (!value) {
+        os_log_debug(AUTHD_LOG, "No pref value with name %{public}s was found", item);
+        return errAuthorizationInvalidTag;
+    }
+    
+    *output = CFBridgingRetain(value);
+    return errAuthorizationSuccess;
+}
+
+OSStatus prelogin_smartcardonly_override(const char *uuid, unsigned char operation, Boolean *status)
+{
+    if (!uuid) {
+        os_log_error(AUTHD_LOG, "No volume UUID provided");
+        return errSecParam;
+    }
+    
+    NSUUID *volumeUuid = [[NSUUID alloc] initWithUUIDString:[NSString stringWithUTF8String:uuid]];
+    if (!volumeUuid) {
+        os_log_error(AUTHD_LOG, "Invalid volume UUID provided: %{public}s", uuid);
+        return errSecParam;
+    }
+
+    PreloginUserDb *database;
+    OSStatus retval = preloginDb(&database);
+    if (retval) {
+        os_log_error(AUTHD_LOG, "Unable to read db");
+        return retval;
+    }
+    
+    
+    return [database setEnforcedSmartcardOverride:volumeUuid operation:operation status:status internal:NO];
+}
+

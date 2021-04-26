@@ -10,7 +10,8 @@ Clang_Use_Optimized    := 1
 # FIXME: remove, stop hardcoding it.
 Clang_Version          := 11.0.0
 
-ifeq ($(RC_ProjectName),clang) # Use LTO for clang but not clang_device
+# Use LTO for clang but not clang_device
+ifeq ($(APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName),clang)
 Clang_Enable_LTO := THIN
 else
 Clang_Enable_LTO := 0
@@ -44,8 +45,10 @@ install: clang
 installsrc-paths :=    \
     llvm               \
     clang-tools-extra  \
+    clang-shims        \
     compiler-rt        \
     libcxx             \
+    libcxxabi          \
     clang
 include apple-xbs-support/helpers/installsrc.mk
 
@@ -84,13 +87,37 @@ compiler-rt: $(OBJROOT) $(SYMROOT) $(DSTROOT)
 	cd $(OBJROOT) && \
 		$(BUILD_COMPILER_RT) $(Clang_Use_Assertions) $(Clang_Use_Optimized) $(Clang_Version)
 
-COMPILER_RT_DYLIBS = $(filter-out %sim_dynamic.dylib,$(wildcard $(RC_EMBEDDEDPROJECT_DIR)/clang_compiler_rt/$(DT_TOOLCHAIN_DIR)/usr/lib/clang/$(Clang_Version)/lib/darwin/*_dynamic.dylib))
+# FIXME: Workaround <rdar://problem/57402006> DT_TOOLCHAIN_DIR is incorrectly
+# set when -developerDir is used or `DEVELOPER_DIR` environment variable is set
+# when targeting non-macOS trains.
+XCODE_TOOLCHAINS_DIR = Applications/Xcode.app/Contents/Developer/Toolchains
+XCODE_TOOLCHAIN_DIR = $(XCODE_TOOLCHAINS_DIR)/$(notdir $(DT_TOOLCHAIN_DIR))
+XCODE_TOOLCHAIN_CLANG_LIBS_DIR = $(XCODE_TOOLCHAIN_DIR)/usr/lib/clang/$(Clang_Version)/lib/darwin
+COMPILER_RT_PROJECT_DIR = $(RC_EMBEDDEDPROJECT_DIR)/$(APPLE_XBS_SUPPORT_VARIANT_PREFIX)clang_compiler_rt
+COMPILER_RT_TOOLCHAIN_DYLIB_DIR = $(COMPILER_RT_PROJECT_DIR)/$(XCODE_TOOLCHAIN_CLANG_LIBS_DIR)
+$(info COMPILER_RT_TOOLCHAIN_DYLIB_DIR:$(COMPILER_RT_TOOLCHAIN_DYLIB_DIR))
+COMPILER_RT_DYLIBS = $(filter-out %sim_dynamic.dylib,$(wildcard $(COMPILER_RT_TOOLCHAIN_DYLIB_DIR)/*_dynamic.dylib))
+$(info COMPILER_RT_DYLIBS:$(COMPILER_RT_DYLIBS))
 ifeq ($(findstring OSX,$(DT_TOOLCHAIN_DIR)),)
     OS_DYLIBS = $(filter-out %osx_dynamic.dylib,$(COMPILER_RT_DYLIBS))
 else
     OS_DYLIBS = $(COMPILER_RT_DYLIBS)
 endif
 
+# TODO(dliew): Remove support for old path (rdar://problem/57350767).
+include apple-xbs-support/helpers/train_detection.mk
+OLD_COMPILER_RT_OS_INSTALL_PATH=/usr/local/lib/sanitizers
+NEW_COMPILER_RT_OS_INSTALL_PATH=/usr/appleinternal/lib/sanitizers/
+NEW_COMPILER_RT_INSTALL_OS_VERSIONS := OSX-11.0 iOS-14.0 WatchOS-7.0 AppleTVOS-14.0 BridgeOS-5.0
+COMPILER_RT_OS_DYLIB_PERMISSIONS := u=rwx,g=rx,o=rx
+
 compiler-rt-os:
-	mkdir -p $(DSTROOT)/usr/local/lib/sanitizers/
-	ditto $(OS_DYLIBS) $(DSTROOT)/usr/local/lib/sanitizers/
+	mkdir -p $(DSTROOT)$(OLD_COMPILER_RT_OS_INSTALL_PATH)
+	ditto $(OS_DYLIBS) $(DSTROOT)$(OLD_COMPILER_RT_OS_INSTALL_PATH)
+	chmod -vv $(COMPILER_RT_OS_DYLIB_PERMISSIONS) $(DSTROOT)$(OLD_COMPILER_RT_OS_INSTALL_PATH)/*.dylib
+	@if [ "X$(call os-train-version-is-at-least,$(NEW_COMPILER_RT_INSTALL_OS_VERSIONS))" = "X1" ]; then \
+		echo Installing compiler-rt dylibs to new path: $(NEW_COMPILER_RT_OS_INSTALL_PATH); \
+		mkdir -p $(DSTROOT)$(NEW_COMPILER_RT_OS_INSTALL_PATH); \
+		ditto $(OS_DYLIBS) $(DSTROOT)$(NEW_COMPILER_RT_OS_INSTALL_PATH); \
+		chmod -vv $(COMPILER_RT_OS_DYLIB_PERMISSIONS) $(DSTROOT)$(NEW_COMPILER_RT_OS_INSTALL_PATH)/*.dylib; \
+	fi

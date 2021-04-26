@@ -69,16 +69,22 @@ void ScrollingCoordinatorNicosia::commitTreeStateIfNeeded()
     m_scrollingStateTreeCommitterTimer.stop();
 }
 
-bool ScrollingCoordinatorNicosia::handleWheelEvent(FrameView&, const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNode)
+bool ScrollingCoordinatorNicosia::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNode, Optional<WheelScrollGestureState> gestureState)
 {
     ASSERT(isMainThread());
     ASSERT(m_page);
     ASSERT(scrollingTree());
 
-    ScrollingThread::dispatch([threadedScrollingTree = makeRef(downcast<ThreadedScrollingTree>(*scrollingTree())), wheelEvent, targetNode] {
-        threadedScrollingTree->handleWheelEventAfterMainThread(wheelEvent, targetNode);
+    ScrollingThread::dispatch([threadedScrollingTree = makeRef(downcast<ThreadedScrollingTree>(*scrollingTree())), wheelEvent, targetNode, gestureState] {
+        threadedScrollingTree->handleWheelEventAfterMainThread(wheelEvent, targetNode, gestureState);
     });
     return true;
+}
+
+void ScrollingCoordinatorNicosia::wheelEventWasProcessedByMainThread(const PlatformWheelEvent& wheelEvent, Optional<WheelScrollGestureState> gestureState)
+{
+    RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
+    threadedScrollingTree->wheelEventWasProcessedByMainThread(wheelEvent, gestureState);
 }
 
 void ScrollingCoordinatorNicosia::scheduleTreeStateCommit()

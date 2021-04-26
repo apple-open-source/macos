@@ -84,12 +84,12 @@ NSString* homeDirUUID;
 
     NSString* testName = [self.name componentsSeparatedByString:@" "][1];
     testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
-    secnotice("ckkstest", "Beginning test %@", testName);
+    secnotice("mockaks", "Beginning test %@", testName);
 
     self.testHomeDirectory = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@/%@/", homeDirUUID, testName]];
     [self createKeychainDirectory];
 
-    SetCustomHomeURLString((__bridge CFStringRef) self.testHomeDirectory);
+    SecSetCustomHomeURLString((__bridge CFStringRef) self.testHomeDirectory);
     SecKeychainDbReset(NULL);
 
     // Actually load the database.
@@ -98,13 +98,29 @@ NSString* homeDirUUID;
 
 - (void)tearDown
 {
+    NSURL* keychainDir = (NSURL*)CFBridgingRelease(SecCopyHomeURL());
+
+    SecKeychainDbForceClose();
+
+    // Only perform the desctructive step if the url matches what we expect!
+    if([keychainDir.path hasPrefix:self.testHomeDirectory]) {
+        secnotice("mockaks", "Removing test-specific keychain directory at %@", keychainDir);
+
+        NSError* removeError = nil;
+        [[NSFileManager defaultManager] removeItemAtURL:keychainDir error:&removeError];
+
+        XCTAssertNil(removeError, "Should have been able to remove temporary files");
+     } else {
+         XCTFail("Unsure what happened to the keychain directory URL: %@", keychainDir);
+    }
+
     SecAccessGroupsSetCurrent((__bridge CFArrayRef)self.originalAccessGroups);
     [super tearDown];
 }
 
 + (void)tearDown
 {
-    SetCustomHomeURLString(NULL);
+    SecSetCustomHomeURLString(NULL);
     SecKeychainDbReset(NULL);
 }
 

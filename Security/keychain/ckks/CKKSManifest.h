@@ -63,6 +63,8 @@ extern NSString* const CKKSManifestGenCountKey;
 - (BOOL)itemUUIDExistsInManifest:(NSString*)uuid;
 - (BOOL)contentsAreEqualToManifest:(CKKSManifest*)otherManifest;
 
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
+
 @end
 
 @interface CKKSPendingManifest : CKKSManifest
@@ -70,6 +72,8 @@ extern NSString* const CKKSManifestGenCountKey;
 @property (readonly, getter=isReadyToCommmit) BOOL readyToCommit;
 
 - (nullable CKKSManifest*)commitToDatabaseWithError:(NSError**)error;
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
 
 @end
 

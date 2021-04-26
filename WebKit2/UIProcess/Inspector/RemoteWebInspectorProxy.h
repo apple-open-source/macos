@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,18 +48,24 @@ class CertificateInfo;
 
 namespace API {
 class DebuggableInfo;
+class InspectorConfiguration;
 }
 
 namespace WebKit {
 
+class RemoteWebInspectorProxy;
 class WebPageProxy;
 class WebView;
+#if ENABLE(INSPECTOR_EXTENSIONS)
+class WebInspectorUIExtensionControllerProxy;
+#endif
 
 class RemoteWebInspectorProxyClient {
 public:
     virtual ~RemoteWebInspectorProxyClient() { }
     virtual void sendMessageToBackend(const String& message) = 0;
     virtual void closeFromFrontend() = 0;
+    virtual Ref<API::InspectorConfiguration> configurationForRemoteInspector(RemoteWebInspectorProxy&) = 0;
 };
 
 class RemoteWebInspectorProxy : public RefCounted<RemoteWebInspectorProxy>, public IPC::MessageReceiver {
@@ -85,6 +91,10 @@ public:
 
     void sendMessageToFrontend(const String& message);
 
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    WebInspectorUIExtensionControllerProxy& extensionController() const { return *m_extensionController; }
+#endif
+    
 #if PLATFORM(MAC)
     NSWindow *window() const { return m_window.get(); }
     WKWebView *webView() const;
@@ -114,6 +124,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // RemoteWebInspectorProxy messages.
+    void frontendLoaded();
     void frontendDidClose();
     void reopen();
     void resetState();
@@ -123,7 +134,7 @@ private:
     void setSheetRect(const WebCore::FloatRect&);
     void setForcedAppearance(WebCore::InspectorFrontendClient::Appearance);
     void startWindowDrag();
-    void openInNewTab(const String& url);
+    void openURLExternally(const String& url);
     void showCertificate(const WebCore::CertificateInfo&);
     void sendMessageToBackend(const String& message);
 
@@ -140,12 +151,16 @@ private:
     void platformSetSheetRect(const WebCore::FloatRect&);
     void platformSetForcedAppearance(WebCore::InspectorFrontendClient::Appearance);
     void platformStartWindowDrag();
-    void platformOpenInNewTab(const String& url);
+    void platformOpenURLExternally(const String& url);
     void platformShowCertificate(const WebCore::CertificateInfo&);
 
     RemoteWebInspectorProxyClient* m_client { nullptr };
     WebPageProxy* m_inspectorPage { nullptr };
 
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    std::unique_ptr<WebInspectorUIExtensionControllerProxy> m_extensionController;
+#endif
+    
     Ref<API::DebuggableInfo> m_debuggableInfo;
     String m_backendCommandsURL;
 

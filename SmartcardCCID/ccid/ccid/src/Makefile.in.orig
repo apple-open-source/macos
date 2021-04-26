@@ -157,7 +157,7 @@ am__objects_1 = libccid_la-ccid.lo libccid_la-commands.lo \
 am__objects_2 = libccid_la-ccid_usb.lo
 am__objects_3 = libccid_la-tokenparser.lo libccid_la-strlcpy.lo \
 	libccid_la-simclist.lo
-@WITHOUT_PCSC_TRUE@am__objects_4 = libccid_la-debug.lo
+am__objects_4 = libccid_la-debug.lo
 am__dirstamp = $(am__leading_dot)dirstamp
 am__objects_5 = towitoko/libccid_la-atr.lo towitoko/libccid_la-pps.lo \
 	openct/libccid_la-buffer.lo openct/libccid_la-checksum.lo \
@@ -187,7 +187,7 @@ am__objects_6 = libccidtwin_la-ccid.lo libccidtwin_la-commands.lo \
 am__objects_7 = libccidtwin_la-ccid_serial.lo
 am__objects_8 = libccidtwin_la-tokenparser.lo \
 	libccidtwin_la-strlcpy.lo libccidtwin_la-simclist.lo
-@WITHOUT_PCSC_TRUE@am__objects_9 = libccidtwin_la-debug.lo
+am__objects_9 = libccidtwin_la-debug.lo
 am__objects_10 = towitoko/libccidtwin_la-atr.lo \
 	towitoko/libccidtwin_la-pps.lo openct/libccidtwin_la-buffer.lo \
 	openct/libccidtwin_la-checksum.lo \
@@ -496,7 +496,7 @@ TOKEN_PARSER = tokenparser.l parser.h \
 	simclist.c \
 	simclist.h
 
-@WITHOUT_PCSC_TRUE@PROVIDED_BY_PCSC = debug.c
+PROVIDED_BY_PCSC = debug.c
 libccid_la_SOURCES = $(COMMON) $(USB) $(TOKEN_PARSER) $(PROVIDED_BY_PCSC) $(T1)
 libccid_la_LIBADD = $(LEXLIB) $(LIBUSB_LIBS) $(PTHREAD_LIBS)
 libccid_la_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) $(PTHREAD_CFLAGS) \

@@ -1,0 +1,12 @@
+diff --git a/inc/Module/Install/PRIVATE/Net/SSLeay.pm b/inc/Module/Install/PRIVATE/Net/SSLeay.pm
+index cd56ff3..9cb58c7 100644
+--- a/inc/Module/Install/PRIVATE/Net/SSLeay.pm
++++ b/inc/Module/Install/PRIVATE/Net/SSLeay.pm
+@@ -127,6 +127,7 @@ EOM
+               ? qw( ssl crypto RSAglue rsaref z )
+               : qw( ssl crypto z )
+              );
++        push @{ $opts->{lib_paths} }, '@SDKROOT@/usr/lib';
+ 
+         if (($Config{cc} =~ /aCC/i) && $^O eq 'hpux') {
+             print "*** Enabling HPUX aCC options (+e)\n";

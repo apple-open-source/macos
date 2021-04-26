@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -185,6 +185,11 @@ __SCPreferencesUsingDefaultPrefs(SCPreferencesRef prefs)
 	char			*curPath;
 	Boolean			isDefault = FALSE;
 	SCPreferencesPrivateRef prefsPrivate = (SCPreferencesPrivateRef)prefs;
+
+	if (prefs == NULL) {
+		// if no prefs, assume that we are using the "default" prefs
+		return TRUE;
+	}
 
 	curPath = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
 	if (curPath != NULL) {

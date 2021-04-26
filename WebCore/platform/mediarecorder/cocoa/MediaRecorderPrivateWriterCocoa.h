@@ -70,12 +70,17 @@ public:
     void appendVideoSampleBuffer(MediaSample&);
     void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t);
     void stopRecording();
-    void fetchData(CompletionHandler<void(RefPtr<SharedBuffer>&&)>&&);
+    void fetchData(CompletionHandler<void(RefPtr<SharedBuffer>&&, double)>&&);
+
+    void pause();
+    void resume();
 
     void appendData(const char*, size_t);
     void appendData(Ref<SharedBuffer>&&);
 
     const String& mimeType() const;
+    unsigned audioBitRate() const;
+    unsigned videoBitRate() const;
 
 private:
     MediaRecorderPrivateWriter(bool hasAudio, bool hasVideo);
@@ -99,9 +104,10 @@ private:
 
     void finishAppendingCompressedAudioSampleBuffers(CompletionHandler<void()>&&);
     void finishAppendingCompressedVideoSampleBuffers(CompletionHandler<void()>&&);
-    void flushCompressedSampleBuffers(CompletionHandler<void()>&&);
+    void flushCompressedSampleBuffers(Function<void()>&&);
 
     void finishedFlushingSamples();
+    void completeFetchData();
 
     bool m_hasAudio { false };
     bool m_hasVideo { false };
@@ -113,7 +119,7 @@ private:
     RetainPtr<AVAssetWriter> m_writer;
 
     RefPtr<SharedBuffer> m_data;
-    CompletionHandler<void(RefPtr<SharedBuffer>&&)> m_fetchDataCompletionHandler;
+    CompletionHandler<void(RefPtr<SharedBuffer>&&, double)> m_fetchDataCompletionHandler;
 
     RetainPtr<CMFormatDescriptionRef> m_audioFormatDescription;
     std::unique_ptr<AudioSampleBufferCompressor> m_audioCompressor;
@@ -134,8 +140,10 @@ private:
     bool m_shouldStopAfterFlushingSamples { false };
     bool m_firstVideoFrame { false };
     Optional<CGAffineTransform> m_videoTransform;
-    CMTime m_firstVideoSampleTime { kCMTimeZero };
+    CMTime m_resumedVideoTime { kCMTimeZero };
+    CMTime m_currentVideoDuration { kCMTimeZero };
     CMTime m_currentAudioSampleTime { kCMTimeZero };
+    double m_timeCode { 0 };
 };
 
 } // namespace WebCore

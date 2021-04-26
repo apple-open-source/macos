@@ -5173,18 +5173,42 @@ get_proxies_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 	    CFStringRef	key2;
 	    CFStringRef	key3;
     } pick_list[] = {
-	    { kSCPropNetProxiesFTPEnable,	kSCPropNetProxiesFTPProxy,	kSCPropNetProxiesFTPPort	},
-	    { kSCPropNetProxiesGopherEnable,	kSCPropNetProxiesGopherProxy,	kSCPropNetProxiesGopherPort	},
-	    { kSCPropNetProxiesHTTPEnable,	kSCPropNetProxiesHTTPProxy,	kSCPropNetProxiesHTTPPort	},
-	    { kSCPropNetProxiesHTTPSEnable,	kSCPropNetProxiesHTTPSProxy,	kSCPropNetProxiesHTTPSPort	},
-	    { kSCPropNetProxiesRTSPEnable,	kSCPropNetProxiesRTSPProxy,	kSCPropNetProxiesRTSPPort	},
-	    { kSCPropNetProxiesSOCKSEnable,	kSCPropNetProxiesSOCKSProxy,	kSCPropNetProxiesSOCKSPort	},
+	    { kSCPropNetProxiesFTPEnable,
+	      kSCPropNetProxiesFTPProxy,
+	      kSCPropNetProxiesFTPPort
+	    },
+	    { kSCPropNetProxiesGopherEnable,
+	      kSCPropNetProxiesGopherProxy,
+	      kSCPropNetProxiesGopherPort
+	    },
+	    { kSCPropNetProxiesHTTPEnable,
+	      kSCPropNetProxiesHTTPProxy,
+	      kSCPropNetProxiesHTTPPort
+	    },
+	    { kSCPropNetProxiesHTTPSEnable,
+	      kSCPropNetProxiesHTTPSProxy,
+	      kSCPropNetProxiesHTTPSPort
+	    },
+	    { kSCPropNetProxiesRTSPEnable,
+	      kSCPropNetProxiesRTSPProxy,
+	      kSCPropNetProxiesRTSPPort
+	    },
+	    { kSCPropNetProxiesSOCKSEnable,
+	      kSCPropNetProxiesSOCKSProxy,
+	      kSCPropNetProxiesSOCKSPort
+	    },
+	    { kSCPropNetProxiesTransportConverterEnable,
+	      kSCPropNetProxiesTransportConverterProxy,
+	      kSCPropNetProxiesTransportConverterPort
+	    },
 	    { kSCPropNetProxiesProxyAutoConfigEnable,
 	      kSCPropNetProxiesProxyAutoConfigURLString,
-	      kSCPropNetProxiesProxyAutoConfigJavaScript, },
+	      kSCPropNetProxiesProxyAutoConfigJavaScript
+	    },
 	    { kSCPropNetProxiesProxyAutoDiscoveryEnable,
 	      NULL,
-	      NULL, }
+	      NULL
+	    }
     };
 
     if ((state_dict == NULL) && (setup_dict == NULL)) {

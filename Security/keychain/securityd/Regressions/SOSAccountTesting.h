@@ -90,6 +90,14 @@ static inline void SOSAccountPeerGotInSync_wTxn(SOSAccount* acct, SOSPeerInfoRef
     }];
 }
 
+static inline CFArrayRef SOSAccountCopyViewUnawarePeers_wTxn(SOSAccount* acct, CFErrorRef* error) {
+    __block CFArrayRef result = false;
+    [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        result = SOSAccountCopyViewUnaware(txn.account, error);
+    }];
+    return result;
+}
+
 static inline bool SOSAccountSetBackupPublicKey_wTxn(SOSAccount* acct, CFDataRef backupKey, CFErrorRef* error)
 {
     __block bool result = false;

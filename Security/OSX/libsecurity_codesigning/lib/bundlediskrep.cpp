@@ -542,9 +542,9 @@ void BundleDiskRep::flush()
 	mExecRep->flush();
 }
 
-CFDictionaryRef BundleDiskRep::diskRepInformation()
+CFDictionaryRef BundleDiskRep::copyDiskRepInformation()
 {
-    return mExecRep->diskRepInformation();
+    return mExecRep->copyDiskRepInformation();
 }
 
 //

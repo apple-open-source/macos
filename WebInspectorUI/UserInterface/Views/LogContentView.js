@@ -72,16 +72,16 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         this._preserveLogNavigationItem = new WI.CheckboxNavigationItem("preserve-log", WI.UIString("Preserve Log"), !WI.settings.clearLogOnNavigate.value);
         this._preserveLogNavigationItem.tooltip = WI.UIString("Do not clear the console on new page loads");
-        this._preserveLogNavigationItem.addEventListener(WI.CheckboxNavigationItem.Event.CheckedDidChange, () => {
+        this._preserveLogNavigationItem.addEventListener(WI.CheckboxNavigationItem.Event.CheckedDidChange, function(event) {
             WI.settings.clearLogOnNavigate.value = !WI.settings.clearLogOnNavigate.value;
-        });
+        }, this);
         WI.settings.clearLogOnNavigate.addEventListener(WI.Setting.Event.Changed, this._handleClearLogOnNavigateSettingChanged, this);
 
         this._emulateInUserGestureNavigationItem = new WI.CheckboxNavigationItem("emulate-in-user-gesture", WI.UIString("Emulate User Gesture"), WI.settings.emulateInUserGesture.value);
         this._emulateInUserGestureNavigationItem.tooltip = WI.UIString("Run console commands as if inside a user gesture");
-        this._emulateInUserGestureNavigationItem.addEventListener(WI.CheckboxNavigationItem.Event.CheckedDidChange, () => {
+        this._emulateInUserGestureNavigationItem.addEventListener(WI.CheckboxNavigationItem.Event.CheckedDidChange, function(event) {
             WI.settings.emulateInUserGesture.value = !WI.settings.emulateInUserGesture.value;
-        });
+        }, this);
         WI.settings.emulateInUserGesture.addEventListener(WI.Setting.Event.Changed, this._handleEmulateInUserGestureSettingChanged, this);
 
         this._checkboxesNavigationItemGroup = new WI.GroupNavigationItem([this._preserveLogNavigationItem, this._emulateInUserGestureNavigationItem, new WI.DividerNavigationItem]);
@@ -179,9 +179,9 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         return true;
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         this._logViewController.renderPendingMessages();
     }
@@ -255,7 +255,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     showCustomFindBanner()
     {
-        if (!this.visible)
+        if (!this.isAttached)
             return;
 
         this._findBanner.focus();
@@ -263,7 +263,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     get supportsSave()
     {
-        if (!this.visible)
+        if (!this.isAttached)
             return false;
 
         if (WI.isShowingSplitConsole())
@@ -450,7 +450,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (this._startedProvisionalLoad)
             this._provisionalMessages.push(message);
 
-        if (!this._hasNonDefaultLogChannelMessage && WI.consoleManager.logChannelSources.includes(message.source)) {
+        if (!this._hasNonDefaultLogChannelMessage && WI.consoleManager.customLoggingChannels.some((channel) => channel.source === message.source)) {
             this._hasNonDefaultLogChannelMessage = true;
             this.dispatchEventToListeners(WI.ContentView.Event.NavigationItemsDidChange);
             this._scopeBar.item(WI.LogContentView.Scopes.Infos).hidden = false;

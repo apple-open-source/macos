@@ -217,7 +217,7 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
     if (scrollGestureController.handleEvent(touchPoint)) {
         struct wpe_input_axis_event* axisEvent = scrollGestureController.axisEvent();
         if (axisEvent->type != wpe_input_axis_event_type_null)
-            page.handleWheelEvent(WebKit::NativeWebWheelEvent(axisEvent, m_view.page().deviceScaleFactor(), WebWheelEvent::Phase::PhaseNone, WebWheelEvent::Phase::PhaseNone));
+            page.handleWheelEvent(WebKit::NativeWebWheelEvent(axisEvent, m_view.page().deviceScaleFactor(), scrollGestureController.phase(), WebWheelEvent::Phase::PhaseNone));
         return;
     }
 
@@ -242,7 +242,7 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
         pointerEvent.state = 0;
         pointerEvent.modifiers &= ~wpe_input_pointer_modifier_button1;
         break;
-    case wpe_input_pointer_event_type_null:
+    case wpe_input_touch_event_type_null:
         ASSERT_NOT_REACHED();
         return;
     }

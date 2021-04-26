@@ -1125,6 +1125,10 @@ __private_extern__ void SystemLoadUserActiveAssertions(bool active)
 
 }
 
+__private_extern__ bool getUserActiveAssertionValid(void)
+{
+    return gUserActive.assertionActivityValid;
+}
 
 static int minOfThree(int a, int b, int c)
 {

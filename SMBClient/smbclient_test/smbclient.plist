@@ -260,26 +260,13 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>FilesBuster</string>
+			<string>fsx</string>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/SMBClient/TestWrapper.sh</string>
 				<string>-u</string>
 				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
-				<string>-b</string>
-			</array>
-			<key>Timeout</key>
-			<real>3600</real>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>fstorture</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/SMBClient/TestWrapper.sh</string>
-				<string>-u</string>
-				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
-				<string>-t</string>
+				<string>-x</string>
 			</array>
 			<key>Timeout</key>
 			<integer>1200</integer>

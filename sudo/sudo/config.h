@@ -53,10 +53,16 @@
 /* #undef HAVE_AIXAUTH */
 
 /* Define to 1 if you have the `arc4random' function. */
-/* #undef HAVE_ARC4RANDOM */
+#define HAVE_ARC4RANDOM 1
+
+/* Define to 1 if you have the `arc4random_buf' function. */
+#define HAVE_ARC4RANDOM_BUF 1
 
 /* Define to 1 if you have the `arc4random_uniform' function. */
 #define HAVE_ARC4RANDOM_UNIFORM 1
+
+/* Define to 1 if you have the `ASN1_STRING_get0_data' function. */
+/* #undef HAVE_ASN1_STRING_GET0_DATA */
 
 /* Define to 1 if you have the `asprintf' function. */
 #define HAVE_ASPRINTF 1
@@ -83,11 +89,20 @@
 /* Define to 1 to enable BSM audit support. */
 /* #undef HAVE_BSM_AUDIT */
 
+/* Define to 1 if you have the `bzero' function. */
+/* #undef HAVE_BZERO */
+
+/* Define to 1 if you have the `cfmakeraw' function. */
+#define HAVE_CFMAKERAW 1
+
 /* Define to 1 if you have the `clock_gettime' function. */
 #define HAVE_CLOCK_GETTIME 1
 
 /* Define to 1 if you have the `closefrom' function. */
 /* #undef HAVE_CLOSEFROM */
+
+/* Define to 1 if you have the `crypt' function. */
+/* #undef HAVE_CRYPT */
 
 /* Define to 1 if you use OSF DCE. */
 /* #undef HAVE_DCE */
@@ -98,6 +113,10 @@
 /* Define to 1 if you have the declaration of `errno', and to 0 if you don't.
    */
 #define HAVE_DECL_ERRNO 1
+
+/* Define to 1 if you have the declaration of `getdelim', and to 0 if you
+   don't. */
+#define HAVE_DECL_GETDELIM 1
 
 /* Define to 1 if you have the declaration of `getdomainname', and to 0 if you
    don't. */
@@ -228,6 +247,9 @@
 /* Define to 1 if the compiler supports the __visibility__ attribute. */
 #define HAVE_DSO_VISIBILITY 1
 
+/* Define to 1 if you have the `dup3' function. */
+/* #undef HAVE_DUP3 */
+
 /* Define to 1 if you have the <endian.h> header file. */
 /* #undef HAVE_ENDIAN_H */
 
@@ -240,8 +262,20 @@
 /* Define to 1 if you have the `execvpe' function. */
 /* #undef HAVE_EXECVPE */
 
+/* Define to 1 if you have the `explicit_bzero' function. */
+/* #undef HAVE_EXPLICIT_BZERO */
+
+/* Define to 1 if you have the `explicit_memset' function. */
+/* #undef HAVE_EXPLICIT_MEMSET */
+
 /* Define to 1 if you have the `faccessat' function. */
 #define HAVE_FACCESSAT 1
+
+/* Define to 1 if the compiler supports the fallthrough attribute. */
+/* #undef HAVE_FALLTHROUGH_ATTRIBUTE */
+
+/* Define to 1 if you have the `fchmodat' function. */
+#define HAVE_FCHMODAT 1
 
 /* Define to 1 if your system has the F_CLOSEM fcntl. */
 /* #undef HAVE_FCNTL_CLOSEM */
@@ -255,8 +289,14 @@
 /* Define to 1 if you have the `freeifaddrs' function. */
 #define HAVE_FREEIFADDRS 1
 
+/* Define to 1 if you have the `freezero' function. */
+/* #undef HAVE_FREEZERO */
+
 /* Define to 1 if you have the `fseeko' function. */
-/* #undef HAVE_FSEEKO */
+#define HAVE_FSEEKO 1
+
+/* Define to 1 if you have the `fstatat' function. */
+#define HAVE_FSTATAT 1
 
 /* Define to 1 if you have the `futime' function. */
 /* #undef HAVE_FUTIME */
@@ -353,8 +393,14 @@
 /* Define to 1 if you have the `grantpt' function. */
 /* #undef HAVE_GRANTPT */
 
+/* Define to 1 if you have the <gssapi/gssapi.h> header file. */
+/* #undef HAVE_GSSAPI_GSSAPI_H */
+
 /* Define to 1 if you have the <gssapi/gssapi_krb5.h> header file. */
 /* #undef HAVE_GSSAPI_GSSAPI_KRB5_H */
+
+/* Define to 1 if you have the <gssapi.h> header file. */
+/* #undef HAVE_GSSAPI_H */
 
 /* Define to 1 if you have the `gss_krb5_ccache_name' function. */
 /* #undef HAVE_GSS_KRB5_CCACHE_NAME */
@@ -420,6 +466,9 @@
 
 /* Define to 1 if you use LDAP for sudoers. */
 /* #undef HAVE_LDAP */
+
+/* Define to 1 if you have the <ldapssl.h> header file. */
+/* #undef HAVE_LDAPSSL_H */
 
 /* Define to 1 if you have the `ldapssl_init' function. */
 /* #undef HAVE_LDAPSSL_INIT */
@@ -505,6 +554,9 @@
 /* Define to 1 if you have the `memrchr' function. */
 /* #undef HAVE_MEMRCHR */
 
+/* Define to 1 if you have the `memset_explicit' function. */
+/* #undef HAVE_MEMSET_EXPLICIT */
+
 /* Define to 1 if you have the `memset_s' function. */
 #define HAVE_MEMSET_S 1
 
@@ -544,7 +596,7 @@
 /* Define to 1 if you have the `openpty' function. */
 #define HAVE_OPENPTY 1
 
-/* Define to 1 if you are using OpenSSL's sha2 functions. */
+/* Define to 1 if you are using OpenSSL's TLS and sha2 functions. */
 /* #undef HAVE_OPENSSL */
 
 /* Define to 1 if you use NRL OPIE. */
@@ -695,6 +747,9 @@
 /* Define to 1 if you have the `sig2str' function. */
 /* #undef HAVE_SIG2STR */
 
+/* Define to 1 if you have the `sigabbrev_np' function. */
+/* #undef HAVE_SIGABBREV_NP */
+
 /* Define to 1 if you use S/Key. */
 /* #undef HAVE_SKEY */
 
@@ -709,6 +764,17 @@
 
 /* Define to 1 if you have the <spawn.h> header file. */
 #define HAVE_SPAWN_H 1
+
+/* Define to 1 if you have the `SSL_CTX_get0_certificate' function. */
+/* #undef HAVE_SSL_CTX_GET0_CERTIFICATE */
+
+/* Define to 1 if you have the `SSL_CTX_set_ciphersuites' function or macro.
+   */
+/* #undef HAVE_SSL_CTX_SET_CIPHERSUITES */
+
+/* Define to 1 if you have the `SSL_CTX_set_min_proto_version' function or
+   macro. */
+/* #undef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION */
 
 /* Define to 1 to enable SSSD support. */
 /* #undef HAVE_SSSD */
@@ -859,11 +925,20 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
+/* Define to 1 if you have the `TLS_client_method' function. */
+/* #undef HAVE_TLS_CLIENT_METHOD */
+
+/* Define to 1 if you have the `TLS_server_method' function. */
+/* #undef HAVE_TLS_SERVER_METHOD */
+
 /* Define to 1 if you have the `ttyslot' function. */
 /* #undef HAVE_TTYSLOT */
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the `unlinkat' function. */
+#define HAVE_UNLINKAT 1
 
 /* Define to 1 if you have the `unsetenv' function. */
 #define HAVE_UNSETENV 1
@@ -900,6 +975,9 @@
 
 /* Define to 1 if you have the <wordexp.h> header file. */
 #define HAVE_WORDEXP_H 1
+
+/* Define to 1 if you have the `X509_STORE_CTX_get0_cert' function. */
+/* #undef HAVE_X509_STORE_CTX_GET0_CERT */
 
 /* Define to 1 if you have the <zlib.h> header file. */
 #define HAVE_ZLIB_H 1
@@ -989,14 +1067,14 @@
 /* Define to 1 if you want sudo to free up memory before exiting. */
 /* #undef NO_LEAKS */
 
-/* Define to 1 if you don't want users to get the lecture the first they user
-   sudo. */
+/* Define to 1 if you don't want users to get the lecture the first time they
+   use sudo. */
 #define NO_LECTURE 1
 
 /* Define to 1 if you don't want to use sudo's PAM session support. */
 /* #undef NO_PAM_SESSION */
 
-/* Define to avoid runing the mailer as root. */
+/* Define to avoid running the mailer as root. */
 /* #undef NO_ROOT_MAILER */
 
 /* Define to 1 if root should not be allowed to use sudo. */
@@ -1016,7 +1094,7 @@
 #define PACKAGE_NAME "sudo"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "sudo 1.8.31"
+#define PACKAGE_STRING "sudo 1.9.5p2"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "sudo"
@@ -1025,7 +1103,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.8.31"
+#define PACKAGE_VERSION "1.9.5p2"
 
 /* Define to 1 if your system uses a Solaris-derived PAM and not Linux-PAM or
    OpenPAM. */
@@ -1112,6 +1190,9 @@
 
 /* Define to 1 if the code in interfaces.c does not compile for you. */
 /* #undef STUB_LOAD_INTERFACES */
+
+/* Define to 1 to compile support for sudo_logsrvd in the sudoers plugin. */
+#define SUDOERS_LOG_CLIENT 1
 
 /* An instance string to append to the username (separated by a slash) for
    Kerberos V authentication. */
@@ -1207,9 +1288,6 @@
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
 
-/* Define to `int' if <sys/types.h> does not define. */
-/* #undef errno_t */
-
 /* Define to `int' if <sys/types.h> doesn't define. */
 /* #undef gid_t */
 
@@ -1227,9 +1305,6 @@
 
 /* Define to an OS-specific initialization function or `os_init_common'. */
 #define os_init os_init_common
-
-/* Define to `size_t' if <sys/types.h> does not define. */
-/* #undef rsize_t */
 
 /* Define to `int' if <signal.h> does not define. */
 /* #undef sig_atomic_t */
@@ -1259,6 +1334,19 @@
    code using `volatile' can become incorrect without. Disable with care. */
 /* #undef volatile */
 
+/* Symbol visibility controls */
+#ifdef HAVE_DSO_VISIBILITY
+# if defined(__GNUC__)
+#  define sudo_dso_public __attribute__((__visibility__("default")))
+# elif defined(__SUNPRO_C)
+#  define sudo_dso_public __global
+# else
+#  define sudo_dso_public __declspec(dllexport)
+# endif
+#else
+# define sudo_dso_public
+#endif
+
 /* BSD compatibility on some SVR4 systems. */
 #ifdef __svr4__
 # define BSD_COMP
@@ -1284,6 +1372,11 @@
 /* # undef _LINUX_SOURCE_COMPAT */
 #endif
 
+/* Enable unlimited getgroups(2) support on macOS. */
+#ifndef _DARWIN_UNLIMITED_GETGROUPS
+# define _DARWIN_UNLIMITED_GETGROUPS 1
+#endif
+
 /* Enable prototypes in GCC fixed includes on older systems.  */
 #ifndef __USE_FIXED_PROTOTYPES__
 /* # undef __USE_FIXED_PROTOTYPES__ */
@@ -1301,7 +1394,7 @@
 
 /* Enable "safer" versions of the standard C API (ISO C11).  */
 #ifndef __STDC_WANT_LIB_EXT1__
-# define __STDC_WANT_LIB_EXT1__ 1
+/* # undef __STDC_WANT_LIB_EXT1__ */
 #endif
 
 /* Prevent static analyzers from genering bogus memory leak warnings. */

@@ -33,12 +33,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <pwd.h>
 
@@ -69,7 +64,7 @@ sudo_rfc1938_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
     static char *orig_prompt = NULL, *new_prompt = NULL;
     static size_t op_len, np_size;
     static struct RFC1938 rfc1938;
-    debug_decl(sudo_rfc1938_setup, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_rfc1938_setup, SUDOERS_DEBUG_AUTH);
 
     /* Stash a pointer to the rfc1938 struct if we have not initialized */
     if (!auth->data)
@@ -133,7 +128,7 @@ sudo_rfc1938_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
 int
 sudo_rfc1938_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
-    debug_decl(sudo_rfc1938_verify, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_rfc1938_verify, SUDOERS_DEBUG_AUTH);
 
     if (rfc1938verify((struct RFC1938 *) auth->data, pass) == 0)
 	debug_return_int(AUTH_SUCCESS);

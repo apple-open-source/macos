@@ -280,6 +280,18 @@ tls_protocol_version_t
 sec_protocol_options_get_default_max_dtls_protocol_version(void);
 
 /*!
+ * @function sec_protocol_options_get_enable_encrypted_client_hello
+ *
+ * @abstract
+ *      For experimental use only. Find out whether Encrypted Client Hello has been enabled.
+ *
+ * @return A boolean that indicates whether or not Encrypted Client Hello has been enabled.
+ */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+bool
+sec_protocol_options_get_enable_encrypted_client_hello(sec_protocol_options_t options);
+
+/*!
  * @function sec_protocol_options_add_tls_application_protocol
  *
  * @abstract
@@ -554,8 +566,8 @@ sec_protocol_options_set_peer_authentication_required(sec_protocol_options_t opt
  *
  * @abstract
  *      When this is enabled, the endpoint requests the peer certificate, but if none is provided, the
- *      endpoint still proceeds with the connection. Default false for servers; always false for clients (this
- *      function is a no-op for clients). If peer_authentication_required is set to true via
+ *      endpoint still proceeds with the connection. Default false for servers; always false for clients (clients ignore
+ *      this option). If peer_authentication_required is set to true via
  *      sec_protocol_options_set_peer_authentication_required(), peer_authentication_optional will be disregarded
  *      and the peer certificate will be required.
  *
@@ -568,6 +580,24 @@ sec_protocol_options_set_peer_authentication_required(sec_protocol_options_t opt
 SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
 void
 sec_protocol_options_set_peer_authentication_optional(sec_protocol_options_t options, bool peer_authentication_optional);
+
+/*!
+ * @function sec_protocol_options_set_enable_encrypted_client_hello
+ *
+ * @abstract
+ *      For experimental use only. When this is enabled, the Encrypted Client Hello extension will be sent on the Client
+ *      Hello if TLS 1.3 is among the supported TLS versions. Default false for clients; always false for servers (servers
+ *      ignore this option).
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param peer_authentication_optional
+ *      Flag to enable or disable Encrypted Client Hello.
+ */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_set_enable_encrypted_client_hello(sec_protocol_options_t options, bool enable_encrypted_client_hello);
 
 #ifdef __BLOCKS__
 

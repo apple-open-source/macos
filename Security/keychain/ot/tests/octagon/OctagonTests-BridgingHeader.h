@@ -2,6 +2,8 @@
 //  Use this file to import your target's public headers that you would like to expose to Swift.
 //
 
+#import <XCTest/XCTest.h>
+
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
@@ -63,6 +65,7 @@
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 
 #import "keychain/ot/OctagonControlServer.h"
 

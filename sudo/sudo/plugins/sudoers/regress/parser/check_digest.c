@@ -18,26 +18,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#if defined(HAVE_STDINT_H)
-# include <stdint.h>
-#elif defined(HAVE_INTTYPES_H)
-# include <inttypes.h>
-#endif
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif /* HAVE_STDBOOL_H */
-#include <limits.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "sudo_compat.h"
@@ -47,7 +30,7 @@
 #include "sudo_util.h"
 #include "parse.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 #define NUM_TESTS	8
 static const char *test_strings[NUM_TESTS] = {

@@ -31,6 +31,7 @@
 #include <AssertMacros.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <Security/SecCertificateInternal.h>
+#include <Security/SecTrustPriv.h>
 #include <Security/SecFramework.h>
 #include <Security/SecKeyPriv.h>
 #include <security_asn1/SecAsn1Coder.h>
@@ -208,8 +209,6 @@ errOut:
     return NULL;
 }
 
-#define LEEWAY (4500.0)
-
 /* Calculate temporal validity; set latestNextUpdate and expireTime.
    Returns true if valid, else returns false. */
 bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
@@ -218,7 +217,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
     bool ok = false;
 	this->latestNextUpdate = NULL_TIME;
 
-    if (this->producedAt > verifyTime + LEEWAY) {
+    if (this->producedAt > verifyTime + TRUST_TIME_LEEWAY) {
         secnotice("ocsp", "OCSPResponse: producedAt more than 1:15 from now");
         goto exit;
     }
@@ -231,7 +230,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 
 		/* thisUpdate later than 'now' invalidates the whole response. */
 		CFAbsoluteTime thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
-		if (thisUpdate > verifyTime + LEEWAY) {
+		if (thisUpdate > verifyTime + TRUST_TIME_LEEWAY) {
 			secnotice("ocsp","OCSPResponse: thisUpdate more than 1:15 from now");
             goto exit;
 		}
@@ -292,7 +291,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
         /* See comment above on RFC 5019 section 2.2.4. */
 		/* Absolute expire time = current time plus defaultTTL */
 		this->expireTime = verifyTime + defaultTTL;
-	} else if (this->latestNextUpdate < verifyTime - LEEWAY) {
+	} else if (this->latestNextUpdate < verifyTime - TRUST_TIME_LEEWAY) {
         secnotice("ocsp", "OCSPResponse: latestNextUpdate more than 1:15 ago");
         goto exit;
     } else if (maxAge > 0) {
@@ -505,13 +504,13 @@ static CFAbsoluteTime SecOCSPSingleResponseComputedNextUpdate(SecOCSPSingleRespo
 }
 
 bool SecOCSPSingleResponseCalculateValidity(SecOCSPSingleResponseRef this, CFTimeInterval defaultTTL, CFAbsoluteTime verifyTime) {
-    if (this->thisUpdate > verifyTime + LEEWAY) {
+    if (this->thisUpdate > verifyTime + TRUST_TIME_LEEWAY) {
         ocspdErrorLog("OCSPSingleResponse: thisUpdate more than 1:15 from now");
         return false;
     }
 
     CFAbsoluteTime cnu = SecOCSPSingleResponseComputedNextUpdate(this, defaultTTL);
-    if (verifyTime - LEEWAY > cnu) {
+    if (verifyTime - TRUST_TIME_LEEWAY > cnu) {
         ocspdErrorLog("OCSPSingleResponse: %s %.2f days ago", this->nextUpdate ? "nextUpdate" : "thisUpdate + defaultTTL", (verifyTime - cnu) / 86400);
         return false;
     }

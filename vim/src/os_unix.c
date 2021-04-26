@@ -164,6 +164,9 @@ static RETSIGTYPE sig_winch SIGPROTOARG;
 #if defined(SIGINT)
 static RETSIGTYPE catch_sigint SIGPROTOARG;
 #endif
+#if defined(SIGUSR1)
+static RETSIGTYPE catch_sigusr1 SIGPROTOARG;
+#endif
 #if defined(SIGPWR)
 static RETSIGTYPE catch_sigpwr SIGPROTOARG;
 #endif
@@ -297,7 +300,7 @@ static struct signalinfo
     {SIGXFSZ,	    "XFSZ",	TRUE},
 #endif
 #ifdef SIGUSR1
-    {SIGUSR1,	    "USR1",	TRUE},
+    {SIGUSR1,	    "USR1",	FALSE},
 #endif
 #if defined(SIGUSR2) && !defined(FEAT_SYSMOUSE)
     // Used for sysmouse handling
@@ -600,24 +603,33 @@ mch_am_i_owner(name)
     return 0;
 }
 
+/*
+ * "flags": MCH_DELAY_IGNOREINPUT - don't read input
+ *	    MCH_DELAY_SETTMODE - use settmode() even for short delays
+ */
     void
-mch_delay(long msec, int ignoreinput)
+mch_delay(long msec, int flags)
 {
     tmode_T	old_tmode;
+    int		call_settmode;
 #ifdef FEAT_MZSCHEME
     long	total = msec; // remember original value
 #endif
 
-    if (ignoreinput)
+    if (flags & MCH_DELAY_IGNOREINPUT)
     {
 	// Go to cooked mode without echo, to allow SIGINT interrupting us
 	// here.  But we don't want QUIT to kill us (CTRL-\ used in a
 	// shell may produce SIGQUIT).
 	// Only do this if sleeping for more than half a second.
 	in_mch_delay = TRUE;
-	old_tmode = mch_cur_tmode;
-	if (mch_cur_tmode == TMODE_RAW && msec > 500)
+	call_settmode = mch_cur_tmode == TMODE_RAW
+			       && (msec > 500 || (flags & MCH_DELAY_SETTMODE));
+	if (call_settmode)
+	{
+	    old_tmode = mch_cur_tmode;
 	    settmode(TMODE_SLEEP);
+	}
 
 	/*
 	 * Everybody sleeps in a different way...
@@ -659,10 +671,8 @@ mch_delay(long msec, int ignoreinput)
 
 	    tv.tv_sec = msec / 1000;
 	    tv.tv_usec = (msec % 1000) * 1000;
-	    /*
-	     * NOTE: Solaris 2.6 has a bug that makes select() hang here.  Get
-	     * a patch from Sun to fix this.  Reported by Gunnar Pedersen.
-	     */
+	    // NOTE: Solaris 2.6 has a bug that makes select() hang here.  Get
+	    // a patch from Sun to fix this.  Reported by Gunnar Pedersen.
 	    select(0, NULL, NULL, NULL, &tv);
 	}
 #  endif // HAVE_SELECT
@@ -673,7 +683,7 @@ mch_delay(long msec, int ignoreinput)
 	while (total > 0);
 #endif
 
-	if (msec > 500)
+	if (call_settmode)
 	    settmode(old_tmode);
 	in_mch_delay = FALSE;
     }
@@ -859,6 +869,17 @@ catch_sigint SIGDEFARG(sigarg)
     // this is not required on all systems, but it doesn't hurt anybody
     signal(SIGINT, (RETSIGTYPE (*)())catch_sigint);
     got_int = TRUE;
+    SIGRETURN;
+}
+#endif
+
+#if defined(SIGUSR1)
+    static RETSIGTYPE
+catch_sigusr1 SIGDEFARG(sigarg)
+{
+    // this is not required on all systems, but it doesn't hurt anybody
+    signal(SIGUSR1, (RETSIGTYPE (*)())catch_sigusr1);
+    got_sigusr1 = TRUE;
     SIGRETURN;
 }
 #endif
@@ -1296,7 +1317,7 @@ mch_suspend(void)
 	long wait_time;
 
 	for (wait_time = 0; !sigcont_received && wait_time <= 3L; wait_time++)
-	    mch_delay(wait_time, FALSE);
+	    mch_delay(wait_time, 0);
     }
 # endif
     in_mch_suspend = FALSE;
@@ -1349,15 +1370,22 @@ set_signals(void)
 #if defined(SIGCONT)
     signal(SIGCONT, sigcont_handler);
 #endif
+#ifdef SIGPIPE
     /*
      * We want to ignore breaking of PIPEs.
      */
-#ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
 #endif
 
 #ifdef SIGINT
     catch_int_signal();
+#endif
+
+#ifdef SIGUSR1
+    /*
+     * Call user's handler on SIGUSR1
+     */
+    signal(SIGUSR1, (RETSIGTYPE (*)())catch_sigusr1);
 #endif
 
     /*
@@ -1367,11 +1395,11 @@ set_signals(void)
     signal(SIGALRM, SIG_IGN);
 #endif
 
+#ifdef SIGPWR
     /*
      * Catch SIGPWR (power failure?) to preserve the swap files, so that no
      * work will be lost.
      */
-#ifdef SIGPWR
     signal(SIGPWR, (RETSIGTYPE (*)())catch_sigpwr);
 #endif
 
@@ -2199,7 +2227,7 @@ mch_settitle(char_u *title, char_u *icon)
     if (get_x11_windis() == OK)
 	type = 1;
 #else
-# if defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC) \
+# if defined(FEAT_GUI_PHOTON) \
     || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_HAIKU)
     if (gui.in_use)
 	type = 1;
@@ -2234,7 +2262,7 @@ mch_settitle(char_u *title, char_u *icon)
 	    set_x11_title(title);		// x11
 #endif
 #if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_HAIKU) \
-	|| defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC)
+	|| defined(FEAT_GUI_PHOTON)
 	else
 	    gui_mch_settitle(title, icon);
 #endif
@@ -2830,8 +2858,10 @@ mch_copy_sec(char_u *from_file, char_u *to_file)
 
     if (selinux_enabled > 0)
     {
-	security_context_t from_context = NULL;
-	security_context_t to_context = NULL;
+	// Use "char *" instead of "security_context_t" to avoid a deprecation
+	// warning.
+	char *from_context = NULL;
+	char *to_context = NULL;
 
 	if (getfilecon((char *)from_file, &from_context) < 0)
 	{
@@ -3507,16 +3537,11 @@ mch_settmode(tmode_T tmode)
     if (tmode == TMODE_RAW)
     {
 	// ~ICRNL enables typing ^V^M
-	tnew.c_iflag &= ~ICRNL;
-# ifdef IXON_NOT_USED
-	// Do not make CTRL-S stop output, for most users it is unexpected and
-	// is hardly ever useful.
-	tnew.c_iflag |= IXON;
-# endif
+	// ~IXON disables CTRL-S stopping output, so that it can be mapped.
+	tnew.c_iflag &= ~(ICRNL | IXON);
 	tnew.c_lflag &= ~(ICANON | ECHO | ISIG | ECHOE
-# if defined(IEXTEN) && !defined(__MINT__)
+# if defined(IEXTEN)
 		    | IEXTEN	    // IEXTEN enables typing ^V on SOLARIS
-				    // but it breaks function keys on MINT
 # endif
 				);
 # ifdef ONLCR
@@ -4184,7 +4209,7 @@ wait4pid(pid_t child, waitstatus *status)
 	if (wait_pid == 0)
 	{
 	    // Wait for 1 to 10 msec before trying again.
-	    mch_delay(delay_msec, TRUE);
+	    mch_delay(delay_msec, MCH_DELAY_IGNOREINPUT | MCH_DELAY_SETTMODE);
 	    if (++delay_msec > 10)
 		delay_msec = 10;
 	    continue;
@@ -4694,8 +4719,10 @@ mch_call_shell_fork(
 
 # ifdef FEAT_JOB_CHANNEL
 	    if (ch_log_active())
-		// close the log file in the child
+	    {
+		ch_log(NULL, "closing channel log in the child process");
 		ch_logfile((char_u *)"", (char_u *)"");
+	    }
 # endif
 
 	    if (!show_shell_mess || (options & SHELL_EXPAND))
@@ -5276,6 +5303,9 @@ finished:
 	    {
 		long delay_msec = 1;
 
+		out_str(T_CTE);	// possibly disables modifyOtherKeys, so that
+				// the system can recognize CTRL-C
+
 		/*
 		 * Similar to the loop above, but only handle X events, no
 		 * I/O.
@@ -5309,11 +5339,14 @@ finished:
 		    clip_update();
 
 		    // Wait for 1 to 10 msec. 1 is faster but gives the child
-		    // less time.
-		    mch_delay(delay_msec, TRUE);
+		    // less time, gradually wait longer.
+		    mch_delay(delay_msec,
+				   MCH_DELAY_IGNOREINPUT | MCH_DELAY_SETTMODE);
 		    if (++delay_msec > 10)
 			delay_msec = 10;
 		}
+
+		out_str(T_CTI);	// possibly enables modifyOtherKeys again
 	    }
 # endif
 
@@ -5935,6 +5968,8 @@ mch_create_pty_channel(job_T *job, jobopt_T *options)
     channel_T	*channel;
 
     open_pty(&pty_master_fd, &pty_slave_fd, &job->jv_tty_out, &job->jv_tty_in);
+    if (pty_master_fd < 0 || pty_slave_fd < 0)
+	return FAIL;
     close(pty_slave_fd);
 
     channel = add_channel();
@@ -6722,7 +6757,7 @@ mch_expand_wildcards(
     // When running in the background, give it some time to create the temp
     // file, but don't wait for it to finish.
     if (ampersand)
-	mch_delay(10L, TRUE);
+	mch_delay(10L, MCH_DELAY_IGNOREINPUT);
 
     extra_shell_arg = NULL;		// cleanup
     show_shell_mess = TRUE;
@@ -7435,7 +7470,7 @@ mch_libcall(
 			    )))
 		{
 		    if (string_result == NULL)
-			retval_int = ((STRPROCINT)ProcAdd)(argstring);
+			retval_int = ((STRPROCINT)(void *)ProcAdd)(argstring);
 		    else
 			retval_str = (ProcAdd)(argstring);
 		}
@@ -7457,7 +7492,7 @@ mch_libcall(
 			    )))
 		{
 		    if (string_result == NULL)
-			retval_int = ((INTPROCINT)ProcAddI)(argint);
+			retval_int = ((INTPROCINT)(void *)ProcAddI)(argint);
 		    else
 			retval_str = (ProcAddI)(argint);
 		}
@@ -7863,15 +7898,15 @@ clip_xterm_set_selection(Clipboard_T *cbd)
     static void
 xsmp_handle_interaction(SmcConn smc_conn, SmPointer client_data UNUSED)
 {
-    cmdmod_T	save_cmdmod;
+    int		save_cmod_flags;
     int		cancel_shutdown = False;
 
-    save_cmdmod = cmdmod;
-    cmdmod.confirm = TRUE;
+    save_cmod_flags = cmdmod.cmod_flags;
+    cmdmod.cmod_flags |= CMOD_CONFIRM;
     if (check_changed_any(FALSE, FALSE))
 	// Mustn't logout
 	cancel_shutdown = True;
-    cmdmod = save_cmdmod;
+    cmdmod.cmod_flags = save_cmod_flags;
     setcursor();		// position cursor
     out_flush();
 
@@ -8063,10 +8098,13 @@ xsmp_init(void)
 	    errorstring);
     if (xsmp.smcconn == NULL)
     {
-	char errorreport[132];
-
 	if (p_verbose > 0)
 	{
+	    char errorreport[132];
+
+	    // If the message is too long it might not be NUL terminated.  Add
+	    // a NUL at the end to make sure we don't go over the end.
+	    errorstring[sizeof(errorstring) - 1] = NUL;
 	    vim_snprintf(errorreport, sizeof(errorreport),
 			 _("XSMP SmcOpenConnection failed: %s"), errorstring);
 	    verb_msg(errorreport);

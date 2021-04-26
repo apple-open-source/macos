@@ -88,6 +88,7 @@
     xpc_dictionary_set_value(request, "attributes", xpcattrs);
      
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(xpcConnection._xpcConnection, request);
+    [xpcConnection invalidate];
     if (reply == NULL) {
 	os_log_error(GSSOSLog(), "server did not return any data");
     }
@@ -128,6 +129,7 @@
     xpc_dictionary_set_value(request, "attributes", xpcattrs);
     
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(xpcConnection._xpcConnection, request);
+    [xpcConnection invalidate];
     if (reply == NULL) {
 	os_log_error(GSSOSLog(), "server returned an error during wakeup: %@", reply);
     }

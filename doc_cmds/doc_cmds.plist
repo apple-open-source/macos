@@ -1,72 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-<dict>
-	<key>OpenSourceProject</key>
-	<string>checknr</string>
-	<key>OpenSourceVersion</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/checknr/</string>
-	<key>OpenSourceCVS</key>
-	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co checknr</string>
-	<key>OpenSourceImportDate</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceLicense</key>
-	<string>BSD</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>doc_cmds.txt</string>
-</dict>
-<dict>
-	<key>OpenSourceProject</key>
-	<string>colcrt</string>
-	<key>OpenSourceVersion</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/colcrt/</string>
-	<key>OpenSourceCVS</key>
-	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co colcrt</string>
-	<key>OpenSourceImportDate</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceLicense</key>
-	<string>BSD</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>doc_cmds.txt</string>
-</dict>
-<dict>
-	<key>OpenSourceProject</key>
-	<string>getNAME</string>
-	<key>OpenSourceVersion</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/libexec/getNAME/</string>
-	<key>OpenSourceCVS</key>
-	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co getNAME</string>
-	<key>OpenSourceImportDate</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceLicense</key>
-	<string>BSD</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>doc_cmds.txt</string>
-</dict>
-<dict>
-	<key>OpenSourceProject</key>
-	<string>makewhatis</string>
-	<key>OpenSourceVersion</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/makewhatis/</string>
-	<key>OpenSourceCVS</key>
-	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co makewhatis</string>
-	<key>OpenSourceImportDate</key>
-	<string>2004-09-18</string>
-	<key>OpenSourceModifications</key>
-	<array>
-		<string>3806865</string>
-	</array>
-	<key>OpenSourceLicense</key>
-	<string>BSD</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>doc_cmds.txt</string>
-</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>checknr</string>
+		<key>OpenSourceVersion</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/checknr/</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co checknr</string>
+		<key>OpenSourceImportDate</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>doc_cmds.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>colcrt</string>
+		<key>OpenSourceVersion</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/colcrt/</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co colcrt</string>
+		<key>OpenSourceImportDate</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>doc_cmds.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>makewhatis</string>
+		<key>OpenSourceVersion</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/makewhatis/</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co makewhatis</string>
+		<key>OpenSourceImportDate</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>3806865</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>doc_cmds.txt</string>
+	</dict>
 </array>
 </plist>

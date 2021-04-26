@@ -26,7 +26,6 @@
 #include "config.h"
 #include "WebSocketChannel.h"
 
-#include "DataReference.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NetworkSocketChannelMessages.h"
@@ -71,7 +70,6 @@ NetworkSendQueue WebSocketChannel::createMessageQueue(Document& document, WebSoc
 
 WebSocketChannel::WebSocketChannel(Document& document, WebSocketChannelClient& client)
     : m_document(makeWeakPtr(document))
-    ,  m_identifier(WebSocketIdentifier::generate())
     , m_client(makeWeakPtr(client))
     , m_messageQueue(createMessageQueue(document, *this))
     , m_inspector(document)
@@ -198,23 +196,35 @@ unsigned WebSocketChannel::bufferedAmount() const
 
 void WebSocketChannel::close(int code, const String& reason)
 {
+    // An attempt to send closing handshake may fail, which will get the channel closed and dereferenced.
+    auto protectedThis = makeRef(*this);
+
     m_isClosing = true;
     if (m_client)
         m_client->didStartClosingHandshake();
 
     ASSERT(code >= 0 || code == WebCore::WebSocketChannel::CloseEventCodeNotSpecified);
 
+    WebSocketFrame closingFrame(WebSocketFrame::OpCodeClose, true, false, true);
+    m_inspector.didSendWebSocketFrame(m_document.get(), closingFrame);
+
     MessageSender::send(Messages::NetworkSocketChannel::Close { code, reason });
 }
 
 void WebSocketChannel::fail(const String& reason)
 {
+    // The client can close the channel, potentially removing the last reference.
+    auto protectedThis = makeRef(*this);
+
     logErrorMessage(reason);
     if (m_client)
         m_client->didReceiveMessageError();
 
-    if (!m_isClosing)
-        MessageSender::send(Messages::NetworkSocketChannel::Close { 0, reason });
+    if (m_isClosing)
+        return;
+
+    MessageSender::send(Messages::NetworkSocketChannel::Close { 0, reason });
+    didClose(WebCore::WebSocketChannel::CloseEventCodeAbnormalClosure, { });
 }
 
 void WebSocketChannel::disconnect()
@@ -321,7 +331,12 @@ void WebSocketChannel::didClose(unsigned short code, String&& reason)
         return;
     }
 
+    WebSocketFrame closingFrame(WebSocketFrame::OpCodeClose, true, false, false);
+    m_inspector.didReceiveWebSocketFrame(m_document.get(), closingFrame);
     m_inspector.didCloseWebSocket(m_document.get());
+
+    // An attempt to send closing handshake may fail, which will get the channel closed and dereferenced.
+    auto protectedThis = makeRef(*this);
 
     bool receivedClosingHandshake = code != WebCore::WebSocketChannel::CloseEventCodeAbnormalClosure;
     if (receivedClosingHandshake)
@@ -371,6 +386,7 @@ void WebSocketChannel::suspend()
 
 void WebSocketChannel::resume()
 {
+    auto protectedThis = makeRef(*this);
     m_isSuspended = false;
     while (!m_isSuspended && !m_pendingTasks.isEmpty())
         m_pendingTasks.takeFirst()();
@@ -389,7 +405,9 @@ void WebSocketChannel::didSendHandshakeRequest(ResourceRequest&& request)
         });
         return;
     }
+
     m_inspector.willSendWebSocketHandshakeRequest(m_document.get(), request);
+    m_handshakeRequest = WTFMove(request);
 }
 
 void WebSocketChannel::didReceiveHandshakeResponse(ResourceResponse&& response)
@@ -400,7 +418,9 @@ void WebSocketChannel::didReceiveHandshakeResponse(ResourceResponse&& response)
         });
         return;
     }
+
     m_inspector.didReceiveWebSocketHandshakeResponse(m_document.get(), response);
+    m_handshakeResponse = WTFMove(response);
 }
 
 } // namespace WebKit

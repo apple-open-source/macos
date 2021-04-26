@@ -37,13 +37,23 @@
 #include "FFTFrame.h"
 
 #include "VectorMath.h"
+#include <wtf/Lock.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-const int kMinFFTPow2Size = 2;
-const int kMaxFFTPow2Size = 24;
+constexpr unsigned kMinFFTPow2Size = 2;
+constexpr unsigned kMaxFFTPow2Size = 24;
 
-FFTSetup* FFTFrame::fftSetups = 0;
+static Lock fftSetupsLock;
+
+static Vector<FFTSetup>& fftSetups()
+{
+    ASSERT(fftSetupsLock.isHeld());
+    static NeverDestroyed<Vector<FFTSetup>> fftSetups(kMaxFFTPow2Size, nullptr);
+    return fftSetups;
+}
 
 // Normal constructor: allocates for a given fftSize
 FFTFrame::FFTFrame(unsigned fftSize)
@@ -66,8 +76,6 @@ FFTFrame::FFTFrame(unsigned fftSize)
 
 // Creates a blank/empty frame (interpolate() must later be called)
 FFTFrame::FFTFrame()
-    : m_realData(0)
-    , m_imagData(0)
 {
     // Later will be set to correct values when interpolate() is called
     m_frame.realp = 0;
@@ -90,46 +98,28 @@ FFTFrame::FFTFrame(const FFTFrame& frame)
     m_frame.imagp = m_imagData.data();
 
     // Copy/setup frame data
-    unsigned nbytes = sizeof(float) * m_FFTSize;
-    memcpy(realData(), frame.m_frame.realp, nbytes);
-    memcpy(imagData(), frame.m_frame.imagp, nbytes);
+    memcpy(realData().data(), frame.m_frame.realp, sizeof(float) * realData().size());
+    memcpy(imagData().data(), frame.m_frame.imagp, sizeof(float) * imagData().size());
 }
 
 FFTFrame::~FFTFrame() = default;
 
-void FFTFrame::multiply(const FFTFrame& frame)
-{
-    FFTFrame& frame1 = *this;
-    const FFTFrame& frame2 = frame;
-
-    float* realP1 = frame1.realData();
-    float* imagP1 = frame1.imagData();
-    const float* realP2 = frame2.realData();
-    const float* imagP2 = frame2.imagData();
-
-    unsigned halfSize = m_FFTSize / 2;
-    float real0 = realP1[0];
-    float imag0 = imagP1[0];
-
-    // Complex multiply
-    VectorMath::zvmul(realP1, imagP1, realP2, imagP2, realP1, imagP1, halfSize); 
-
-    // Multiply the packed DC/nyquist component
-    realP1[0] = real0 * realP2[0];
-    imagP1[0] = imag0 * imagP2[0];
-
-    // Scale accounts for vecLib's peculiar scaling
-    // This ensures the right scaling all the way back to inverse FFT
-    float scale = 0.5f;
-
-    VectorMath::vsmul(realP1, 1, &scale, realP1, 1, halfSize);
-    VectorMath::vsmul(imagP1, 1, &scale, imagP1, 1, halfSize);
-}
-
 void FFTFrame::doFFT(const float* data)
 {
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(data), 2, &m_frame, 1, m_FFTSize / 2);
+    unsigned halfSize = m_FFTSize / 2;
+    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(data), 2, &m_frame, 1, halfSize);
     vDSP_fft_zrip(m_FFTSetup, &m_frame, 1, m_log2FFTSize, FFT_FORWARD);
+
+    RELEASE_ASSERT(realData().size() >= halfSize);
+    RELEASE_ASSERT(imagData().size() >= halfSize);
+
+    // To provide the best possible execution speeds, the vDSP library's functions don't always adhere strictly
+    // to textbook formulas for Fourier transforms, and must be scaled accordingly.
+    // (See https://developer.apple.com/library/archive/documentation/Performance/Conceptual/vDSP_Programming_Guide/UsingFourierTransforms/UsingFourierTransforms.html#//apple_ref/doc/uid/TP40005147-CH3-SW5)
+    // In the case of a Real forward Transform like above: RFimp = RFmath * 2 so we need to divide the output
+    // by 2 to get the correct value.
+    VectorMath::multiplyByScalar(realData().data(), 0.5, realData().data(), halfSize);
+    VectorMath::multiplyByScalar(imagData().data(), 0.5, imagData().data(), halfSize);
 }
 
 void FFTFrame::doInverseFFT(float* data)
@@ -138,23 +128,20 @@ void FFTFrame::doInverseFFT(float* data)
     vDSP_ztoc(&m_frame, 1, (DSPComplex*)data, 2, m_FFTSize / 2);
 
     // Do final scaling so that x == IFFT(FFT(x))
-    float scale = 0.5f / m_FFTSize;
-    vDSP_vsmul(data, 1, &scale, data, 1, m_FFTSize);
+    VectorMath::multiplyByScalar(data, 1.0f / m_FFTSize, data, m_FFTSize);
 }
 
 FFTSetup FFTFrame::fftSetupForSize(unsigned fftSize)
 {
-    if (!fftSetups) {
-        fftSetups = (FFTSetup*)fastMalloc(sizeof(FFTSetup) * kMaxFFTPow2Size);
-        memset(fftSetups, 0, sizeof(FFTSetup) * kMaxFFTPow2Size);
-    }
-
-    int pow2size = static_cast<int>(log2(fftSize));
+    auto pow2size = static_cast<size_t>(log2(fftSize));
     ASSERT(pow2size < kMaxFFTPow2Size);
-    if (!fftSetups[pow2size])
-        fftSetups[pow2size] = vDSP_create_fftsetup(pow2size, FFT_RADIX2);
 
-    return fftSetups[pow2size];
+    auto locker = holdLock(fftSetupsLock);
+    auto& fftSetup = fftSetups().at(pow2size);
+    if (!fftSetup)
+        fftSetup = vDSP_create_fftsetup(pow2size, FFT_RADIX2);
+
+    return fftSetup;
 }
 
 int FFTFrame::minFFTSize()
@@ -169,30 +156,6 @@ int FFTFrame::maxFFTSize()
 
 void FFTFrame::initialize()
 {
-}
-
-void FFTFrame::cleanup()
-{
-    if (!fftSetups)
-        return;
-
-    for (int i = 0; i < kMaxFFTPow2Size; ++i) {
-        if (fftSetups[i])
-            vDSP_destroy_fftsetup(fftSetups[i]);
-    }
-
-    fastFree(fftSetups);
-    fftSetups = 0;
-}
-
-float* FFTFrame::realData() const
-{
-    return m_frame.realp;
-}
-    
-float* FFTFrame::imagData() const
-{
-    return m_frame.imagp;
 }
 
 } // namespace WebCore

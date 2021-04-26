@@ -67,10 +67,38 @@ bool JSAPIWrapperObjectHandleOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::
 }
 
 namespace JSC {
-    
-template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCallbackObject) };
 
-template<> const bool JSCallbackObject<JSAPIWrapperObject>::needsDestruction = true;
+static JSC_DECLARE_HOST_FUNCTION(callJSAPIWrapperObjectCallbackObject);
+static JSC_DECLARE_HOST_FUNCTION(constructJSAPIWrapperObjectCallbackObject);
+static JSC_DECLARE_CUSTOM_GETTER(callbackGetterJSAPIWrapperObjectCallbackObject);
+static JSC_DECLARE_CUSTOM_GETTER(staticFunctionGetterJSAPIWrapperObjectCallbackObject);
+
+template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCallbackObject) };
+template <> const bool JSCallbackObject<JSAPIWrapperObject>::needsDestruction = true;
+
+template <>
+RawNativeFunction JSCallbackObject<JSAPIWrapperObject>::getCallFunction()
+{
+    return callJSAPIWrapperObjectCallbackObject;
+}
+
+template <>
+RawNativeFunction JSCallbackObject<JSAPIWrapperObject>::getConstructFunction()
+{
+    return constructJSAPIWrapperObjectCallbackObject;
+}
+
+template <>
+PropertySlot::GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getCallbackGetter()
+{
+    return callbackGetterJSAPIWrapperObjectCallbackObject;
+}
+
+template <>
+PropertySlot::GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getStaticFunctionGetter()
+{
+    return staticFunctionGetterJSAPIWrapperObjectCallbackObject;
+}
 
 template <>
 Structure* JSCallbackObject<JSAPIWrapperObject>::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto)
@@ -116,6 +144,26 @@ IsoSubspace* JSCallbackObject<JSAPIWrapperObject>::subspaceForImpl(VM& vm, Subsp
     }
     RELEASE_ASSERT_NOT_REACHED();
     return nullptr;
+}
+
+JSC_DEFINE_HOST_FUNCTION(callJSAPIWrapperObjectCallbackObject, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    return JSCallbackObject<JSAPIWrapperObject>::callImpl(globalObject, callFrame);
+}
+
+JSC_DEFINE_HOST_FUNCTION(constructJSAPIWrapperObjectCallbackObject, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    return JSCallbackObject<JSAPIWrapperObject>::constructImpl(globalObject, callFrame);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(callbackGetterJSAPIWrapperObjectCallbackObject, (JSGlobalObject* globalObject, EncodedJSValue thisValue, PropertyName propertyName))
+{
+    return JSCallbackObject<JSAPIWrapperObject>::callbackGetterImpl(globalObject, thisValue, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(staticFunctionGetterJSAPIWrapperObjectCallbackObject, (JSGlobalObject* globalObject, EncodedJSValue thisValue, PropertyName propertyName))
+{
+    return JSCallbackObject<JSAPIWrapperObject>::staticFunctionGetterImpl(globalObject, thisValue, propertyName);
 }
 
 } // namespace JSC

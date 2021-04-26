@@ -27,14 +27,17 @@
 
 #pragma once
 
+#include <functional>
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/FunctionDispatcher.h>
 #include <wtf/HashMap.h>
+#include <wtf/Observer.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Seconds.h>
 #include <wtf/ThreadingPrimitives.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
 #if USE(CF)
@@ -79,7 +82,7 @@ public:
     WTF_EXPORT_PRIVATE static bool isMain();
     ~RunLoop() final;
 
-    WTF_EXPORT_PRIVATE void dispatch(Function<void()>&&);
+    WTF_EXPORT_PRIVATE void dispatch(Function<void()>&&) final;
     WTF_EXPORT_PRIVATE void dispatchAfter(Seconds, Function<void()>&&);
 #if USE(COCOA_EVENT_LOOP)
     WTF_EXPORT_PRIVATE static void dispatch(const SchedulePairHashSet&, Function<void()>&&);
@@ -94,8 +97,13 @@ public:
     enum class CycleResult { Continue, Stop };
     WTF_EXPORT_PRIVATE CycleResult static cycle(RunLoopMode = DefaultRunLoopMode);
 
+    WTF_EXPORT_PRIVATE void threadWillExit();
+
 #if USE(GLIB_EVENT_LOOP)
     WTF_EXPORT_PRIVATE GMainContext* mainContext() const { return m_mainContext.get(); }
+    enum class Event { WillDispatch, DidDispatch };
+    using Observer = WTF::Observer<void(Event, const String&)>;
+    WTF_EXPORT_PRIVATE void observe(const Observer&);
 #endif
 
 #if USE(GENERIC_EVENT_LOOP) || USE(WINDOWS_EVENT_LOOP)
@@ -164,18 +172,20 @@ public:
 
         Timer(RunLoop& runLoop, TimerFiredClass* o, TimerFiredFunction f)
             : TimerBase(runLoop)
-            , m_function(f)
-            , m_object(o)
+            , m_function(std::bind(f, o))
+        {
+        }
+
+        Timer(RunLoop& runLoop, Function<void ()>&& function)
+            : TimerBase(runLoop)
+            , m_function(WTFMove(function))
         {
         }
 
     private:
-        void fired() override { (m_object->*m_function)(); }
+        void fired() override { m_function(); }
 
-        // This order should be maintained due to MSVC bug.
-        // http://computer-programming-forum.com/7-vc.net/6fbc30265f860ad1.htm
-        TimerFiredFunction m_function;
-        TimerFiredClass* m_object;
+        Function<void()> m_function;
     };
 
 private:
@@ -221,9 +231,13 @@ private:
     RetainPtr<CFRunLoopRef> m_runLoop;
     RetainPtr<CFRunLoopSourceRef> m_runLoopSource;
 #elif USE(GLIB_EVENT_LOOP)
+    void notify(Event, const char*);
+
+    static GSourceFuncs s_runLoopSourceFunctions;
     GRefPtr<GMainContext> m_mainContext;
     Vector<GRefPtr<GMainLoop>> m_mainLoops;
     GRefPtr<GSource> m_source;
+    WeakHashSet<Observer> m_observers;
 #elif USE(GENERIC_EVENT_LOOP)
     void schedule(Ref<TimerBase::ScheduledTask>&&);
     void schedule(const AbstractLocker&, Ref<TimerBase::ScheduledTask>&&);

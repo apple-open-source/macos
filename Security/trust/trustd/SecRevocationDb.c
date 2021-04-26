@@ -30,6 +30,7 @@
 #include "trust/trustd/OTATrustUtilities.h"
 #include "trust/trustd/SecRevocationNetworking.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
+#include "trust/trustd/trustdFileLocations.h"
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCMS.h>
 #include <Security/CMSDecoder.h>
@@ -57,7 +58,6 @@
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
-#include <utilities/SecFileLocations.h>
 #include <sqlite3.h>
 #include <zlib.h>
 #include <malloc/malloc.h>
@@ -809,6 +809,11 @@ static bool SecValidUpdateForceReplaceDatabase(void) {
             result = true;
         }
         if (fd >= 0) {
+            CFErrorRef error = NULL;
+            if (!TrustdChangeFileProtectionToClassD(utf8String, &error)) {
+                secerror("failed to change replace valid db flag protection class: %@", error);
+                CFReleaseNull(error);
+            }
             close(fd);
         }
     });
@@ -875,7 +880,12 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
             if (retval < 0) {
                 secnotice("validupdate", "copyfile error %d", retval);
             } else {
-                result = true;
+                CFErrorRef localError = NULL;
+                result = TrustdChangeFileProtectionToClassD(path, &localError);
+                if (!result) {
+                    secerror("failed to change protection class of copied valid snapshot: %@", localError);
+                    CFReleaseNull(localError);
+                }
             }
         });
     }

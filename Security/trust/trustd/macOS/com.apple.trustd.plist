@@ -26,5 +26,9 @@
 	<array>
 		<string>/usr/libexec/trustd</string>
 	</array>
+	<key>UserName</key>
+	<string>_trustd</string>
+	<key>Umask</key>
+	<integer>27</integer>
 </dict>
 </plist>

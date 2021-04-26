@@ -722,7 +722,7 @@ NSArray *Frame::interpretationsForCurrentRoot() const
     if (!document())
         return nil;
 
-    auto* root = selection().selection().selectionType() == VisibleSelection::NoSelection ? document()->bodyOrFrameset() : selection().selection().rootEditableElement();
+    auto* root = selection().isNone() ? document()->bodyOrFrameset() : selection().selection().rootEditableElement();
     auto rangeOfRootContents = makeRangeSelectingNodeContents(*root);
 
     auto markersInRoot = document()->markers().markersInRange(rangeOfRootContents, DocumentMarker::DictationPhraseWithAlternatives);
@@ -740,7 +740,7 @@ NSArray *Frame::interpretationsForCurrentRoot() const
     Vector<Vector<UChar>> interpretations;
     interpretations.grow(interpretationsCount);
 
-    Position precedingTextStartPosition = createLegacyEditingPosition(root, 0);
+    Position precedingTextStartPosition = makeDeprecatedLegacyPosition(root, 0);
 
     unsigned combinationsSoFar = 1;
 
@@ -770,7 +770,7 @@ NSArray *Frame::interpretationsForCurrentRoot() const
 
             combinationsSoFar *= interpretationsCountForCurrentMarker;
 
-            precedingTextStartPosition = createLegacyEditingPosition(rangeForMarker.end);
+            precedingTextStartPosition = makeDeprecatedLegacyPosition(rangeForMarker.end);
         }
     }
 

@@ -77,7 +77,7 @@
     return self;
 }
 
-@synthesize parent=_parent;
+@synthesize parent = _parent;
 
 - (void)dealloc
 {
@@ -194,15 +194,7 @@ MediaPlayerEnums::SupportsType SourceBufferParserAVFObjC::isContentTypeSupported
         extendedType = makeString(type.containerType(), "; codecs=\"", outputCodecs, "\"");
     }
 
-    auto& streamDataParserCache = AVStreamDataParserMIMETypeCache::singleton();
-    if (streamDataParserCache.isAvailable())
-        return streamDataParserCache.canDecodeType(extendedType);
-
-    auto& assetCache = AVAssetMIMETypeCache::singleton();
-    if (assetCache.isAvailable())
-        return assetCache.canDecodeType(extendedType);
-
-    return MediaPlayerEnums::SupportsType::IsNotSupported;
+    return AVStreamDataParserMIMETypeCache::singleton().canDecodeType(extendedType);
 }
 
 SourceBufferParserAVFObjC::SourceBufferParserAVFObjC()
@@ -217,15 +209,16 @@ SourceBufferParserAVFObjC::~SourceBufferParserAVFObjC()
     [m_delegate invalidate];
 }
 
-void SourceBufferParserAVFObjC::appendData(Vector<unsigned char>&& data, AppendFlags flags)
+void SourceBufferParserAVFObjC::appendData(Segment&& segment, CompletionHandler<void()>&& completionHandler, AppendFlags flags)
 {
-    auto sharedData = SharedBuffer::create(WTFMove(data));
+    auto sharedData = SharedBuffer::create(segment.takeVector());
     auto nsData = sharedData->createNSData();
     if (m_parserStateWasReset || flags == AppendFlags::Discontinuity)
         [m_parser appendStreamData:nsData.get() withFlags:AVStreamDataParserStreamDataDiscontinuity];
     else
         [m_parser appendStreamData:nsData.get()];
     m_parserStateWasReset = false;
+    completionHandler();
 }
 
 void SourceBufferParserAVFObjC::flushPendingMediaData()

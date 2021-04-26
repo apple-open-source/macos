@@ -121,20 +121,19 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
 #if ENABLE(CSS_SCROLL_SNAP)
     if (processWheelEventForScrollSnap(wheelEvent))
-        return false; // FIXME: Why don't we report that we handled it?
+        return true;
 #endif
-    if (wheelEvent.phase() == PlatformWheelEventPhaseMayBegin || wheelEvent.phase() == PlatformWheelEventPhaseCancelled)
+    if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin || wheelEvent.phase() == PlatformWheelEventPhase::Cancelled)
         return false;
 
-    if (wheelEvent.phase() == PlatformWheelEventPhaseBegan) {
+    if (wheelEvent.phase() == PlatformWheelEventPhase::Began) {
         // FIXME: Trying to decide if a gesture is horizontal or vertical at the "began" phase is very error-prone.
         auto direction = directionFromEvent(wheelEvent, ScrollEventAxis::Horizontal);
-        // FIXME: pinnedInDirection() needs cleanup.
-        if (direction && m_client.pinnedInDirection(FloatSize(-wheelEvent.deltaX(), 0)) && !shouldRubberBandInDirection(direction.value()))
+        if (direction && m_client.isPinnedForScrollDelta(FloatSize(-wheelEvent.deltaX(), 0)) && !shouldRubberBandInDirection(direction.value()))
             return false;
 
         direction = directionFromEvent(wheelEvent, ScrollEventAxis::Vertical);
-        if (direction && m_client.pinnedInDirection(FloatSize(0, -wheelEvent.deltaY())) && !shouldRubberBandInDirection(direction.value()))
+        if (direction && m_client.isPinnedForScrollDelta(FloatSize(0, -wheelEvent.deltaY())) && !shouldRubberBandInDirection(direction.value()))
             return false;
 
         m_momentumScrollInProgress = false;
@@ -152,18 +151,22 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
         return true;
     }
 
-    if (wheelEvent.phase() == PlatformWheelEventPhaseEnded) {
+    if (wheelEvent.phase() == PlatformWheelEventPhase::Ended) {
         snapRubberBand();
         updateRubberBandingState();
         return true;
     }
 
-    bool isMomentumScrollEvent = (wheelEvent.momentumPhase() != PlatformWheelEventPhaseNone);
+    bool isMomentumScrollEvent = (wheelEvent.momentumPhase() != PlatformWheelEventPhase::None);
     if (m_ignoreMomentumScrolls && (isMomentumScrollEvent || m_snapRubberbandTimer)) {
-        if (wheelEvent.momentumPhase() == PlatformWheelEventPhaseEnded) {
+        if (wheelEvent.momentumPhase() == PlatformWheelEventPhase::Ended) {
             m_ignoreMomentumScrolls = false;
             return true;
         }
+
+        if (isMomentumScrollEvent && m_ignoreMomentumScrolls)
+            return true;
+
         return false;
     }
 
@@ -203,7 +206,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
     PlatformWheelEventPhase momentumPhase = wheelEvent.momentumPhase();
 
     // If we are starting momentum scrolling then do some setup.
-    if (!m_momentumScrollInProgress && (momentumPhase == PlatformWheelEventPhaseBegan || momentumPhase == PlatformWheelEventPhaseChanged))
+    if (!m_momentumScrollInProgress && (momentumPhase == PlatformWheelEventPhase::Began || momentumPhase == PlatformWheelEventPhase::Changed))
         m_momentumScrollInProgress = true;
 
     auto timeDelta = wheelEvent.timestamp() - m_lastMomentumScrollTimestamp;
@@ -218,7 +221,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
         }
 
         if (isVerticallyStretched) {
-            if (!isHorizontallyStretched && m_client.pinnedInDirection(FloatSize(deltaX, 0))) {
+            if (!isHorizontallyStretched && m_client.isPinnedForScrollDelta(FloatSize(deltaX, 0))) {
                 // Stretching only in the vertical.
                 if (deltaY && (fabsf(deltaX / deltaY) < rubberbandDirectionLockStretchRatio))
                     deltaX = 0;
@@ -230,7 +233,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
             }
         } else if (isHorizontallyStretched) {
             // Stretching only in the horizontal.
-            if (m_client.pinnedInDirection(FloatSize(0, deltaY))) {
+            if (m_client.isPinnedForScrollDelta(FloatSize(0, deltaY))) {
                 if (deltaX && (fabsf(deltaY / deltaX) < rubberbandDirectionLockStretchRatio))
                     deltaY = 0;
                 else if (fabsf(deltaY) < rubberbandMinimumRequiredDeltaBeforeStretch) {
@@ -241,7 +244,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
             }
         } else {
             // Not stretching at all yet.
-            if (m_client.pinnedInDirection(FloatSize(deltaX, deltaY))) {
+            if (m_client.isPinnedForScrollDelta(FloatSize(deltaX, deltaY))) {
                 if (fabsf(deltaY) >= fabsf(deltaX)) {
                     if (fabsf(deltaX) < rubberbandMinimumRequiredDeltaBeforeStretch) {
                         m_overflowScrollDelta.setWidth(m_overflowScrollDelta.width() + deltaX);
@@ -249,9 +252,18 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
                     } else
                         m_overflowScrollDelta.setWidth(m_overflowScrollDelta.width() + deltaX);
                 }
-                shouldStretch = true;
+
+                if (!m_client.allowsHorizontalStretching(wheelEvent))
+                    deltaX = 0;
+
+                if (!m_client.allowsVerticalStretching(wheelEvent))
+                    deltaY = 0;
+
+                shouldStretch = deltaX || deltaY;
             }
         }
+
+        LOG_WITH_STREAM(Scrolling, stream << "ScrollController::handleWheelEvent() - deltaX " << deltaX << " deltaY " << deltaY << " pinned " << m_client.isPinnedForScrollDelta(FloatSize(deltaX, deltaY)) << " shouldStretch " << shouldStretch);
     }
 
     bool handled = true;
@@ -272,7 +284,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
                     deltaX = 0;
                     eventCoalescedDeltaX = 0;
                     handled = false;
-                } else if (!isHorizontallyStretched && !m_client.pinnedInDirection(FloatSize(deltaX, 0))) {
+                } else if (!isHorizontallyStretched && !m_client.isPinnedForScrollDelta(FloatSize(deltaX, 0))) {
                     deltaX *= scrollWheelMultiplier();
 
                     m_client.immediateScrollByWithoutContentEdgeConstraints(FloatSize(deltaX, 0));
@@ -285,7 +297,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
                     deltaY = 0;
                     eventCoalescedDeltaY = 0;
                     handled = false;
-                } else if (!isVerticallyStretched && !m_client.pinnedInDirection(FloatSize(0, deltaY))) {
+                } else if (!isVerticallyStretched && !m_client.isPinnedForScrollDelta(FloatSize(0, deltaY))) {
                     deltaY *= scrollWheelMultiplier();
 
                     m_client.immediateScrollByWithoutContentEdgeConstraints(FloatSize(0, deltaY));
@@ -296,7 +308,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
             IntSize stretchAmount = m_client.stretchAmount();
 
             if (m_momentumScrollInProgress) {
-                if ((m_client.pinnedInDirection(FloatSize(eventCoalescedDeltaX, eventCoalescedDeltaY)) || (fabsf(eventCoalescedDeltaX) + fabsf(eventCoalescedDeltaY) <= 0)) && m_lastMomentumScrollTimestamp) {
+                if ((m_client.isPinnedForScrollDelta(FloatSize(eventCoalescedDeltaX, eventCoalescedDeltaY)) || (fabsf(eventCoalescedDeltaX) + fabsf(eventCoalescedDeltaY) <= 0)) && m_lastMomentumScrollTimestamp) {
                     m_ignoreMomentumScrolls = true;
                     m_momentumScrollInProgress = false;
                     snapRubberBand();
@@ -312,7 +324,7 @@ bool ScrollController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
         }
     }
 
-    if (m_momentumScrollInProgress && momentumPhase == PlatformWheelEventPhaseEnded) {
+    if (m_momentumScrollInProgress && momentumPhase == PlatformWheelEventPhase::Ended) {
         m_momentumScrollInProgress = false;
         m_ignoreMomentumScrolls = false;
         m_lastMomentumScrollTimestamp = { };
@@ -403,20 +415,15 @@ void ScrollController::snapRubberBandTimerFired()
     if (isScrollSnapInProgress())
         return;
     
+    LOG_WITH_STREAM(Scrolling, stream << "ScrollController::snapRubberBandTimerFired() - main thread " << isMainThread());
+
     if (!m_momentumScrollInProgress || m_ignoreMomentumScrolls) {
         auto timeDelta = MonotonicTime::now() - m_startTime;
 
         if (m_startStretch.isZero()) {
             m_startStretch = m_client.stretchAmount();
             if (m_startStretch == FloatSize()) {
-                stopSnapRubberbandTimer();
-
-                m_stretchScrollForce = { };
-                m_startTime = { };
-                m_startStretch = { };
-                m_origVelocity = { };
-
-                updateRubberBandingState();
+                stopRubberbanding();
                 return;
             }
 
@@ -427,11 +434,11 @@ void ScrollController::snapRubberBandTimerFired()
                 m_origVelocity.setWidth(0);
 
             // Don't rubber-band horizontally if it's not possible to scroll horizontally
-            if (!m_client.canScrollHorizontally())
+            if (!m_client.allowsHorizontalScrolling())
                 m_origVelocity.setWidth(0);
 
             // Don't rubber-band vertically if it's not possible to scroll vertically
-            if (!m_client.canScrollVertically())
+            if (!m_client.allowsVerticalScrolling())
                 m_origVelocity.setHeight(0);
         }
 
@@ -447,12 +454,7 @@ void ScrollController::snapRubberBandTimerFired()
             m_stretchScrollForce.setHeight(reboundDeltaForElasticDelta(newStretch.height()));
         } else {
             m_client.adjustScrollPositionToBoundsIfNecessary();
-
-            stopSnapRubberbandTimer();
-            m_stretchScrollForce = { };
-            m_startTime = { };
-            m_startStretch = { };
-            m_origVelocity = { };
+            stopRubberbanding();
         }
     } else {
         m_startTime = MonotonicTime::now();
@@ -509,6 +511,18 @@ bool ScrollController::isScrollSnapInProgress() const
         return true;
 #endif
     return false;
+}
+
+void ScrollController::stopRubberbanding()
+{
+#if ENABLE(RUBBER_BANDING)
+    stopSnapRubberbandTimer();
+    m_stretchScrollForce = { };
+    m_startTime = { };
+    m_startStretch = { };
+    m_origVelocity = { };
+    updateRubberBandingState();
+#endif
 }
 
 #if ENABLE(RUBBER_BANDING)
@@ -580,9 +594,23 @@ void ScrollController::updateRubberBandingState()
     bool isRubberBanding = isRubberBandInProgressInternal();
     if (isRubberBanding == m_isRubberBanding)
         return;
-    
+
     m_isRubberBanding = isRubberBanding;
+    if (m_isRubberBanding)
+        updateRubberBandingEdges(m_client.stretchAmount());
+    else
+        m_rubberBandingEdges = { };
+
     m_client.rubberBandingStateChanged(m_isRubberBanding);
+}
+
+void ScrollController::updateRubberBandingEdges(IntSize clientStretch)
+{
+    m_rubberBandingEdges.setLeft(clientStretch.width() < 0);
+    m_rubberBandingEdges.setRight(clientStretch.width() > 0);
+
+    m_rubberBandingEdges.setTop(clientStretch.height() < 0);
+    m_rubberBandingEdges.setBottom(clientStretch.height() > 0);
 }
 
 #endif // ENABLE(RUBBER_BANDING)
@@ -592,35 +620,35 @@ void ScrollController::updateRubberBandingState()
 #if PLATFORM(MAC)
 static inline WheelEventStatus toWheelEventStatus(PlatformWheelEventPhase phase, PlatformWheelEventPhase momentumPhase)
 {
-    if (phase == PlatformWheelEventPhaseNone) {
+    if (phase == PlatformWheelEventPhase::None) {
         switch (momentumPhase) {
-        case PlatformWheelEventPhaseBegan:
+        case PlatformWheelEventPhase::Began:
             return WheelEventStatus::MomentumScrollBegin;
                 
-        case PlatformWheelEventPhaseChanged:
+        case PlatformWheelEventPhase::Changed:
             return WheelEventStatus::MomentumScrolling;
                 
-        case PlatformWheelEventPhaseEnded:
+        case PlatformWheelEventPhase::Ended:
             return WheelEventStatus::MomentumScrollEnd;
 
-        case PlatformWheelEventPhaseNone:
+        case PlatformWheelEventPhase::None:
             return WheelEventStatus::StatelessScrollEvent;
 
         default:
             return WheelEventStatus::Unknown;
         }
     }
-    if (momentumPhase == PlatformWheelEventPhaseNone) {
+    if (momentumPhase == PlatformWheelEventPhase::None) {
         switch (phase) {
-        case PlatformWheelEventPhaseBegan:
-        case PlatformWheelEventPhaseMayBegin:
+        case PlatformWheelEventPhase::Began:
+        case PlatformWheelEventPhase::MayBegin:
             return WheelEventStatus::UserScrollBegin;
                 
-        case PlatformWheelEventPhaseChanged:
+        case PlatformWheelEventPhase::Changed:
             return WheelEventStatus::UserScrolling;
                 
-        case PlatformWheelEventPhaseEnded:
-        case PlatformWheelEventPhaseCancelled:
+        case PlatformWheelEventPhase::Ended:
+        case PlatformWheelEventPhase::Cancelled:
             return WheelEventStatus::UserScrollEnd;
                 
         default:
@@ -742,7 +770,7 @@ bool ScrollController::processWheelEventForScrollSnap(const PlatformWheelEvent& 
 
 void ScrollController::updateGestureInProgressState(const PlatformWheelEvent& wheelEvent)
 {
-    if (wheelEvent.isGestureBegin() || wheelEvent.isTransitioningToMomentumScroll())
+    if (wheelEvent.isGestureStart() || wheelEvent.isTransitioningToMomentumScroll())
         m_inScrollGesture = true;
     else if (wheelEvent.isEndOfNonMomentumScroll() || wheelEvent.isGestureCancel() || wheelEvent.isEndOfMomentumScroll())
         m_inScrollGesture = false;
@@ -882,6 +910,22 @@ void ScrollController::setNearestScrollSnapIndexForAxisAndOffset(ScrollEventAxis
     m_activeScrollSnapIndexDidChange = true;
     setActiveScrollSnapIndexForAxis(axis, activeIndex);
 }
+
+float ScrollController::adjustScrollDestinationForDirectionalSnapping(ScrollEventAxis axis, float destination, float velocity, float originalPosition)
+{
+    if (!usesScrollSnap())
+        return destination;
+
+    ScrollSnapAnimatorState& snapState = *m_scrollSnapState;
+    auto snapOffsets = snapState.snapOffsetsForAxis(axis);
+    if (!snapOffsets.size())
+        return destination;
+
+    unsigned snapIndex;
+    LayoutUnit offset = closestSnapOffset(snapState.snapOffsetsForAxis(axis), snapState.snapOffsetRangesForAxis(axis), LayoutUnit(destination / m_client.pageScaleFactor()), velocity, snapIndex, LayoutUnit(originalPosition / m_client.pageScaleFactor()));
+    return offset * m_client.pageScaleFactor();
+}
+
 
 void ScrollController::setActiveScrollSnapIndicesForOffset(ScrollOffset offset)
 {

@@ -45,9 +45,13 @@ class ThreadedScrollingTree : public ScrollingTree {
 public:
     virtual ~ThreadedScrollingTree();
 
-    WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&) override;
+    WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>) override;
 
-    bool handleWheelEventAfterMainThread(const PlatformWheelEvent&, ScrollingNodeID);
+    bool handleWheelEventAfterMainThread(const PlatformWheelEvent&, ScrollingNodeID, Optional<WheelScrollGestureState>);
+    void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, Optional<WheelScrollGestureState>);
+
+    WEBCORE_EXPORT void willSendEventToMainThread(const PlatformWheelEvent&) final;
+    WEBCORE_EXPORT void waitForEventToBeProcessedByMainThread(const PlatformWheelEvent&) final;
 
     void invalidate() override;
 
@@ -58,6 +62,8 @@ public:
 
     Lock& treeMutex() { return m_treeMutex; }
 
+    bool scrollAnimatorEnabled() const { return m_scrollAnimatorEnabled; }
+
 protected:
     explicit ThreadedScrollingTree(AsyncScrollingCoordinator&);
 
@@ -65,7 +71,6 @@ protected:
 #if PLATFORM(MAC)
     void handleWheelEventPhase(ScrollingNodeID, PlatformWheelEventPhase) override;
     void setActiveScrollSnapIndices(ScrollingNodeID, unsigned horizontalIndex, unsigned verticalIndex) override;
-    void scrollingTreeNodeRequestsScroll(ScrollingNodeID, const FloatPoint& /*scrollPosition*/, ScrollType, ScrollClamping) override;
 #endif
 
 #if PLATFORM(COCOA)
@@ -75,21 +80,21 @@ protected:
     void reportExposedUnfilledArea(MonotonicTime, unsigned unfilledArea) override;
     void reportSynchronousScrollingReasonsChanged(MonotonicTime, OptionSet<SynchronousScrollingReason>) override;
 
+    RefPtr<AsyncScrollingCoordinator> m_scrollingCoordinator;
+
 private:
     bool isThreadedScrollingTree() const override { return true; }
     void propagateSynchronousScrollingReasons(const HashSet<ScrollingNodeID>&) override;
 
     void displayDidRefreshOnScrollingThread();
     void waitForRenderingUpdateCompletionOrTimeout();
-    
+
     bool canUpdateLayersOnScrollingThread() const;
 
     void scheduleDelayedRenderingUpdateDetectionTimer(Seconds);
     void delayedRenderingUpdateDetectionTimerFired();
 
     Seconds maxAllowableRenderingUpdateDurationForSynchronization();
-
-    RefPtr<AsyncScrollingCoordinator> m_scrollingCoordinator;
 
     enum class SynchronizationState : uint8_t {
         Idle,
@@ -101,8 +106,13 @@ private:
     SynchronizationState m_state { SynchronizationState::Idle };
     Condition m_stateCondition;
 
+    bool m_receivedBeganEventFromMainThread { false };
+    Condition m_waitingForBeganEventCondition;
+
     // Dynamically allocated because it has to use the ScrollingThread's runloop.
     std::unique_ptr<RunLoop::Timer<ThreadedScrollingTree>> m_delayedRenderingUpdateDetectionTimer;
+
+    bool m_scrollAnimatorEnabled { false };
 };
 
 } // namespace WebCore

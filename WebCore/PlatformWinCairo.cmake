@@ -4,6 +4,10 @@ include(platform/ImageDecoders.cmake)
 include(platform/OpenSSL.cmake)
 include(platform/TextureMapper.cmake)
 
+if (USE_DAWN)
+    include(platform/Dawn.cmake)
+endif ()
+
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_LIBRARIES_DIR}/include"
     "${WEBCORE_DIR}/loader/archive/cf"
@@ -18,12 +22,15 @@ list(APPEND WebCore_SOURCES
     platform/graphics/GLContext.cpp
     platform/graphics/PlatformDisplay.cpp
 
+    platform/graphics/displaylists/DisplayListDrawGlyphsRecorderHarfBuzz.cpp
+
     platform/graphics/win/FontCustomPlatformDataCairo.cpp
     platform/graphics/win/FontPlatformDataCairoWin.cpp
     platform/graphics/win/GlyphPageTreeNodeCairoWin.cpp
     platform/graphics/win/GraphicsContextCairoWin.cpp
     platform/graphics/win/ImageCairoWin.cpp
     platform/graphics/win/MediaPlayerPrivateMediaFoundation.cpp
+    platform/graphics/win/PlatformDisplayWin.cpp
     platform/graphics/win/SimpleFontDataCairoWin.cpp
 
     platform/network/win/CurlSSLHandleWin.cpp
@@ -38,14 +45,9 @@ list(APPEND WebCore_SOURCES
 )
 
 list(APPEND WebCore_LIBRARIES
-    D3d9
-    Mf
-    Mfplat
     comctl32
     crypt32
     delayimp
-    dxva2
-    evr
     iphlpapi
     rpcrt4
     shlwapi
@@ -55,7 +57,25 @@ list(APPEND WebCore_LIBRARIES
     ws2_32
 )
 
-target_link_options(WebCore PUBLIC /DELAYLOAD:mf.dll /DELAYLOAD:mfplat.dll)
+# Define a INTERFACE library for MediaFoundation and link it
+# explicitly with direct WebCore consumers because /DELAYLOAD causes
+# linker warnings for modules not using MediaFoundation.
+#  LINK : warning LNK4199: /DELAYLOAD:mf.dll ignored; no imports found from mf.dll
+add_library(MediaFoundation INTERFACE)
+target_link_libraries(MediaFoundation INTERFACE
+    d3d9
+    dxva2
+    evr
+    mf
+    mfplat
+)
+target_link_options(MediaFoundation INTERFACE
+    /DELAYLOAD:d3d9.dll
+    /DELAYLOAD:dxva2.dll
+    /DELAYLOAD:evr.dll
+    /DELAYLOAD:mf.dll
+    /DELAYLOAD:mfplat.dll
+)
 
 if (USE_WOFF2)
     # The WOFF2 libraries don't compile as DLLs on Windows, so add in

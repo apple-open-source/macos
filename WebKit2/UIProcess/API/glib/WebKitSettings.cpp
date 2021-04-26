@@ -32,6 +32,7 @@
 #include "WebKitSettings.h"
 
 #include "WebKitEnumTypes.h"
+#include "WebKitInitialize.h"
 #include "WebKitSettingsPrivate.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
@@ -81,7 +82,6 @@ struct _WebKitSettingsPrivate {
     CString mediaContentTypesRequiringHardwareSupport;
     bool allowModalDialogs { false };
     bool zoomTextOnly { false };
-    double screenDpi { 96 };
 #if PLATFORM(GTK)
     bool enableBackForwardNavigationGestures { false };
 #endif
@@ -176,7 +176,6 @@ enum {
 
 static void webKitSettingsDispose(GObject* object)
 {
-    WebCore::setScreenDPIObserverHandler(nullptr, object);
     G_OBJECT_CLASS(webkit_settings_parent_class)->dispose(object);
 }
 
@@ -191,23 +190,6 @@ static void webKitSettingsConstructed(GObject* object)
     bool mediaStreamEnabled = prefs->mediaStreamEnabled();
     prefs->setMediaDevicesEnabled(mediaStreamEnabled);
     prefs->setPeerConnectionEnabled(mediaStreamEnabled);
-
-    settings->priv->screenDpi = WebCore::screenDPI();
-    WebCore::setScreenDPIObserverHandler([settings]() {
-        auto newScreenDpi = WebCore::screenDPI();
-        if (newScreenDpi == settings->priv->screenDpi)
-            return;
-
-        auto scalingFactor = newScreenDpi / settings->priv->screenDpi;
-        auto fontSize = settings->priv->preferences->defaultFontSize();
-        auto monospaceFontSize = settings->priv->preferences->defaultFixedFontSize();
-        settings->priv->screenDpi = newScreenDpi;
-
-        g_object_freeze_notify(G_OBJECT(settings));
-        webkit_settings_set_default_font_size(settings, std::round(fontSize * scalingFactor));
-        webkit_settings_set_default_monospace_font_size(settings, std::round(monospaceFontSize * scalingFactor));
-        g_object_thaw_notify(G_OBJECT(settings));
-    }, object);
 }
 
 static void webKitSettingsSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
@@ -355,7 +337,9 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
         webkit_settings_set_enable_smooth_scrolling(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_ACCELERATED_2D_CANVAS:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         webkit_settings_set_enable_accelerated_2d_canvas(settings, g_value_get_boolean(value));
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         webkit_settings_set_enable_write_console_messages_to_stdout(settings, g_value_get_boolean(value));
@@ -549,7 +533,9 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
         g_value_set_boolean(value, webkit_settings_get_enable_smooth_scrolling(settings));
         break;
     case PROP_ENABLE_ACCELERATED_2D_CANVAS:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         g_value_set_boolean(value, webkit_settings_get_enable_accelerated_2d_canvas(settings));
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         g_value_set_boolean(value, webkit_settings_get_enable_write_console_messages_to_stdout(settings));
@@ -606,6 +592,8 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
 
 static void webkit_settings_class_init(WebKitSettingsClass* klass)
 {
+    webkitInitialize();
+
     GObjectClass* gObjectClass = G_OBJECT_CLASS(klass);
     gObjectClass->constructed = webKitSettingsConstructed;
     gObjectClass->dispose = webKitSettingsDispose;
@@ -1270,6 +1258,8 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      * using hardware accelerated drawing operations.
      *
      * Since: 2.2
+     *
+     * Deprecated: 2.32.
      */
     g_object_class_install_property(gObjectClass,
         PROP_ENABLE_ACCELERATED_2D_CANVAS,
@@ -3164,12 +3154,14 @@ void webkit_settings_set_enable_smooth_scrolling(WebKitSettings* settings, gbool
  * Returns: %TRUE if accelerated 2D canvas is enabled or %FALSE otherwise.
  *
  * Since: 2.2
+ *
+ * Deprecated: 2.32.
  */
 gboolean webkit_settings_get_enable_accelerated_2d_canvas(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->accelerated2dCanvasEnabled();
+    return FALSE;
 }
 
 /**
@@ -3180,17 +3172,12 @@ gboolean webkit_settings_get_enable_accelerated_2d_canvas(WebKitSettings* settin
  * Set the #WebKitSettings:enable-accelerated-2d-canvas property.
  *
  * Since: 2.2
+ *
+ * Deprecated: 2.32.
  */
 void webkit_settings_set_enable_accelerated_2d_canvas(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
-
-    WebKitSettingsPrivate* priv = settings->priv;
-    if (priv->preferences->accelerated2dCanvasEnabled() == enabled)
-        return;
-
-    priv->preferences->setAccelerated2dCanvasEnabled(enabled);
-    g_object_notify(G_OBJECT(settings), "enable-accelerated-2d-canvas");
 }
 
 /**

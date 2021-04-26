@@ -404,14 +404,14 @@ bool SecurityOrigin::canAccessStorage(const SecurityOrigin* topOrigin, ShouldAll
     if (isLocal() && !needsStorageAccessFromFileURLsQuirk() && !m_universalAccess && shouldAllowFromThirdParty != AlwaysAllowFromThirdParty)
         return false;
     
-    if (m_storageBlockingPolicy == BlockAllStorage)
+    if (m_storageBlockingPolicy == StorageBlockingPolicy::BlockAll)
         return false;
 
     // FIXME: This check should be replaced with an ASSERT once we can guarantee that topOrigin is not null.
     if (!topOrigin)
         return true;
 
-    if (topOrigin->m_storageBlockingPolicy == BlockAllStorage)
+    if (topOrigin->m_storageBlockingPolicy == StorageBlockingPolicy::BlockAll)
         return false;
 
     if (shouldAllowFromThirdParty == AlwaysAllowFromThirdParty)
@@ -420,7 +420,7 @@ bool SecurityOrigin::canAccessStorage(const SecurityOrigin* topOrigin, ShouldAll
     if (m_universalAccess)
         return true;
 
-    if ((m_storageBlockingPolicy == BlockThirdPartyStorage || topOrigin->m_storageBlockingPolicy == BlockThirdPartyStorage) && !topOrigin->isSameOriginAs(*this))
+    if ((m_storageBlockingPolicy == StorageBlockingPolicy::BlockThirdParty || topOrigin->m_storageBlockingPolicy == StorageBlockingPolicy::BlockThirdParty) && !topOrigin->isSameOriginAs(*this))
         return false;
 
     return true;
@@ -488,7 +488,7 @@ void SecurityOrigin::grantStorageAccessFromFileURLsQuirk()
 
 String SecurityOrigin::domainForCachePartition() const
 {
-    if (m_storageBlockingPolicy != BlockThirdPartyStorage)
+    if (m_storageBlockingPolicy != StorageBlockingPolicy::BlockThirdParty)
         return emptyString();
 
     if (isHTTPFamily())
@@ -605,7 +605,7 @@ bool SecurityOrigin::isLocalHostOrLoopbackIPAddress(StringView host)
         return true;
 
     // FIXME: Ensure that localhost resolves to the loopback address.
-    if (equalLettersIgnoringASCIICase(host, "localhost"))
+    if (equalLettersIgnoringASCIICase(host, "localhost") || host.endsWithIgnoringASCIICase(".localhost"))
         return true;
 
     return false;

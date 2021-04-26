@@ -26,7 +26,6 @@
 #include "config.h"
 #include "WebSocketTaskSoup.h"
 
-#include "DataReference.h"
 #include "NetworkProcess.h"
 #include "NetworkSocketChannel.h"
 #include <WebCore/HTTPParsers.h>
@@ -80,13 +79,18 @@ WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, SoupSession* session
                 task->didFail(String::fromUTF8(error->message));
         }, this);
 
-    WebCore::ResourceRequest request;
-    request.updateFromSoupMessage(msg);
-    m_channel.didSendHandshakeRequest(WTFMove(request));
+    g_signal_connect(msg, "starting", G_CALLBACK(+[](SoupMessage* msg, WebSocketTask* task) {
+        WebCore::ResourceRequest request;
+        request.updateFromSoupMessage(msg);
+        task->m_channel.didSendHandshakeRequest(WTFMove(request));
+    }), this);
 }
 
 WebSocketTask::~WebSocketTask()
 {
+    if (m_handshakeMessage)
+        g_signal_handlers_disconnect_by_data(m_handshakeMessage.get(), this);
+
     cancel();
 }
 
@@ -131,6 +135,7 @@ void WebSocketTask::didConnect(GRefPtr<SoupWebsocketConnection>&& connection)
     WebCore::ResourceResponse response;
     response.updateFromSoupMessage(m_handshakeMessage.get());
     m_channel.didReceiveHandshakeResponse(WTFMove(response));
+    g_signal_handlers_disconnect_by_data(m_handshakeMessage.get(), this);
     m_handshakeMessage = nullptr;
 }
 
@@ -170,6 +175,7 @@ void WebSocketTask::didFail(const String& errorMessage)
         WebCore::ResourceResponse response;
         response.updateFromSoupMessage(m_handshakeMessage.get());
         m_channel.didReceiveHandshakeResponse(WTFMove(response));
+        g_signal_handlers_disconnect_by_data(m_handshakeMessage.get(), this);
         m_handshakeMessage = nullptr;
     }
     m_channel.didReceiveMessageError(errorMessage);
@@ -204,7 +210,7 @@ void WebSocketTask::sendString(const IPC::DataReference& utf8, CompletionHandler
         GRefPtr<GBytes> bytes = adoptGRef(g_bytes_new_static(utf8.data(), utf8.size()));
         soup_websocket_connection_send_message(m_connection.get(), SOUP_WEBSOCKET_DATA_TEXT, bytes.get());
 #else
-        soup_websocket_connection_send_text(m_connection.get(), reinterpret_cast<const char*>(utf8.data()));
+        soup_websocket_connection_send_text(m_connection.get(), CString(reinterpret_cast<const char*>(utf8.data()), utf8.size()).data());
 #endif
     }
     callback();

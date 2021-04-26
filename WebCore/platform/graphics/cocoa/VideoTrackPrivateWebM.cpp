@@ -44,9 +44,25 @@ VideoTrackPrivateWebM::VideoTrackPrivateWebM(webm::TrackEntry&& trackEntry)
 
 AtomString VideoTrackPrivateWebM::id() const
 {
-    if (m_trackID.isNull())
-        m_trackID = m_track.track_uid.is_present() ? AtomString::number(m_track.track_uid.value()) : emptyAtom();
+    if (m_trackID.isNull()) {
+        auto uid = trackUID();
+        m_trackID = uid ? AtomString::number(*uid) : emptyAtom();
+    }
     return m_trackID;
+}
+
+Optional<uint64_t> VideoTrackPrivateWebM::trackUID() const
+{
+    if (m_track.track_uid.is_present())
+        return m_track.track_uid.value();
+    return WTF::nullopt;
+}
+
+Optional<bool> VideoTrackPrivateWebM::defaultEnabled() const
+{
+    if (m_track.is_enabled.is_present())
+        return m_track.is_enabled.value();
+    return WTF::nullopt;
 }
 
 AtomString VideoTrackPrivateWebM::label() const

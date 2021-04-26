@@ -79,6 +79,7 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     if (!self.isOpen) {
         NSError* error = nil;
         if (![self openWithError:&error]) {
+            secerror("SFAnalytics: failed to open analytics db: %@", error);
             return NO;
         }
         secnotice("SFAnalytics", "successfully opened analytics db");

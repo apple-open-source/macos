@@ -37,7 +37,7 @@ namespace WebCore {
 
 const CSSParserContext& strictCSSParserContext()
 {
-    static NeverDestroyed<CSSParserContext> strictContext(HTMLStandardMode);
+    static MainThreadNeverDestroyed<CSSParserContext> strictContext(HTMLStandardMode);
     return strictContext;
 }
 
@@ -76,7 +76,10 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
 #endif
     deferredCSSParserEnabled = document.settings().deferredCSSParserEnabled();
     scrollBehaviorEnabled = document.settings().CSSOMViewSmoothScrollingEnabled();
+    overscrollBehaviorEnabled = document.settings().overscrollBehaviorEnabled();
     useSystemAppearance = document.page() ? document.page()->useSystemAppearance() : false;
+    individualTransformPropertiesEnabled = document.settings().cssIndividualTransformPropertiesEnabled();
+    aspectRatioEnabled = document.settings().aspectRatioEnabled();
 }
 
 bool operator==(const CSSParserContext& a, const CSSParserContext& b)
@@ -101,8 +104,11 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
 #endif
         && a.deferredCSSParserEnabled == b.deferredCSSParserEnabled
         && a.scrollBehaviorEnabled == b.scrollBehaviorEnabled
+        && a.individualTransformPropertiesEnabled == b.individualTransformPropertiesEnabled
         && a.hasDocumentSecurityOrigin == b.hasDocumentSecurityOrigin
-        && a.useSystemAppearance == b.useSystemAppearance;
+        && a.useSystemAppearance == b.useSystemAppearance
+        && a.aspectRatioEnabled == b.aspectRatioEnabled
+        && a.overscrollBehaviorEnabled == b.overscrollBehaviorEnabled;
 }
 
 URL CSSParserContext::completeURL(const String& url) const

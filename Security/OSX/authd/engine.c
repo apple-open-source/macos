@@ -160,8 +160,8 @@ engine_create(connection_t conn, auth_token_t auth)
     engine->now = CFAbsoluteTimeGetCurrent();
     
     session_update(auth_token_get_session(engine->auth));
-    if (isInLWOS()) {
-        engine->sessionCredential = credential_create_lwos(NULL, true);
+    if (isInFVUnlock()) {
+        engine->sessionCredential = credential_create_fvunlock(NULL, true);
     } else {
         engine->sessionCredential = credential_create(session_get_uid(auth_token_get_session(engine->auth)));
     }
@@ -314,9 +314,9 @@ _evaluate_credential_for_rule(engine_t engine, credential_t cred, rule_t rule, b
     }
 }
 
-static bool _is_lwos_user_in_group(engine_t engine, rule_t rule)
+static bool _is_fvunlock_user_in_group(engine_t engine, rule_t rule)
 {
-    if (!isInLWOS()) {
+    if (!isInFVUnlock()) {
         return false;
     }
     
@@ -351,7 +351,7 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
         return errAuthorizationDenied;
     }
 
-    if (credential_get_valid(cred) != true && !isInLWOS()) {
+    if (credential_get_valid(cred) != true && !isInFVUnlock()) {
         os_log(AUTHD_LOG, "%{public}s %i invalid (does NOT satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), engine->engine_index);
         if (reason) {  *reason = invalidPassphrase; }
         return errAuthorizationDenied;
@@ -398,7 +398,7 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
                 }
             }
             
-            if (credential_check_membership(cred, rule_get_group(rule)) || _is_lwos_user_in_group(engine, rule)) {
+            if (credential_check_membership(cred, rule_get_group(rule)) || _is_fvunlock_user_in_group(engine, rule)) {
                 os_log(AUTHD_LOG, "%{public}s %i is member of group %{public}s (does satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), rule_get_group(rule), engine->engine_index);
                 return errAuthorizationSuccess;
             } else {
@@ -673,14 +673,14 @@ done:
 static OSStatus
 _evaluate_authentication(engine_t engine, rule_t rule)
 {
-    os_log_debug(AUTHD_LOG, "engine %lld: FV mode %d", engine->engine_index, isInLWOS());
+    os_log_debug(AUTHD_LOG, "engine %lld: FV mode %d", engine->engine_index, isInFVUnlock());
 
     OSStatus status = errAuthorizationDenied;
     ccaudit_t ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthint);
     os_log_debug(AUTHD_LOG, "engine %lld: evaluate authentication", engine->engine_index);
     _set_rule_hints(engine->hints, rule);
-    if (!isInLWOS()) {
-        // we do not need to set hints in LWOS as we do not know which user will be authenticated
+    if (!isInFVUnlock()) {
+        // we do not need to set hints in FVUnlock as we do not know which user will be authenticated
         _set_session_hints(engine, rule);
     }
 
@@ -712,9 +712,9 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             
             credential_t newCred = NULL;
 
-            if (isInLWOS() && auth_items_exist(engine->context, kAuthorizationFVAdmin)) {
+            if (isInFVUnlock() && auth_items_exist(engine->context, kAuthorizationFVAdmin)) {
                 os_log_debug(AUTHD_LOG, "Credentials for FV unlock (engine %lld)", engine->engine_index);
-                newCred = credential_create_lwos(engine->context, false);
+                newCred = credential_create_fvunlock(engine->context, false);
             } else if (auth_items_exist(engine->context, AGENT_CONTEXT_UID)) {
                 newCred = credential_create(auth_items_get_uint(engine->context, AGENT_CONTEXT_UID));
             } else {
@@ -726,7 +726,7 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             }
             
             if (newCred) {
-                if (credential_get_valid(newCred) || isInLWOS()) {
+                if (credential_get_valid(newCred) || isInFVUnlock()) {
                     os_log(AUTHD_LOG, "UID %u authenticated as user %{public}s (UID %i) for right '%{public}s'", auth_token_get_uid(engine->auth), credential_get_name(newCred), credential_get_uid(newCred), engine->currentRightName);
                     ccaudit_log_success(ccaudit, newCred, engine->currentRightName);
                 } else {
@@ -830,7 +830,7 @@ _evaluate_class_user(engine_t engine, rule_t rule)
     }
     
     if (!rule_get_authenticate_user(rule)) {
-        if (!isInLWOS()) {
+        if (!isInFVUnlock()) {
             status = _evaluate_user_credential_for_rule(engine, engine->sessionCredential, rule, true, true, NULL);
             
             if (status == errAuthorizationSuccess) {

@@ -1280,6 +1280,8 @@ static void tests(void) {
     test_identity_on_two_tokens();
     test_rsawrap();
     test_ecies();
+
+    secd_test_teardown_delete_temp_keychain("secd_33_keychain_ctk");
 }
 
 int secd_33_keychain_ctk(int argc, char *const *argv) {

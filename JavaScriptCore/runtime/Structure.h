@@ -198,6 +198,7 @@ public:
     static Structure* removePropertyTransitionFromExistingStructureConcurrently(Structure*, PropertyName, PropertyOffset&);
     static Structure* changePrototypeTransition(VM&, Structure*, JSValue prototype, DeferredStructureTransitionWatchpointFire&);
     JS_EXPORT_PRIVATE static Structure* attributeChangeTransition(VM&, Structure*, PropertyName, unsigned attributes, DeferredStructureTransitionWatchpointFire* = nullptr);
+    JS_EXPORT_PRIVATE static Structure* attributeChangeTransitionToExistingStructure(Structure*, PropertyName, unsigned attributes, PropertyOffset&);
     JS_EXPORT_PRIVATE static Structure* toCacheableDictionaryTransition(VM&, Structure*, DeferredStructureTransitionWatchpointFire* = nullptr);
     static Structure* toUncacheableDictionaryTransition(VM&, Structure*, DeferredStructureTransitionWatchpointFire* = nullptr);
     JS_EXPORT_PRIVATE static Structure* sealTransition(VM&, Structure*);
@@ -222,6 +223,8 @@ public:
     PropertyOffset addPropertyWithoutTransition(VM&, PropertyName, unsigned attributes, const Func&);
     template<typename Func>
     PropertyOffset removePropertyWithoutTransition(VM&, PropertyName, const Func&);
+    template<typename Func>
+    PropertyOffset attributeChangeWithoutTransition(VM&, PropertyName, unsigned attributes, const Func&);
     void setPrototypeWithoutTransition(VM&, JSValue prototype);
         
     bool isDictionary() const { return dictionaryKind() != NoneDictionaryKind; }
@@ -527,7 +530,7 @@ public:
     void setCachedPropertyNames(VM&, CachedPropertyNamesKind, JSImmutableButterfly*);
     bool canCacheOwnPropertyNames() const;
 
-    void getPropertyNamesFromStructure(VM&, PropertyNameArray&, EnumerationMode);
+    void getPropertyNamesFromStructure(VM&, PropertyNameArray&, DontEnumPropertiesMode);
 
     JSValue cachedSpecialProperty(CachedSpecialPropertyKey key)
     {
@@ -666,6 +669,8 @@ public:
 
     static bool shouldConvertToPolyProto(const Structure* a, const Structure* b);
 
+    UniquedStringImpl* transitionPropertyName() const { return m_transitionPropertyName.get(); }
+
     struct PropertyHashEntry {
         const HashTable* table;
         const HashTableValue* value;
@@ -714,9 +719,6 @@ public:
     static_assert(s_bitWidthOfTransitionPropertyAttributes <= sizeof(TransitionPropertyAttributes) * 8);
     static_assert(s_bitWidthOfTransitionKind <= sizeof(TransitionKind) * 8);
 
-    bool isPropertyAdditionTransition() const { return transitionKind() == TransitionKind::PropertyAddition; }
-    bool isPropertyDeletionTransition() const { return transitionKind() == TransitionKind::PropertyDeletion; }
-
 private:
     friend class LLIntOffsetsExtractor;
 
@@ -744,6 +746,9 @@ private:
     template<ShouldPin, typename Func>
     PropertyOffset remove(VM&, PropertyName, const Func&);
     PropertyOffset remove(VM&, PropertyName);
+    template<ShouldPin, typename Func>
+    PropertyOffset attributeChange(VM&, PropertyName, unsigned attributes, const Func&);
+    PropertyOffset attributeChange(VM&, PropertyName, unsigned attributes);
 
     void checkConsistency();
 

@@ -25,5 +25,7 @@
 	<true/>
 	<key>com.apple.private.security.storage.SFAnalytics</key>
 	<true/>
+	<key>com.apple.private.trustd.FileHelp</key>
+	<true/>
 </dict>
 </plist>

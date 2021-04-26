@@ -40,6 +40,9 @@ size_t der_sizeof_array(CFArrayRef array, CFErrorRef *error);
 
 uint8_t* der_encode_array(CFArrayRef array, CFErrorRef *error,
                           const uint8_t *der, uint8_t *der_end);
+uint8_t* der_encode_array_repair(CFArrayRef array, CFErrorRef *error,
+                                 bool repair,
+                                 const uint8_t *der, uint8_t *der_end);
 
 const uint8_t* der_decode_array(CFAllocatorRef allocator,
                                 CFArrayRef* array, CFErrorRef *error,
@@ -95,6 +98,8 @@ size_t der_sizeof_dictionary(CFDictionaryRef dictionary, CFErrorRef *error);
 
 uint8_t* der_encode_dictionary(CFDictionaryRef dictionary, CFErrorRef *error,
                                const uint8_t *der, uint8_t *der_end);
+uint8_t* der_encode_dictionary_repair(CFDictionaryRef dictionary, CFErrorRef *error,
+                                      bool repair, const uint8_t *der, uint8_t *der_end);
 
 const uint8_t* der_decode_dictionary(CFAllocatorRef allocator,
                                      CFDictionaryRef* dictionary, CFErrorRef *error,
@@ -126,6 +131,8 @@ size_t der_sizeof_set(CFSetRef dict, CFErrorRef *error);
 
 uint8_t* der_encode_set(CFSetRef set, CFErrorRef *error,
                         const uint8_t *der, uint8_t *der_end);
+uint8_t* der_encode_set_repair(CFSetRef set, CFErrorRef *error,
+                               bool repair, const uint8_t *der, uint8_t *der_end);
 
 const uint8_t* der_decode_set(CFAllocatorRef allocator,
                               CFSetRef* set, CFErrorRef *error,

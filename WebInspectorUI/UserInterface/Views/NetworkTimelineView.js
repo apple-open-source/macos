@@ -161,24 +161,9 @@ WI.NetworkTimelineView = class NetworkTimelineView extends WI.TimelineView
         return [pathComponent];
     }
 
-    shown()
-    {
-        super.shown();
-
-        this._dataGrid.shown();
-    }
-
-    hidden()
-    {
-        this._dataGrid.hidden();
-
-        super.hidden();
-    }
-
     closed()
     {
-        console.assert(this.representedObject instanceof WI.Timeline);
-        this.representedObject.removeEventListener(null, null, this);
+        this.representedObject.removeEventListener(WI.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
 
         this._dataGrid.closed();
     }

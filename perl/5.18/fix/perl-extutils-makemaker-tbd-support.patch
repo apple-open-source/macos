@@ -1,0 +1,25 @@
+diff --git a/cpan/ExtUtils-MakeMaker/lib/ExtUtils/Liblist/Kid.pm b/cpan/ExtUtils-MakeMaker/lib/ExtUtils/Liblist/Kid.pm
+index f0a105c..7bfafde 100644
+--- a/cpan/ExtUtils-MakeMaker/lib/ExtUtils/Liblist/Kid.pm
++++ b/cpan/ExtUtils-MakeMaker/lib/ExtUtils/Liblist/Kid.pm
+@@ -55,6 +55,11 @@ sub _unix_os2_ext {
+     my ( $fullname,   @fullname );
+     my ( $pwd )   = cwd();    # from Cwd.pm
+     my ( $found ) = 0;
++    my $otherso;
++
++    if ( $so eq 'dylib' ) {
++	$otherso = 'tbd'
++    }
+ 
+     foreach my $thislib ( split ' ', $potential_libs ) {
+ 
+@@ -133,7 +138,7 @@ sub _unix_os2_ext {
+                       } @fullname
+                 )[0];
+             }
+-            elsif ( -f ( $fullname = "$thispth/lib$thislib.$so" )
++            elsif ( ( -f ( $fullname = "$thispth/lib$thislib.$so" ) || ( defined( $otherso ) && -f ( $fullname = "$thispth/lib$thislib.$otherso" ) ) )
+                 && ( ( $Config{'dlsrc'} ne "dl_dld.xs" ) || ( $thislib eq "m" ) ) )
+             {
+             }

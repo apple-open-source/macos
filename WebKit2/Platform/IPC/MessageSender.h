@@ -54,9 +54,10 @@ public:
     {
         return send<U>(message, destinationID.toUInt64(), sendOptions);
     }
+    using SendSyncResult = Connection::SendSyncResult;
 
     template<typename T>
-    bool sendSync(T&& message, typename T::Reply&& reply, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         static_assert(T::isSync, "Message is not sync!");
 
@@ -64,15 +65,16 @@ public:
     }
 
     template<typename T>
-    bool sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
-        ASSERT(messageSenderConnection());
+        if (auto* connection = messageSenderConnection())
+            return connection->sendSync(WTFMove(message), WTFMove(reply), destinationID, timeout, sendSyncOptions);
 
-        return messageSenderConnection()->sendSync(WTFMove(message), WTFMove(reply), destinationID, timeout, sendSyncOptions);
+        return { };
     }
 
     template<typename U, typename T>
-    bool sendSync(U&& message, typename U::Reply&& reply, ObjectIdentifier<T> destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult sendSync(U&& message, typename U::Reply&& reply, ObjectIdentifier<T> destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         return sendSync<U>(std::forward<U>(message), WTFMove(reply), destinationID.toUInt64(), timeout, sendSyncOptions);
     }

@@ -145,7 +145,7 @@ tr{
         IL{"İsrail"}
         IM{"Man Adası"}
         IN{"Hindistan"}
-        IO{"Britanya Hint Okyanusu Toprakları"}
+        IO{"Chagos Takımadaları"}
         IQ{"Irak"}
         IR{"İran"}
         IS{"İzlanda"}

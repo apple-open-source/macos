@@ -83,6 +83,8 @@ static void HeimCredRemoveItemsForASID(struct HeimSession *session, au_asid_t as
 static void addStandardEventsToCred(HeimCredRef cred, struct HeimSession *session);
 static bool commandCanReadforMech(struct HeimMech *mech, const char *cmd);
 static bool isTGT(HeimCredRef cred);
+static bool isAcquireCred(HeimCredRef cred);
+static void reElectMechCredential(const void *key, const void *value, void *context);
 
 NSString *archivePath = NULL;
 
@@ -243,10 +245,17 @@ static void addStandardEventsToCred(HeimCredRef cred, struct HeimSession *sessio
     }
     
     cred->session = session->session;
-    
-    cred->renew_event = heim_ipc_event_cf_create_f(HeimCredGlobalCTX.renewFunction, cred);
-    cred->expire_event = heim_ipc_event_cf_create_f(HeimCredGlobalCTX.expireFunction, cred);
 
+    HeimCredEventContextRef expireCredContext = HeimCredEventContextCreateItem(cred);
+    cred->expireEventContext = (HeimCredEventContextRef)CFRetain(expireCredContext);
+    cred->expire_event = heim_ipc_event_cf_create_f(HeimCredGlobalCTX.expireFunction, expireCredContext);
+    CFRELEASE_NULL(expireCredContext);
+
+    HeimCredEventContextRef renewCredContext = HeimCredEventContextCreateItem(cred);
+    cred->renewEventContext = (HeimCredEventContextRef)CFRetain(renewCredContext);
+    cred->renew_event = heim_ipc_event_cf_create_f(HeimCredGlobalCTX.renewFunction, renewCredContext);
+    CFRELEASE_NULL(renewCredContext);
+    
     heim_ipc_event_set_final_f(cred->renew_event, HeimCredGlobalCTX.finalFunction);
     heim_ipc_event_set_final_f(cred->expire_event, HeimCredGlobalCTX.finalFunction);
     
@@ -255,7 +264,10 @@ static void addStandardEventsToCred(HeimCredRef cred, struct HeimSession *sessio
     
 #if TARGET_OS_OSX
     if (isAcquireCred(cred)) {
-	//if this is an acquire credential request, then set the expire time and status
+	//if this is an acquire credential request, then set the expire time, type, and status
+	HEIMDAL_MUTEX_lock(&cred->event_mutex);
+	cred->is_acquire_cred = true;
+	HEIMDAL_MUTEX_unlock(&cred->event_mutex);
 	cred_acquire_status status;
 	CFNumberRef statusNumber = CFDictionaryGetValue(cred->attributes, kHEIMAttrStatus);
 	if (statusNumber!=NULL &&
@@ -347,7 +359,10 @@ readCredCache(void)
 		    CFRELEASE_NULL(cfkey);
 		    CFRELEASE_NULL(cfvalue);
 		}];
-		
+
+		//elect the default credential, if there was not one explicitly set
+		CFDictionaryApplyFunction(HeimCredCTX.mechanisms, reElectMechCredential, session);
+
 		CFIndex count = CFDictionaryGetCount(session->items);
 		if (count == 0) {
 		    //do not add the session if no creds
@@ -583,10 +598,26 @@ updateStoreTime(HeimCredRef cred, CFMutableDictionaryRef attrs)
     CFDictionarySetValue(attrs, kHEIMAttrStoreTime, date);
     CFRELEASE_NULL(date);
 }
+static void
+setDefaultCredentialValue(CFUUIDRef parentUUID, struct HeimSession *session, CFBooleanRef value)
+{
+    HeimCredRef parentCred = (HeimCredRef)CFDictionaryGetValue(session->items, parentUUID);
+    if (parentCred) {
+	CFMutableDictionaryRef attrs = CFDictionaryCreateMutableCopy(NULL, 0, parentCred->attributes);
+	if (value) {
+	    CFDictionarySetValue(attrs, kHEIMAttrDefaultCredential, value);
+	} else {
+	    CFDictionaryRemoveValue(attrs, kHEIMAttrDefaultCredential);
+	}
+	CFRELEASE_NULL(parentCred->attributes);
+	parentCred->attributes = attrs;
+    }
+}
 
 static void
 handleDefaultCredentialUpdate(struct HeimSession *session, HeimCredRef cred, CFDictionaryRef attrs)
 {
+    //this method is to handle explicit default cache changes (kHEIMAttrDefaultCredential == true in attrs)
 
     heim_assert(cred->mech != NULL, "mech is NULL, schame validation doesn't work ?");
     
@@ -600,41 +631,26 @@ handleDefaultCredentialUpdate(struct HeimSession *session, HeimCredRef cred, CFD
 
     CFBooleanRef defaultCredential = CFDictionaryGetValue(attrs, kHEIMAttrDefaultCredential);
     if (defaultCredential == NULL || !CFBooleanGetValue(defaultCredential)) {
-	if (oldDefault)
-	    return;
-    } else {
-	if (oldDefault) {
-	    /*
-	     * Drop marker on old credential
-	     */
-	    HeimCredRef oldCred = (HeimCredRef)CFDictionaryGetValue(session->items, oldDefault);
-	    if (oldCred) {
-		CFMutableDictionaryRef oldCredAttrs = CFDictionaryCreateMutableCopy(NULL, 0, oldCred->attributes);
-		CFDictionaryRemoveValue(oldCredAttrs, kHEIMAttrDefaultCredential);
-		CFRELEASE_NULL(oldCred->attributes);
-		oldCred->attributes = oldCredAttrs;
-	    }
-	}
-	
-	if (cred->mech->notifyCaches!=NULL) {
-	    cred->mech->notifyCaches();
-	}
+	//if the cache is not the new default, then exit
+	return;
     }
 
+    if (oldDefault) {
+	// Drop marker on old cache
+	setDefaultCredentialValue(oldDefault, session, NULL);
+    }
+
+    //set new cache as default.  The attrs already have the kHEIMAttrDefaultCredential value
     CFDictionarySetValue(session->defaultCredentials, cred->mech->name, cred->uuid);
+
+    if (cred->mech->notifyCaches!=NULL) {
+	cred->mech->notifyCaches();
+    }
+
+
 
 }
     
-static void
-handleDefaultCredentialDeletion(struct HeimSession *session, HeimCredRef cred)
-{
-    CFUUIDRef defaultCredential = CFDictionaryGetValue(session->defaultCredentials, cred->mech->name);
-
-    if (defaultCredential && CFEqual(defaultCredential, cred->uuid))
-	CFDictionaryRemoveValue(session->defaultCredentials, cred->mech->name);
-    session->updateDefaultCredential = 1;
-}
-
 //this method will be called for each mech
 static void
 reElectMechCredential(const void *key, const void *value, void *context)
@@ -657,22 +673,26 @@ reElectMechCredential(const void *key, const void *value, void *context)
     NSDictionary *items = (__bridge NSDictionary*)session->items;
     [items enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull itemkey, id  _Nonnull obj, BOOL * _Nonnull stop) {
 	HeimCredRef cred = (__bridge HeimCredRef)obj;
-	
+	CFUUIDRef parentUUID =  CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
+
+	//only caches with unexpired TGTs can be the default, so we look for the first valid TGT and set it's parent to be the default.
 	if (CFEqual(cred->mech->name, mech->name) &&  //only handle the current type of cred
-	    CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential) == NULL) { //only caches can be the default
-	    
-	    //the first one found is the default
-	    CFDictionarySetValue(session->defaultCredentials, cred->mech->name, cred->uuid);
-	    
-	    CFMutableDictionaryRef attrs = CFDictionaryCreateMutableCopy(NULL, 0, cred->attributes);
-	    CFDictionarySetValue(attrs, kHEIMAttrDefaultCredential, kCFBooleanTrue);
-	    CFRELEASE_NULL(cred->attributes);
-	    cred->attributes = attrs;
-	    
-	    HeimCredCTX.needFlush = 1;
-	    
-	    os_log_debug(GSSOSLog(), "The default for %@ credential is now %@",cred->mech->name, cred);
-	    *stop = YES;
+	    parentUUID != NULL &&
+	    CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential) == kCFBooleanTrue) {
+
+	    NSDate *expire =  (__bridge NSDate*)CFDictionaryGetValue(cred->attributes, kHEIMAttrExpire);
+	    if (expire.timeIntervalSinceNow > 0) {
+		//the first one found is elected the default
+		CFDictionarySetValue(session->defaultCredentials, cred->mech->name, parentUUID);
+
+		//set the default credential attribute on the parent
+		setDefaultCredentialValue(parentUUID, session, kCFBooleanTrue);
+
+		HeimCredCTX.needFlush = 1;
+
+		os_log_debug(GSSOSLog(), "The default for %@ credential is now %@",cred->mech->name, cred);
+		*stop = YES;
+	    }
 	}
     }];
     
@@ -703,6 +723,19 @@ reElectDefaultCredential(struct peer *peer)
     CFDictionaryApplyFunction(HeimCredCTX.mechanisms, reElectMechCredential, peer->session);
 }
 
+static void
+handleDefaultCredentialDeletion(struct peer *peer, HeimCredRef cred)
+{
+    CFUUIDRef defaultCredential = CFDictionaryGetValue(peer->session->defaultCredentials, cred->mech->name);
+
+    //if the default cache is deleted, then remove it and trigger an election
+    if (defaultCredential && CFEqual(defaultCredential, cred->uuid)) {
+	CFDictionaryRemoveValue(peer->session->defaultCredentials, cred->mech->name);
+	peer->session->updateDefaultCredential = 1;
+	reElectDefaultCredential(peer);
+    }
+}
+
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static bool
 canSetAnyBundleIDACL(struct peer *peer)
@@ -720,12 +753,12 @@ deleteCredInternal(HeimCredRef cred, struct peer *peer)
 
     CFDictionaryRemoveValue(peer->session->items, cred->uuid);
 
-    handleDefaultCredentialDeletion(peer->session, cred);
-
     DeleteChildren(peer->session, cred->uuid);
     if (cred->mech->notifyCaches!=NULL) {
 	cred->mech->notifyCaches();
     }
+
+    handleDefaultCredentialDeletion(peer, cred);
 }
 
 
@@ -803,8 +836,10 @@ removeDuplicates(struct peer *peer, CFDictionaryRef attributes, CFErrorRef *erro
 }
 
 
-bool isAcquireCred(HeimCredRef cred)
+static bool
+isAcquireCred(HeimCredRef cred)
 {
+    //this should be executed on the run queue to prevent concurrency issues with the attributes.
     return (CFEqual(cred->mech->name, kHEIMTypeKerberosAcquireCred) && CFDictionaryGetValue(cred->attributes, kHEIMAttrCredential) != NULL);
 }
 
@@ -917,13 +952,6 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     }
 
     updateStoreTime(cred, attrs);
-    
-    if (!CFDictionaryGetValue(peer->session->defaultCredentials, cred->mech->name)) {
-	//if there are no other default credentials, then try to make this one default.
-	CFDictionarySetValue(attrs, kHEIMAttrDefaultCredential, kCFBooleanTrue);
-	peer->session->updateDefaultCredential = 1;
-	reElectDefaultCredential(peer);
-    }
     handleDefaultCredentialUpdate(peer->session, cred, attrs);
     
 #if TARGET_OS_IOS
@@ -980,13 +1008,14 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     heim_assert(cred->mech != NULL, "mech is NULL, schame validation doesn't work ?");
 
+    //if there is not a default cred cache, and we just created a TGT then trigger an election
     CFUUIDRef defcred = CFDictionaryGetValue(peer->session->defaultCredentials, cred->mech->name);
     if ((defcred == NULL || CFDictionaryGetValue(peer->session->items, defcred) == NULL)
 	&& (lead = CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential))
 	&& CFBooleanGetValue(lead))
     {
-	//the default is a cache, not a credential
-	CFDictionarySetValue(peer->session->defaultCredentials, cred->mech->name, parentUUID);
+	peer->session->updateDefaultCredential = 1;
+	reElectDefaultCredential(peer);
     }
     
     addStandardEventsToCred(cred, peer->session);
@@ -1203,18 +1232,6 @@ DeleteChildrenApplier(const void *value, void *context)
 {
     struct HeimSession *session = (struct HeimSession *)context;
     heim_assert(CFGetTypeID(value) == CFUUIDGetTypeID(), "Value not an CFUUIDRef");
-    HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(session->items, value);
-    if (cred!=NULL) {
-	HEIMDAL_MUTEX_lock(&cred->event_mutex);
-	if (cred->renew_event) {
-	    heim_ipc_event_cancel(cred->renew_event);
-	}
-	if (cred->expire_event) {
-	    heim_ipc_event_cancel(cred->expire_event);
-	}
-	HEIMDAL_MUTEX_unlock(&cred->event_mutex);
-    }
-    cred = NULL;
     CFDictionaryRemoveValue(session->items, value);
 }
 
@@ -1269,7 +1286,7 @@ do_Delete(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	HCMakeError(&error, kHeimCredErrorNoItemsMatchesQuery, keys, values, 1);
 	goto out;
     }
-    
+
     CFIndex n, count = CFArrayGetCount(items);
     for (n = 0; n < count; n++) {
 	HeimCredRef cred = (HeimCredRef)CFArrayGetValueAtIndex(items, n);

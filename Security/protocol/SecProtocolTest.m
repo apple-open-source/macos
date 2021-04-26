@@ -1115,6 +1115,16 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     XCTAssertTrue(sec_protocol_options_get_default_min_dtls_protocol_version() == tls_protocol_version_DTLSv10);
 }
 
+- (void)test_enable_ech {
+    XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(nil), "ECH enabled even with no sec_protocol_options");
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(options), "enable_ech initialized to true");
+    sec_protocol_options_set_enable_encrypted_client_hello(options, true);
+    XCTAssertTrue(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still disabled after set to true");
+    sec_protocol_options_set_enable_encrypted_client_hello(options, false);
+    XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still enabled after changed back to false");
+}
+
 - (void)test_sec_protocol_options_set_psk_hint {
     __block dispatch_data_t hint = [self create_random_dispatch_data];
     sec_protocol_options_t options = [self create_sec_protocol_options];

@@ -33,13 +33,12 @@
 #include "MediaDecodingConfiguration.h"
 #include "MediaPlayer.h"
 #include "VP9UtilitiesCocoa.h"
+#include <pal/avfoundation/OutputContext.h>
+#include <pal/avfoundation/OutputDevice.h>
 
 #include "VideoToolboxSoftLink.h"
 
 namespace WebCore {
-
-// FIXME: Remove this once kCMVideoCodecType_VP9 is added to CMFormatDescription.h
-constexpr CMVideoCodecType kCMVideoCodecType_VP9 { 'vp09' };
 
 static CMVideoCodecType videoCodecTypeFromRFC4281Type(String type)
 {
@@ -49,8 +48,10 @@ static CMVideoCodecType videoCodecTypeFromRFC4281Type(String type)
         return kCMVideoCodecType_H264;
     if (type.startsWith("hvc1") || type.startsWith("hev1"))
         return kCMVideoCodecType_HEVC;
+#if ENABLE(VP9)
     if (type.startsWith("vp09"))
         return kCMVideoCodecType_VP9;
+#endif
     return 0;
 }
 
@@ -97,12 +98,18 @@ void createMediaPlayerDecodingConfigurationCocoa(MediaDecodingConfiguration&& co
                 callback({{ }, WTFMove(configuration)});
                 return;
             }
+#if ENABLE(VP9)
         } else if (videoCodecType == kCMVideoCodecType_VP9) {
+            if (!configuration.canExposeVP9) {
+                callback({{ }, WTFMove(configuration)});
+                return;
+            }
             auto codecConfiguration = parseVPCodecParameters(codec);
             if (!codecConfiguration || !validateVPParameters(*codecConfiguration, info, videoConfiguration)) {
                 callback({{ }, WTFMove(configuration)});
                 return;
             }
+#endif
         } else {
             if (alphaChannel || hdrSupported) {
                 callback({{ }, WTFMove(configuration)});
@@ -123,6 +130,32 @@ void createMediaPlayerDecodingConfigurationCocoa(MediaDecodingConfiguration&& co
         if (MediaPlayer::supportsType(parameters) != MediaPlayer::SupportsType::IsSupported) {
             callback({{ }, WTFMove(configuration)});
             return;
+        }
+
+        if (configuration.audio->spatialRendering.valueOr(false)) {
+            auto context = PAL::OutputContext::sharedAudioPresentationOutputContext();
+            if (!context) {
+                callback({{ }, WTFMove(configuration)});
+                return;
+            }
+
+            auto devices = context->outputDevices();
+            if (devices.isEmpty() || !WTF::allOf(devices, [](auto& device) {
+                return device.supportsSpatialAudio();
+            })) {
+                callback({{ }, WTFMove(configuration)});
+                return;
+            }
+
+            // Only multichannel audio can be spatially rendered.
+            if (!configuration.audio->channels.isNull()) {
+                bool isOk = false;
+                auto parsedChannels = configuration.audio->channels.toDouble(&isOk);
+                if (!isOk || parsedChannels <= 2) {
+                    callback({{ }, WTFMove(configuration)});
+                    return;
+                }
+            }
         }
         info.supported = true;
     }

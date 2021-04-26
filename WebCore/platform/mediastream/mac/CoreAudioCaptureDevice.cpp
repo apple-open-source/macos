@@ -38,7 +38,7 @@
 namespace WebCore {
 using namespace PAL;
 
-static bool getDeviceInfo(uint32_t deviceID, String& persistentID, String& label)
+static bool getDeviceInfo(uint32_t deviceID, CaptureDevice::DeviceType type, String& persistentID, String& label)
 {
     CFStringRef uniqueID;
     AudioObjectPropertyAddress address { kAudioDevicePropertyDeviceUID, kAudioDevicePropertyScopeInput, kAudioObjectPropertyElementMaster };
@@ -51,34 +51,82 @@ static bool getDeviceInfo(uint32_t deviceID, String& persistentID, String& label
     persistentID = uniqueID;
     CFRelease(uniqueID);
 
-    CFStringRef localizedName;
-    address = { kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
-    dataSize = sizeof(localizedName);
-    err = AudioObjectGetPropertyData(static_cast<UInt32>(deviceID), &address, 0, nullptr, &dataSize, &localizedName);
+    CFStringRef localizedName = nullptr;
+    AudioObjectPropertyScope scope = type == CaptureDevice::DeviceType::Microphone ? kAudioDevicePropertyScopeInput : kAudioDevicePropertyScopeOutput;
+    address = { kAudioDevicePropertyDataSource, scope, kAudioObjectPropertyElementMaster };
+    uint32_t sourceID;
+    dataSize = sizeof(sourceID);
+    err = AudioObjectGetPropertyData(static_cast<UInt32>(deviceID), &address, 0, nullptr, &dataSize, &sourceID);
+    if (!err) {
+        AudioValueTranslation translation = { &deviceID, sizeof(deviceID), &localizedName, sizeof(localizedName) };
+        address = { kAudioDevicePropertyDataSourceNameForIDCFString, scope, kAudioObjectPropertyElementMaster };
+        dataSize = sizeof(translation);
+        err = AudioObjectGetPropertyData(static_cast<UInt32>(deviceID), &address, 0, nullptr, &dataSize, &translation);
+    }
+
+    if (err || !localizedName || !CFStringGetLength(localizedName)) {
+        address = { kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
+        dataSize = sizeof(localizedName);
+        err = AudioObjectGetPropertyData(static_cast<UInt32>(deviceID), &address, 0, nullptr, &dataSize, &localizedName);
+    }
+
     if (err) {
         RELEASE_LOG_ERROR(WebRTC, "CoreAudioCaptureDevice::getDeviceInfo failed to get device name with error %d (%.4s)", (int)err, (char*)&err);
         return false;
     }
+
     label = localizedName;
     CFRelease(localizedName);
 
     return true;
 }
 
-Optional<CoreAudioCaptureDevice> CoreAudioCaptureDevice::create(uint32_t deviceID)
+Optional<CoreAudioCaptureDevice> CoreAudioCaptureDevice::create(uint32_t deviceID, DeviceType type, const String& groupID)
 {
+    ASSERT(type == CaptureDevice::DeviceType::Microphone || type == CaptureDevice::DeviceType::Speaker);
     String persistentID;
     String label;
-    if (!getDeviceInfo(deviceID, persistentID, label))
+    if (!getDeviceInfo(deviceID, type, persistentID, label))
         return WTF::nullopt;
 
-    return CoreAudioCaptureDevice(deviceID, persistentID, label);
+    return CoreAudioCaptureDevice(deviceID, persistentID, type, label, groupID.isNull() ? persistentID : groupID);
 }
 
-CoreAudioCaptureDevice::CoreAudioCaptureDevice(uint32_t deviceID, const String& persistentID, const String& label)
-    : CaptureDevice(persistentID, CaptureDevice::DeviceType::Microphone, label)
+CoreAudioCaptureDevice::CoreAudioCaptureDevice(uint32_t deviceID, const String& persistentID, DeviceType deviceType, const String& label, const String& groupID)
+    : CaptureDevice(persistentID, deviceType, label, groupID)
     , m_deviceID(deviceID)
 {
+    AudioObjectPropertyAddress address { kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
+    UInt32 state = 0;
+    UInt32 dataSize = sizeof(state);
+    auto err = AudioObjectGetPropertyData(static_cast<UInt32>(m_deviceID), &address, 0, nullptr, &dataSize, &state);
+    if (err)
+        RELEASE_LOG_ERROR(WebRTC, "CoreAudioCaptureDevice::CoreAudioCaptureDevice(%p) failed to get \"is alive\" with error %d (%.4s)", this, (int)err, (char*)&err);
+    setEnabled(!err && state);
+
+    UInt32 property = deviceType == CaptureDevice::DeviceType::Microphone ? kAudioHardwarePropertyDefaultInputDevice : kAudioHardwarePropertyDefaultOutputDevice;
+    address = { property, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
+    AudioDeviceID defaultID = kAudioDeviceUnknown;
+    dataSize = sizeof(defaultID);
+    err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, nullptr, &dataSize, &defaultID);
+    if (err)
+        RELEASE_LOG_ERROR(WebRTC, "CoreAudioCaptureDevice::CoreAudioCaptureDevice(%p) failed to get \"is default\" with error %d (%.4s)", this, (int)err, (char*)&err);
+    setIsDefault(!err && defaultID == m_deviceID);
+}
+
+Vector<AudioDeviceID> CoreAudioCaptureDevice::relatedAudioDeviceIDs(AudioDeviceID deviceID)
+{
+    UInt32 size = 0;
+    AudioObjectPropertyAddress property = { kAudioDevicePropertyRelatedDevices, kAudioDevicePropertyScopeOutput, kAudioObjectPropertyElementMaster };
+    OSStatus error = AudioObjectGetPropertyDataSize(deviceID, &property, 0, 0, &size);
+    if (error || !size)
+        return { };
+
+    Vector<AudioDeviceID> devices(size / sizeof(AudioDeviceID));
+    error = AudioObjectGetPropertyData(deviceID, &property, 0, nullptr, &size, devices.data());
+    if (error)
+        return { };
+    return devices;
 }
 
 RetainPtr<CMClockRef> CoreAudioCaptureDevice::deviceClock()
@@ -96,16 +144,6 @@ RetainPtr<CMClockRef> CoreAudioCaptureDevice::deviceClock()
     m_deviceClock = adoptCF(clock);
 
     return m_deviceClock;
-}
-
-bool CoreAudioCaptureDevice::isAlive()
-{
-    AudioObjectPropertyAddress address = { kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
-    UInt32 state = 0;
-    UInt32 dataSize = sizeof(state);
-    if (AudioObjectGetPropertyData(static_cast<UInt32>(m_deviceID), &address, 0, nullptr, &dataSize, &state))
-        return false;
-    return state;
 }
 
 } // namespace WebCore

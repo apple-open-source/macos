@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@
 #import "WebInspectorProxy.h"
 #import "WebPageGroup.h"
 #import "WebPageProxy.h"
+#import "_WKInspectorConfigurationInternal.h"
 #import <SecurityInterface/SFCertificatePanel.h>
 #import <SecurityInterface/SFCertificateView.h>
 #import <WebCore/CertificateInfo.h>
@@ -103,7 +104,8 @@ WebPageProxy* RemoteWebInspectorProxy::platformCreateFrontendPageAndWindow()
 {
     m_objCAdapter = adoptNS([[WKRemoteWebInspectorProxyObjCAdapter alloc] initWithRemoteWebInspectorProxy:this]);
 
-    m_inspectorView = adoptNS([[WKInspectorViewController alloc] initWithInspectedPage:nullptr]);
+    Ref<API::InspectorConfiguration> configuration = m_client->configurationForRemoteInspector(*this);
+    m_inspectorView = adoptNS([[WKInspectorViewController alloc] initWithConfiguration: WebKit::wrapper(configuration) inspectedPage:nullptr]);
     [m_inspectorView.get() setDelegate:m_objCAdapter.get()];
 
     m_window = WebInspectorProxy::createFrontendWindow(NSZeroRect, WebInspectorProxy::InspectionTargetType::Remote);
@@ -261,7 +263,7 @@ void RemoteWebInspectorProxy::platformStartWindowDrag()
     webView()->_page->startWindowDrag();
 }
 
-void RemoteWebInspectorProxy::platformOpenInNewTab(const String& url)
+void RemoteWebInspectorProxy::platformOpenURLExternally(const String& url)
 {
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:url]];
 }

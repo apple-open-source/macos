@@ -23,12 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
@@ -71,7 +68,7 @@ static bool
 safe_string(const char *str)
 {
     unsigned int ch = *str++;
-    debug_decl(safe_string, SUDOERS_DEBUG_UTIL)
+    debug_decl(safe_string, SUDOERS_DEBUG_UTIL);
 
     /* Initial char must be <= 127 and not LF, CR, SPACE, ':', '<' */
     switch (ch) {
@@ -103,7 +100,7 @@ print_attribute_ldif(FILE *fp, const char *name, const char *value)
     const unsigned char *uvalue = (unsigned char *)value;
     char *encoded = NULL;
     size_t esize;
-    debug_decl(print_attribute_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_attribute_ldif, SUDOERS_DEBUG_UTIL);
 
     if (!safe_string(value)) {
 	const size_t vlen = strlen(value);
@@ -134,7 +131,7 @@ print_options_ldif(FILE *fp, struct defaults_list *options)
     struct defaults *opt;
     char *attr_val;
     int len;
-    debug_decl(print_options_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_options_ldif, SUDOERS_DEBUG_UTIL);
 
     TAILQ_FOREACH(opt, options, entries) {
 	if (opt->type != DEFAULTS)
@@ -171,7 +168,7 @@ print_global_defaults_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct sudo_lbuf lbuf;
     struct defaults *opt;
     char *dn;
-    debug_decl(print_global_defaults_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_global_defaults_ldif, SUDOERS_DEBUG_UTIL);
 
     sudo_lbuf_init(&lbuf, NULL, 0, NULL, 80);
 
@@ -183,8 +180,8 @@ print_global_defaults_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    lbuf.len = 0;
 	    sudo_lbuf_append(&lbuf, "# ");
 	    sudoers_format_default_line(&lbuf, parse_tree, opt, false, true);
-	    fprintf(fp, "# Unable to translate %s:%d\n%s\n",
-		opt->file, opt->lineno, lbuf.buf);
+	    fprintf(fp, "# Unable to translate %s:%d:%d:\n%s\n",
+		opt->file, opt->line, opt->column, lbuf.buf);
 	}
     }
     sudo_lbuf_destroy(&lbuf);
@@ -210,6 +207,53 @@ print_global_defaults_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 }
 
 /*
+ * Format a sudo_command as a string.
+ * Returns the formatted, dynamically allocated string or dies on error.
+ */
+static char *
+format_cmnd(struct sudo_command *c, bool negated)
+{
+    struct command_digest *digest;
+    char *buf, *cp, *cmnd;
+    size_t bufsiz;
+    int len;
+    debug_decl(format_cmnd, SUDOERS_DEBUG_UTIL);
+
+    cmnd = c->cmnd ? c->cmnd : "ALL";
+    bufsiz = negated + strlen(cmnd) + 1;
+    if (c->args != NULL)
+	bufsiz += 1 + strlen(c->args);
+    TAILQ_FOREACH(digest, &c->digests, entries) {
+	bufsiz += strlen(digest_type_to_name(digest->digest_type)) + 1 +
+	    strlen(digest->digest_str) + 1;
+	if (TAILQ_NEXT(digest, entries) != NULL)
+	    bufsiz += 2;
+    }
+
+    if ((buf = malloc(bufsiz)) == NULL) {
+	sudo_fatalx(U_("%s: %s"), __func__,
+	    U_("unable to allocate memory"));
+    }
+
+    cp = buf;
+    TAILQ_FOREACH(digest, &c->digests, entries) {
+	len = snprintf(cp, bufsiz - (cp - buf), "%s:%s%s ", 
+	    digest_type_to_name(digest->digest_type), digest->digest_str,
+	    TAILQ_NEXT(digest, entries) ? "," : "");
+	if (len < 0 || len >= (int)bufsiz - (cp - buf))
+	    sudo_fatalx(U_("internal error, %s overflow"), __func__);
+	cp += len;
+    }
+
+    len = snprintf(cp, bufsiz - (cp - buf), "%s%s%s%s", negated ? "!" : "",
+	cmnd, c->args ? " " : "", c->args ? c->args : "");
+    if (len < 0 || len >= (int)bufsiz - (cp - buf))
+	sudo_fatalx(U_("internal error, %s overflow"), __func__);
+
+    debug_return_str(buf);
+}
+
+/*
  * Print struct member in LDIF format as the specified attribute.
  * See print_member_int() in parse.c.
  */
@@ -219,30 +263,23 @@ print_member_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
 {
     struct alias *a;
     struct member *m;
-    struct sudo_command *c;
     char *attr_val;
     int len;
-    debug_decl(print_member_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_member_ldif, SUDOERS_DEBUG_UTIL);
 
     switch (type) {
-    case ALL:
-	print_attribute_ldif(fp, attr_name, negated ? "!ALL" : "ALL");
-	break;
     case MYSELF:
 	/* Only valid for sudoRunasUser */
 	print_attribute_ldif(fp, attr_name, "");
 	break;
-    case COMMAND:
-	c = (struct sudo_command *)name;
-	len = asprintf(&attr_val, "%s%s%s%s%s%s%s%s",
-	    c->digest ? digest_type_to_name(c->digest->digest_type) : "",
-	    c->digest ? ":" : "", c->digest ? c->digest->digest_str : "",
-	    c->digest ? " " : "", negated ? "!" : "", c->cmnd,
-	    c->args ? " " : "", c->args ? c->args : "");
-	if (len == -1) {
-	    sudo_fatalx(U_("%s: %s"), __func__,
-		U_("unable to allocate memory"));
+    case ALL:
+	if (name == NULL) {
+	    print_attribute_ldif(fp, attr_name, negated ? "!ALL" : "ALL");
+	    break;
 	}
+	FALLTHROUGH;
+    case COMMAND:
+	attr_val = format_cmnd((struct sudo_command *)name, negated);
 	print_attribute_ldif(fp, attr_name, attr_val);
 	free(attr_val);
 	break;
@@ -255,7 +292,7 @@ print_member_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
 	    alias_put(a);
 	    break;
 	}
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     default:
 	len = asprintf(&attr_val, "%s%s", negated ? "!" : "", name);
 	if (len == -1) {
@@ -282,9 +319,10 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct cmndspec *next = *nextp;
     struct member *m;
     struct tm *tp;
+    char *attr_val;
     bool last_one;
     char timebuf[sizeof("20120727121554Z")];
-    debug_decl(print_cmndspec_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_cmndspec_ldif, SUDOERS_DEBUG_UTIL);
 
     /* Print runasuserlist as sudoRunAsUser attributes */
     if (cs->runasuserlist != NULL) {
@@ -305,10 +343,10 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     /* Print sudoNotBefore and sudoNotAfter attributes */
     if (cs->notbefore != UNSPEC) {
 	if ((tp = gmtime(&cs->notbefore)) == NULL) {
-	    sudo_warn(U_("unable to get GMT time"));
+	    sudo_warn("%s", U_("unable to get GMT time"));
 	} else {
 	    if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
-		sudo_warnx(U_("unable to format timestamp"));
+		sudo_warnx("%s", U_("unable to format timestamp"));
 	    } else {
 		print_attribute_ldif(fp, "sudoNotBefore", timebuf);
 	    }
@@ -316,10 +354,10 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     }
     if (cs->notafter != UNSPEC) {
 	if ((tp = gmtime(&cs->notafter)) == NULL) {
-	    sudo_warn(U_("unable to get GMT time"));
+	    sudo_warn("%s", U_("unable to get GMT time"));
 	} else {
 	    if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
-		sudo_warnx(U_("unable to format timestamp"));
+		sudo_warnx("%s", U_("unable to format timestamp"));
 	    } else {
 		print_attribute_ldif(fp, "sudoNotAfter", timebuf);
 	    }
@@ -328,7 +366,6 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 
     /* Print timeout as a sudoOption. */
     if (cs->timeout > 0) {
-	char *attr_val;
 	if (asprintf(&attr_val, "command_timeout=%d", cs->timeout) == -1) {
 	    sudo_fatalx(U_("%s: %s"), __func__,
 		U_("unable to allocate memory"));
@@ -377,22 +414,35 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     }
     print_options_ldif(fp, options);
 
+    /* Print runchroot and runcwd. */
+    if (cs->runchroot != NULL) {
+	if (asprintf(&attr_val, "runchroot=%s", cs->runchroot) == -1) {
+	    sudo_fatalx(U_("%s: %s"), __func__,
+		U_("unable to allocate memory"));
+	}
+	print_attribute_ldif(fp, "sudoOption", attr_val);
+	free(attr_val);
+    }
+    if (cs->runcwd != NULL) {
+	if (asprintf(&attr_val, "runcwd=%s", cs->runcwd) == -1) {
+	    sudo_fatalx(U_("%s: %s"), __func__,
+		U_("unable to allocate memory"));
+	}
+	print_attribute_ldif(fp, "sudoOption", attr_val);
+	free(attr_val);
+    }
+
 #ifdef HAVE_SELINUX
     /* Print SELinux role/type */
     if (cs->role != NULL && cs->type != NULL) {
-	char *attr_val;
-	int len;
-
-	len = asprintf(&attr_val, "role=%s", cs->role);
-	if (len == -1) {
+	if (asprintf(&attr_val, "role=%s", cs->role) == -1) {
 	    sudo_fatalx(U_("%s: %s"), __func__,
 		U_("unable to allocate memory"));
 	}
 	print_attribute_ldif(fp, "sudoOption", attr_val);
 	free(attr_val);
 
-	len = asprintf(&attr_val, "type=%s", cs->type);
-	if (len == -1) {
+	if (asprintf(&attr_val, "type=%s", cs->type) == -1) {
 	    sudo_fatalx(U_("%s: %s"), __func__,
 		U_("unable to allocate memory"));
 	}
@@ -404,12 +454,8 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
-	char *attr_val;
-	int len;
-
 	if (cs->privs != NULL) {
-	    len = asprintf(&attr_val, "privs=%s", cs->privs);
-	    if (len == -1) {
+	    if (asprintf(&attr_val, "privs=%s", cs->privs) == -1) {
 		sudo_fatalx(U_("%s: %s"), __func__,
 		    U_("unable to allocate memory"));
 	    }
@@ -417,8 +463,7 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    free(attr_val);
 	}
 	if (cs->limitprivs != NULL) {
-	    len = asprintf(&attr_val, "limitprivs=%s", cs->limitprivs);
-	    if (len == -1) {
+	    if (asprintf(&attr_val, "limitprivs=%s", cs->limitprivs) == -1) {
 		sudo_fatalx(U_("%s: %s"), __func__,
 		    U_("unable to allocate memory"));
 	    }
@@ -444,7 +489,7 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 #ifdef HAVE_SELINUX
 	    || cs->role != next->role || cs->type != next->type
 #endif /* HAVE_SELINUX */
-	    ;
+	    || cs->runchroot != next->runchroot || cs->runcwd != next->runcwd;
 
 	print_member_ldif(fp, parse_tree, cs->cmnd->name, cs->cmnd->type,
 	    cs->cmnd->negated, CMNDALIAS, "sudoCommand");
@@ -471,7 +516,7 @@ user_to_cn(const char *user)
     const char *src;
     char *cn, *dst;
     size_t size;
-    debug_decl(user_to_cn, SUDOERS_DEBUG_UTIL)
+    debug_decl(user_to_cn, SUDOERS_DEBUG_UTIL);
 
     /* Allocate as much as we could possibly need. */
     size = (2 * strlen(user)) + 64 + 1;
@@ -547,7 +592,7 @@ print_userspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct privilege *priv;
     struct member *m;
     struct cmndspec *cs, *next;
-    debug_decl(print_userspec_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_userspec_ldif, SUDOERS_DEBUG_UTIL);
 
     /*
      * Each userspec struct may contain multiple privileges for
@@ -614,7 +659,7 @@ print_userspecs_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct cvtsudoers_config *conf)
 {
     struct userspec *us;
-    debug_decl(print_userspecs_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_userspecs_ldif, SUDOERS_DEBUG_UTIL);
  
     TAILQ_FOREACH(us, &parse_tree->userspecs, entries) {
 	if (!print_userspec_ldif(fp, parse_tree, us, conf))
@@ -632,10 +677,10 @@ convert_sudoers_ldif(struct sudoers_parse_tree *parse_tree,
 {
     bool ret = true;
     FILE *output_fp = stdout;
-    debug_decl(convert_sudoers_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(convert_sudoers_ldif, SUDOERS_DEBUG_UTIL);
 
     if (conf->sudoers_base == NULL) {
-	sudo_fatalx(U_("the SUDOERS_BASE environment variable is not set and the -b option was not specified."));
+	sudo_fatalx("%s", U_("the SUDOERS_BASE environment variable is not set and the -b option was not specified."));
     }
 
     if (output_file != NULL && strcmp(output_file, "-") != 0) {

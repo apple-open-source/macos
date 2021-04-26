@@ -269,7 +269,6 @@ static NSDate *date = nil;
     CFReleaseNull(exceptions);
 }
 
-#if TARGET_OS_IPHONE
 - (void)testExtensionsEpoch
 {
     SecTrustRef trust = NULL;
@@ -285,15 +284,16 @@ static NSDate *date = nil;
     CFErrorRef exceptionResetCountError = NULL;
     uint64_t exceptionResetCount = SecTrustGetExceptionResetCount(&exceptionResetCountError);
     ok(exceptionResetCount == 0, "exception reset count is uninitialized");
+    CFReleaseNull(exceptionResetCountError);
     is(SecTrustGetExceptionResetCount(&exceptionResetCountError), exceptionResetCount, "SecTrustGetExceptionResetCount is idempotent");
     ok(SecTrustSetExceptions(trust, exceptions), "set exceptions");
     ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultProceed, "trust is kSecTrustResultProceed");
 
     /* Test increasing the extensions epoch. */
-    exceptionResetCountError = NULL;
+    CFReleaseNull(exceptionResetCountError);
     ok_status(SecTrustIncrementExceptionResetCount(&exceptionResetCountError), "increase exception reset count");
-    exceptionResetCountError = NULL;
+    CFReleaseNull(exceptionResetCountError);
     is(SecTrustGetExceptionResetCount(&exceptionResetCountError), 1 + exceptionResetCount, "exception reset count is 1 + previous count");
 
     /* Test trust evaluation under a future extensions epoch. */
@@ -305,7 +305,6 @@ static NSDate *date = nil;
     CFReleaseNull(policy);
     CFReleaseNull(exceptions);
 }
-#endif
 
 #if !TARGET_OS_BRIDGE
 // bridgeOS doesn't support Valid

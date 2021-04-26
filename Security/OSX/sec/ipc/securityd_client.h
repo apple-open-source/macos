@@ -291,6 +291,8 @@ enum SecXPCOperation {
     kSecXPCOpSetCARevocationAdditions,
     kSecXPCOpCopyCARevocationAdditions,
     kSecXPCOpValidUpdate,
+    kSecXPCOpSetTransparentConnectionPins,
+    kSecXPCOpCopyTransparentConnectionPins
 };
 
 
@@ -415,9 +417,9 @@ extern struct securityd *gSecurityd;
 
 struct trustd {
     SecTrustStoreRef (*sec_trust_store_for_domain)(CFStringRef domainName, CFErrorRef* error);
-    bool (*sec_trust_store_contains)(SecTrustStoreRef ts, CFDataRef digest, bool *contains, CFErrorRef* error);
+    bool (*sec_trust_store_contains)(SecTrustStoreRef ts, SecCertificateRef certificate, bool *contains, CFErrorRef* error);
     bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
-    bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef* error);
+    bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
     SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
     uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
@@ -429,18 +431,18 @@ struct trustd {
     CFDictionaryRef (*sec_ota_pki_copy_trusted_ct_logs)(CFErrorRef *error);
     CFDictionaryRef (*sec_ota_pki_copy_ct_log_for_keyid)(CFDataRef keyID, CFErrorRef *error);
     bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
-    bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+    bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, SecCertificateRef certificate, CFArrayRef *usageConstraints, CFErrorRef *error);
     bool (*sec_ocsp_cache_flush)(CFErrorRef *error);
     bool (*sec_networking_analytics_report)(CFStringRef event_name, xpc_object_t tls_analytics_attributes, CFErrorRef *error);
     bool (*sec_trust_store_set_ct_exceptions)(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
     CFDictionaryRef (*sec_trust_store_copy_ct_exceptions)(CFStringRef appID, CFErrorRef *error);
-#if TARGET_OS_IPHONE
     bool (*sec_trust_increment_exception_reset_count)(CFErrorRef *error);
     uint64_t (*sec_trust_get_exception_reset_count)(CFErrorRef *error);
-#endif
     bool (*sec_trust_store_set_ca_revocation_additions)(CFStringRef appID, CFDictionaryRef additions, CFErrorRef *error);
     CFDictionaryRef (*sec_trust_store_copy_ca_revocation_additions)(CFStringRef appID, CFErrorRef *error);
     bool (*sec_valid_update)(CFErrorRef *error);
+    bool (*sec_trust_store_set_transparent_connection_pins)(CFStringRef appID, CFArrayRef exceptions, CFErrorRef *error);
+    CFArrayRef (*sec_trust_store_copy_transparent_connection_pins)(CFStringRef appID, CFErrorRef *error);
 };
 
 extern struct trustd *gTrustd;
@@ -533,6 +535,11 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 // Delete all items from the keychain where agrp==identifier and clip==1. Requires App Clip deletion entitlement.
 - (void)secItemDeleteForAppClipApplicationIdentifier:(NSString*)identifier
                                           completion:(void (^)(OSStatus status))completion;
+
+// Ask the keychain to durably persist its database to disk, at whatever guarantees the existing filesystem provides.
+// On Apple hardware with an APFS-formatted physical disk, this should succeed. On any sort of network home folder, no guarantee is provided.
+// This is an expensive operation.
+- (void)secItemPersistKeychainWritesAtHighPerformanceCost:(void (^)(OSStatus status, NSError* error))completion;
 @end
 
 // Call this to receive a proxy object conforming to SecuritydXPCProtocol that you can call methods on.

@@ -30,7 +30,6 @@
 
 #import "APIData.h"
 #import "ApplicationStateTracker.h"
-#import "AssertionServicesSPI.h"
 #import "DataReference.h"
 #import "DownloadProxy.h"
 #import "DrawingAreaProxy.h"
@@ -46,7 +45,6 @@
 #import "ViewSnapshotStore.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
-#import "WKDrawingView.h"
 #import "WKEditCommand.h"
 #import "WKGeolocationProviderIOS.h"
 #import "WKPasswordView.h"
@@ -449,9 +447,9 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& nativeWebTouc
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 
-void PageClientImpl::doneDeferringNativeGestures(bool preventNativeGestures)
+void PageClientImpl::doneDeferringTouchStart(bool preventNativeGestures)
 {
-    [m_contentView _doneDeferringNativeGestures:preventNativeGestures];
+    [m_contentView _doneDeferringTouchStart:preventNativeGestures];
 }
 
 #endif // ENABLE(IOS_TOUCH_EVENTS)
@@ -641,7 +639,12 @@ bool PageClientImpl::showShareSheet(const ShareDataWithParsedURL& shareData, WTF
     return true;
 }
 
-void PageClientImpl::showInspectorHighlight(const WebCore::Highlight& highlight)
+void PageClientImpl::showContactPicker(const WebCore::ContactsRequestData& requestData, WTF::CompletionHandler<void(Optional<Vector<WebCore::ContactInfo>>&&)>&& completionHandler)
+{
+    [m_contentView _showContactPicker:requestData completionHandler:WTFMove(completionHandler)];
+}
+
+void PageClientImpl::showInspectorHighlight(const WebCore::InspectorOverlay::Highlight& highlight)
 {
     [m_contentView _showInspectorHighlight:highlight];
 }
@@ -849,6 +852,13 @@ RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestions
 }
 #endif
 
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+RefPtr<WebDateTimePicker> PageClientImpl::createDateTimePicker(WebPageProxy&)
+{
+    return nullptr;
+}
+#endif
+
 #if ENABLE(DRAG_SUPPORT)
 void PageClientImpl::didPerformDragOperation(bool handled)
 {
@@ -910,13 +920,6 @@ void PageClientImpl::requestDOMPasteAccess(const WebCore::IntRect& elementRect, 
     [m_contentView _requestDOMPasteAccessWithElementRect:elementRect originIdentifier:originIdentifier completionHandler:WTFMove(completionHandler)];
 }
 
-#if HAVE(PENCILKIT)
-RetainPtr<WKDrawingView> PageClientImpl::createDrawingView(WebCore::GraphicsLayer::EmbeddedViewID embeddedViewID)
-{
-    return adoptNS([[WKDrawingView alloc] initWithEmbeddedViewID:embeddedViewID contentView:m_contentView.getAutoreleased()]);
-}
-#endif
-
 void PageClientImpl::cancelPointersForGestureRecognizer(UIGestureRecognizer* gestureRecognizer)
 {
     [m_contentView cancelPointersForGestureRecognizer:gestureRecognizer];
@@ -957,6 +960,13 @@ void PageClientImpl::setMouseEventPolicy(WebCore::MouseEventPolicy policy)
     [m_contentView _setMouseEventPolicy:policy];
 #endif
 }
+
+#if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
+void PageClientImpl::handleAsynchronousCancelableScrollEvent(UIScrollView *scrollView, UIScrollEvent *scrollEvent, void (^completion)(BOOL handled))
+{
+    [m_webView _scrollView:scrollView asynchronouslyHandleScrollEvent:scrollEvent completion:completion];
+}
+#endif
 
 } // namespace WebKit
 

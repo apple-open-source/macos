@@ -389,7 +389,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	CFCopyRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags | kSecCSForceOnlineNotarizationCheck, &code.aref()));
 	
-	SecCSFlags validationFlags = kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures;
+	SecCSFlags validationFlags = kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures | kSecCSAllowNetworkAccess;
 	if (!(flags & kSecAssessmentFlagAllowWeak))
 		validationFlags |= kSecCSStrictValidate;
 	adjustValidation(code);

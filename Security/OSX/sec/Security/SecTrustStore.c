@@ -47,13 +47,23 @@
 #include "SecTrustInternal.h"
 
 static CFStringRef kSecTrustStoreUserName = CFSTR("user");
+static CFStringRef kSecTrustStoreAdminName = CFSTR("admin");
+static CFStringRef kSecTrustStoreSystemName = CFSTR("system");
 
 SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain) {
-    CFStringRef domainName;
-    if (domain == kSecTrustStoreDomainUser) {
-        domainName = kSecTrustStoreUserName;
-    } else {
-        return NULL;
+    CFStringRef domainName = NULL;
+    switch (domain) {
+        case kSecTrustStoreDomainUser:
+            domainName = kSecTrustStoreUserName;
+            break;
+        case kSecTrustStoreDomainAdmin:
+            domainName = kSecTrustStoreAdminName;
+            break;
+        case kSecTrustStoreDomainSystem:
+            domainName = kSecTrustStoreSystemName;
+            break;
+        default:
+            return NULL;
     }
 
     if (gTrustd) {
@@ -63,21 +73,30 @@ SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain) {
     }
 }
 
-static bool string_data_to_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, CFErrorRef *error)
+static bool SecXPCDictionarySetCertificate(xpc_object_t message, const char *key, SecCertificateRef certificate, CFErrorRef *error) {
+    if (certificate) {
+        xpc_dictionary_set_data(message, key, SecCertificateGetBytePtr(certificate),
+                                SecCertificateGetLength(certificate));
+        return true;
+    }
+    return SecError(errSecParam, error, CFSTR("NULL certificate"));
+}
+
+static bool string_cert_to_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef cert, CFErrorRef *error)
 {
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
         return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
-                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, blockError);
+                SecXPCDictionarySetCertificate(message, kSecXPCKeyCertificate, cert, blockError);
     }, NULL);
 }
 
-static bool string_data_to_bool_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, bool *result, CFErrorRef *error)
+static bool string_cert_to_bool_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef cert, bool *result, CFErrorRef *error)
 {
     os_activity_t activity = os_activity_create("SecTrustStoreContains", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
     bool status = securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
         return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
-                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
+               SecXPCDictionarySetCertificate(message, kSecXPCKeyCertificate, cert, blockError);
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         if (result)
             *result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
@@ -89,29 +108,15 @@ static bool string_data_to_bool_bool_error(enum SecXPCOperation op, SecTrustStor
 
 Boolean SecTrustStoreContains(SecTrustStoreRef ts,
 	SecCertificateRef certificate) {
-    CFDataRef digest;
     bool ok = false;
 	__block bool contains = false;
-
-	require(ts, errOut);
-	require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
-
-
+    require(ts, errOut);
     ok = (SecOSStatusWith(^bool (CFErrorRef *error) {
-        return TRUSTD_XPC(sec_trust_store_contains, string_data_to_bool_bool_error, ts, digest, &contains, error);
+        return TRUSTD_XPC(sec_trust_store_contains, string_cert_to_bool_bool_error, ts, certificate, &contains, error);
     }) == errSecSuccess);
 
 errOut:
 	return ok && contains;
-}
-
-static bool SecXPCDictionarySetCertificate(xpc_object_t message, const char *key, SecCertificateRef certificate, CFErrorRef *error) {
-    if (certificate) {
-        xpc_dictionary_set_data(message, key, SecCertificateGetBytePtr(certificate),
-                                SecCertificateGetLength(certificate));
-        return true;
-    }
-    return SecError(errSecParam, error, CFSTR("NULL certificate"));
 }
 
 
@@ -221,17 +226,14 @@ out:
 OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
     SecCertificateRef certificate)
 {
-    CFDataRef digest;
     __block OSStatus status = errSecParam;
 
     os_activity_t activity = os_activity_create("SecTrustStoreRemoveCertificate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
     require(ts, errOut);
-    require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
-    require(gTrustd || ts == (SecTrustStoreRef)kSecTrustStoreUserName, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return TRUSTD_XPC(sec_trust_store_remove_certificate, string_data_to_bool_error, ts, digest, error);
+        return TRUSTD_XPC(sec_trust_store_remove_certificate, string_cert_to_bool_error, ts, certificate, error);
     });
 
 errOut:
@@ -308,11 +310,11 @@ errOut:
     return status;
 }
 
-static bool string_data_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error)
+static bool string_cert_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef cert, CFArrayRef *usageConstraints, CFErrorRef *error)
 {
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
         return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
-                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, blockError);
+                SecXPCDictionarySetCertificate(message, kSecXPCKeyCertificate, cert, blockError);
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         return SecXPCDictionaryCopyArrayOptional(response, kSecXPCKeyResult, usageConstraints, blockError);
     });
@@ -320,7 +322,6 @@ static bool string_data_to_array_error(enum SecXPCOperation op, SecTrustStoreRef
 
 OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef certificate, CFArrayRef *usageConstraints)
 {
-    CFDataRef digest;
     __block CFArrayRef results = NULL;
     OSStatus status = errSecParam;
 
@@ -328,11 +329,10 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     os_activity_scope(activity);
     require(ts, errOut);
     require(certificate, errOut);
-    require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
     require(usageConstraints, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return TRUSTD_XPC(sec_trust_store_copy_usage_constraints, string_data_to_array_error, ts, digest, &results, error);
+        return TRUSTD_XPC(sec_trust_store_copy_usage_constraints, string_cert_to_array_error, ts, certificate, &results, error);
     });
 
     *usageConstraints = results;
@@ -344,12 +344,15 @@ errOut:
 
 #define do_if_registered(sdp, ...) if (gTrustd && gTrustd->sdp) { return gTrustd->sdp(__VA_ARGS__); }
 
+const CFStringRef kSecTrustStoreSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
+const CFStringRef kSecTrustStoreHashAlgorithmKey = CFSTR("HashAlgorithm");
+
 /* MARK: CT Enforcement Exceptions */
 
 const CFStringRef kSecCTExceptionsCAsKey = CFSTR("DisabledForCAs");
 const CFStringRef kSecCTExceptionsDomainsKey = CFSTR("DisabledForDomains");
-const CFStringRef kSecCTExceptionsHashAlgorithmKey = CFSTR("HashAlgorithm");
-const CFStringRef kSecCTExceptionsSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
+const CFStringRef kSecCTExceptionsHashAlgorithmKey = kSecTrustStoreHashAlgorithmKey;
+const CFStringRef kSecCTExceptionsSPKIHashKey = kSecTrustStoreSPKIHashKey;
 
 bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error) {
 #if !TARGET_OS_BRIDGE
@@ -418,8 +421,8 @@ CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier,
 */
 
 const CFStringRef kSecCARevocationAdditionsKey = CFSTR("EnabledForCAs");
-const CFStringRef kSecCARevocationHashAlgorithmKey = CFSTR("HashAlgorithm");
-const CFStringRef kSecCARevocationSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
+const CFStringRef kSecCARevocationHashAlgorithmKey = kSecTrustStoreHashAlgorithmKey;
+const CFStringRef kSecCARevocationSPKIHashKey = kSecTrustStoreSPKIHashKey;
 
 bool SecTrustStoreSetCARevocationAdditions(CFStringRef applicationIdentifier, CFDictionaryRef additions, CFErrorRef *error) {
 #if !TARGET_OS_BRIDGE
@@ -471,6 +474,62 @@ CFDictionaryRef SecTrustStoreCopyCARevocationAdditions(CFStringRef applicationId
     return result;
 #else // TARGET_OS_BRIDGE
     SecError(errSecReadOnly, error, CFSTR("SecTrustStoreCopyCARevocationAdditions not supported on bridgeOS"));
+    return NULL;
+#endif // TARGET_OS_BRIDGE
+}
+
+/* MARK: Transparent Connection Pins */
+
+bool SecTrustStoreSetTransparentConnectionPins(CFStringRef applicationIdentifier, CFArrayRef pins, CFErrorRef *error) {
+#if !TARGET_OS_BRIDGE
+    if (applicationIdentifier && gTrustd && gTrustd->sec_trust_store_set_transparent_connection_pins) {
+        return gTrustd->sec_trust_store_set_transparent_connection_pins(applicationIdentifier, pins, error);
+    } else if (gTrustd && gTrustd->sec_trust_store_set_transparent_connection_pins) {
+        /* When calling from the TrustTests, we need to pass the appID for the tests. Ordinarily,
+         * this is done by trustd using the client's entitlements. */
+        return gTrustd->sec_trust_store_set_transparent_connection_pins(CFSTR("com.apple.trusttests"), pins, error);
+    }
+
+    os_activity_t activity = os_activity_create("SecTrustStoreSetTransparentConnectionPins", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block bool result = false;
+    securityd_send_sync_and_do(kSecXPCOpSetTransparentConnectionPins, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetPListOptional(message, kSecTrustAnchorsKey, pins, block_error);
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
+#else // TARGET_OS_BRIDGE
+    return SecError(errSecReadOnly, error, CFSTR("SecTrustStoreSetTransparentConnectionPins not supported on bridgeOS"));
+#endif // TARGET_OS_BRIDGE
+}
+
+CF_RETURNS_RETAINED CFArrayRef SecTrustStoreCopyTransparentConnectionPins(CFStringRef applicationIdentifier, CFErrorRef *error) {
+#if !TARGET_OS_BRIDGE
+    do_if_registered(sec_trust_store_copy_transparent_connection_pins, applicationIdentifier, error);
+
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyTransparentConnectionPins", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block CFArrayRef result = NULL;
+    securityd_send_sync_and_do(kSecXPCOpCopyTransparentConnectionPins, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        (void)SecXPCDictionaryCopyArrayOptional(response, kSecTrustAnchorsKey, &result, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
+#else // TARGET_OS_BRIDGE
+    SecError(errSecReadOnly, error, CFSTR("SecTrustStoreCopyTransparentConnectionPins not supported on bridgeOS"));
     return NULL;
 #endif // TARGET_OS_BRIDGE
 }

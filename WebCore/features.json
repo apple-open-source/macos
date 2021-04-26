@@ -62,6 +62,15 @@
         "category": "css"
     },
     {
+        "name": "CSS Aspect ratio property",
+        "status": {
+            "status": "In Development"
+        },
+        "url": "https://drafts.csswg.org/css-sizing-4/#aspect-ratio",
+        "keywords": ["css", "css-sizing", "aspect-ratio"],
+        "category": "css"
+    },
+    {
         "name": "CSS Color Level 4",
         "status": {
             "status": "Supported",
@@ -504,6 +513,16 @@
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=159475",
         "keywords": ["intersection", "intersection observer", "intersectionobserver"],
         "description": "An API that can be used to understand the visibility and position of DOM elements relative to a containing element or to the top-level viewport."
+    },
+    {
+        "name": "Lazy image loading",
+        "status": {
+            "status": "In Development"
+        },
+        "url": "https://html.spec.whatwg.org/#attr-img-loading",
+        "keywords": ["lazy", "image", "loading"],
+        "category": "html",
+        "description": "Allows defering loading of images until they are visible in the viewport."
     },
     {
         "name": "Media Capture and Streams",
@@ -1024,6 +1043,21 @@
             "name": "Jon Davis",
             "twitter": "@jonathandavis",
             "email": "web-evangelist@apple.com"
+        }
+    },
+    {
+        "name": "Date and Time Input Types",
+        "status": {
+            "status": "Partially Supported"
+        },
+        "url": "https://html.spec.whatwg.org/multipage/input.html#date-state-(type=date)",
+        "specification": "HTML5",
+        "category": "html",
+        "description": "Form controls that allow users to enter a date, time or both. Refers to the following types of input elements: date, time, datetime-local, month, and week.",
+        "comment": "The month input type is unsupported on macOS. The week input type is unsupported on macOS and iOS.",
+        "contact": {
+            "name": "Aditya Keerthi",
+            "email": "akeerthi@apple.com"
         }
     },
     {

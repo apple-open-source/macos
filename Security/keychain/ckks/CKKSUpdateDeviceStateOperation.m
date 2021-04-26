@@ -184,7 +184,7 @@
         };
 
         [self dependOnBeforeGroupFinished: self.modifyRecordsOperation];
-        [ckks.database addOperation: self.modifyRecordsOperation];
+        [ckks.operationDependencies.ckdatabase addOperation:self.modifyRecordsOperation];
 
         return CKKSDatabaseTransactionCommit;
     }];

@@ -72,11 +72,11 @@ void PendingDownload::continueWillSendRequest(WebCore::ResourceRequest&& newRequ
     m_networkLoad->continueWillSendRequest(WTFMove(newRequest));
 }
 
-void PendingDownload::cancel()
+void PendingDownload::cancel(CompletionHandler<void(const IPC::DataReference&)>&& completionHandler)
 {
     ASSERT(m_networkLoad);
     m_networkLoad->cancel();
-    send(Messages::DownloadProxy::DidCancel({ }));
+    completionHandler({ });
 }
 
 #if PLATFORM(COCOA)
@@ -111,7 +111,7 @@ void PendingDownload::didReceiveResponse(WebCore::ResourceResponse&& response, R
 
 uint64_t PendingDownload::messageSenderDestinationID() const
 {
-    return m_networkLoad->pendingDownloadID().downloadID();
+    return m_networkLoad->pendingDownloadID().toUInt64();
 }
     
 }

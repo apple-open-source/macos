@@ -31,7 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSString* containerName;
 @property NSString* contextID;
 @property uint64_t epoch;
-@property NSString* machineID;
+@property (nullable) NSString* machineID;
 @property NSString* modelID;
 @property NSString* deviceName;
 @property NSString* serialNumber;
@@ -40,7 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initForContainerName:(NSString*)containerName
                            contextID:(NSString*)contextID
                                epoch:(uint64_t)epoch
-                           machineID:(NSString*)machineID
+                           machineID:(NSString* _Nullable)machineID
                              modelID:(NSString*)modelID
                           deviceName:(NSString*)deviceName
                         serialNumber:(NSString*)serialNumber

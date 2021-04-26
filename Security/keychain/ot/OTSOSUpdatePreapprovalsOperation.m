@@ -52,34 +52,16 @@
     }
 
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
-        // If we errored in some unknown way, ask to try again!
         STRONGIFY(self);
 
         if(self.error) {
-            // Is this a very scary error?
-            bool fatal = false;
-
-            NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self.error);
-            NSTimeInterval cuttlefishDelay = [self.error cuttlefishRetryAfter];
-            NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
-            if (delay == 0) {
-                delay = 30;
-            }
-
-            if([self.error isCuttlefishError:CuttlefishErrorResultGraphNotFullyReachable]) {
-                secnotice("octagon-sos", "SOS update preapproval error is 'result graph not reachable'; retrying is useless: %@", self.error);
-                fatal = true;
-            }
-
-            if([self.error.domain isEqualToString:TrustedPeersHelperErrorDomain] && self.error.code == TrustedPeersHelperErrorNoPreparedIdentity) {
-                secnotice("octagon-sos", "SOS update preapproval error is 'no prepared identity'; retrying immediately is useless: %@", self.error);
-                fatal = true;
-            }
-
-            if(!fatal) {
+            if ([self.error retryableCuttlefishError]) {
+                NSTimeInterval delay = [self.error overallCuttlefishRetry];
                 secnotice("octagon-sos", "SOS update preapproval error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpdatePreapprovals
                                                                                    delayInSeconds:delay]];
+            } else {
+                secnotice("octagon-sos", "SOS update preapproval error is: %@, not retrying", self.error);
             }
         }
     }];

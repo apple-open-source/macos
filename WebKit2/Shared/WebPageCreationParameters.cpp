@@ -94,8 +94,10 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << viewportConfigurationMinimumEffectiveDeviceWidth;
     encoder << viewportConfigurationViewSize;
     encoder << overrideViewportArguments;
-    encoder << frontboardExtensionHandle;
-    encoder << iconServicesExtensionHandle;
+#endif
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    encoder << attachmentElementExtensionHandles;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -112,6 +114,10 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(COCOA)
     encoder << smartInsertDeleteEnabled;
     encoder << additionalSupportedImageTypes;
+    // FIXME(207716): The following should be removed when the GPU process is complete.
+    encoder << mediaExtensionHandles;
+    encoder << mediaIOKitExtensionHandles;
+    encoder << gpuIOKitExtensionHandles;
 #endif
 #if HAVE(APP_ACCENT_COLORS)
     encoder << accentColor;
@@ -122,8 +128,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(WIN)
     encoder << nativeWindowHandle;
 #endif
-    encoder << appleMailPaginationQuirkEnabled;
-    encoder << appleMailLinesClampEnabled;
     encoder << shouldScaleViewToFitDocument;
     encoder << userInterfaceLayoutDirection;
     encoder << observedLayoutMilestones;
@@ -153,15 +157,28 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldCaptureVideoInGPUProcess;
     encoder << shouldCaptureDisplayInUIProcess;
     encoder << shouldRenderCanvasInGPUProcess;
+    encoder << shouldRenderDOMInGPUProcess;
+    encoder << shouldPlayMediaInGPUProcess;
+#if ENABLE(WEBGL)
+    encoder << shouldRenderWebGLInGPUProcess;
+#endif
+    encoder << shouldEnableVP8Decoder;
     encoder << shouldEnableVP9Decoder;
     encoder << shouldEnableVP9SWDecoder;
+#if ENABLE(APP_BOUND_DOMAINS)
     encoder << needsInAppBrowserPrivacyQuirks;
     encoder << limitsNavigationsToAppBoundDomains;
+#endif
     encoder << shouldRelaxThirdPartyCookieBlocking;
     encoder << canUseCredentialStorage;
 
 #if PLATFORM(GTK)
     encoder << themeName;
+#endif
+    
+    encoder << textInteractionEnabled;
+#if PLATFORM(IOS)
+    encoder << allowsDeprecatedSynchronousXMLHttpRequestDuringUnload;
 #endif
 }
 
@@ -320,18 +337,14 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!overrideViewportArguments)
         return WTF::nullopt;
     parameters.overrideViewportArguments = WTFMove(*overrideViewportArguments);
+#endif
 
-    Optional<Optional<SandboxExtension::Handle>> frontboardExtensionHandle;
-    decoder >> frontboardExtensionHandle;
-    if (!frontboardExtensionHandle)
+#if ENABLE(ATTACHMENT_ELEMENT)
+    Optional<Optional<SandboxExtension::HandleArray>> attachmentElementExtensionHandles;
+    decoder >> attachmentElementExtensionHandles;
+    if (!attachmentElementExtensionHandles)
         return WTF::nullopt;
-    parameters.frontboardExtensionHandle = WTFMove(*frontboardExtensionHandle);
-
-    Optional<Optional<SandboxExtension::Handle>> iconServicesExtensionHandle;
-    decoder >> iconServicesExtensionHandle;
-    if (!iconServicesExtensionHandle)
-        return WTF::nullopt;
-    parameters.iconServicesExtensionHandle = WTFMove(*iconServicesExtensionHandle);
+    parameters.attachmentElementExtensionHandles = WTFMove(*attachmentElementExtensionHandles);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -360,6 +373,26 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.additionalSupportedImageTypes))
         return WTF::nullopt;
+
+    // FIXME(207716): The following should be removed when the GPU process is complete.
+    Optional<SandboxExtension::HandleArray> mediaExtensionHandles;
+    decoder >> mediaExtensionHandles;
+    if (!mediaExtensionHandles)
+        return WTF::nullopt;
+    parameters.mediaExtensionHandles = WTFMove(*mediaExtensionHandles);
+
+    Optional<SandboxExtension::HandleArray> mediaIOKitExtensionHandles;
+    decoder >> mediaIOKitExtensionHandles;
+    if (!mediaIOKitExtensionHandles)
+        return WTF::nullopt;
+    parameters.mediaIOKitExtensionHandles = WTFMove(*mediaIOKitExtensionHandles);
+    // FIXME(207716): End region to remove.
+
+    Optional<SandboxExtension::HandleArray> gpuIOKitExtensionHandles;
+    decoder >> gpuIOKitExtensionHandles;
+    if (!gpuIOKitExtensionHandles)
+        return WTF::nullopt;
+    parameters.gpuIOKitExtensionHandles = WTFMove(*gpuIOKitExtensionHandles);
 #endif
 
 #if HAVE(APP_ACCENT_COLORS)
@@ -376,12 +409,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!decoder.decode(parameters.nativeWindowHandle))
         return WTF::nullopt;
 #endif
-
-    if (!decoder.decode(parameters.appleMailPaginationQuirkEnabled))
-        return WTF::nullopt;
-
-    if (!decoder.decode(parameters.appleMailLinesClampEnabled))
-        return WTF::nullopt;
 
     if (!decoder.decode(parameters.shouldScaleViewToFitDocument))
         return WTF::nullopt;
@@ -494,18 +521,33 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!decoder.decode(parameters.shouldRenderCanvasInGPUProcess))
         return WTF::nullopt;
 
+    if (!decoder.decode(parameters.shouldRenderDOMInGPUProcess))
+        return WTF::nullopt;
+
+    if (!decoder.decode(parameters.shouldPlayMediaInGPUProcess))
+        return WTF::nullopt;
+#if ENABLE(WEBGL)
+    if (!decoder.decode(parameters.shouldRenderWebGLInGPUProcess))
+        return WTF::nullopt;
+#endif
+
+    if (!decoder.decode(parameters.shouldEnableVP8Decoder))
+        return WTF::nullopt;
+
     if (!decoder.decode(parameters.shouldEnableVP9Decoder))
         return WTF::nullopt;
 
     if (!decoder.decode(parameters.shouldEnableVP9SWDecoder))
         return WTF::nullopt;
 
+#if ENABLE(APP_BOUND_DOMAINS)
     if (!decoder.decode(parameters.needsInAppBrowserPrivacyQuirks))
         return WTF::nullopt;
     
     if (!decoder.decode(parameters.limitsNavigationsToAppBoundDomains))
         return WTF::nullopt;
-    
+#endif
+
     if (!decoder.decode(parameters.shouldRelaxThirdPartyCookieBlocking))
         return WTF::nullopt;
 
@@ -514,6 +556,14 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
 
 #if PLATFORM(GTK)
     if (!decoder.decode(parameters.themeName))
+        return WTF::nullopt;
+#endif
+    
+    if (!decoder.decode(parameters.textInteractionEnabled))
+        return WTF::nullopt;
+
+#if PLATFORM(IOS)
+    if (!decoder.decode(parameters.allowsDeprecatedSynchronousXMLHttpRequestDuringUnload))
         return WTF::nullopt;
 #endif
 

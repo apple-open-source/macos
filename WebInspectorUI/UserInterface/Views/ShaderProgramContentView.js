@@ -56,9 +56,9 @@ WI.ShaderProgramContentView = class ShaderProgramContentView extends WI.ContentV
             textEditor.readOnly = false;
             textEditor.addEventListener(WI.TextEditor.Event.Focused, this._editorFocused, this);
             textEditor.addEventListener(WI.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
-            textEditor.addEventListener(WI.TextEditor.Event.ContentDidChange, (event) => {
+            textEditor.addEventListener(WI.TextEditor.Event.ContentDidChange, function(event) {
                 contentDidChangeDebouncer.delayForTime(250, event);
-            }, this);
+            }, textEditor);
 
             switch (shaderType) {
             case WI.ShaderProgram.ShaderType.Compute:
@@ -118,40 +118,11 @@ WI.ShaderProgramContentView = class ShaderProgramContentView extends WI.ContentV
 
     // Protected
 
-    shown()
+    attached()
     {
-        super.shown();
-
-        switch (this.representedObject.programType) {
-        case WI.ShaderProgram.ProgramType.Compute:
-            this._computeEditor.shown();
-            break;
-
-        case WI.ShaderProgram.ProgramType.Render:
-            this._vertexEditor.shown();
-            if (!this.representedObject.sharesVertexFragmentShader)
-                this._fragmentEditor.shown();
-            break;
-        }
+        super.attached();
 
         this._refreshContent();
-    }
-
-    hidden()
-    {
-        switch (this.representedObject.programType) {
-        case WI.ShaderProgram.ProgramType.Compute:
-            this._computeEditor.hidden();
-            break;
-
-        case WI.ShaderProgram.ProgramType.Render:
-            this._vertexEditor.hidden();
-            if (!this.representedObject.sharesVertexFragmentShader)
-                this._fragmentEditor.hidden();
-            break;
-        }
-
-        super.hidden();
     }
 
     get supportsSave()

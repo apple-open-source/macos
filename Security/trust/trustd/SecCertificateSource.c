@@ -432,12 +432,9 @@ static bool SecUserAnchorSourceCopyParents(SecCertificateSourceRef source, SecCe
 
 static CFArrayRef SecUserAnchorSourceCopyUsageConstraints(SecCertificateSourceRef source,
                                                           SecCertificateRef certificate) {
-    CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
-    if (!digest)
-        return NULL;
     CFArrayRef usageConstraints = NULL;
     bool ok = _SecTrustStoreCopyUsageConstraints(SecTrustStoreForDomain(kSecTrustStoreDomainUser),
-                                                 digest, &usageConstraints, NULL);
+                                                 certificate, &usageConstraints, NULL);
     if (ok) {
         return usageConstraints;
     } else {

@@ -20,6 +20,7 @@
 
 #include "IntSize.h"
 #include <memory>
+#include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
@@ -58,6 +59,9 @@ public:
 
     bool supportsOrientationTracking() const { return m_supportsOrientationTracking; }
 
+    virtual void initializeTrackingAndRendering(SessionMode) = 0;
+    virtual void shutDownTrackingAndRendering() = 0;
+
 protected:
     Device() = default;
 
@@ -74,8 +78,9 @@ class Instance {
 public:
     static Instance& singleton();
 
-    void enumerateImmersiveXRDevices();
-    const Vector<std::unique_ptr<Device>>& immersiveXRDevices() const { return m_immersiveXRDevices; }
+    using DeviceList = Vector<UniqueRef<Device>>;
+    void enumerateImmersiveXRDevices(CompletionHandler<void(const DeviceList&)>&&);
+
 private:
     friend LazyNeverDestroyed<Instance>;
     Instance();
@@ -84,7 +89,7 @@ private:
     struct Impl;
     UniqueRef<Impl> m_impl;
 
-    Vector<std::unique_ptr<Device>> m_immersiveXRDevices;
+    DeviceList m_immersiveXRDevices;
 };
 
 #endif // ENABLE(WEBXR)

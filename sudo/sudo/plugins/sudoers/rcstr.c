@@ -23,22 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 
 #include "sudoers.h"
 
@@ -57,7 +44,7 @@ rcstr_dup(const char *src)
 {
     size_t len = strlen(src);
     char *dst;
-    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL)
+    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL);
 
     dst = rcstr_alloc(len);
     memcpy(dst, src, len);
@@ -69,7 +56,7 @@ char *
 rcstr_alloc(size_t len)
 {
     struct rcstr *rcs;
-    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL)
+    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL);
 
     /* Note: sizeof(struct rcstr) includes space for the NUL */
     rcs = malloc(sizeof(struct rcstr) + len);
@@ -79,14 +66,14 @@ rcstr_alloc(size_t len)
     rcs->refcnt = 1;
     rcs->str[0] = '\0';
     /* cppcheck-suppress memleak */
-    debug_return_ptr(rcs->str);
+    debug_return_ptr(rcs->str); // -V773
 }
 
 char *
 rcstr_addref(const char *s)
 {
     struct rcstr *rcs;
-    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL)
+    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL);
 
     if (s == NULL)
 	debug_return_ptr(NULL);
@@ -100,7 +87,7 @@ void
 rcstr_delref(const char *s)
 {
     struct rcstr *rcs;
-    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL)
+    debug_decl(rcstr_dup, SUDOERS_DEBUG_UTIL);
 
     if (s != NULL) {
 	rcs = __containerof((const void *)s, struct rcstr, str);

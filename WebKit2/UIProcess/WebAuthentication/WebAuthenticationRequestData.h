@@ -45,13 +45,17 @@ class WebPageProxy;
 struct WebAuthenticationRequestData {
     Vector<uint8_t> hash;
     Variant<WebCore::PublicKeyCredentialCreationOptions, WebCore::PublicKeyCredentialRequestOptions> options;
+
+    // FIXME<rdar://problem/71509848>: Remove the following deprecated fields.
     WeakPtr<WebPageProxy> page;
     WebAuthenticationPanelResult panelResult { WebAuthenticationPanelResult::Unavailable };
     RefPtr<API::WebAuthenticationPanel> panel;
     WTF::Optional<WebCore::GlobalFrameIdentifier> frameID;
     WebKit::FrameInfoData frameInfo;
+
     bool processingUserGesture;
     String cachedPin; // Only used to improve NFC Client PIN experience.
+    WeakPtr<API::WebAuthenticationPanel> weakPanel;
 };
 
 WebCore::ClientDataType getClientDataType(const Variant<WebCore::PublicKeyCredentialCreationOptions, WebCore::PublicKeyCredentialRequestOptions>&);

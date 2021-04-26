@@ -231,6 +231,10 @@ constexpr const char* processStorageClass(AuxiliaryProcess::ProcessType type)
     case AuxiliaryProcess::ProcessType::GPU:
         return "WebKitGPUSandbox";
 #endif
+#if ENABLE(WEB_AUTHN)
+    case AuxiliaryProcess::ProcessType::WebAuthn:
+        return "WebKitWebAuthnSandbox";
+#endif
     }
 }
 #endif // USE(APPLE_INTERNAL_SDK)
@@ -291,6 +295,11 @@ static String sandboxDirectory(AuxiliaryProcess::ProcessType processType, const 
 #if ENABLE(GPU_PROCESS)
     case AuxiliaryProcess::ProcessType::GPU:
         directory.append("/com.apple.WebKit.GPU.Sandbox");
+        break;
+#endif
+#if ENABLE(WEB_AUTHN)
+    case AuxiliaryProcess::ProcessType::WebAuthn:
+        directory.append("/com.apple.WebKit.WebAuthn.Sandbox");
         break;
 #endif
     }
@@ -625,9 +634,17 @@ static void initializeSandboxParameters(const AuxiliaryProcessInitializationPara
     // Verify user directory suffix.
     if (sandboxParameters.userDirectorySuffix().isNull()) {
         auto userDirectorySuffix = parameters.extraInitializationData.find("user-directory-suffix");
-        if (userDirectorySuffix != parameters.extraInitializationData.end())
-            sandboxParameters.setUserDirectorySuffix([makeString(userDirectorySuffix->value, '/', String([[NSBundle mainBundle] bundleIdentifier])) fileSystemRepresentation]);
-        else {
+        if (userDirectorySuffix != parameters.extraInitializationData.end()) {
+            String suffix = userDirectorySuffix->value;
+            WTFLogAlways("WebKit client is requesting user directory suffix: %s", suffix.utf8().data());
+            // Make sure the user directory suffix is not a path, since confstr will fail when the path does not exist.
+            auto firstPathSeparator = suffix.find("/");
+            if (firstPathSeparator != notFound) {
+                suffix.truncate(firstPathSeparator);
+                WTFLogAlways("User directory suffix is a path, which will be truncated: %s", suffix.utf8().data());
+            }
+            sandboxParameters.setUserDirectorySuffix(suffix);
+        } else {
             String clientIdentifier = codeSigningIdentifier(parameters.connectionIdentifier.xpcConnection.get());
             if (clientIdentifier.isNull())
                 clientIdentifier = parameters.clientIdentifier;

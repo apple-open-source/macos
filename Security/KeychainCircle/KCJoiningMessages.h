@@ -9,7 +9,7 @@
 // Initial messages are versioned and not typed for negotiation.
 NS_ASSUME_NONNULL_BEGIN
 
-NSData* extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString* _Nullable * _Nullable uuidString, NSData* _Nullable * _Nullable octagon, NSError** error);
+NSData* _Nullable extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString* _Nullable * _Nullable uuidString, NSData* _Nullable * _Nullable octagon, NSError** error);
 
 size_t sizeof_initialmessage(NSData*data);
 size_t sizeof_initialmessage_version1(NSData*data, uint64_t version1, NSData *uuid);

@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <System/sys/proc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -196,9 +197,9 @@ int main(int argc, char * argv[])
 	    qosinfo.task_throughput_qos_tier != THROUGHPUT_QOS_TIER_UNSPECIFIED){
 		mach_port_t task;
 		if (pid) {
-			ret = task_for_pid(mach_task_self(), pid, &task);
+			ret = task_name_for_pid(mach_task_self(), pid, &task);
 			if (ret != KERN_SUCCESS) {
-				err(EX_SOFTWARE, "task_for_pid(%d) failed", pid);
+				err(EX_SOFTWARE, "task_name_for_pid(%d) failed", pid);
 				return EX_OSERR;
 			}
 		} else {

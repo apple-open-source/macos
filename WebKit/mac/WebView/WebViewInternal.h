@@ -291,6 +291,7 @@ WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 - (BOOL)_hasActiveVideoForControlsInterface;
 - (void)_setUpPlaybackControlsManagerForMediaElement:(NakedRef<WebCore::HTMLMediaElement>)mediaElement;
 - (void)_clearPlaybackControlsManager;
+- (void)_playbackControlsMediaEngineChanged;
 #endif
 #endif
 #endif
@@ -342,4 +343,9 @@ WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 #if !PLATFORM(IOS_FAMILY)
 - (void)_setMainFrameIcon:(NSImage *)icon;
 #endif
+@end
+
+@interface WebView (WebViewInternalPreferencesChangedGenerated)
+// Implemented in generated file WebViewPreferencesChangedGenerated.mm
+- (void)_preferencesChangedGenerated:(WebPreferences *)preferences;
 @end

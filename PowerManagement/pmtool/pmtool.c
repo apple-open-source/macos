@@ -60,6 +60,7 @@ struct args_struct {
     long    standbyAccelerationDelay;
     char    *batteryPropsPath;
     long    nccpUpdateDelta;
+    int64_t pfStatus;
     
     /* If takeAssertionNamed != NULL; that implies our action is to take an assertion */
     CFStringRef         takeAssertionNamed;
@@ -269,6 +270,10 @@ static DTOption pmtool_options[] =
           no_argument, &args.doAction[kGetVactSupportedIndex], 1}, kActionType,
         "Gets whether or not VACT is supported on the device.\n",
         { NULL }, {NULL}},
+    { {kActionSetPermFaultStatus,
+          required_argument, &args.doAction[kSetPermFaultStatusIndex], 1}, kActionType,
+        "Sets the permanent fault status of the battery to the specified value.\n",
+        { NULL }, {NULL}},
 #endif // TARGET_OS_OSX
     { {"help", no_argument, NULL, 'h'}, kNilType, NULL, { NULL }, { NULL } },
     { {NULL, 0, NULL, 0}, kNilType, NULL, { NULL }, { NULL } }
@@ -331,6 +336,10 @@ int main(int argc, char *argv[])
 
     if (args.doAction[kGetVactSupportedIndex]) {
         isVactSupported();
+        exit(1);
+    }
+    if (args.doAction[kSetPermFaultStatusIndex]) {
+        setPermFaultStatus(args.pfStatus);
         exit(1);
     }
     if (args.doAction[kActionInactivityWindowIndex]) {
@@ -679,6 +688,9 @@ static bool parse_it_all(int argc, char *argv[]) {
         }
         else if (arg && !strcmp(arg, kActionSetBHUpdateDelta)) {
             args.nccpUpdateDelta = (int)strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kActionSetPermFaultStatus)) {
+            args.pfStatus = (int64_t) strtol(optarg, NULL, 0);
         }
     } while (1);
     

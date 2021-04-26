@@ -50,3 +50,12 @@
 }
 
 @end
+
+@implementation WKContentRuleList (WKPrivate)
+
++ (BOOL)_supportsRegularExpression:(NSString *)regex
+{
+    return API::ContentRuleList::supportsRegularExpression(regex);
+}
+
+@end

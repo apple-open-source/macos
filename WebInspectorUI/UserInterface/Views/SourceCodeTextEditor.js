@@ -66,10 +66,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this.element.classList.add("source-code");
 
         if (this._supportsDebugging) {
-            WI.Breakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._breakpointStatusDidChange, this);
-            WI.Breakpoint.addEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this._breakpointStatusDidChange, this);
-            WI.Breakpoint.addEventListener(WI.Breakpoint.Event.ResolvedStateDidChange, this._breakpointStatusDidChange, this);
-            WI.Breakpoint.addEventListener(WI.Breakpoint.Event.LocationDidChange, this._updateBreakpointLocation, this);
+            WI.JavaScriptBreakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._breakpointStatusDidChange, this);
+            WI.JavaScriptBreakpoint.addEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this._breakpointStatusDidChange, this);
+
+            WI.JavaScriptBreakpoint.addEventListener(WI.JavaScriptBreakpoint.Event.ResolvedStateDidChange, this._breakpointStatusDidChange, this);
+            WI.JavaScriptBreakpoint.addEventListener(WI.JavaScriptBreakpoint.Event.LocationDidChange, this._updateBreakpointLocation, this);
 
             WI.targetManager.addEventListener(WI.TargetManager.Event.TargetAdded, this._targetAdded, this);
             WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, this._targetRemoved, this);
@@ -123,9 +124,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         return WI.mainTarget;
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         if (WI.settings.showJavaScriptTypeInformation.value) {
             if (this._typeTokenAnnotator)
@@ -148,10 +149,8 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         }
     }
 
-    hidden()
+    detached()
     {
-        super.hidden();
-
         this.tokenTrackingController.removeHighlightedRange();
 
         this._dismissPopover();
@@ -162,14 +161,30 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             this._typeTokenAnnotator.pause();
         if (this._basicBlockAnnotator)
             this._basicBlockAnnotator.pause();
+
+        super.detached();
     }
 
     close()
     {
         if (this._supportsDebugging) {
-            WI.Breakpoint.removeEventListener(null, null, this);
-            WI.debuggerManager.removeEventListener(null, null, this);
-            WI.targetManager.removeEventListener(null, null, this);
+            WI.JavaScriptBreakpoint.removeEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._breakpointStatusDidChange, this);
+            WI.JavaScriptBreakpoint.removeEventListener(WI.Breakpoint.Event.AutoContinueDidChange, this._breakpointStatusDidChange, this);
+
+            WI.JavaScriptBreakpoint.removeEventListener(WI.JavaScriptBreakpoint.Event.ResolvedStateDidChange, this._breakpointStatusDidChange, this);
+            WI.JavaScriptBreakpoint.removeEventListener(WI.JavaScriptBreakpoint.Event.LocationDidChange, this._updateBreakpointLocation, this);
+
+            WI.targetManager.removeEventListener(WI.TargetManager.Event.TargetAdded, this._targetAdded, this);
+            WI.targetManager.removeEventListener(WI.TargetManager.Event.TargetRemoved, this._targetRemoved, this);
+
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.BreakpointsEnabledDidChange, this._breakpointsEnabledDidChange, this);
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.BreakpointAdded, this._breakpointAdded, this);
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.BreakpointRemoved, this._breakpointRemoved, this);
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.CallFramesDidChange, this._callFramesDidChange, this);
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this._activeCallFrameDidChange, this);
+
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.Paused, this._debuggerDidPause, this);
+            WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.Resumed, this._debuggerDidResume, this);
 
             if (this._activeCallFrameSourceCodeLocation) {
                 this._activeCallFrameSourceCodeLocation.removeEventListener(WI.SourceCodeLocation.Event.LocationChanged, this._activeCallFrameSourceCodeLocationChanged, this);
@@ -177,9 +192,15 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             }
         }
 
-        WI.consoleManager.removeEventListener(null, null, this);
-        WI.notifications.removeEventListener(null, null, this);
-        this._sourceCode.removeEventListener(null, null, this);
+        WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
+
+        this._sourceCode.removeEventListener(WI.SourceCode.Event.FormatterDidChange, this._handleFormatterDidChange, this);
+        if (this._sourceCode instanceof WI.SourceMapResource || this._sourceCode.sourceMaps.length > 0)
+            WI.notifications.removeEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
+        else
+            this._sourceCode.removeEventListener(WI.SourceCode.Event.SourceMapAdded, this._sourceCodeSourceMapAdded, this);
+
+        WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.Cleared, this._logCleared, this);
     }
 
     canBeFormatted()
@@ -1193,7 +1214,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     get _supportsDebugging()
     {
         if (this._sourceCode instanceof WI.Resource) {
-            if (this._sourceCode.isLocalResourceOverride)
+            if (this._sourceCode.localResourceOverride)
                 return false;
             return this._sourceCode.type === WI.Resource.Type.Document || this._sourceCode.type === WI.Resource.Type.Script;
         }
@@ -1270,13 +1291,13 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         // Single breakpoint.
         if (breakpoints.length === 1) {
-            WI.breakpointPopoverController.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
+            WI.BreakpointPopover.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
 
             if (!WI.isShowingSourcesTab()) {
                 contextMenu.appendSeparator();
                 contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
                     WI.showSourcesTab({
-                        breakpointToSelect: breakpoints[0],
+                        representedObjectToSelect: breakpoints[0],
                         initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
                     });
                 });
@@ -1305,7 +1326,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         var editorLineInfo = {lineNumber, columnNumber};
         var unformattedLineInfo = this._unformattedLineInfoForEditorLineInfo(editorLineInfo);
         var sourceCodeLocation = this._sourceCode.createSourceCodeLocation(unformattedLineInfo.lineNumber, unformattedLineInfo.columnNumber);
-        var breakpoint = new WI.Breakpoint(sourceCodeLocation);
+        var breakpoint = new WI.JavaScriptBreakpoint(sourceCodeLocation);
 
         var lineInfo = this._editorLineInfoForSourceCodeLocation(breakpoint.sourceCodeLocation);
         this._addBreakpointWithEditorLineInfo(breakpoint, lineInfo);
@@ -1865,12 +1886,16 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         content.classList.add(WI.SourceCodeTextEditor.PopoverDebuggerContentStyleClassName);
 
-        this._popover = this._popover || new WI.Popover(this);
+        if (!this._popover) {
+            this._popover = new WI.Popover(this);
+            this._popover.element.addEventListener("mouseover", this._popoverMouseover.bind(this));
+            this._popover.element.addEventListener("mouseout", this._popoverMouseout.bind(this));
+        }
+
         this._popover.presentNewContentWithFrame(content, bounds.pad(5), [WI.RectEdge.MIN_Y, WI.RectEdge.MAX_Y, WI.RectEdge.MAX_X]);
+
         if (shouldHighlightRange)
             this.tokenTrackingController.highlightRange(candidate.expressionRange);
-
-        this._trackPopoverEvents();
     }
 
     _showPopoverForFunction(data)
@@ -1978,10 +2003,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         // Show the popover once we have the first set of properties for the object.
         var candidate = this.tokenTrackingController.candidate;
-        objectTree.addEventListener(WI.ObjectTreeView.Event.Updated, function() {
+        objectTree.singleFireEventListener(WI.ObjectTreeView.Event.Updated, function(event) {
             if (candidate === this.tokenTrackingController.candidate)
                 this._showPopover(content);
-            objectTree.removeEventListener(null, null, this);
         }, this);
     }
 
@@ -2006,23 +2030,6 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             return;
 
         this._popover.dismiss();
-
-        if (this._popoverEventListeners && this._popoverEventListenersAreRegistered) {
-            this._popoverEventListenersAreRegistered = false;
-            this._popoverEventListeners.unregister();
-        }
-    }
-
-    _trackPopoverEvents()
-    {
-        if (!this._popoverEventListeners)
-            this._popoverEventListeners = new WI.EventListenerSet(this, "Popover listeners");
-        if (!this._popoverEventListenersAreRegistered) {
-            this._popoverEventListenersAreRegistered = true;
-            this._popoverEventListeners.register(this._popover.element, "mouseover", this._popoverMouseover);
-            this._popoverEventListeners.register(this._popover.element, "mouseout", this._popoverMouseout);
-            this._popoverEventListeners.install();
-        }
     }
 
     _popoverMouseover(event)
@@ -2135,7 +2142,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             return;
 
         if (shouldActivate) {
-            console.assert(this.visible, "Annotators should not be enabled if the TextEditor is not visible");
+            console.assert(this.isAttached, "Annotators should not be enabled if the TextEditor is not visible");
 
             this._typeTokenAnnotator.reset();
 
@@ -2159,7 +2166,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             return;
 
         if (shouldActivate) {
-            console.assert(this.visible, "Annotators should not be enabled if the TextEditor is not visible");
+            console.assert(this.isAttached, "Annotators should not be enabled if the TextEditor is not visible");
 
             console.assert(!this._basicBlockAnnotator.isActive());
             this._basicBlockAnnotator.reset();

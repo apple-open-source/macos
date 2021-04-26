@@ -541,5 +541,76 @@ bool pathIsValidXattrFile(const string fullPath, const char *scope)
 	return true;
 }
 
+string pathRemaining(string fullPath, string prefix)
+{
+	if ((fullPath.length() < prefix.length()) ||
+		(prefix.length() == 0) ||
+		(fullPath.length() == 0) ||
+		!isPathPrefix(prefix, fullPath)) {
+		return "";
+	}
+
+	size_t currentPosition = prefix.length();
+	if (prefix[currentPosition-1] != '/') {
+		// If the prefix doesn't already end with a /, add one to the position so the remaining
+		// doesn't start with one.
+		currentPosition += 1;
+	}
+
+	// Ensure we're not indexing outside the bounds of fullPath.
+	if (currentPosition >= fullPath.length()) {
+		return "";
+	}
+
+	return fullPath.substr(currentPosition, string::npos);
+}
+
+bool isPathPrefix(string prefixPath, string fullPath)
+{
+	size_t pos = fullPath.find(prefixPath);
+	if (pos == 0) {
+		// If they're a perfect match, its not really a path prefix.
+		if (prefixPath.length() == fullPath.length()) {
+			return false;
+		}
+
+		// Ensure the prefix starts a relative path under the prefix.
+		if (prefixPath.back() == '/') {
+			// If the prefix ends with a delimeter, we're good.
+			return true;
+		} else {
+			// Otherwise, the next character in the fullPath needs to be a delimeter.
+			return fullPath.at(prefixPath.length()) == '/';
+		}
+	}
+	return false;
+}
+
+bool iterateLargestSubpaths(string path, bool (^pathHandler)(string))
+{
+	size_t lastPossibleSlash = path.length();
+	size_t currentPosition = 0;
+	bool stopped = false;
+
+	while (!stopped) {
+		currentPosition = path.find_last_of("/", lastPossibleSlash);
+		if (currentPosition == string::npos || currentPosition == 0) {
+			break;
+		}
+
+		// Erase from the current position to the end of the string.
+		path.erase(currentPosition, string::npos);
+		stopped = pathHandler(path);
+		if (!stopped) {
+			if (currentPosition == 0) {
+				break;
+			}
+			lastPossibleSlash = currentPosition - 1;
+		}
+	}
+	return stopped;
+}
+
+
 } // end namespace CodeSigning
 } // end namespace Security

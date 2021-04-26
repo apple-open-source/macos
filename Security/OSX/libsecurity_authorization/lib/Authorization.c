@@ -875,3 +875,80 @@ done:
     xpc_release_safe(reply);
     return status;
 }
+
+OSStatus AuthorizationCopyPreloginPreferencesValue(const char * _Nonnull const volumeUuid, const char * _Nullable const username, const char * _Nonnull const domain, const char * _Nullable const item, CFTypeRef _Nonnull * _Nonnull output)
+{
+    OSStatus status = errAuthorizationInternal;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+
+    require_action(output != NULL, done, status = errAuthorizationInvalidRef);
+    
+    // Send
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_action(message != NULL, done, status = errAuthorizationInternal);
+    xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_COPY_PRELOGIN_PREFS);
+    if (volumeUuid) {
+        xpc_dictionary_set_string(message, AUTH_XPC_TAG, volumeUuid);
+    }
+    if (username) {
+        xpc_dictionary_set_string(message, AUTH_XPC_RIGHT_NAME, username);
+    }
+    if (domain) {
+        xpc_dictionary_set_string(message, AUTH_XPC_HINTS_NAME, domain);
+    }
+    if (item) {
+        xpc_dictionary_set_string(message, AUTH_XPC_ITEM_NAME, item);
+    }
+
+    // Reply
+    reply = xpc_connection_send_message_with_reply_sync(get_authorization_connection(), message);
+    require_action(reply != NULL, done, status = errAuthorizationInternal);
+    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+    
+    status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
+    
+    // fill the output
+    if (status == errAuthorizationSuccess) {
+        *output = _CFXPCCreateCFObjectFromXPCObject(xpc_dictionary_get_value(reply, AUTH_XPC_DATA));
+    }
+
+done:
+    xpc_release_safe(message);
+    xpc_release_safe(reply);
+    return status;
+}
+
+OSStatus AuthorizationHandlePreloginOverride(const char * _Nonnull const volumeUuid, const char operation, Boolean * _Nullable result)
+{
+    OSStatus status = errAuthorizationInternal;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+    
+    // Send
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_action(message != NULL, done, status = errAuthorizationInternal);
+    xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_PRELOGIN_SC_OVERRIDE);
+    if (volumeUuid) {
+        xpc_dictionary_set_string(message, AUTH_XPC_TAG, volumeUuid);
+    }
+    uint64_t op = operation;
+    xpc_dictionary_set_uint64(message, AUTH_XPC_ITEM_NAME, op);
+
+    // Reply
+    reply = xpc_connection_send_message_with_reply_sync(get_authorization_connection(), message);
+    require_action(reply != NULL, done, status = errAuthorizationInternal);
+    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+    
+    status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
+    
+    // fill the output only if it is present in the dictionary and caller requested it
+    if (status == errAuthorizationSuccess && result && xpc_dictionary_get_value(reply, AUTH_XPC_ITEM_VALUE)) {
+        *result = xpc_dictionary_get_bool(reply, AUTH_XPC_ITEM_VALUE);
+    }
+
+done:
+    xpc_release_safe(message);
+    xpc_release_safe(reply);
+    return status;
+}

@@ -58,7 +58,7 @@ public:
     }
 
     JS_EXPORT_PRIVATE static Structure* createSubclassStructure(JSGlobalObject*, JSObject* newTarget, Structure*);
-    JS_EXPORT_PRIVATE static InternalFunction* createFunctionThatMasqueradesAsUndefined(VM&, JSGlobalObject*, int length, const String& name, NativeFunction);
+    JS_EXPORT_PRIVATE static InternalFunction* createFunctionThatMasqueradesAsUndefined(VM&, JSGlobalObject*, unsigned length, const String& name, NativeFunction);
 
     TaggedNativeFunction nativeFunctionFor(CodeSpecializationKind kind)
     {
@@ -86,8 +86,8 @@ public:
 protected:
     JS_EXPORT_PRIVATE InternalFunction(VM&, Structure*, NativeFunction functionForCall, NativeFunction functionForConstruct = nullptr);
 
-    enum class NameAdditionMode { WithStructureTransition, WithoutStructureTransition };
-    JS_EXPORT_PRIVATE void finishCreation(VM&, const String& name, NameAdditionMode = NameAdditionMode::WithStructureTransition);
+    enum class PropertyAdditionMode { WithStructureTransition, WithoutStructureTransition };
+    JS_EXPORT_PRIVATE void finishCreation(VM&, unsigned length, const String& name, PropertyAdditionMode = PropertyAdditionMode::WithStructureTransition);
 
     JS_EXPORT_PRIVATE static CallData getConstructData(JSCell*);
     JS_EXPORT_PRIVATE static CallData getCallData(JSCell*);

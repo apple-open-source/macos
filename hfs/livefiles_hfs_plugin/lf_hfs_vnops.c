@@ -37,6 +37,8 @@
 #define HFSRM_SKIP_RESERVE  0x01
 #define _PATH_RSRCFORKSPEC     "/..namedfork/rsrc"
 
+static int hfs_set_bsd_flags(struct cnode *cp, u_int32_t new_bsd_flags);
+
 void
 replace_desc(struct cnode *cp, struct cat_desc *cdp)
 {
@@ -1482,6 +1484,34 @@ out:
     return (error);
 }
 
+static int
+hfs_set_bsd_flags(struct cnode *cp, u_int32_t new_bsd_flags)
+{
+    u_int16_t *fdFlags;
+    // Currently we don't support UF_TRACKED in detonator
+    if (new_bsd_flags & UF_TRACKED)
+        new_bsd_flags &= ~UF_TRACKED;
+
+    cp->c_bsdflags = new_bsd_flags;
+    cp->c_flag |= C_MODIFIED;
+    cp->c_touch_chgtime = TRUE;
+
+    /*
+     * Mirror the UF_HIDDEN flag to the invisible bit of the Finder Info.
+     *
+     * The fdFlags for files and frFlags for folders are both 8 bytes
+     * into the userInfo (the first 16 bytes of the Finder Info).  They
+     * are both 16-bit fields.
+     */
+    fdFlags = (u_int16_t *) &cp->c_finderinfo[8];
+    if (new_bsd_flags & UF_HIDDEN)
+        *fdFlags |= OSSwapHostToBigConstInt16(kFinderInvisibleMask);
+    else
+        *fdFlags &= ~OSSwapHostToBigConstInt16(kFinderInvisibleMask);
+
+    return 0;
+}
+
 int hfs_vnop_setattr( vnode_t vp, const UVFSFileAttributes *attr )
 {
     int err = 0;
@@ -1564,7 +1594,7 @@ int hfs_vnop_setattr( vnode_t vp, const UVFSFileAttributes *attr )
 
     if ( attr->fa_validmask & UVFS_FA_VALID_BSD_FLAGS )
     {
-        cp->c_bsdflags = attr->fa_bsd_flags;
+        hfs_set_bsd_flags(cp, attr->fa_bsd_flags);
     }
 
     /*
@@ -1621,7 +1651,7 @@ hfs_update(struct vnode *vp, int options)
     struct cat_fork datafork;
     struct cat_fork rsrcfork;
     struct hfsmount *hfsmp;
-   int lockflags;
+    int lockflags;
     int error = 0;
 
     if (ISSET(cp->c_flag, C_NOEXISTS))

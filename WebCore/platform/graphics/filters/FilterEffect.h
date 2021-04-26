@@ -155,7 +155,7 @@ public:
     
     FloatPoint mapPointFromUserSpaceToBuffer(FloatPoint) const;
     
-    Type filterEffectClassType() { return m_filterEffectClassType; }
+    Type filterEffectClassType() const { return m_filterEffectClassType; }
 
     Filter& filter() { return m_filter; }
     const Filter& filter() const { return m_filter; }
@@ -170,6 +170,14 @@ public:
 
     virtual void transformResultColorSpace(FilterEffect* in, const int) { in->transformResultColorSpace(m_operatingColorSpace); }
     void transformResultColorSpace(ColorSpace);
+    
+    static Vector<float> normalizedFloats(const Vector<float>& values)
+    {
+        Vector<float> normalizedValues(values.size());
+        for (size_t i = 0; i < values.size(); ++i)
+            normalizedValues[i] = normalizedFloat(values[i]);
+        return normalizedValues;
+    }
 
 protected:
     FilterEffect(Filter&, Type);
@@ -188,14 +196,6 @@ protected:
     void forceValidPreMultipliedPixels();
 
     void clipAbsolutePaintRect();
-    
-    static Vector<float> normalizedFloats(const Vector<float>& values)
-    {
-        Vector<float> normalizedValues(values.size());
-        for (size_t i = 0; i < values.size(); ++i)
-            normalizedValues[i] = normalizedFloat(values[i]);
-        return normalizedValues;
-    }
 
 private:
     virtual void platformApplySoftware() = 0;
@@ -211,7 +211,7 @@ private:
     Filter& m_filter;
     FilterEffectVector m_inputEffects;
 
-    std::unique_ptr<ImageBuffer> m_imageBufferResult;
+    RefPtr<ImageBuffer> m_imageBufferResult;
     RefPtr<ImageData> m_unmultipliedImageResult;
     RefPtr<ImageData> m_premultipliedImageResult;
 

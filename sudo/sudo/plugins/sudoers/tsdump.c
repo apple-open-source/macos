@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,16 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -55,7 +48,7 @@ union timestamp_entry_storage {
     struct timestamp_entry v2;
 };
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 static void usage(void) __attribute__((__noreturn__));
 static void dump_entry(struct timestamp_entry *entry, off_t pos);
@@ -75,7 +68,7 @@ main(int argc, char *argv[])
     char *fname = NULL;
     union timestamp_entry_storage cur;
     struct timespec now, timediff;
-    debug_decl(main, SUDOERS_DEBUG_MAIN)
+    debug_decl(main, SUDOERS_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
     malloc_options = "S";
@@ -165,7 +158,7 @@ static bool
 valid_entry(union timestamp_entry_storage *u, off_t pos)
 {
     struct timestamp_entry *entry = (struct timestamp_entry *)u;
-    debug_decl(valid_entry, SUDOERS_DEBUG_UTIL)
+    debug_decl(valid_entry, SUDOERS_DEBUG_UTIL);
 
     switch (entry->version) {
     case 1:
@@ -195,7 +188,7 @@ static char *
 type2string(int type)
 {
     static char name[64];
-    debug_decl(type2string, SUDOERS_DEBUG_UTIL)
+    debug_decl(type2string, SUDOERS_DEBUG_UTIL);
 
     switch (type) {
     case TS_LOCKEXCL:
@@ -215,7 +208,7 @@ static void
 print_flags(int flags)
 {
     bool first = true;
-    debug_decl(print_flags, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_flags, SUDOERS_DEBUG_UTIL);
 
     printf("flags: ");
     if (ISSET(flags, TS_DISABLED)) {
@@ -244,7 +237,7 @@ static bool
 convert_entry(union timestamp_entry_storage *record, struct timespec *off)
 {
     union timestamp_entry_storage orig;
-    debug_decl(convert_entry, SUDOERS_DEBUG_UTIL)
+    debug_decl(convert_entry, SUDOERS_DEBUG_UTIL);
 
     if (record->common.version != TS_VERSION) {
 	if (record->common.version != 1) {
@@ -282,7 +275,7 @@ convert_entry(union timestamp_entry_storage *record, struct timespec *off)
 static void
 dump_entry(struct timestamp_entry *entry, off_t pos)
 {
-    debug_decl(dump_entry, SUDOERS_DEBUG_UTIL)
+    debug_decl(dump_entry, SUDOERS_DEBUG_UTIL);
 
     printf("position: %lld\n", (long long)pos);
     printf("version: %hu\n", entry->version);
@@ -314,5 +307,5 @@ usage(void)
 {
     fprintf(stderr, "usage: %s [-f timestamp_file] | [-u username]\n",
 	getprogname());
-    exit(1);
+    exit(EXIT_FAILURE);
 }

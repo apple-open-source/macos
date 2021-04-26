@@ -45,8 +45,7 @@ using namespace JSC;
 
 // Attributes
 
-JSC::EncodedJSValue jsTestPluginInterfaceConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestPluginInterfaceConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestPluginInterfaceConstructor);
 
 class JSTestPluginInterfacePrototype final : public JSC::JSNonFinalObject {
 public:
@@ -80,28 +79,28 @@ private:
 };
 STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestPluginInterfacePrototype, JSTestPluginInterfacePrototype::Base);
 
-using JSTestPluginInterfaceConstructor = JSDOMConstructorNotConstructable<JSTestPluginInterface>;
+using JSTestPluginInterfaceDOMConstructor = JSDOMConstructorNotConstructable<JSTestPluginInterface>;
 
-template<> JSValue JSTestPluginInterfaceConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestPluginInterfaceDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(vm);
     return globalObject.functionPrototype();
 }
 
-template<> void JSTestPluginInterfaceConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestPluginInterfaceDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestPluginInterface::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestPluginInterface"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
-template<> const ClassInfo JSTestPluginInterfaceConstructor::s_info = { "TestPluginInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPluginInterfaceConstructor) };
+template<> const ClassInfo JSTestPluginInterfaceDOMConstructor::s_info = { "TestPluginInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPluginInterfaceDOMConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestPluginInterfacePrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestPluginInterfaceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestPluginInterfaceConstructor) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestPluginInterfaceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
 };
 
 const ClassInfo JSTestPluginInterfacePrototype::s_info = { "TestPluginInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPluginInterfacePrototype) };
@@ -141,7 +140,7 @@ JSObject* JSTestPluginInterface::prototype(VM& vm, JSDOMGlobalObject& globalObje
 
 JSValue JSTestPluginInterface::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestPluginInterfaceConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestPluginInterfaceDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
 void JSTestPluginInterface::destroy(JSC::JSCell* cell)
@@ -211,7 +210,7 @@ CallData JSTestPluginInterface::getCallData(JSCell* cell)
     return pluginElementCustomGetCallData(thisObject);
 }
 
-EncodedJSValue jsTestPluginInterfaceConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestPluginInterfaceConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -219,19 +218,6 @@ EncodedJSValue jsTestPluginInterfaceConstructor(JSGlobalObject* lexicalGlobalObj
     if (UNLIKELY(!prototype))
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestPluginInterface::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
-}
-
-bool setJSTestPluginInterfaceConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
-{
-    VM& vm = JSC::getVM(lexicalGlobalObject);
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestPluginInterfacePrototype*>(vm, JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype)) {
-        throwVMTypeError(lexicalGlobalObject, throwScope);
-        return false;
-    }
-    // Shadowing a built-in constructor
-    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
 JSC::IsoSubspace* JSTestPluginInterface::subspaceForImpl(JSC::VM& vm)

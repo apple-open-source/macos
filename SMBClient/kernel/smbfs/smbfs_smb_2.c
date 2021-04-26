@@ -37,6 +37,7 @@
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
 #include <smbfs/smbfs_notify_change.h>
+#include <smbfs/smb_tran.h>
 #include <smbclient/ntstatus.h>
 #include <netsmb/smb_converter.h>
 #include <smbclient/smbclient_internal.h>
@@ -208,13 +209,14 @@ resend:
     ioctlp->ctl_code = FSCTL_SRV_REQUEST_RESUME_KEY;
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     ioctlp->fid = fid;
-    
+
 	ioctlp->snd_input_len = 0;
 	ioctlp->snd_output_len = 0;
 	ioctlp->rcv_input_len = 0;
 	ioctlp->rcv_output_len = 0x20;
-    
-    error = smb2_smb_ioctl(share, ioctlp, &ioctl_rqp, context);
+    ioctlp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
+    error = smb2_smb_ioctl(share, create_rqp->sr_iod, ioctlp, &ioctl_rqp, context);
     if (error) {
         SMBERROR("smb2_smb_ioctl failed %d\n", error);
         goto bad;
@@ -233,12 +235,13 @@ resend:
     /*
      * Build the Close request
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
-    
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
     if (error) {
@@ -255,6 +258,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -394,7 +403,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -532,7 +541,7 @@ resend:
         SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
         goto bad;
     }
-    
+
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     
     if (add_query) {
@@ -551,8 +560,9 @@ resend:
         queryp->input_buffer = NULL;
         queryp->ret_buffer_len = 0;
         queryp->fid = fid;
+        queryp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
         
-        error = smb2_smb_query_info(share, queryp, &query_rqp, context);
+        error = smb2_smb_query_info(share, queryp, &query_rqp, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_query_info failed %d\n", error);
             goto bad;
@@ -578,11 +588,12 @@ resend:
         /*
          * Build the Close request 
          */
-        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_close_fid failed %d\n", error);
             goto bad;
         }
+        *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
 
         /* Update Close hdr */
         error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
@@ -607,6 +618,12 @@ resend:
     error = smb_rq_simple(create_rqp);
 
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -785,7 +802,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -958,16 +975,17 @@ resend:
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     readp->fid = fid;
     readp->auio = uio;
+    readp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
     
     /* assume we can read it all in one request */
 	len = uio_resid(readp->auio);
     
-    error = smb2_smb_read_one(share, readp, &len, &resid, &read_rqp, context);
+    error = smb2_smb_read_one(share, readp, &len, &resid, &read_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_read_one failed %d\n", error);
         goto bad;
     }
-    
+
     /* Update Read hdr */
     if (add_close) {
         error = smb2_rq_update_cmpd_hdr(read_rqp, SMB2_CMPD_MIDDLE);
@@ -987,12 +1005,13 @@ resend:
         /*
          * Build the Close request 
          */
-        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_close_fid failed %d\n", error);
             goto bad;
         }
-        
+        *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
         /* Update Close hdr */
         error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
         if (error) {
@@ -1010,6 +1029,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -1208,7 +1233,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -1433,8 +1458,9 @@ resend:
         queryp->input_buffer = NULL;
         queryp->ret_buffer_len = 0;
         queryp->fid = fid;
-        
-        error = smb2_smb_query_info(share, queryp, &query_rqp, context);
+        queryp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
+        error = smb2_smb_query_info(share, queryp, &query_rqp, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_query_info failed %d\n", error);
             goto bad;
@@ -1459,11 +1485,12 @@ resend:
     writep->write_flags = write_mode;
     writep->fid = fid;
     writep->auio = uio;
+    writep->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
     
     /* assume we can write it all in one request */
     len = uio_resid(writep->auio);
     
-    error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp, context);
+    error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_write_one failed %d\n", error);
         goto bad;
@@ -1497,12 +1524,13 @@ resend:
         /*
          * Build the Close request
          */
-        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_close_fid failed %d\n", error);
             goto bad;
         }
-        
+        *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
         /* Update Close hdr */
         error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
         if (error) {
@@ -1520,6 +1548,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -1741,7 +1775,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -1930,8 +1964,9 @@ resend:
     queryp->ret_buffer_len = 0;
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     queryp->fid = fid;
-    
-    error = smb2_smb_query_info(share, queryp, &query_rqp, context);
+    queryp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
+    error = smb2_smb_query_info(share, queryp, &query_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_query_info failed %d\n", error);
         goto bad;
@@ -1950,11 +1985,12 @@ resend:
     /* 
      * Build the Close request 
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
     
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
@@ -1972,6 +2008,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -2150,7 +2192,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -2481,7 +2523,7 @@ bad:
                  * Try issuing the Close request again.
                  */
                 tmp_error = smb2_smb_close_fid(share, pb[i].fid,
-                                               NULL, NULL, context);
+                                               NULL, NULL, NULL, context);
                 if (tmp_error) {
                     SMBWARNING("Second close failed %d\n", tmp_error);
                 }
@@ -2690,8 +2732,9 @@ smb2fs_smb_cmpd_query_async_fill(struct smb_share *share, struct smbnode *dnp,
         pb->queryp->input_buffer = NULL;
         pb->queryp->ret_buffer_len = 0;
         pb->queryp->fid = 0xffffffffffffffff;
-        
-        error = smb2_smb_query_info(share, pb->queryp, &pb->query_rqp, context);
+        pb->queryp->mc_flags = 0;
+
+        error = smb2_smb_query_info(share, pb->queryp, &pb->query_rqp, pb->create_rqp->sr_iod, context);
         if (error) {
 			if (error != ENOBUFS) {
 				SMBERROR("smb2_smb_query_info failed %d\n", error);
@@ -2718,11 +2761,13 @@ smb2fs_smb_cmpd_query_async_fill(struct smb_share *share, struct smbnode *dnp,
         pb->readp->write_flags = 0;
         pb->readp->fid = 0xffffffffffffffff;
         pb->readp->auio = pb->finfo_uio;
+        pb->readp->mc_flags = 0;
         
         /* assume we can read it all in one request */
         len = uio_resid(pb->readp->auio);
         
-        error = smb2_smb_read_one(share, pb->readp, &len, &resid, &pb->read_rqp,
+        error = smb2_smb_read_one(share, pb->readp, &len, &resid,
+                                  &pb->read_rqp, pb->create_rqp->sr_iod,
                                   context);
         if (error) {
 			if (error != ENOBUFS) {
@@ -2748,8 +2793,9 @@ smb2fs_smb_cmpd_query_async_fill(struct smb_share *share, struct smbnode *dnp,
     pb->closep->share = share;
     pb->closep->flags = SMB2_CMD_NO_BLOCK;
     pb->closep->fid = 0xffffffffffffffff;
+    pb->closep->mc_flags = 0;
 
-    error = smb2_smb_close(share, pb->closep, &pb->close_rqp, context);
+    error = smb2_smb_close(share, pb->closep, &pb->close_rqp, pb->create_rqp->sr_iod, context);
 
     if (error) {
 		if (error != ENOBUFS) {
@@ -3319,9 +3365,10 @@ resend:
         SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
         goto bad;
     }
-    
+
     /* Create the Query Dir */
-    error = smb2_smb_query_dir(ctx->f_share, queryp, &query_rqp, context);
+    queryp->mc_flags |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+    error = smb2_smb_query_dir(ctx->f_share, queryp, &query_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_query_dir failed %d\n", error);
         goto bad;
@@ -3343,6 +3390,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -3639,6 +3692,7 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
     queryp->flags = flags;
     queryp->file_index = 0;             /* no FileIndex from prev search */
     queryp->fid = fid;
+    queryp->mc_flags = 0;
     queryp->output_buffer_len = 64 * 1024;  /* 64K should be large enough */
     
     /*
@@ -3712,7 +3766,8 @@ resend:
     /*
      * Build the Query Dir request
      */
-    error = smb2_smb_query_dir(share, queryp, &query_rqp, context);
+    queryp->mc_flags |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+    error = smb2_smb_query_dir(share, queryp, &query_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_query_dir failed %d\n", error);
         goto bad;
@@ -3731,12 +3786,13 @@ resend:
     /*
      * Build the Close request
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
-    
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
     if (error) {
@@ -3753,6 +3809,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -3952,7 +4014,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -4096,14 +4158,15 @@ resend:
     ioctlp->ctl_code = FSCTL_GET_REPARSE_POINT;
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     ioctlp->fid = fid;
-    
+    ioctlp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
 	ioctlp->snd_input_len = 0;
 	ioctlp->snd_output_len = 0;
 	ioctlp->rcv_input_len = 0;
     /* reparse points should not need more than 16K of data */
 	ioctlp->rcv_output_len = 16 * 1024; 
     
-    error = smb2_smb_ioctl(share, ioctlp, &ioctl_rqp, context);
+    error = smb2_smb_ioctl(share, create_rqp->sr_iod, ioctlp, &ioctl_rqp, context);
     if (error) {
         SMBERROR("smb2_smb_ioctl failed %d\n", error);
         goto bad;
@@ -4122,12 +4185,13 @@ resend:
     /* 
      * Build the Close request 
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
-    
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
     if (error) {
@@ -4144,6 +4208,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -4317,7 +4387,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -4496,8 +4566,9 @@ resend:
         queryp->input_buffer = NULL;
         queryp->ret_buffer_len = 0;
         queryp->fid = fid;
-        
-        error = smb2_smb_query_info(share, queryp, &query_rqp, context);
+        queryp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
+        error = smb2_smb_query_info(share, queryp, &query_rqp, create_rqp->sr_iod, context);
         if (error) {
             SMBERROR("smb2_smb_query_info failed %d\n", error);
             goto bad;
@@ -4521,14 +4592,15 @@ resend:
     ioctlp->share = share;
     ioctlp->ctl_code = FSCTL_SET_REPARSE_POINT;
     ioctlp->fid = fid;
-    
+    ioctlp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
 	ioctlp->snd_input_len = (uint32_t) path_len;
 	ioctlp->snd_output_len = 0;
 	ioctlp->rcv_input_len = 0;
 	ioctlp->rcv_output_len = 0;
     ioctlp->snd_input_buffer = (uint8_t *) pathp;
-    
-    error = smb2_smb_ioctl(share, ioctlp, &ioctl_rqp, context);
+
+    error = smb2_smb_ioctl(share, create_rqp->sr_iod, ioctlp, &ioctl_rqp, context);
     if (error) {
         SMBERROR("smb2_smb_ioctl failed %d\n", error);
         goto bad;
@@ -4553,11 +4625,12 @@ resend:
     /* 
      * Build the Close request 
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
     
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
@@ -4575,6 +4648,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -4773,7 +4852,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -4883,6 +4962,8 @@ smb2fs_smb_cmpd_resolve_id(struct smb_share *share, struct smbnode *np,
     uint32_t create_options = 0;
     uint32_t disposition = FILE_OPEN;
     enum vtype vnode_type = VDIR;
+    uint64_t create_flags = SMB2_CREATE_AAPL_RESOLVE_ID;
+
     
     /*
      * For this function, vnode_type is VDIR we always do the Resolve ID on the
@@ -4918,7 +4999,7 @@ resend:
                                  NULL, 0,
                                  SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE, vnode_type,
                                  NTCREATEX_SHARE_ACCESS_ALL, disposition,
-                                 SMB2_CREATE_AAPL_RESOLVE_ID, create_options,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp,
                                  &resolve_id, context);
@@ -4939,12 +5020,13 @@ resend:
     /*
      * Build the Close request
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
-    
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
     if (error) {
@@ -4961,6 +5043,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -5054,7 +5142,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -5200,13 +5288,14 @@ resend:
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
     infop->fid = fid;
     infop->input_buffer = setinfo_input_buffer;
-    
-    error = smb2_smb_set_info(share, infop, &setinfo_rqp, context);
+    infop->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_MC_REPLAY_FLAG):0;
+
+    error = smb2_smb_set_info(share, infop, &setinfo_rqp, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_set_info failed %d\n", error);
         goto bad;
     }
-    
+
     /* Update Set Info hdr */
     error = smb2_rq_update_cmpd_hdr(setinfo_rqp, SMB2_CMPD_MIDDLE);
     if (error) {
@@ -5220,11 +5309,13 @@ resend:
     /* 
      * Build the Close request 
      */
-    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, create_rqp->sr_iod, context);
     if (error) {
         SMBERROR("smb2_smb_close_fid failed %d\n", error);
         goto bad;
     }
+    *close_rqp->sr_flagsp |= (create_flags & SMB2_CREATE_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
+
     
     /* Update Close hdr */
     error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
@@ -5242,6 +5333,12 @@ resend:
     error = smb_rq_simple(create_rqp);
     
     if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", create_rqp->sr_messageid, create_rqp->sr_command, create_rqp->sr_flags);
+        if (create_rqp->sr_flags & SMBR_ALT_CH_DISCON) {
+            /* An alternate channel got disconnected. Resend with the REPLAY flag set */
+            create_flags |= SMB2_CREATE_REPLAY_FLAG;
+        }
+
         /* Rebuild and try sending again */
         smb_rq_done(create_rqp);
         create_rqp = NULL;
@@ -5390,7 +5487,7 @@ bad:
          * Try issuing the Close request again.
          */
         tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
         if (tmp_error) {
             SMBERROR("Second close failed %d\n", tmp_error);
         }
@@ -5647,7 +5744,7 @@ smbfs_smb_close(struct smb_share *share, SMBFID fid, vfs_context_t context)
 	int error;
 	
     if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
-        error = smb2_smb_close_fid(share, fid, NULL, NULL, context);
+        error = smb2_smb_close_fid(share, fid, NULL, NULL, NULL, context);
     }
     else {
         error = smb1fs_smb_close(share, fid, context);
@@ -5739,7 +5836,8 @@ smb2fs_smb_copychunks(struct smb_share *share, SMBFID src_fid,
     ioctlp->fid = targ_fid;
     ioctlp->snd_input_buffer = (uint8_t *)sendbuf;
     ioctlp->rcv_output_len = sizeof(struct smb2_copychunk_result);
-    
+    ioctlp->mc_flags = 0;
+
     copychunk_hdr = (struct smb2_copychunk *)sendbuf;
     
     /* setup copy chunk hdr */
@@ -5754,7 +5852,7 @@ smb2fs_smb_copychunks(struct smb_share *share, SMBFID src_fid,
         
         copychunk_hdr->chunk_count = 0;
         
-        error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+        error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
         
         if (error) {
             SMBDEBUG("smb2_smb_ioctl error: %d\n", error);
@@ -5808,7 +5906,7 @@ again:
             ioctlp->snd_input_len = sizeof(struct smb2_copychunk) +
                 (sizeof(struct smb2_copychunk_chunk) * chunk_count);
         
-            error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+            error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
         
             if (error) {
                 SMBDEBUG("smb2_smb_ioctl error: %d, remain: %llu, max_chunk: %u, count: %u, this_len: %llu\n",
@@ -6003,7 +6101,7 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
                                    NULL, context);
     
     if (error) {
-        SMBDEBUG("smb2fs_smb_ntcreatex failed (targ file) %d\n", error);
+        SMBDEBUG("smb2fs_smb_cmpd_create failed (targ file) %d\n", error);
         goto out;
     }
     
@@ -6049,8 +6147,8 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
     /*********************************/
     /* Close source and target files */
     /*********************************/
-    smb2_smb_close_fid(share, src_fid, NULL, NULL, context);
-    smb2_smb_close_fid(share, targ_fid, NULL, NULL, context);
+    smb2_smb_close_fid(share, src_fid, NULL, NULL, NULL, context);
+    smb2_smb_close_fid(share, targ_fid, NULL, NULL, NULL, context);
     src_is_open = FALSE;
     targ_is_open = FALSE;
     
@@ -6108,7 +6206,7 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
                                        NULL, context);
         
         if (error) {
-            SMBDEBUG("smb2fs_smb_ntcreatex failed (targ xattr), error: %d\n", error);
+            SMBDEBUG("smb2fs_smb_cmpd_create failed (targ xattr), error: %d\n", error);
             goto out;
         }
         
@@ -6153,8 +6251,8 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
         /**********************************/
         /* Close source and target xattrs */
         /**********************************/
-        smb2_smb_close_fid(share, src_xattr_fid, NULL, NULL, context);
-        smb2_smb_close_fid(share, targ_xattr_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, src_xattr_fid, NULL, NULL, NULL, context);
+        smb2_smb_close_fid(share, targ_xattr_fid, NULL, NULL, NULL, context);
         srcxattr_is_open = FALSE;
         targxattr_is_open = FALSE;
         
@@ -6169,19 +6267,19 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
 out:
     /* Clean house */
     if (src_is_open == TRUE) {
-        smb2_smb_close_fid(share, src_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, src_fid, NULL, NULL, NULL, context);
     }
     
     if (srcxattr_is_open == TRUE) {
-        smb2_smb_close_fid(share, src_xattr_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, src_xattr_fid, NULL, NULL, NULL, context);
     }
     
     if (targ_is_open == TRUE) {
-        smb2_smb_close_fid(share, targ_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, targ_fid, NULL, NULL, NULL, context);
     }
     
     if (targxattr_is_open == TRUE) {
-        smb2_smb_close_fid(share, targ_xattr_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, targ_xattr_fid, NULL, NULL, NULL, context);
     }
     
     if (xattr_list != NULL) {
@@ -6293,7 +6391,7 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
                                    NULL, context);
     
     if (error) {
-        SMBDEBUG("smb2fs_smb_ntcreatex failed (targ file) %d\n", error);
+        SMBDEBUG("smb2fs_smb_cmpd_create failed (targ file) %d\n", error);
         goto out;
     }
     
@@ -6315,19 +6413,19 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
     /*********************************/
     /* Close source and target files */
     /*********************************/
-    smb2_smb_close_fid(share, src_fid, NULL, NULL, context);
-    smb2_smb_close_fid(share, targ_fid, NULL, NULL, context);
+    smb2_smb_close_fid(share, src_fid, NULL, NULL, NULL, context);
+    smb2_smb_close_fid(share, targ_fid, NULL, NULL, NULL, context);
     src_is_open = FALSE;
     targ_is_open = FALSE;
         
 out:
     /* Clean house */
     if (src_is_open == TRUE) {
-        smb2_smb_close_fid(share, src_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, src_fid, NULL, NULL, NULL, context);
     }
     
     if (targ_is_open == TRUE) {
-        smb2_smb_close_fid(share, targ_fid, NULL, NULL, context);
+        smb2_smb_close_fid(share, targ_fid, NULL, NULL, NULL, context);
     }
     
     if (sfap != NULL) {
@@ -6497,7 +6595,7 @@ smbfs_smb_findclose(struct smbfs_fctx *ctx, vfs_context_t context)
         /* Close Create FID if we need to */
         if (ctx->f_need_close == TRUE) {
             error = smb2_smb_close_fid(ctx->f_share, ctx->f_create_fid, 
-                                       NULL, NULL, context);
+                                       NULL, NULL, NULL, context);
             if (error) {
                 SMBDEBUG("smb2_smb_close_fid failed %d\n", error);
             }
@@ -6627,6 +6725,7 @@ again:
         queryp->flags = flags;
         queryp->file_index = file_index;
         queryp->fid = ctx->f_create_fid;
+        queryp->mc_flags = 0;
         
         /* handle servers that dislike large output buffer lens */
         if (SS_TO_SESSION(ctx->f_share)->session_misc_flags & SMBV_64K_QUERY_DIR) {
@@ -6653,7 +6752,7 @@ again:
         }
         else {
             /* Just send a single Query Dir */
-            error = smb2_smb_query_dir(ctx->f_share, queryp, NULL, context);
+            error = smb2_smb_query_dir(ctx->f_share, queryp, NULL, NULL, context);
 
             /* save f_query_rqp so it can be freed later */
             ctx->f_query_rqp = queryp->ret_rqp;
@@ -6662,6 +6761,23 @@ again:
         if (error) {
             if (error == ENOENT) {
                 ctx->f_flags |= SMBFS_RDD_EOF;
+
+                /*
+                 * If there are no more entries, then free the f_create_rqp
+                 * and f_query_rqp now to free up the iod reference being held
+                 * by those rqp's. Since the Query Dir return ENOENT, there
+                 * are no entries to parse so we dont need to hang on to those
+                 * rqp's.
+                 */
+
+                if (ctx->f_create_rqp) {
+                    smb_rq_done(ctx->f_create_rqp);
+                    ctx->f_create_rqp = NULL;
+                }
+                if (ctx->f_query_rqp) {
+                    smb_rq_done(ctx->f_query_rqp);
+                    ctx->f_query_rqp = NULL;
+                }
             }
             
             /* handle servers that dislike large output buffer lens */
@@ -6839,13 +6955,45 @@ smb2fs_smb_get_create_options(struct smb_share *share, struct smbnode *np,
     if ((np) &&
         (namep == NULL) &&
         (strm_namep == NULL)) {
-        /*
-         * If its some type of reparse point and it has not been moved to
-         * offline storage, open the reparse point itself.
-         */
+        
+        /* Check for dataless file */
         if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) &&
-            !(np->n_dosattr & SMB_EFA_OFFLINE)) {
-            create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+            (np->n_reparse_tag == IO_REPARSE_TAG_STORAGE_SYNC)) {
+            /*
+             * If M bit is set, then its a newer server and we know for sure that
+             * reading the file will recall it. Opening the file is fine.
+             *
+             * We want to always set NTCREATEX_OPTIONS_OPEN_REPARSE_POINT to try
+             * to keep virus software from possibly recalling the file on their own
+             * when they see a file open for read access.
+             */
+            if (np->n_dosattr & SMB_EFA_RECALL_ON_DATA_ACCESS) {
+                create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+            }
+            else {
+                /*
+                 * If P or O bit is set, for now behave just like the M bit
+                 * to try to keep virus software from recalling the file.
+                 *
+                 * This is separated out in case we change our mind on this
+                 * behavior.
+                 */
+                if (np->n_dosattr & (SMB_EFA_OFFLINE | SMB_EFA_SPARSE)) {
+                    create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+                }
+            }
+        }
+        else {
+            /*
+             * Previous behavior
+             *
+             * If its some type of reparse point and it has not been moved to
+             * offline storage, open the reparse point itself.
+             */
+            if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) &&
+                !(np->n_dosattr & SMB_EFA_OFFLINE)) {
+                create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+            }
         }
     }
 
@@ -7015,8 +7163,9 @@ smb2fs_smb_markfordelete(struct smb_share *share, SMBFID fid, vfs_context_t cont
     infop->add_info = 0;
     infop->fid = fid;
     infop->input_buffer = (uint8_t *) &delete_byte;
+    infop->mc_flags = 0;
     
-    error = smb2_smb_set_info(share, infop, NULL, context);
+    error = smb2_smb_set_info(share, infop, NULL, NULL, context);
     if (error) {
         SMBDEBUG("smb2_smb_set_info failed %d ntstatus %d\n",
                  error,
@@ -7179,6 +7328,7 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
     createp->strm_name_len = (uint32_t) strm_name_len;
     createp->strm_namep = (char *) strm_namep;
     createp->dnp = np;
+    createp->mc_flags = (create_flags & SMB2_CREATE_REPLAY_FLAG)?SMB2_MC_REPLAY_FLAG:0;
 
     /* 
      * Do the Create call 
@@ -7208,6 +7358,7 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
      */
     error = smb2fs_smb_parse_ntcreatex(share, np, createp, 
                                        fidp, fap, context);
+    
 bad:
     if (createp != NULL) {
         SMB_FREE(createp, M_SMBTEMP);
@@ -8137,13 +8288,14 @@ smb2fs_smb_request_resume_key(struct smb_share *share, SMBFID fid, u_char *resum
     ioctlp->share = share;
     ioctlp->ctl_code = FSCTL_SRV_REQUEST_RESUME_KEY;
     ioctlp->fid = fid;
-    
+    ioctlp->mc_flags = 0;
+
 	ioctlp->snd_input_len = 0;
 	ioctlp->snd_output_len = 0;
 	ioctlp->rcv_input_len = 0;
 	ioctlp->rcv_output_len = 0x20;
     
-    error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+    error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
     
     if (!error) {
         if (ioctlp->rcv_output_len < SMB2_RESUME_KEY_LEN) {
@@ -8161,7 +8313,7 @@ bad:
     if (ioctlp != NULL) {
         SMB_FREE(ioctlp, M_SMBTEMP);
     }
-    
+
     return (error);
 }
 
@@ -8326,8 +8478,9 @@ smb2fs_smb_set_allocation(struct smb_share *share, SMBFID fid,
     infop->add_info = 0;
     infop->fid = fid;
     infop->input_buffer = (uint8_t *) &new_size;
+    infop->mc_flags = 0;
     
-    error = smb2_smb_set_info(share, infop, NULL, context);
+    error = smb2_smb_set_info(share, infop, NULL, NULL, context);
     if (error) {
         SMBDEBUG("smb2_smb_set_info failed %d ntstatus %d\n",
                  error,
@@ -8391,11 +8544,12 @@ smb2fs_smb_set_eof(struct smb_share *share, SMBFID fid, uint64_t newsize,
     infop->add_info = 0;
     infop->fid = fid;
     infop->input_buffer = (uint8_t *) &newsize;
+    infop->mc_flags = 0;
     
     /*
      * Do the Set Info call
      */
-    error = smb2_smb_set_info(share, infop, NULL, context);
+    error = smb2_smb_set_info(share, infop, NULL, NULL, context);
     if (error) {
         SMBDEBUG("smb2_smb_set_info failed %d ntstatus %d\n",
                  error,
@@ -8517,11 +8671,12 @@ smb2fs_smb_setfattrNT(struct smb_share *share, uint32_t attr, SMBFID fid,
     infop->add_info = 0;
     infop->fid = fid;
     infop->input_buffer = (uint8_t *) basic_infop;
-    
+    infop->mc_flags = 0;
+
     /*
      * Do the Set Info call
      */
-    error = smb2_smb_set_info(share, infop, NULL, context);
+    error = smb2_smb_set_info(share, infop, NULL, NULL, context);
     if (error) {
         SMBDEBUG("smb2_smb_set_info failed %d ntstatus %d\n",
                  error,
@@ -8811,6 +8966,7 @@ smb2fs_smb_validate_neg_info(struct smb_share *share, vfs_context_t context)
     struct smb2_secure_neg_info reply;
 	struct smb_sopt *sp = NULL;
     int i, try_count = 0;
+    struct smbiod *iod = NULL;
 
     if (sessionp == NULL) {
         SMBERROR("sessionp is null \n");
@@ -8845,6 +9001,15 @@ smb2fs_smb_validate_neg_info(struct smb_share *share, vfs_context_t context)
     }
 
 try_again:
+    /* Validate-Negotiate must be done on main channel */
+    error = smb_iod_get_main_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    if (error) {
+        SMBERROR("smb_iod_get_main_iod failed %d\n", error);
+        goto bad;
+    }
+
+    SMB_LOG_MC("id %u validate_neg with 0x%x \n", iod->iod_id, iod->iod_flags); 
+
     try_count += 1;
     if (try_count > 10) {
         /*
@@ -8864,37 +9029,63 @@ try_again:
      * the last Negotiate sent. Could be from first login or the last time
      * we reconnected on this session.
      */
-    req.capabilities = sessionp->neg_capabilities;
     memcpy(&req.guid, sessionp->session_client_guid, 16);
-    req.security_mode = sessionp->neg_security_mode;
-    
-    /* We have a max of SMB3_MAX_DIALECTS dialects at this time */
-    if (sessionp->neg_dialect_count > SMB3_MAX_DIALECTS) {
-        /* Should never happen */
-        SMBERROR("Dialect count too high <%hu>? \n", sessionp->neg_dialect_count);
-        error = ENOMEM;
-        goto bad;
-    }
-    req.dialect_count = sessionp->neg_dialect_count;
 
-    if (sizeof(req.dialects) < (sizeof(uint16_t) * req.dialect_count)) {
-        /* Should never happen */
-        SMBERROR("Not enough space for dialects <%ld> \n", sizeof(req.dialects));
-        error = ENOMEM;
-        goto bad;
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Security Mode */
+        req.security_mode = smb2_smb_get_client_security_mode(sessionp);
+        req.capabilities =  smb2_smb_get_client_capabilities(sessionp);
+
+        /* Get dialect count */
+        uint16_t dialect_count, dialects[SMB3_MAX_DIALECTS];
+        error = smb2_smb_get_client_dialects(sessionp,
+                                             TRUE,  // Provide only the negotiated dialect
+                                             &dialect_count,
+                                             dialects, sizeof(dialects));
+        if (error) {
+            goto bad;
+        }
+
+        req.dialect_count = dialect_count;
+        for (i = 0; i < dialect_count; i++) {     /* Dialects */
+            req.dialects[i] = dialects[i];
+        }
+
+
+    } else {
+        /* Security Mode */
+        req.security_mode = sessionp->neg_security_mode;
+        req.capabilities = sessionp->neg_capabilities;
+
+        /* We have a max of SMB3_MAX_DIALECTS dialects at this time */
+        if (sessionp->neg_dialect_count > SMB3_MAX_DIALECTS) {
+            /* Should never happen */
+            SMBERROR("Dialect count too high <%hu>? \n", sessionp->neg_dialect_count);
+            error = ENOMEM;
+            goto bad;
+        }
+        req.dialect_count = sessionp->neg_dialect_count;
+
+        if (sizeof(req.dialects) < (sizeof(uint16_t) * req.dialect_count)) {
+            /* Should never happen */
+            SMBERROR("Not enough space for dialects <%ld> \n", sizeof(req.dialects));
+            error = ENOMEM;
+            goto bad;
+        }
+
+        for (i = 0; i < sessionp->neg_dialect_count; i++) {     /* Dialects */
+            req.dialects[i] = sessionp->neg_dialects[i];
+        }
     }
-    
-    for (i = 0; i < sessionp->neg_dialect_count; i++) {     /* Dialects */
-        req.dialects[i] = sessionp->neg_dialects[i];
-    }
-    
+
     /*
      * Build and send the IOCTL request
      */
     ioctlp->share = share;
     ioctlp->ctl_code = FSCTL_VALIDATE_NEGOTIATE_INFO;
     ioctlp->fid = 0;
-    
+    ioctlp->mc_flags = 0;
+
 	ioctlp->snd_output_len = 0;
 	ioctlp->rcv_input_len = 0;
     
@@ -8910,7 +9101,7 @@ try_again:
     ioctlp->rcv_output_len = sizeof(reply);
     ioctlp->rcv_output_buffer = (uint8_t *) &reply;
     
-    error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+    error = smb2_smb_ioctl(share, iod, ioctlp, NULL, context);
     if (error) {
         if (error == ESTALE) {
            /*
@@ -8920,6 +9111,7 @@ try_again:
             * count has changed to be just 1 due to the reconnect.
             */
             SMBWARNING("Rebuilding ValidateNeg \n");
+            smb_iod_rel(iod, NULL, __FUNCTION__);
             goto try_again;
         }
         
@@ -9003,6 +9195,7 @@ bad:
         SMB_FREE(ioctlp, M_SMBTEMP);
     }
     
+    smb_iod_rel(iod, NULL, __FUNCTION__);
 	return error;
 }
 
@@ -9054,7 +9247,8 @@ smb2fs_smb_query_network_interface_info(struct smb_share *share, vfs_context_t c
     ioctlp->share = share;
     ioctlp->ctl_code = FSCTL_QUERY_NETWORK_INTERFACE_INFO;
     ioctlp->fid = 0;
-    
+    ioctlp->mc_flags = 0;
+
     ioctlp->snd_output_len = 0;
     ioctlp->rcv_input_len = 0;
     
@@ -9063,21 +9257,22 @@ smb2fs_smb_query_network_interface_info(struct smb_share *share, vfs_context_t c
     ioctlp->rcv_output_len = reply.buff_size;
     ioctlp->rcv_output_buffer = (uint8_t *)reply.buff;
     
-    error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+    error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
     if (error) {
         SMBERROR("smb2_smb_ioctl for query_network_interface_info failed %d\n", error);
         goto bad;
     }
     
+    /*
+     * Build interface tables
+     */
     /* Parse the server interfaces response */
-    error = smb2_mc_parse_server_interface_array(&sessionp->session_interface_table, ioctlp->rcv_output_buffer, ioctlp->ret_output_len);
-    
-//    TODO: - need to figure out how to get the laddr and update the connection table as follows
-//    if (!error) {
-//        /* Update the connection table with current used interfaces */
-//        smb2_mc_report_connection_trial_results(&sessionp->session_interface_table, sessionp->session_laddr, sessionp->session_saddr, SMB2_MC_TRIAL_PASSED);
-//    }
-        
+    error = smb2_mc_query_info_response_event(&sessionp->session_interface_table, ioctlp->rcv_output_buffer, ioctlp->ret_output_len);
+    if (error) {
+        SMBERROR("smb2_mc_query_info_response_event returned %d.\n", error);
+        goto bad;
+    }
+
 bad:
     if (reply.buff) {
         SMB_FREE(reply.buff, M_SMBTEMP);
@@ -9086,6 +9281,6 @@ bad:
     if (ioctlp != NULL) {
         SMB_FREE(ioctlp, M_SMBTEMP);
     }
-    
+
     return error;
 }

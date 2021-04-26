@@ -125,6 +125,10 @@ void UserMediaPermissionRequestManagerProxy::invalidatePendingRequests()
         request->invalidate();
 
     m_pendingDeviceRequests.clear();
+
+#if ENABLE(MEDIA_STREAM)
+    RealtimeMediaSourceCenter::singleton().audioCaptureFactory().removeExtensiveObserver(*this);
+#endif
 }
 
 void UserMediaPermissionRequestManagerProxy::stopCapture()
@@ -209,7 +213,15 @@ void UserMediaPermissionRequestManagerProxy::denyRequest(UserMediaPermissionRequ
     if (reason == UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied)
         m_deniedRequests.append(DeniedRequest { request.mainFrameID(), request.userMediaDocumentSecurityOrigin(), request.topLevelDocumentSecurityOrigin(), request.requiresAudioCapture(), request.requiresVideoCapture(), request.requiresDisplayCapture() });
 
+    if (auto callback = request.decisionCompletionHandler()) {
+        callback(false);
+        return;
+    }
+
 #if ENABLE(MEDIA_STREAM)
+    if (m_pregrantedRequests.isEmpty() && request.userRequest().audioConstraints.isValid)
+        RealtimeMediaSourceCenter::singleton().audioCaptureFactory().removeExtensiveObserver(*this);
+
     m_page.send(Messages::WebPage::UserMediaAccessWasDenied(request.userMediaID(), toWebCore(reason), invalidConstraint));
 #else
     UNUSED_PARAM(reason);
@@ -226,6 +238,12 @@ void UserMediaPermissionRequestManagerProxy::grantRequest(UserMediaPermissionReq
 
 #if ENABLE(MEDIA_STREAM)
     ALWAYS_LOG(LOGIDENTIFIER, request.userMediaID(), ", video: ", request.videoDevice().label(), ", audio: ", request.audioDevice().label());
+
+    if (auto callback = request.decisionCompletionHandler()) {
+        m_grantedRequests.append(makeRef(request));
+        callback(true);
+        return;
+    }
 
     auto& userMediaDocumentSecurityOrigin = request.userMediaDocumentSecurityOrigin();
     auto& topLevelDocumentSecurityOrigin = request.topLevelDocumentSecurityOrigin();
@@ -295,6 +313,9 @@ void UserMediaPermissionRequestManagerProxy::resetAccess(Optional<FrameIdentifie
     m_pregrantedRequests.clear();
     m_deniedRequests.clear();
     m_hasFilteredDeviceList = false;
+#if ENABLE(MEDIA_STREAM)
+    RealtimeMediaSourceCenter::singleton().audioCaptureFactory().removeExtensiveObserver(*this);
+#endif
 }
 
 const UserMediaPermissionRequestProxy* UserMediaPermissionRequestManagerProxy::searchForGrantedRequest(FrameIdentifier frameID, const SecurityOrigin& userMediaDocumentOrigin, const SecurityOrigin& topLevelDocumentOrigin, bool needsAudio, bool needsVideo) const
@@ -437,6 +458,9 @@ void UserMediaPermissionRequestManagerProxy::processNextUserMediaRequestIfNeeded
 #if ENABLE(MEDIA_STREAM)
 void UserMediaPermissionRequestManagerProxy::startProcessingUserMediaPermissionRequest(Ref<UserMediaPermissionRequestProxy>&& request)
 {
+    if (request->userRequest().audioConstraints.isValid)
+        RealtimeMediaSourceCenter::singleton().audioCaptureFactory().addExtensiveObserver(*this);
+
     m_currentUserMediaRequest = WTFMove(request);
 
     auto& userMediaDocumentSecurityOrigin = m_currentUserMediaRequest->userMediaDocumentSecurityOrigin();
@@ -584,6 +608,33 @@ void UserMediaPermissionRequestManagerProxy::decidePolicyForUserMediaPermissionR
     m_page.uiClient().decidePolicyForUserMediaPermissionRequest(m_page, *webFrame, WTFMove(userMediaOrigin), WTFMove(topLevelOrigin), *m_currentUserMediaRequest);
 }
 
+void UserMediaPermissionRequestManagerProxy::checkUserMediaPermissionForSpeechRecognition(WebCore::FrameIdentifier frameIdentifier, const WebCore::SecurityOrigin& requestingOrigin, const WebCore::SecurityOrigin& topOrigin, const WebCore::CaptureDevice& device, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* frame = m_page.process().webFrame(frameIdentifier);
+    if (!frame || !SecurityOrigin::createFromString(m_page.pageLoadState().activeURL())->isSameSchemeHostPort(topOrigin)) {
+        completionHandler(false);
+        return;
+    }
+
+    auto request = UserMediaPermissionRequestProxy::create(*this, 0, frameIdentifier, frameIdentifier, requestingOrigin.isolatedCopy(), topOrigin.isolatedCopy(), Vector<WebCore::CaptureDevice> { device }, { }, { }, WTFMove(completionHandler));
+
+    auto action = getRequestAction(request.get());
+    if (action == RequestAction::Deny) {
+        completionHandler(false);
+        return;
+    }
+    
+    if (action == RequestAction::Grant) {
+        completionHandler(true);
+        return;
+    }
+
+    auto apiRequestingOrigin = API::SecurityOrigin::create(requestingOrigin);
+    auto apiTopOrigin = API::SecurityOrigin::create(topOrigin);
+    m_page.uiClient().decidePolicyForUserMediaPermissionRequest(m_page, *frame, WTFMove(apiRequestingOrigin), WTFMove(apiTopOrigin), request.get());
+}
+
+
 #if !PLATFORM(COCOA)
 void UserMediaPermissionRequestManagerProxy::requestSystemValidation(const WebPageProxy&, UserMediaPermissionRequestProxy&, CompletionHandler<void(bool)>&& callback)
 {
@@ -634,43 +685,52 @@ bool UserMediaPermissionRequestManagerProxy::wasGrantedVideoOrAudioAccess(FrameI
     return false;
 }
 
-Vector<CaptureDevice> UserMediaPermissionRequestManagerProxy::computeFilteredDeviceList(bool revealIdsAndLabels, const String& deviceIDHashSalt)
+static inline bool haveMicrophoneDevice(const Vector<WebCore::CaptureDevice>& devices, const String& deviceID)
 {
-    static const int defaultMaximumCameraCount = 1;
-    static const int defaultMaximumMicrophoneCount = 1;
+    return std::any_of(devices.begin(), devices.end(), [&deviceID](auto& device) {
+        return device.persistentId() == deviceID && device.type() == CaptureDevice::DeviceType::Microphone;
+    });
+}
 
-    auto devices = RealtimeMediaSourceCenter::singleton().getMediaStreamDevices();
-    int cameraCount = 0;
-    int microphoneCount = 0;
+void UserMediaPermissionRequestManagerProxy::computeFilteredDeviceList(bool revealIdsAndLabels, CompletionHandler<void(Vector<CaptureDevice>&&)>&& completion)
+{
+    static const unsigned defaultMaximumCameraCount = 1;
+    static const unsigned defaultMaximumMicrophoneCount = 1;
 
-    Vector<CaptureDevice> filteredDevices;
-    for (const auto& device : devices) {
-        if (!device.enabled() || (device.type() != WebCore::CaptureDevice::DeviceType::Camera && device.type() != WebCore::CaptureDevice::DeviceType::Microphone))
-            continue;
+    RealtimeMediaSourceCenter::singleton().getMediaStreamDevices([this, weakThis = makeWeakPtr(this), revealIdsAndLabels, completion = WTFMove(completion)] (auto&& devices) mutable {
 
-        if (!revealIdsAndLabels) {
-            if (device.type() == WebCore::CaptureDevice::DeviceType::Camera && ++cameraCount > defaultMaximumCameraCount)
+        if (!weakThis)
+            completion({ });
+
+        unsigned cameraCount = 0;
+        unsigned microphoneCount = 0;
+
+        Vector<CaptureDevice> filteredDevices;
+        for (const auto& device : devices) {
+            if (!device.enabled() || (device.type() != WebCore::CaptureDevice::DeviceType::Camera && device.type() != WebCore::CaptureDevice::DeviceType::Microphone && device.type() != WebCore::CaptureDevice::DeviceType::Speaker))
                 continue;
-            if (device.type() == WebCore::CaptureDevice::DeviceType::Microphone && ++microphoneCount > defaultMaximumMicrophoneCount)
-                continue;
+
+            if (!revealIdsAndLabels) {
+                if (device.type() == WebCore::CaptureDevice::DeviceType::Camera && ++cameraCount > defaultMaximumCameraCount)
+                    continue;
+                if (device.type() == WebCore::CaptureDevice::DeviceType::Microphone && ++microphoneCount > defaultMaximumMicrophoneCount)
+                    continue;
+                if (device.type() != WebCore::CaptureDevice::DeviceType::Camera && device.type() != WebCore::CaptureDevice::DeviceType::Microphone)
+                    continue;
+            } else {
+                // We only expose speakers tied to a microphone for the moment.
+                if (device.type() == WebCore::CaptureDevice::DeviceType::Speaker && !haveMicrophoneDevice(devices, device.groupId()))
+                    continue;
+            }
+
+            filteredDevices.append(revealIdsAndLabels ? device : CaptureDevice({ }, device.type(), { }, { }));
         }
 
-        auto label = emptyString();
-        auto id = emptyString();
-        auto groupId = emptyString();
-        if (revealIdsAndLabels) {
-            label = device.label();
-            id = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(device.persistentId(), deviceIDHashSalt);
-            groupId = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(device.groupId(), deviceIDHashSalt);
-        }
+        m_hasFilteredDeviceList = !revealIdsAndLabels;
+        ALWAYS_LOG(LOGIDENTIFIER, filteredDevices.size(), " devices revealed");
 
-        filteredDevices.append(CaptureDevice(id, device.type(), label, groupId));
-    }
-
-    m_hasFilteredDeviceList = !revealIdsAndLabels;
-
-    ALWAYS_LOG(LOGIDENTIFIER, filteredDevices.size(), " devices revealed");
-    return filteredDevices;
+        completion(WTFMove(filteredDevices));
+    });
 }
 #endif
 
@@ -722,7 +782,9 @@ void UserMediaPermissionRequestManagerProxy::enumerateMediaDevicesForFrame(Frame
             bool revealIdsAndLabels = originHasPersistentAccess || wasGrantedVideoOrAudioAccess(frameID, userMediaDocumentOrigin.get(), topLevelDocumentOrigin.get());
 
             callCompletionHandler.release();
-            completionHandler(computeFilteredDeviceList(revealIdsAndLabels, deviceIDHashSalt), deviceIDHashSalt);
+            computeFilteredDeviceList(revealIdsAndLabels, [completionHandler = WTFMove(completionHandler), deviceIDHashSalt = WTFMove(deviceIDHashSalt)] (auto&& devices) mutable {
+                completionHandler(devices, deviceIDHashSalt);
+            });
         });
     };
 
@@ -750,7 +812,7 @@ void UserMediaPermissionRequestManagerProxy::syncWithWebCorePrefs() const
 
 #if ENABLE(GPU_PROCESS)
     if (m_page.preferences().captureAudioInGPUProcessEnabled() || m_page.preferences().captureVideoInGPUProcessEnabled())
-        GPUProcessProxy::singleton().setUseMockCaptureDevices(mockDevicesEnabled);
+        m_page.process().processPool().ensureGPUProcess().setUseMockCaptureDevices(mockDevicesEnabled);
 #endif
 
     if (MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled() == mockDevicesEnabled)

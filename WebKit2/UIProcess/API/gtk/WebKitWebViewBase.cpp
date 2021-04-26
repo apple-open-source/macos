@@ -46,6 +46,7 @@
 #include "WebInspectorProxy.h"
 #include "WebKit2Initialize.h"
 #include "WebKitEmojiChooser.h"
+#include "WebKitInitialize.h"
 #include "WebKitInputMethodContextImplGtk.h"
 #include "WebKitWebViewAccessible.h"
 #include "WebKitWebViewBaseInternal.h"
@@ -64,6 +65,7 @@
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/PointerEvent.h>
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/Region.h>
 #include <gdk/gdk.h>
@@ -860,8 +862,8 @@ static void webkitWebViewBaseSizeAllocate(GtkWidget* widget, GtkAllocation* allo
 
 #if USE(GTK4)
     for (auto* child = gtk_widget_get_first_child(widget); child; child = gtk_widget_get_next_sibling(child)) {
-        if (GTK_IS_NATIVE(child))
-            gtk_native_check_resize(GTK_NATIVE(child));
+        if (GTK_IS_POPOVER(child))
+            gtk_popover_present(GTK_POPOVER(child));
     }
 #endif
 
@@ -1735,7 +1737,6 @@ static gboolean webkitWebViewBaseEvent(GtkWidget* widget, GdkEvent* event)
         webkitWebViewBaseGestureController(WEBKIT_WEB_VIEW_BASE(widget)).handleEvent(event);
     return GDK_EVENT_PROPAGATE;
 }
-#endif
 
 static AtkObject* webkitWebViewBaseGetAccessible(GtkWidget* widget)
 {
@@ -1753,6 +1754,7 @@ static AtkObject* webkitWebViewBaseGetAccessible(GtkWidget* widget)
 
     return priv->accessible.get();
 }
+#endif
 
 #if USE(GTK4)
 static void toplevelWindowIsActiveChanged(GtkWindow* window, GParamSpec*, WebKitWebViewBase* webViewBase)
@@ -1778,7 +1780,7 @@ static void toplevelWindowIsActiveChanged(GtkWindow* window, GParamSpec*, WebKit
 static void toplevelWindowStateChanged(GdkSurface* surface, GParamSpec*, WebKitWebViewBase* webViewBase)
 {
     auto state = gdk_toplevel_get_state(GDK_TOPLEVEL(surface));
-    bool visible = !(state & GDK_SURFACE_STATE_MINIMIZED);
+    bool visible = !(state & GDK_TOPLEVEL_STATE_MINIMIZED);
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
     if (visible) {
         if (priv->activityState & ActivityState::IsVisible)
@@ -2003,8 +2005,8 @@ static void webkit_web_view_base_class_init(WebKitWebViewBaseClass* webkitWebVie
     widgetClass->query_tooltip = webkitWebViewBaseQueryTooltip;
 #if !USE(GTK4)
     widgetClass->event = webkitWebViewBaseEvent;
-#endif
     widgetClass->get_accessible = webkitWebViewBaseGetAccessible;
+#endif
 #if USE(GTK4)
     widgetClass->root = webkitWebViewBaseRoot;
     widgetClass->unroot = webkitWebViewBaseUnroot;
@@ -2024,9 +2026,9 @@ static void webkit_web_view_base_class_init(WebKitWebViewBaseClass* webkitWebVie
 #endif
 
     // Before creating a WebKitWebViewBasePriv we need to be sure that WebKit is started.
-    // Usually starting a context triggers InitializeWebKit2, but in case
+    // Usually starting a context triggers webkitInitialize, but in case
     // we create a view without asking before for a default_context we get a crash.
-    WebKit::InitializeWebKit2();
+    WebKit::webkitInitialize();
 
     gtk_widget_class_set_css_name(widgetClass, "webkitwebview");
 }
@@ -2340,7 +2342,7 @@ RefPtr<WebKit::ViewSnapshot> webkitWebViewBaseTakeViewSnapshot(WebKitWebViewBase
     size.scale(deviceScale);
 
     RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_RGB24, size.width(), size.height()));
-    cairoSurfaceSetDeviceScale(surface.get(), deviceScale, deviceScale);
+    cairo_surface_set_device_scale(surface.get(), deviceScale, deviceScale);
 
     RefPtr<cairo_t> cr = adoptRef(cairo_create(surface.get()));
     if (clipRect) {
@@ -2523,7 +2525,18 @@ static inline OptionSet<WebEvent::Modifier> toWebKitModifiers(unsigned modifiers
     return webEventModifiers;
 }
 
-void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, MouseEventType type, unsigned button, unsigned short buttons, int x, int y, unsigned modifiers, int clickCount)
+static inline PointerID primaryPointerForType(const String& pointerType)
+{
+    if (pointerType == PointerEvent::mousePointerType())
+        return mousePointerID;
+
+    if (pointerType == PointerEvent::penPointerType())
+        return 2;
+
+    return mousePointerID;
+}
+
+void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, MouseEventType type, unsigned button, unsigned short buttons, int x, int y, unsigned modifiers, int clickCount, const String& pointerType)
 {
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
     if (priv->dialog)
@@ -2605,7 +2618,8 @@ void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, Mouse
     }
 
     priv->pageProxy->handleMouseEvent(NativeWebMouseEvent(webEventType, webEventButton, webEventButtons, { x, y },
-        widgetRootCoords(GTK_WIDGET(webViewBase), x, y), clickCount, toWebKitModifiers(modifiers), movementDelta));
+        widgetRootCoords(GTK_WIDGET(webViewBase), x, y), clickCount, toWebKitModifiers(modifiers), movementDelta,
+        primaryPointerForType(pointerType), pointerType.isNull() ? PointerEvent::mousePointerType() : pointerType));
 }
 
 void webkitWebViewBaseSynthesizeKeyEvent(WebKitWebViewBase* webViewBase, KeyEventType type, unsigned keyval, unsigned modifiers, ShouldTranslateKeyboardState shouldTranslate)

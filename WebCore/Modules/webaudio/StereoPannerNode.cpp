@@ -32,6 +32,7 @@
 #include "AudioBus.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
+#include "AudioUtilities.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -40,11 +41,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(StereoPannerNode);
 
 ExceptionOr<Ref<StereoPannerNode>> StereoPannerNode::create(BaseAudioContext& context, const StereoPannerOptions& options)
 {
-    if (context.isStopped())
-        return Exception { InvalidStateError };
-    
-    context.lazyInitialize();
-    
     auto stereo = adoptRef(*new StereoPannerNode(context, options.pan));
     
     auto result = stereo->handleAudioNodeOptions(options, { 2, ChannelCountMode::ClampedMax, ChannelInterpretation::Speakers });
@@ -55,13 +51,12 @@ ExceptionOr<Ref<StereoPannerNode>> StereoPannerNode::create(BaseAudioContext& co
 }
 
 StereoPannerNode::StereoPannerNode(BaseAudioContext& context, float pan)
-    : AudioNode(context)
+    : AudioNode(context, NodeTypeStereoPanner)
     , m_pan(AudioParam::create(context, "pan"_s, pan, -1, 1, AutomationRate::ARate))
+    , m_sampleAccurateValues(AudioUtilities::renderQuantumSize)
 {
-    setNodeType(NodeTypeStereo);
-    
-    addInput(makeUnique<AudioNodeInput>(this));
-    addOutput(makeUnique<AudioNodeOutput>(this, 2));
+    addInput();
+    addOutput(2);
     
     initialize();
 }
@@ -98,6 +93,14 @@ void StereoPannerNode::process(size_t framesToProcess)
     // the value, if any.
     float panValue = m_pan->hasSampleAccurateValues() ? m_pan->finalValue() : m_pan->value();
     StereoPanner::panToTargetValue(source, destination, panValue, framesToProcess);
+}
+
+void StereoPannerNode::processOnlyAudioParams(size_t framesToProcess)
+{
+    float values[AudioUtilities::renderQuantumSize];
+    ASSERT(framesToProcess <= AudioUtilities::renderQuantumSize);
+
+    m_pan->calculateSampleAccurateValues(values, framesToProcess);
 }
 
 ExceptionOr<void> StereoPannerNode::setChannelCount(unsigned channelCount)

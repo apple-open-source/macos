@@ -32,7 +32,7 @@
 
 
 /* #if defined(TARGET_API_MAC_OS8) || defined(TARGET_API_MAC_CARBON) || defined(TARGET_API_MAC_OSX) */
-#if defined(TARGET_OS_MAC)
+#if TARGET_OS_MAC
 #include <sys/types.h>
 #include <stdint.h>
 #else

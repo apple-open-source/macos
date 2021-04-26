@@ -34,7 +34,7 @@
 namespace WebKit {
 
 struct TrackPrivateRemoteConfiguration {
-    AtomString id;
+    AtomString trackId;
     AtomString label;
     AtomString language;
     MediaTime startTimeVariance { MediaTime::zeroTime() };
@@ -49,7 +49,7 @@ struct TrackPrivateRemoteConfiguration {
     template<class Encoder>
     void encode(Encoder& encoder) const
     {
-        encoder << id;
+        encoder << trackId;
         encoder << label;
         encoder << language;
         encoder << startTimeVariance;
@@ -63,9 +63,9 @@ struct TrackPrivateRemoteConfiguration {
     template <class Decoder>
     static Optional<TrackPrivateRemoteConfiguration> decode(Decoder& decoder)
     {
-        Optional<AtomString> id;
-        decoder >> id;
-        if (!id)
+        Optional<AtomString> trackId;
+        decoder >> trackId;
+        if (!trackId)
             return WTF::nullopt;
 
         Optional<AtomString> label;
@@ -109,7 +109,7 @@ struct TrackPrivateRemoteConfiguration {
             return WTF::nullopt;
 
         return {{
-            WTFMove(*id),
+            WTFMove(*trackId),
             WTFMove(*label),
             WTFMove(*language),
             WTFMove(*startTimeVariance),

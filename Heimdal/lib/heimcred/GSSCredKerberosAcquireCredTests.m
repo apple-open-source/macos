@@ -71,7 +71,14 @@
     };
     
     GSSCredMockHelperClient.renewBlock = ^krb5_error_code(HeimCredRef _Nonnull cred, time_t * _Nonnull expire) {
+
 	NSString *uuidString = CFBridgingRelease(CFUUIDCreateString(NULL, cred->uuid));
+
+	// during a successful renew, the cred will be replaced.  Delete it here for testing.
+	dispatch_sync(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+	    [GSSCredTestUtil delete:weakSelf.peer uuid:cred->uuid];
+	});
+
 	if (weakSelf.mockHelperClient.renewExpectations[uuidString]) {
 	    [weakSelf.mockHelperClient.renewExpectations[uuidString] fulfill];
 	}
@@ -98,9 +105,11 @@
     HeimCredGlobalCTX.gssCredHelperClientClass = GSSCredMockHelperClient.class;
     HeimCredGlobalCTX.executeOnRunQueue = executeOnRunQueueMock;
 
+    CFRELEASE_NULL(HeimCredCTX.mechanisms);
     HeimCredCTX.mechanisms = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.mechanisms != NULL, "out of memory");
-    
+
+    CFRELEASE_NULL(HeimCredCTX.schemas);
     HeimCredCTX.schemas = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.schemas != NULL, "out of memory");
     
@@ -120,9 +129,9 @@
 #else
     archivePath = @"/var/tmp/heim-credential-store.archive.test";
 #endif
+    _HeimCredInitCommon();
     CFRELEASE_NULL(HeimCredCTX.sessions);
     HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    _HeimCredInitCommon();
     
     //always start clean
     NSError *error;
@@ -153,6 +162,9 @@
     
     [self.mockHelperClient.expireExpectations removeAllObjects];
     [self.mockHelperClient.renewExpectations removeAllObjects];
+
+    _notifyExpectation = nil;
+    _saveExpectation = nil;
     
 }
 
@@ -305,21 +317,81 @@
 	_notifyExpectation = expectation;
     }
     
-    XCTAssertTrue(worked, "Kerberos Acquire Cred item should be created successfully");
+    XCTAssertTrue(worked, "Kerberos cred item should be created successfully");
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
     
     [self waitForExpectations:@[expectation] timeout:15];
     
     [GSSCredTestUtil delete:self.peer uuid:uuid];
     CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(credUUID);
+
 }
 
-- (void)testKerberosTriggerExpireStressTest {
+- (void)testKerberosTriggerExpireAndDelete
+{
+    __weak typeof(self) weakSelf = self;
+    GSSCredMockHelperClient.expireBlock = ^krb5_error_code(HeimCredRef _Nonnull cred, time_t * _Nonnull expire) {
+
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+	    [GSSCredTestUtil delete:weakSelf.peer uuid:cred->uuid];
+	});
+	//we want to have the cred deleted while the event is running.
+	[NSThread sleepForTimeInterval:0.02];
+
+	*expire = [[NSDate dateWithTimeIntervalSinceNow:3600] timeIntervalSince1970];
+	NSString *uuidString = CFBridgingRelease(CFUUIDCreateString(NULL, cred->uuid));
+	if (weakSelf.mockHelperClient.expireExpectations[uuidString]) {
+	    [weakSelf.mockHelperClient.expireExpectations[uuidString] fulfill];
+	}
+	return 0;
+    };
+
+    HeimCredGlobalCTX.isMultiUser = NO;
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.test" identifier:0];
+
+    //create an empty cache
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:NULL returningUuid:&uuid];
+
+    XCTAssertTrue(worked, "cache should be created successfully");
+
+    XCTestExpectation *expectation = [[XCTestExpectation alloc] initWithDescription:@"An expired credential should trigger the event"];
+    CFUUIDRef credUUID = NULL;
+    NSDictionary *attributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)uuid,
+				  (id)kHEIMAttrLeadCredential:@YES,
+				  (id)kHEIMAttrAuthTime:[NSDate date],
+				  (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				  (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				  (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:2]
+    };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef _Nullable)(attributes) returningUuid:&credUUID];
+    if (credUUID) {
+	_notifyExpectation = expectation;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2LL * NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+	//try to delete the cred when it expires
+	[GSSCredTestUtil delete:self.peer uuid:credUUID];
+    });
+
+    XCTAssertTrue(worked, "Kerberos cred item should be created successfully");
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    [self waitForExpectations:@[expectation] timeout:15];
+
+    [GSSCredTestUtil delete:self.peer uuid:uuid];
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(credUUID);
+
+}
+
+- (void)testKerberosTriggerExpireStressTest
+{
     HeimCredGlobalCTX.isMultiUser = NO;
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.test" identifier:0];
     
     //stop event processing until we load it up with work
-    heim_ipc_suspend_events();
+    suspend_event_work_queue();
 #if TARGET_OS_OSX
     uint testInterations = 500;
 #else
@@ -345,16 +417,15 @@
 	};
 	worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef _Nullable)(attributes) returningUuid:&credUUID];
 	CFRELEASE_NULL(uuid);
-	
+	CFRELEASE_NULL(credUUID);
     }
     
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations * 2, "There should be one parent and one child for each cred");
     //resume work
-    heim_ipc_resume_events();
+    resume_event_work_queue();
     
     [self waitForExpectations:@[expectation] timeout:30];
     
-    _notifyExpectation = nil;
 }
 #if TARGET_OS_OSX
 
@@ -365,8 +436,8 @@
     NSMutableArray *allExpectations = [@[] mutableCopy];
     
     //stop event processing until we load it up with work
-    heim_ipc_suspend_events();
-    uint testInterations = 500;
+    suspend_event_work_queue();
+    uint testInterations = 200;
     
     for (uint i = 0; i < testInterations; i++) {
 	//create an empty cache
@@ -399,13 +470,11 @@
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations * 2, "There should be one parent and one child for each cred");
     XCTAssertEqual(allExpectations.count, testInterations, "There should be one expectation for each cred");
     //resume work
-    heim_ipc_resume_events();
+    resume_event_work_queue();
     
-    [self waitForExpectations:allExpectations timeout:30];
-    
-    //run the run loop to let saves to disk complete before tear down
-    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:3]];
-    
+    [self waitForExpectations:allExpectations timeout:60];
+
+
 }
 
 
@@ -444,6 +513,7 @@
     
     [GSSCredTestUtil delete:self.peer uuid:uuid];
     CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(credUUID);
 }
 
 - (void)testKerberosTriggerRenewStressTest {
@@ -456,9 +526,9 @@
     NSMutableArray *allExpectations = [@[] mutableCopy];
     
     //stop event processing until we load it up with work
-    heim_ipc_suspend_events();
-    uint testInterations = 500;
-    
+    suspend_event_work_queue();
+    uint testInterations = 200;
+
     for (uint i = 0; i < testInterations; i++) {
 	//create an empty cache
 	CFUUIDRef uuid = NULL;
@@ -484,16 +554,22 @@
 	    [allExpectations addObject:expectation];
 	}
 	CFRELEASE_NULL(uuid);
+	CFRELEASE_NULL(credUUID);
 	
     }
-    
-    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations * 2, "There should be one parent and one child for each cred");
+
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations*2, "There should be one parent cache remaining each cred");
+
     XCTAssertEqual(allExpectations.count, testInterations, "There should be one expectation for each cred");
     //resume work
-    heim_ipc_resume_events();
+    resume_event_work_queue();
     
-    [self waitForExpectations:allExpectations timeout:30];
-    
+    [self waitForExpectations:allExpectations timeout:60];
+
+    //run for a second before checking the results, since the expectation is fulfilled before the times are updated
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
+
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations, "There should be one parent cache remaining each cred");
 }
 #endif
 
@@ -537,8 +613,10 @@
     XCTAssertTrue(worked, "renewable cred should be created successfully");
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
     
-    [self waitForExpectations:@[expectation] timeout:5];
-    
+    [self waitForExpectations:@[expectation] timeout:15];
+
+    _test_wait_for_event_work_queue();
+
     HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(self.peer->session->items, credUUID);
     time_t test = [[NSDate dateWithTimeIntervalSinceNow:300] timeIntervalSince1970];
     XCTAssertLessThan(test - cred->renew_time, 5, "The next renew time should be about 300 seconds from now");  //This is not an exact match to handle vaiance in response times.
@@ -547,6 +625,7 @@
     
     [GSSCredTestUtil delete:self.peer uuid:uuid];
     CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(credUUID);
 }
 
 - (void)testKerberosTriggerRenewFailedNoRetry {
@@ -589,13 +668,17 @@
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
     
     [self waitForExpectations:@[expectation] timeout:5];
-    
+
+    _test_wait_for_event_work_queue();
+
     HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(self.peer->session->items, credUUID);
     XCTAssertTrue(heim_ipc_event_is_cancelled(cred->renew_event), "The renew event should be cancelled");
     XCTAssertEqual(cred->acquire_status, CRED_STATUS_ACQUIRE_STOPPED , "The status should be stopped");
     
     [GSSCredTestUtil delete:self.peer uuid:uuid];
     CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(credUUID);
+
 }
 #endif
 
@@ -654,6 +737,8 @@
     XCTAssertEqual(beforeCred->renew_time, afterCred->renew_time, "The renew times should match");
     
     CFRELEASE_NULL(beforeCred);
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(attrs);
 }
 #endif
 

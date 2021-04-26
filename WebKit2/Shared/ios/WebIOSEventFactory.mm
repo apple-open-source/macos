@@ -28,8 +28,10 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "UIKitSPI.h"
 #import <WebCore/KeyEventCodesIOS.h>
 #import <WebCore/PlatformEventFactoryIOS.h>
+#import <WebCore/Scrollbar.h>
 
 UIKeyModifierFlags WebIOSEventFactory::toUIKeyModifierFlags(OptionSet<WebKit::WebEvent::Modifier> modifiers)
 {
@@ -129,5 +131,54 @@ WebKit::WebMouseEvent WebIOSEventFactory::createWebMouseEvent(::WebEvent *event)
 
     return WebKit::WebMouseEvent(type, button, buttons, position, position, deltaX, deltaY, deltaZ, clickCount, OptionSet<WebKit::WebEvent::Modifier> { }, WallTime::fromRawSeconds(timestamp));
 }
+
+#if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
+static WebKit::WebWheelEvent::Phase toWebPhase(UIScrollPhase phase)
+{
+    switch (phase) {
+    case UIScrollPhaseNone:
+        return WebKit::WebWheelEvent::PhaseNone;
+    case UIScrollPhaseMayBegin:
+        return WebKit::WebWheelEvent::PhaseMayBegin;
+    case UIScrollPhaseBegan:
+        return WebKit::WebWheelEvent::PhaseBegan;
+    case UIScrollPhaseChanged:
+        return WebKit::WebWheelEvent::PhaseChanged;
+    case UIScrollPhaseEnded:
+        return WebKit::WebWheelEvent::PhaseEnded;
+    case UIScrollPhaseCancelled:
+        return WebKit::WebWheelEvent::PhaseCancelled;
+    default:
+        ASSERT_NOT_REACHED();
+        return WebKit::WebWheelEvent::PhaseNone;
+    }
+}
+
+WebKit::WebWheelEvent WebIOSEventFactory::createWebWheelEvent(UIScrollEvent *event, UIView *contentView, Optional<WebKit::WebWheelEvent::Phase> overridePhase)
+{
+    WebCore::IntPoint scrollLocation = WebCore::roundedIntPoint([event locationInView:contentView]);
+    CGVector deltaVector = [event _adjustedAcceleratedDeltaInView:contentView];
+    WebCore::FloatSize delta(deltaVector.dx, deltaVector.dy);
+    WebCore::FloatSize wheelTicks = delta;
+    wheelTicks.scale(1. / static_cast<float>(WebCore::Scrollbar::pixelsPerLineStep()));
+
+    return {
+        WebKit::WebEvent::Wheel,
+        scrollLocation,
+        scrollLocation,
+        delta,
+        wheelTicks,
+        WebKit::WebWheelEvent::Granularity::ScrollByPixelWheelEvent,
+        false,
+        overridePhase.valueOr(toWebPhase(event.phase)),
+        WebKit::WebWheelEvent::PhaseNone,
+        true,
+        1,
+        delta,
+        { },
+        MonotonicTime::fromRawSeconds(event.timestamp).approximateWallTime()
+    };
+}
+#endif
 
 #endif // PLATFORM(IOS_FAMILY)

@@ -29,9 +29,10 @@
 #include "config.h"
 #include "GraphicsContextGLOpenGL.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_GL) && USE(OPENGL_ES)
+#if ENABLE(WEBGL) && USE(OPENGL_ES)
 
 #include "ExtensionsGLOpenGLES.h"
+#include "ImageData.h"
 #include "IntRect.h"
 #include "IntSize.h"
 #include "NotImplemented.h"
@@ -40,9 +41,11 @@
 
 namespace WebCore {
 
-void GraphicsContextGLOpenGL::readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, void* data)
+void GraphicsContextGLOpenGL::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLSpan<GCGLvoid> data)
 {
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
 
     auto attributes = contextAttributes();
 
@@ -56,20 +59,32 @@ void GraphicsContextGLOpenGL::readPixels(GCGLint x, GCGLint y, GCGLsizei width, 
         ::glFlush();
     }
 
-    ::glReadPixels(x, y, width, height, format, type, data);
+    ::glReadPixels(x, y, width, height, format, type, data.data);
 
     if (attributes.antialias && m_state.boundDrawFBO == m_multisampleFBO)
         ::glBindFramebuffer(GL_FRAMEBUFFER, m_multisampleFBO);
 }
 
-void GraphicsContextGLOpenGL::readPixelsAndConvertToBGRAIfNecessary(int x, int y, int width, int height, unsigned char* pixels)
+RefPtr<ImageData> GraphicsContextGLOpenGL::readPixelsForPaintResults()
 {
-    ::glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    int totalBytes = width * height * 4;
-    if (isGLES2Compliant()) {
-        for (int i = 0; i < totalBytes; i += 4)
-            std::swap(pixels[i], pixels[i + 2]); // Convert to BGRA.
+    auto imageData = ImageData::create(getInternalFramebufferSize());
+    if (!imageData)
+        return nullptr;
+
+    GLint packAlignment = 4;
+    bool mustRestorePackAlignment = false;
+    ::glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
+    if (packAlignment > 4) {
+        ::glPixelStorei(GL_PACK_ALIGNMENT, 4);
+        mustRestorePackAlignment = true;
     }
+
+    ::glReadPixels(0, 0, imageData->width(), imageData->height(), GL_RGBA, GL_UNSIGNED_BYTE, imageData->data()->data());
+
+    if (mustRestorePackAlignment)
+        ::glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
+
+    return imageData;
 }
 
 bool GraphicsContextGLOpenGL::reshapeFBOs(const IntSize& size)
@@ -128,7 +143,7 @@ bool GraphicsContextGLOpenGL::reshapeFBOs(const IntSize& size)
             // Use a 24 bit depth buffer where we know we have it.
             if (supportPackedDepthStencilBuffer) {
                 ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
-                extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH24_STENCIL8_OES, width, height);
+                extensions.renderbufferStorageMultisampleANGLE(GL_RENDERBUFFER, sampleCount, GL_DEPTH24_STENCIL8_OES, width, height);
                 if (attributes.stencil)
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
                 if (attributes.depth)
@@ -136,12 +151,12 @@ bool GraphicsContextGLOpenGL::reshapeFBOs(const IntSize& size)
             } else {
                 if (attributes.stencil) {
                     ::glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
-                    extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_STENCIL_INDEX8, width, height);
+                    extensions.renderbufferStorageMultisampleANGLE(GL_RENDERBUFFER, sampleCount, GL_STENCIL_INDEX8, width, height);
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
                 }
                 if (attributes.depth) {
                     ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
-                    extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH_COMPONENT16, width, height);
+                    extensions.renderbufferStorageMultisampleANGLE(GL_RENDERBUFFER, sampleCount, GL_DEPTH_COMPONENT16, width, height);
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
                 }
             }
@@ -188,34 +203,39 @@ void GraphicsContextGLOpenGL::resolveMultisamplingIfNecessary(const IntRect&)
 
 void GraphicsContextGLOpenGL::renderbufferStorage(GCGLenum target, GCGLenum internalformat, GCGLsizei width, GCGLsizei height)
 {
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
     ::glRenderbufferStorage(target, internalformat, width, height);
 }
 
-void GraphicsContextGLOpenGL::getIntegerv(GCGLenum pname, GCGLint* value)
+void GraphicsContextGLOpenGL::getIntegerv(GCGLenum pname, GCGLSpan<GCGLint> value)
 {
-    makeContextCurrent();
-    ::glGetIntegerv(pname, value);
+    if (!makeContextCurrent())
+        return;
+
+    ::glGetIntegerv(pname, value.data);
 }
 
-void GraphicsContextGLOpenGL::getShaderPrecisionFormat(GCGLenum shaderType, GCGLenum precisionType, GCGLint* range, GCGLint* precision)
+void GraphicsContextGLOpenGL::getShaderPrecisionFormat(GCGLenum shaderType, GCGLenum precisionType, GCGLSpan<GCGLint, 2> range, GCGLint* precision)
 {
-    ASSERT(range);
+    ASSERT(range.data);
     ASSERT(precision);
 
-    makeContextCurrent();
-    ::glGetShaderPrecisionFormat(shaderType, precisionType, range, precision);
+    if (!makeContextCurrent())
+        return;
+
+    ::glGetShaderPrecisionFormat(shaderType, precisionType, range.data, precision);
 }
 
-bool GraphicsContextGLOpenGL::texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, const void* pixels)
+void GraphicsContextGLOpenGL::texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, GCGLSpan<const GCGLvoid> pixels)
 {
-    if (width && height && !pixels) {
+    if (width && height && !pixels.data) {
         synthesizeGLError(INVALID_VALUE);
-        return false;
+        return;
     }
 
-    texImage2DDirect(target, level, internalformat, width, height, border, format, type, pixels);
-    return true;
+    texImage2DDirect(target, level, internalformat, width, height, border, format, type, pixels.data);
 }
 
 void GraphicsContextGLOpenGL::validateAttributes()
@@ -232,13 +252,17 @@ void GraphicsContextGLOpenGL::validateAttributes()
 
 void GraphicsContextGLOpenGL::depthRange(GCGLclampf zNear, GCGLclampf zFar)
 {
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
     ::glDepthRangef(zNear, zFar);
 }
 
 void GraphicsContextGLOpenGL::clearDepth(GCGLclampf depth)
 {
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
     ::glClearDepthf(depth);
 }
 
@@ -278,7 +302,9 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     , m_private(makeUnique<GraphicsContextGLOpenGLPrivate>(this, destination))
 {
     ASSERT_UNUSED(sharedContext, !sharedContext);
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
     
     validateAttributes();
     attributes = contextAttributes(); // They may have changed during validation.
@@ -316,18 +342,19 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     ShBuiltInResources ANGLEResources;
     ShInitBuiltInResources(&ANGLEResources);
     
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_ATTRIBS, &ANGLEResources.MaxVertexAttribs);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_UNIFORM_VECTORS, &ANGLEResources.MaxVertexUniformVectors);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VARYING_VECTORS, &ANGLEResources.MaxVaryingVectors);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxVertexTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxCombinedTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_FRAGMENT_UNIFORM_VECTORS, &ANGLEResources.MaxFragmentUniformVectors);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_ATTRIBS, &ANGLEResources.MaxVertexAttribs);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_UNIFORM_VECTORS, &ANGLEResources.MaxVertexUniformVectors);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_VARYING_VECTORS, &ANGLEResources.MaxVaryingVectors);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxVertexTextureImageUnits);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxCombinedTextureImageUnits);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxTextureImageUnits);
+    ::glGetIntegerv(GraphicsContextGLOpenGL::MAX_FRAGMENT_UNIFORM_VECTORS, &ANGLEResources.MaxFragmentUniformVectors);
     
     // Always set to 1 for OpenGL ES.
     ANGLEResources.MaxDrawBuffers = 1;
     
-    GCGLint range[2], precision;
+    GCGLint range[2] { };
+    GCGLint precision = 0;
     getShaderPrecisionFormat(GraphicsContextGLOpenGL::FRAGMENT_SHADER, GraphicsContextGLOpenGL::HIGH_FLOAT, range, &precision);
     ANGLEResources.FragmentPrecisionHigh = (range[0] || range[1] || precision);
     
@@ -343,7 +370,9 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
 
 GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 {
-    makeContextCurrent();
+    if (!makeContextCurrent())
+        return;
+
     ::glDeleteTextures(1, &m_texture);
 
     auto attributes = contextAttributes();
@@ -379,16 +408,6 @@ void GraphicsContextGLOpenGL::checkGPUStatus()
 {
 }
 
-PlatformGraphicsContextGL GraphicsContextGLOpenGL::platformGraphicsContextGL()
-{
-    return m_private->platformContext();
-}
-
-PlatformGLObject GraphicsContextGLOpenGL::platformTexture() const
-{
-    return m_texture;
-}
-
 bool GraphicsContextGLOpenGL::isGLES2Compliant() const
 {
 #if USE(OPENGL_ES)
@@ -406,4 +425,4 @@ PlatformLayer* GraphicsContextGLOpenGL::platformLayer() const
 
 }
 
-#endif // ENABLE(GRAPHICS_CONTEXT_GL) && USE(OPENGL_ES)
+#endif // ENABLE(WEBGL) && USE(OPENGL_ES)

@@ -25,4 +25,5 @@
 	}
 
 [logging]
-	default = 0-/FILE:@objdir@/messages.log
+	default = 0-/OSLOG:normal:default
+

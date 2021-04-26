@@ -125,7 +125,7 @@
 
 #define WebKitDidMigrateWebKitPreferencesToCFPreferencesPreferenceKey "WebKitDidMigrateWebKitPreferencesToCFPreferences"
 
-#define WebKitDeveloperExtrasEnabledPreferenceKey "WebKitDeveloperExtras"
+#define WebKitDeveloperExtrasEnabledPreferenceKey "WebKitDeveloperExtrasEnabledPreferenceKey"
 #define DisableWebKitDeveloperExtrasPreferenceKey "DisableWebKitDeveloperExtras"
 
 #define WebKitAuthorAndUserStylesEnabledPreferenceKey "WebKitAuthorAndUserStylesEnabled"
@@ -184,17 +184,13 @@
 
 #define WebKitMenuItemElementEnabledPreferenceKey "WebKitMenuItemElementEnabled"
 
-#define WebKitKeygenElementEnabledPreferenceKey "WebKitKeygenElementEnabled"
+#define WebKitKeygenElementEnabledPreferenceKey "WebKitKeygenElementEnabledPreferenceKey"
 
 #define WebKitModernMediaControlsEnabledPreferenceKey "WebKitModernMediaControlsEnabled"
-
-#define WebKitWebAnimationsEnabledPreferenceKey "WebKitWebAnimationsEnabled"
 
 #define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey "WebKitWebAnimationsCompositeOperationsEnabled"
 
 #define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey "WebKitWebAnimationsMutableTimelinesEnabled"
-
-#define WebKitWebAnimationsCSSIntegrationEnabledPreferenceKey "WebKitWebAnimationsCSSIntegrationEnabled"
 
 #define WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey "WebKitCSSCustomPropertiesAndValuesEnabled"
 
@@ -228,6 +224,14 @@
 
 #define WebKitAsyncClipboardAPIEnabledPreferenceKey "WebKitAsyncClipboardAPIEnabled"
 
+#define WebKitContactPickerAPIEnabledPreferenceKey "WebKitContactPickerAPIEnabled"
+
 #define WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey "WebKitAspectRatioOfImgFromWidthAndHeightEnabled"
 
 #define WebKitWebSQLEnabledPreferenceKey "WebKitWebSQLEnabled"
+
+#define WebKitCSSIndividualTransformPropertiesEnabledPreferenceKey "WebKitCSSIndividualTransformPropertiesEnabled"
+
+#define WebKitSpeechRecognitionEnabledPreferenceKey "WebKitSpeechRecognitionEnabled"
+
+#define WebKitOverscrollBehaviorEnabledPreferenceKey "WebKitOverscrollBehaviorEnabled"

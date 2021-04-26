@@ -629,6 +629,8 @@ int secd_33_keychain_backup(int argc, char *const *argv)
 
     tests();
 
+    secd_test_teardown_delete_temp_keychain("secd_33_keychain_backup");
+
     SecAccessGroupsSetCurrent(currentACL);
     CFReleaseNull(currentACL);
 

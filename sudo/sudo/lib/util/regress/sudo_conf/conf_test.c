@@ -18,20 +18,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif
+#include <string.h>
 
 #include "sudo_compat.h"
 #include "sudo_conf.h"
@@ -40,7 +29,7 @@
 
 static void sudo_conf_dump(void);
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 /*
  * Simple test driver for sudo_conf().
@@ -72,6 +61,8 @@ sudo_conf_dump(void)
     struct sudo_debug_file *debug_file;
     struct plugin_info *info;
 
+    printf("Set developer_mode %s\n",
+	sudo_conf_developer_mode() ? "true" : "false");
     printf("Set disable_coredump %s\n",
 	sudo_conf_disable_coredump() ? "true" : "false");
     printf("Set group_source %s\n",

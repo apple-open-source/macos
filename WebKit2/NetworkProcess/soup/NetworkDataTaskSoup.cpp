@@ -444,7 +444,7 @@ bool NetworkDataTaskSoup::tlsConnectionAcceptCertificate(GTlsCertificate* certif
 {
     ASSERT(m_soupRequest);
     URL url = soupURIToURL(soup_request_get_uri(m_soupRequest.get()));
-    auto error = SoupNetworkSession::checkTLSErrors(url, certificate, tlsErrors);
+    auto error = static_cast<NetworkSessionSoup&>(*m_session).soupNetworkSession().checkTLSErrors(url, certificate, tlsErrors);
     if (!error)
         return true;
 
@@ -671,6 +671,10 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
         redirectedURL.setFragmentIdentifier(request.url().fragmentIdentifier());
     request.setURL(redirectedURL);
 
+    // Clear the user agent to ensure a new one is computed.
+    auto userAgent = request.httpUserAgent();
+    request.clearHTTPUserAgent();
+
     // Should not set Referer after a redirect from a secure resource to non-secure one.
     if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https"))
         request.clearHTTPReferrer();
@@ -691,19 +695,8 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
 
-    if (isTopLevelNavigation()) {
+    if (isTopLevelNavigation())
         request.setFirstPartyForCookies(request.url());
-#if SOUP_CHECK_VERSION(2, 69, 90)
-        soup_message_set_is_top_level_navigation(m_soupMessage.get(), true);
-#endif
-    }
-
-#if SOUP_CHECK_VERSION(2, 69, 90)
-    if (request.isSameSite()) {
-        GUniquePtr<SoupURI> requestURI = urlToSoupURI(request.url());
-        soup_message_set_site_for_cookies(m_soupMessage.get(), requestURI.get());
-    }
-#endif
 
     if (isCrossOrigin) {
         // The network layer might carry over some headers from the original request that
@@ -723,7 +716,7 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     clearRequest();
 
     auto response = ResourceResponse(m_response);
-    m_client->willPerformHTTPRedirection(WTFMove(response), WTFMove(request), [this, protectedThis = makeRef(*this), isCrossOrigin, wasBlockingCookies](const ResourceRequest& newRequest) {
+    m_client->willPerformHTTPRedirection(WTFMove(response), WTFMove(request), [this, protectedThis = makeRef(*this), isCrossOrigin, wasBlockingCookies, userAgent = WTFMove(userAgent)](const ResourceRequest& newRequest) {
         if (newRequest.isNull() || m_state == State::Canceling)
             return;
 
@@ -735,6 +728,9 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
             }
 
             applyAuthenticationToRequest(request);
+
+            if (!request.hasHTTPHeaderField(HTTPHeaderName::UserAgent))
+                request.setHTTPUserAgent(userAgent);
         }
         createRequest(WTFMove(request), wasBlockingCookies);
         if (m_soupRequest && m_state != State::Suspended) {

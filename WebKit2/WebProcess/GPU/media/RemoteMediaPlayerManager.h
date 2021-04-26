@@ -28,19 +28,13 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "GPUProcessConnection.h"
-#include "MediaPlayerPrivateRemoteIdentifier.h"
-#include "MessageReceiver.h"
-#include "RemoteMediaPlayerState.h"
-#include "RemoteMediaResourceIdentifier.h"
-#include "SharedMemory.h"
-#include "TrackPrivateRemoteIdentifier.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/MediaPlayer.h>
+#include <WebCore/MediaPlayerIdentifier.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 class MediaPlayerPrivateInterface;
-class Settings;
 }
 
 namespace WebKit {
@@ -48,11 +42,12 @@ namespace WebKit {
 class MediaPlayerPrivateRemote;
 class RemoteMediaPlayerMIMETypeCache;
 class WebProcess;
+struct PlatformTextTrackData;
 struct TrackPrivateRemoteConfiguration;
 
 class RemoteMediaPlayerManager
     : public WebProcessSupplement
-    , public CanMakeWeakPtr<RemoteMediaPlayerManager> {
+    , public GPUProcessConnection::Client {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit RemoteMediaPlayerManager(WebProcess&);
@@ -61,21 +56,26 @@ public:
     static const char* supplementName();
     WebProcess& parentProcess() const { return m_process; }
 
-    void updatePreferences(const WebCore::Settings&);
+    void setUseGPUProcess(bool);
 
     GPUProcessConnection& gpuProcessConnection() const;
 
     void didReceivePlayerMessage(IPC::Connection&, IPC::Decoder&);
 
-    void deleteRemoteMediaPlayer(MediaPlayerPrivateRemoteIdentifier);
+    void deleteRemoteMediaPlayer(WebCore::MediaPlayerIdentifier);
 
-    MediaPlayerPrivateRemoteIdentifier findRemotePlayerId(const WebCore::MediaPlayerPrivateInterface*);
+    WebCore::MediaPlayerIdentifier findRemotePlayerId(const WebCore::MediaPlayerPrivateInterface*);
+
+    RemoteMediaPlayerMIMETypeCache& typeCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier);
 
 private:
     std::unique_ptr<WebCore::MediaPlayerPrivateInterface> createRemoteMediaPlayer(WebCore::MediaPlayer*, WebCore::MediaPlayerEnums::MediaEngineIdentifier);
 
     // WebProcessSupplement
     void initialize(const WebProcessCreationParameters&) final;
+
+    // GPUProcessConnection::Client
+    void gpuProcessConnectionDidClose(GPUProcessConnection&) final;
 
     friend class MediaPlayerRemoteFactory;
     void getSupportedTypes(WebCore::MediaPlayerEnums::MediaEngineIdentifier, HashSet<String, ASCIICaseInsensitiveHash>&);
@@ -85,9 +85,7 @@ private:
     void clearMediaCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&, WallTime modifiedSince);
     void clearMediaCacheForOrigins(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&, const HashSet<RefPtr<WebCore::SecurityOrigin>>&);
 
-    RemoteMediaPlayerMIMETypeCache& typeCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier);
-
-    HashMap<MediaPlayerPrivateRemoteIdentifier, WeakPtr<MediaPlayerPrivateRemote>> m_players;
+    HashMap<WebCore::MediaPlayerIdentifier, WeakPtr<MediaPlayerPrivateRemote>> m_players;
     WebProcess& m_process;
     mutable GPUProcessConnection* m_gpuProcessConnection { nullptr };
 };

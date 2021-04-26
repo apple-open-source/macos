@@ -89,37 +89,6 @@ typedef enum {
 } WebKitProcessModel;
 
 /**
- * WebKitTLSErrorsPolicy:
- * @WEBKIT_TLS_ERRORS_POLICY_IGNORE: Ignore TLS errors.
- * @WEBKIT_TLS_ERRORS_POLICY_FAIL: TLS errors will emit
- *   #WebKitWebView::load-failed-with-tls-errors and, if the signal is handled,
- *   finish the load. In case the signal is not handled,
- *   #WebKitWebView::load-failed is emitted before the load finishes.
- *
- * Enum values used to denote the TLS errors policy.
- */
-typedef enum {
-    WEBKIT_TLS_ERRORS_POLICY_IGNORE,
-    WEBKIT_TLS_ERRORS_POLICY_FAIL
-} WebKitTLSErrorsPolicy;
-
-/**
- * WebKitNetworkProxyMode:
- * @WEBKIT_NETWORK_PROXY_MODE_DEFAULT: Use the default proxy of the system.
- * @WEBKIT_NETWORK_PROXY_MODE_NO_PROXY: Do not use any proxy.
- * @WEBKIT_NETWORK_PROXY_MODE_CUSTOM: Use custom proxy settings.
- *
- * Enum values used to set the network proxy mode.
- *
- * Since: 2.16
- */
-typedef enum {
-    WEBKIT_NETWORK_PROXY_MODE_DEFAULT,
-    WEBKIT_NETWORK_PROXY_MODE_NO_PROXY,
-    WEBKIT_NETWORK_PROXY_MODE_CUSTOM
-} WebKitNetworkProxyMode;
-
-/**
  * WebKitURISchemeRequestCallback:
  * @request: the #WebKitURISchemeRequest
  * @user_data: user data passed to the callback
@@ -201,7 +170,7 @@ webkit_web_context_get_web_process_count_limit      (WebKitWebContext           
 WEBKIT_API void
 webkit_web_context_clear_cache                      (WebKitWebContext              *context);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED_FOR(webkit_website_data_manager_set_network_proxy_settings) void
 webkit_web_context_set_network_proxy_settings       (WebKitWebContext              *context,
                                                      WebKitNetworkProxyMode         proxy_mode,
                                                      WebKitNetworkProxySettings    *proxy_settings);
@@ -278,11 +247,11 @@ WEBKIT_API void
 webkit_web_context_set_preferred_languages          (WebKitWebContext              *context,
                                                      const gchar * const           *languages);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED_FOR(webkit_website_data_manager_set_tls_errors_policy) void
 webkit_web_context_set_tls_errors_policy            (WebKitWebContext              *context,
                                                      WebKitTLSErrorsPolicy          policy);
 
-WEBKIT_API WebKitTLSErrorsPolicy
+WEBKIT_DEPRECATED_FOR(webkit_website_data_manager_get_tls_errors_policy) WebKitTLSErrorsPolicy
 webkit_web_context_get_tls_errors_policy            (WebKitWebContext              *context);
 
 WEBKIT_API void

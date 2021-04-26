@@ -4463,6 +4463,11 @@ do {                                                                           \
         IOG_KTRACE(DBG_IOG_CLAMP_POWER_ON, DBG_FUNC_NONE,
                    0, DBG_IOG_SOURCE_STOP, 0, 0, 0, 0, 0, 0);
 
+        if (pendingPowerChange) {
+            pendingPowerChange = false; // Trivially completed since HW is gone.
+            acknowledgeSetPowerState(); // Don't leave PM hangin'.
+        }
+
         temporaryPowerClampOn();        // only to clear out kIOPMPreventSystemSleep
         PMstop();
     }

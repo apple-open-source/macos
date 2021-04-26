@@ -29,6 +29,7 @@
 #if USE(AUDIO_SESSION) && PLATFORM(COCOA)
 
 #import "AudioSession.h"
+#import "AudioUtilities.h"
 #import "DeprecatedGlobalSettings.h"
 #import "HTMLMediaElement.h"
 #import "Logging.h"
@@ -37,12 +38,12 @@
 #import "NowPlayingInfo.h"
 #import "PlatformMediaSession.h"
 #import "PlatformStrategies.h"
+#import "VP9UtilitiesCocoa.h"
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/Function.h>
 
 #import "MediaRemoteSoftLink.h"
 
-static const size_t kWebAudioBufferSize = 128;
 static const size_t kLowPowerVideoBufferSize = 4096;
 
 namespace WebCore {
@@ -57,6 +58,14 @@ std::unique_ptr<PlatformMediaSessionManager> PlatformMediaSessionManager::create
 MediaSessionManagerCocoa::MediaSessionManagerCocoa()
     : m_systemSleepListener(PAL::SystemSleepListener::create(*this))
 {
+#if ENABLE(VP9)
+    if (shouldEnableVP9Decoder())
+        registerSupplementalVP9Decoder();
+    if (shouldEnableVP8Decoder())
+        registerWebKitVP8Decoder();
+    if (shouldEnableVP9SWDecoder())
+        registerWebKitVP9Decoder();
+#endif
 }
 
 void MediaSessionManagerCocoa::updateSessionState()
@@ -102,17 +111,17 @@ void MediaSessionManagerCocoa::updateSessionState()
         "WebAudio(", webAudioCount, ")");
 
     if (webAudioCount)
-        AudioSession::sharedSession().setPreferredBufferSize(kWebAudioBufferSize);
+        AudioSession::sharedSession().setPreferredBufferSize(AudioUtilities::renderQuantumSize);
     // In case of audio capture, we want to grab 20 ms chunks to limit the latency so that it is not noticeable by users
     // while having a large enough buffer so that the audio rendering remains stable, hence a computation based on sample rate.
     else if (captureCount)
         AudioSession::sharedSession().setPreferredBufferSize(AudioSession::sharedSession().sampleRate() / 50);
     else if ((videoAudioCount || audioCount) && DeprecatedGlobalSettings::lowPowerVideoAudioBufferSizeEnabled()) {
         size_t bufferSize;
-        if (m_audioHardwareListener && m_audioHardwareListener->outputDeviceSupportsLowPowerMode())
-            bufferSize = kLowPowerVideoBufferSize;
+        if (m_audioHardwareListener && m_audioHardwareListener->supportedBufferSizes())
+            bufferSize = m_audioHardwareListener->supportedBufferSizes().nearest(kLowPowerVideoBufferSize);
         else
-            bufferSize = kWebAudioBufferSize;
+            bufferSize = AudioUtilities::renderQuantumSize;
 
         AudioSession::sharedSession().setPreferredBufferSize(bufferSize);
     }

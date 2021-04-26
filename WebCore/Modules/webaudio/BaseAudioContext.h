@@ -25,6 +25,7 @@
 
 #pragma once
 
+#if ENABLE(WEB_AUDIO)
 #include "ActiveDOMObject.h"
 #include "AsyncAudioDecoder.h"
 #include "AudioBus.h"
@@ -33,12 +34,9 @@
 #include "AudioDestinationNode.h"
 #include "EventTarget.h"
 #include "JSDOMPromiseDeferred.h"
-#include "MediaCanStartListener.h"
-#include "MediaProducer.h"
+#include "OscillatorType.h"
 #include "PeriodicWaveConstraints.h"
-#include "PlatformMediaSession.h"
 #include "ScriptExecutionContext.h"
-#include "VisibilityChangeClient.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <JavaScriptCore/Float32Array.h>
 #include <atomic>
@@ -50,6 +48,7 @@
 #include <wtf/Threading.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
@@ -60,6 +59,7 @@ class AudioBufferCallback;
 class AudioBufferSourceNode;
 class AudioListener;
 class AudioSummingJunction;
+class AudioWorklet;
 class BiquadFilterNode;
 class ChannelMergerNode;
 class ChannelSplitterNode;
@@ -70,7 +70,7 @@ class Document;
 class DynamicsCompressorNode;
 class GainNode;
 class HTMLMediaElement;
-class MainThreadGenericEventQueue;
+class IIRFilterNode;
 class MediaElementAudioSourceNode;
 class MediaStream;
 class MediaStreamAudioDestinationNode;
@@ -78,10 +78,13 @@ class MediaStreamAudioSourceNode;
 class OscillatorNode;
 class PannerNode;
 class PeriodicWave;
+class ScriptExecutionContext;
 class ScriptProcessorNode;
 class SecurityOrigin;
 class StereoPannerNode;
 class WaveShaperNode;
+
+struct AudioParamDescriptor;
 
 template<typename IDLType> class DOMPromiseDeferred;
 
@@ -92,13 +95,10 @@ class BaseAudioContext
     : public ActiveDOMObject
     , public ThreadSafeRefCounted<BaseAudioContext>
     , public EventTargetWithInlineData
-    , public MediaCanStartListener
-    , public MediaProducer
+    , public CanMakeWeakPtr<BaseAudioContext>
 #if !RELEASE_LOG_DISABLED
     , public LoggerHelper
 #endif
-    , private PlatformMediaSessionClient
-    , private VisibilityChangeClient
 {
     WTF_MAKE_ISO_ALLOCATED(BaseAudioContext);
 public:
@@ -114,12 +114,10 @@ public:
     bool isOfflineContext() const { return m_isOfflineContext; }
     virtual bool isWebKitAudioContext() const { return false; }
 
-    DocumentIdentifier hostingDocumentIdentifier() const final;
-
     AudioDestinationNode* destination() { return m_destinationNode.get(); }
     size_t currentSampleFrame() const { return m_destinationNode ? m_destinationNode->currentSampleFrame() : 0; }
     double currentTime() const { return m_destinationNode ? m_destinationNode->currentTime() : 0.; }
-    float sampleRate() const { return m_destinationNode ? m_destinationNode->sampleRate() : 0.f; }
+    float sampleRate() const;
     unsigned long activeSourceCount() const { return static_cast<unsigned long>(m_activeSourceCount); }
 
     void incrementActiveSourceCount();
@@ -134,9 +132,6 @@ public:
 
     AudioListener& listener();
 
-    void suspendRendering(DOMPromiseDeferred<void>&&);
-    void resumeRendering(DOMPromiseDeferred<void>&&);
-
     virtual void didSuspendRendering(size_t frame);
 
     AudioBuffer* renderTarget() const { return m_renderTarget.get(); }
@@ -144,6 +139,8 @@ public:
     using State = AudioContextState;
     State state() const { return m_state; }
     bool isClosed() const { return m_state == State::Closed; }
+
+    AudioWorklet& audioWorklet() { return m_worklet.get(); }
 
     bool wouldTaintOrigin(const URL&) const;
 
@@ -164,9 +161,7 @@ public:
     ExceptionOr<Ref<PeriodicWave>> createPeriodicWave(Vector<float>&& real, Vector<float>&& imaginary, const PeriodicWaveConstraints& = { });
     ExceptionOr<Ref<ConstantSourceNode>> createConstantSource();
     ExceptionOr<Ref<StereoPannerNode>> createStereoPanner();
-
-    // When a source node has no more processing to do (has finished playing), then it tells the context to dereference it.
-    void notifyNodeFinishedProcessing(AudioNode*);
+    ExceptionOr<Ref<IIRFilterNode>> createIIRFilter(ScriptExecutionContext&, Vector<double>&& feedforward, Vector<double>&& feedback);
 
     // Called at the start of each render quantum.
     void handlePreRenderTasks(const AudioIOPosition& outputPosition);
@@ -226,11 +221,11 @@ public:
     // Returns the maximum number of channels we can support.
     static unsigned maxNumberOfChannels() { return MaxNumberOfChannels; }
     
-    // In AudioNode::deref() a tryLock() is used for calling finishDeref(), but if it fails keep track here.
-    void addDeferredFinishDeref(AudioNode*);
+    // In AudioNode::decrementConnectionCount() a tryLock() is used for calling decrementConnectionCountWithLock(), but if it fails keep track here.
+    void addDeferredDecrementConnectionCount(AudioNode*);
 
-    // In the audio thread at the start of each render cycle, we'll call handleDeferredFinishDerefs().
-    void handleDeferredFinishDerefs();
+    // In the audio thread at the start of each render cycle, we'll call handleDeferredDecrementConnectionCounts().
+    void handleDeferredDecrementConnectionCounts();
 
     // Only accessed when the graph lock is held.
     void markSummingJunctionDirty(AudioSummingJunction*);
@@ -245,28 +240,18 @@ public:
     void refEventTarget() override { ref(); }
     void derefEventTarget() override { deref(); }
 
-    void startRendering();
     void finishedRendering(bool didRendering);
 
     static unsigned s_hardwareContextCount;
 
-    // Restrictions to change default behaviors.
-    enum BehaviorRestrictionFlags {
-        NoRestrictions = 0,
-        RequireUserGestureForAudioStartRestriction = 1 << 0,
-        RequirePageConsentForAudioStartRestriction = 1 << 1,
-    };
-    typedef unsigned BehaviorRestrictions;
-    BehaviorRestrictions behaviorRestrictions() const { return m_restrictions; }
-    void addBehaviorRestriction(BehaviorRestrictions restriction) { m_restrictions |= restriction; }
-    void removeBehaviorRestriction(BehaviorRestrictions restriction) { m_restrictions &= ~restriction; }
-
     void isPlayingAudioDidChange();
 
-    void nodeWillBeginPlayback();
+    virtual void sourceNodeWillBeginPlayback(AudioNode&);
+    // When a source node has no more processing to do (has finished playing), then it tells the context to dereference it.
+    void sourceNodeDidFinishPlayback(AudioNode&);
 
 #if !RELEASE_LOG_DISABLED
-    const Logger& logger() const final { return m_logger.get(); }
+    const Logger& logger() const override { return m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;
     const void* nextAudioNodeLogIdentifier() { return childLogIdentifier(m_logIdentifier, ++m_nextAudioNodeIdentifier); }
@@ -297,20 +282,18 @@ public:
         bool m_mustReleaseLock;
     };
 
-    // The context itself keeps a reference to all source nodes. The source nodes, then reference all nodes they're connected to.
-    // In turn, these nodes reference all nodes they're connected to. All nodes are ultimately connected to the AudioDestinationNode.
-    // When the context dereferences a source node, it will be deactivated from the rendering graph along with all other nodes it is
-    // uniquely connected to. See the AudioNode::ref() and AudioNode::deref() methods for more details.
-    void refNode(AudioNode&);
-    void derefNode(AudioNode&);
-
-    void lazyInitialize();
+    virtual void lazyInitialize();
 
     static bool isSupportedSampleRate(float sampleRate);
 
+    PeriodicWave& periodicWave(OscillatorType);
+
+    void addAudioParamDescriptors(const String& processorName, Vector<AudioParamDescriptor>&&);
+    const HashMap<String, Vector<AudioParamDescriptor>>& parameterDescriptorMap() const { return m_parameterDescriptorMap; }
+
 protected:
     explicit BaseAudioContext(Document&, const AudioContextOptions& = { });
-    BaseAudioContext(Document&, AudioBuffer* renderTarget);
+    BaseAudioContext(Document&, unsigned numberOfChannels, float sampleRate, RefPtr<AudioBuffer>&& renderTarget);
     
     void clearPendingActivity();
     void makePendingActivity();
@@ -318,8 +301,6 @@ protected:
     void lockInternal(bool& mustReleaseLock);
 
     AudioDestinationNode* destinationNode() const { return m_destinationNode.get(); }
-
-    bool willBeginPlayback();
 
     virtual void uninitialize();
 
@@ -333,49 +314,28 @@ protected:
     virtual void didFinishOfflineRendering(ExceptionOr<Ref<AudioBuffer>>&&) { }
 
 private:
-    void constructCommon();
-
-    bool willPausePlayback();
-
-    bool userGestureRequiredForAudioStart() const { return !isOfflineContext() && m_restrictions & RequireUserGestureForAudioStartRestriction; }
-    bool pageConsentRequiredForAudioStart() const { return !isOfflineContext() && m_restrictions & RequirePageConsentForAudioStartRestriction; }
-
     void clear();
 
     void scheduleNodeDeletion();
+    void workletIsReady();
 
-    void mediaCanStart(Document&) override;
+    // When source nodes begin playing, the BaseAudioContext keeps them alive inside m_referencedSourceNodes.
+    // When the nodes stop playing, they get added to m_finishedSourceNodes. After each rendering quantum,
+    // we call derefSourceNode() on every node in m_finishedSourceNodes since we no longer need to keep them
+    // alive.
+    void refSourceNode(AudioNode&);
+    void derefSourceNode(AudioNode&);
 
     // EventTarget
     void dispatchEvent(Event&) final;
 
-    // MediaProducer
-    MediaProducer::MediaStateFlags mediaState() const override;
-    void pageMutedStateDidChange() override;
-
     // ActiveDOMObject API.
-    void suspend(ReasonForSuspension) final;
-    void resume() final;
     void stop() override;
     const char* activeDOMObjectName() const override;
 
     // When the context goes away, there might still be some sources which haven't finished playing.
     // Make sure to dereference them here.
     void derefUnfinishedSourceNodes();
-
-    // PlatformMediaSessionClient
-    PlatformMediaSession::MediaType mediaType() const override { return PlatformMediaSession::MediaType::WebAudio; }
-    PlatformMediaSession::MediaType presentationType() const override { return PlatformMediaSession::MediaType::WebAudio; }
-    void mayResumePlayback(bool shouldResume) override;
-    void suspendPlayback() override;
-    bool canReceiveRemoteControlCommands() const override { return false; }
-    void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*) override { }
-    bool supportsSeeking() const override { return false; }
-    bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const override { return false; }
-    bool canProduceAudio() const final { return true; }
-    bool isSuspended() const final;
-
-    void visibilityStateChanged() final;
 
     void handleDirtyAudioSummingJunctions();
     void handleDirtyAudioNodeOutputs();
@@ -389,13 +349,13 @@ private:
     uint64_t m_nextAudioParameterIdentifier { 0 };
 #endif
 
-    // Only accessed in the audio thread.
-    Vector<AudioNode*> m_finishedNodes;
+    Ref<AudioWorklet> m_worklet;
 
-    // We don't use RefPtr<AudioNode> here because AudioNode has a more complex ref() / deref() implementation
-    // with an optional argument for refType.  We need to use the special refType: RefTypeConnection
+    // Only accessed in the audio thread.
+    Vector<AudioNode*> m_finishedSourceNodes;
+
     // Either accessed when the graph lock is held, or on the main thread when the audio thread has finished.
-    Vector<AudioNode*> m_referencedNodes;
+    Vector<AudioConnectionRefPtr<AudioNode>> m_referencedSourceNodes;
 
     // Accumulate nodes which need to be deleted here.
     // This is copied to m_nodesToDelete at the end of a render cycle in handlePostRenderTasks(), where we're assured of a stable graph
@@ -422,11 +382,8 @@ private:
     HashSet<AudioNode*> m_automaticPullNodes;
     Vector<AudioNode*> m_renderingAutomaticPullNodes;
     // Only accessed in the audio thread.
-    Vector<AudioNode*> m_deferredFinishDerefList;
+    Vector<AudioNode*> m_deferredBreakConnectionList;
     Vector<Vector<DOMPromiseDeferred<void>>> m_stateReactions;
-
-    std::unique_ptr<PlatformMediaSession> m_mediaSession;
-    UniqueRef<MainThreadGenericEventQueue> m_eventQueue;
 
     RefPtr<AudioBuffer> m_renderTarget;
     RefPtr<AudioDestinationNode> m_destinationNode;
@@ -450,12 +407,21 @@ private:
     // Number of AudioBufferSourceNodes that are active (playing).
     std::atomic<int> m_activeSourceCount { 0 };
 
-    BehaviorRestrictions m_restrictions { NoRestrictions };
-
     State m_state { State::Suspended };
     RefPtr<PendingActivity<BaseAudioContext>> m_pendingActivity;
 
     AudioIOPosition m_outputPosition;
+
+    HashMap<String, Vector<AudioParamDescriptor>> m_parameterDescriptorMap;
+
+    // These are cached per audio context for performance reasons. They cannot be
+    // static because they rely on the sample rate.
+    RefPtr<PeriodicWave> m_cachedPeriodicWaveSine;
+    RefPtr<PeriodicWave> m_cachedPeriodicWaveSquare;
+    RefPtr<PeriodicWave> m_cachedPeriodicWaveSawtooth;
+    RefPtr<PeriodicWave> m_cachedPeriodicWaveTriangle;
 };
 
 } // WebCore
+
+#endif // ENABLE(WEB_AUDIO)

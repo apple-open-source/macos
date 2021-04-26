@@ -23,7 +23,7 @@ test_list = Foundation.NSMutableArray.array()
 test_files = glob(test_dir + '/octagon/*.swift') + glob(test_dir + '/octagon/*/*.swift')
 
 def get_class_names():
-    test_classes = ['OTFollowupTests']
+    test_classes = ['OctagonTests.OctagonStateMachineTests']
     for filename in test_files:
         f = open(filename, 'r')
         for line in f:

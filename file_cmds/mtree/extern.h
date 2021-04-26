@@ -61,7 +61,7 @@ const char * ftype(u_int type);
 extern int ftsoptions;
 extern u_int keys;
 extern int lineno;
-extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag;
+extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag, xflag;
 extern int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
 extern struct timespec ts;
 #ifdef MAXPATHLEN

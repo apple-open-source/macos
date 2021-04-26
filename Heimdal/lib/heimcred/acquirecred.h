@@ -53,3 +53,11 @@ cred_update_renew_time(HeimCredRef cred, bool is_retry);
 void
 cred_update_expire_time_locked(HeimCredRef cred, time_t t);
 
+void
+suspend_event_work_queue(void);
+
+void
+resume_event_work_queue(void);
+
+void
+_test_wait_for_event_work_queue(void);

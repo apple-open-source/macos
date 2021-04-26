@@ -22,6 +22,7 @@
  */
 
 #import "supd.h"
+#import <Foundation/NSXPCConnection_Private.h>
 
 #if !TARGET_OS_SIMULATOR
 
@@ -61,7 +62,7 @@
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 
 #import "utilities/simulatecrash_assert.h"
-
+#import "trust/trustd/trustdFileHelper/trustdFileHelper.h"
 
 NSString* const SFAnalyticsSplunkTopic = @"topic";
 NSString* const SFAnalyticsClientId = @"clientId";
@@ -119,8 +120,6 @@ NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
 
 #define DEFAULT_SPLUNK_MAX_EVENTS_TO_REPORT 1000
 #define DEFAULT_SPLUNK_DEVICE_PERCENTAGE 100
-
-static supd *_supdInstance = nil;
 
 BOOL runningTests = NO;
 BOOL deviceAnalyticsOverride = NO;
@@ -1270,10 +1269,12 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 }
 
 #if TARGET_OS_OSX
-+ (NSUUID *)rootUUID
+#define TRUSTD_ROLE_ACCOUNT 282
+
++ (NSUUID *)trustdUUID
 {
     uuid_t rootUuid;
-    int ret = mbr_uid_to_uuid(0, rootUuid);
+    int ret = mbr_uid_to_uuid(282, rootUuid);
     if (ret != 0) {
         return nil;
     }
@@ -1284,7 +1285,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 #if TARGET_OS_OSX
 + (NSString*)databasePathForRootTrust
 {
-    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"trust_analytics" uuid:[SFAnalyticsTopic rootUUID]];
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"trust_analytics" uuid:[SFAnalyticsTopic trustdUUID]];
 }
 #endif
 
@@ -1300,7 +1301,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 #if TARGET_OS_OSX
 + (NSString*)databasePathForRootNetworking
 {
-    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"networking_analytics" uuid:[SFAnalyticsTopic rootUUID]];
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"networking_analytics" uuid:[SFAnalyticsTopic trustdUUID]];
 }
 #endif
 
@@ -1323,6 +1324,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
 @interface supd ()
 @property NSDictionary *topicsSamplingRates;
+@property NSXPCConnection *connection;
 @end
 
 @implementation supd
@@ -1337,23 +1339,6 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     }
     _analyticsTopics = [NSArray arrayWithArray:topics];
 }
-
-+ (void)instantiate {
-    [supd instance];
-}
-
-+ (instancetype)instance {
-    if (!_supdInstance) {
-        _supdInstance = [self new];
-    }
-    return _supdInstance;
-}
-
-// Use this for testing to get rid of any state
-+ (void)removeInstance {
-    _supdInstance = nil;
-}
-
 
 static NSString *SystemTrustStorePath = @"/System/Library/Security/Certificates.bundle";
 static NSString *AnalyticsSamplingRatesFilename = @"AnalyticsSamplingRates";
@@ -1401,8 +1386,8 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 - (void)setupSamplingRates {
     NSBundle *trustStoreBundle = [NSBundle bundleWithPath:SystemTrustStorePath];
 
-    NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(nil));
-    NSURL *directory = [keychainsDirectory URLByAppendingPathComponent:@"SupplementalsAssets/" isDirectory:YES];
+    NSURL *protectedDirectory = CFBridgingRelease(SecCopyURLForFileInProtectedDirectory(CFSTR("trustd/")));
+    NSURL *directory = [protectedDirectory URLByAppendingPathComponent:@"SupplementalsAssets/" isDirectory:YES];
 
     NSDictionary *analyticsSamplingRates = nil;
     if (ShouldInitializeWithAsset(trustStoreBundle, directory)) {
@@ -1426,29 +1411,32 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     }
 }
 
-- (instancetype)initWithReporter:(SFAnalyticsReporter *)reporter
+- (instancetype)initWithConnection:(NSXPCConnection *)connection reporter:(SFAnalyticsReporter *)reporter
 {
-    if (self = [super init]) {
+    if ((self = [super init])) {
+        _connection = connection;
+        _reporter = reporter;
         [self setupSamplingRates];
         [self setupTopics];
-        _reporter = reporter;
 
-        xpc_activity_register("com.apple.securityuploadd.triggerupload", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
-            xpc_activity_state_t activityState = xpc_activity_get_state(activity);
-            secnotice("supd", "hit xpc activity trigger, state: %ld", activityState);
-            if (activityState == XPC_ACTIVITY_STATE_RUN) {
-                // Run our regularly scheduled scan
-                [self performRegularlyScheduledUpload];
-            }
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            xpc_activity_register("com.apple.securityuploadd.triggerupload", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+                xpc_activity_state_t activityState = xpc_activity_get_state(activity);
+                secnotice("supd", "hit xpc activity trigger, state: %ld", activityState);
+                if (activityState == XPC_ACTIVITY_STATE_RUN) {
+                    // Run our regularly scheduled scan
+                    [self performRegularlyScheduledUpload];
+                }
+            });
         });
     }
-
     return self;
 }
 
-- (instancetype)init {
+- (instancetype)initWithConnection:(NSXPCConnection *)connection {
     SFAnalyticsReporter *reporter = [[SFAnalyticsReporter alloc] init];
-    return [self initWithReporter:reporter];
+    return [self initWithConnection:connection reporter:reporter];
 }
 
 - (void)sendNotificationForOncePerReportSamplers
@@ -1612,30 +1600,6 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     return sysdiagnose;
 }
 
-- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*))reply
-{
-    for (SFAnalyticsTopic* topic in _analyticsTopics) {
-        [topic updateUploadDateForClients:topic.topicClients date:date clearData:NO];
-    }
-    reply(YES, nil);
-}
-
-- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply
-{
-    NSMutableDictionary *info = [NSMutableDictionary dictionary];
-    for (SFAnalyticsTopic* topic in _analyticsTopics) {
-        for (SFAnalyticsClient *client in topic.topicClients) {
-            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-
-            NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
-            clientInfo[@"uploadDate"] = store.uploadDate;
-            info[client.name] = clientInfo;
-        }
-    }
-
-    reply(info, nil);
-}
-
 - (NSString*)stringForEventClass:(SFAnalyticsEventClass)eventClass
 {
     if (eventClass == SFAnalyticsEventClassNote) {
@@ -1656,12 +1620,29 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 }
 
 // MARK: XPC Procotol Handlers
+- (BOOL)checkSupdEntitlement {
+    NSNumber *supdEntitlement = [self.connection valueForEntitlement:@"com.apple.private.securityuploadd"];
+    if (![supdEntitlement isKindOfClass:[NSNumber class]] || ![supdEntitlement boolValue]) {
+        return NO;
+    }
+    return YES;
+}
 
 - (void)getSysdiagnoseDumpWithReply:(void (^)(NSString*))reply {
-    reply([self getSysdiagnoseDump]);
+    if ([self checkSupdEntitlement]) {
+        reply([self getSysdiagnoseDump]);
+    } else {
+        reply(@"client not entitled");
+    }
 }
 
 - (void)createLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *, NSError*))reply {
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(nil, error);
+        return;
+    }
+
     secnotice("rpcCreateLoggingJSON", "Building a JSON blob resembling the one we would have uploaded");
     NSError* error = nil;
     [self sendNotificationForOncePerReportSamplers];
@@ -1686,6 +1667,12 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
 - (void)createChunkedLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *, NSError*))reply
 {
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(nil, error);
+        return;
+    }
+
     secnotice("rpcCreateChunkedLoggingJSON", "Building an array of JSON blobs resembling the one we would have uploaded");
     NSError* error = nil;
     [self sendNotificationForOncePerReportSamplers];
@@ -1709,11 +1696,66 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 }
 
 - (void)forceUploadWithReply:(void (^)(BOOL, NSError*))reply {
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(NO, error);
+        return;
+    }
+
     secnotice("upload", "Performing upload in response to rpc message");
     NSError* error = nil;
     BOOL result = [self uploadAnalyticsWithError:&error force:YES];
     secnotice("upload", "Result of manually triggered upload: %@, error: %@", result ? @"success" : @"failure", error);
     reply(result, error);
+}
+
+- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*))reply
+{
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(NO, error);
+        return;
+    }
+
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        [topic updateUploadDateForClients:topic.topicClients date:date clearData:NO];
+    }
+    reply(YES, nil);
+}
+
+- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply
+{
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(nil, error);
+        return;
+    }
+
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        for (SFAnalyticsClient *client in topic.topicClients) {
+            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+
+            NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
+            clientInfo[@"uploadDate"] = store.uploadDate;
+            info[client.name] = clientInfo;
+        }
+    }
+
+    reply(info, nil);
+}
+
+- (void)fixFiles:(void (^)(BOOL, NSError*))reply
+{
+    if (![[self.connection valueForEntitlement:@"com.apple.private.trustd.FileHelp"] boolValue]) {
+        reply(NO, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil]);
+    }
+#if TARGET_OS_IPHONE
+    TrustdFileHelper *helper = [[TrustdFileHelper alloc] init];
+    [helper fixFiles:reply];
+#else
+    reply(NO, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
 }
 
 @end

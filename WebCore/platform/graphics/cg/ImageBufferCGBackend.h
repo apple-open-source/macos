@@ -38,23 +38,25 @@ public:
 
     void draw(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
     void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions&) override;
-
-    AffineTransform baseTransform() const override;
+    
+    void clipToMask(GraphicsContext&, const FloatRect& destRect) override;
 
     String toDataURL(const String& mimeType, Optional<double> quality, PreserveResolution) const override;
     Vector<uint8_t> toData(const String& mimeType, Optional<double> quality) const override;
+
+    std::unique_ptr<ThreadSafeImageBufferFlusher> createFlusher() override;
 
 protected:
     using ImageBufferBackend::ImageBufferBackend;
 
     static RetainPtr<CGColorSpaceRef> contextColorSpace(const GraphicsContext&);
-    void setupContext();
+    void setupContext() const;
     virtual RetainPtr<CFDataRef> toCFData(const String& mimeType, Optional<double> quality, PreserveResolution) const;
 
 #if USE(ACCELERATE)
     void copyImagePixels(
-        AlphaPremultiplication srcAlphaFormat, ColorFormat srcColorFormat, unsigned srcBytesPerRow, uint8_t* srcRows,
-        AlphaPremultiplication destAlphaFormat, ColorFormat destColorFormat, unsigned destBytesPerRow, uint8_t* destRows, const IntSize&) const override;
+        AlphaPremultiplication srcAlphaFormat, PixelFormat srcPixelFormat, unsigned srcBytesPerRow, uint8_t* srcRows,
+        AlphaPremultiplication destAlphaFormat, PixelFormat destPixelFormat, unsigned destBytesPerRow, uint8_t* destRows, const IntSize&) const override;
 #endif
 };
 

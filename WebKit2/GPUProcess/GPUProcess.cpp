@@ -45,6 +45,7 @@
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/OptionSet.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
@@ -57,6 +58,10 @@
 
 #if ENABLE(MEDIA_STREAM)
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
+#endif
+
+#if PLATFORM(COCOA)
+#include <WebCore/VP9UtilitiesCocoa.h>
 #endif
 
 namespace WebKit {
@@ -109,11 +114,6 @@ bool GPUProcess::shouldTerminate()
     return m_webProcessConnections.isEmpty();
 }
 
-void GPUProcess::didClose(IPC::Connection&)
-{
-    ASSERT(RunLoop::isMain());
-}
-
 void GPUProcess::lowMemoryHandler(Critical critical)
 {
     WTF::releaseFastMallocFreeMemory();
@@ -123,6 +123,12 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
 {
     WTF::Thread::setCurrentThreadIsUserInitiated();
     AtomString::init();
+
+    auto& memoryPressureHandler = MemoryPressureHandler::singleton();
+    memoryPressureHandler.setLowMemoryHandler([this] (Critical critical, Synchronous) {
+        lowMemoryHandler(critical);
+    });
+    memoryPressureHandler.install();
 
 #if PLATFORM(IOS_FAMILY) || ENABLE(ROUTING_ARBITRATION)
     DeprecatedGlobalSettings::setShouldManageAudioSessionCategory(true);
@@ -144,6 +150,9 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
     send(Messages::GPUProcessProxy::DidCreateContextForVisibilityPropagation(m_contextForVisibilityPropagation->contextID()));
 #endif
 
+    // Match the QoS of the UIProcess since the GPU process is doing rendering on its behalf.
+    WTF::Thread::setCurrentThreadIsUserInteractive(0);
+
     WebCore::setPresentingApplicationPID(parameters.parentPID);
 }
 
@@ -152,6 +161,7 @@ void GPUProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandler<v
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcess::prepareToSuspend(), isSuspensionImminent: %d", this, isSuspensionImminent);
 
     lowMemoryHandler(Critical::Yes);
+    completionHandler();
 }
 
 void GPUProcess::processDidResume()
@@ -254,6 +264,54 @@ RemoteAudioSessionProxyManager& GPUProcess::audioSessionManager() const
     if (!m_audioSessionManager)
         m_audioSessionManager = WTF::makeUnique<RemoteAudioSessionProxyManager>();
     return *m_audioSessionManager;
+}
+#endif
+
+#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
+WorkQueue& GPUProcess::audioMediaStreamTrackRendererQueue()
+{
+    if (!m_audioMediaStreamTrackRendererQueue)
+        m_audioMediaStreamTrackRendererQueue = WorkQueue::create("RemoteAudioMediaStreamTrackRenderer", WorkQueue::Type::Serial, WorkQueue::QOS::UserInteractive);
+    return *m_audioMediaStreamTrackRendererQueue;
+}
+WorkQueue& GPUProcess::videoMediaStreamTrackRendererQueue()
+{
+    if (!m_videoMediaStreamTrackRendererQueue)
+        m_videoMediaStreamTrackRendererQueue = WorkQueue::create("RemoteVideoMediaStreamTrackRenderer", WorkQueue::Type::Serial, WorkQueue::QOS::UserInitiated);
+    return *m_videoMediaStreamTrackRendererQueue;
+}
+#endif
+
+#if USE(LIBWEBRTC) && PLATFORM(COCOA)
+WorkQueue& GPUProcess::libWebRTCCodecsQueue()
+{
+    if (!m_libWebRTCCodecsQueue)
+        m_libWebRTCCodecsQueue = WorkQueue::create("LibWebRTCCodecsQueue", WorkQueue::Type::Serial, WorkQueue::QOS::UserInitiated);
+    return *m_libWebRTCCodecsQueue;
+}
+#endif
+
+#if ENABLE(VP9)
+void GPUProcess::enableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder)
+{
+    if (shouldEnableVP9Decoder && !m_enableVP9Decoder) {
+        m_enableVP9Decoder = true;
+#if PLATFORM(COCOA)
+        WebCore::registerSupplementalVP9Decoder();
+#endif
+    }
+    if (shouldEnableVP8Decoder && !m_enableVP8Decoder) {
+        m_enableVP8Decoder = true;
+#if PLATFORM(COCOA)
+        WebCore::registerWebKitVP8Decoder();
+#endif
+    }
+    if (shouldEnableVP9SWDecoder && !m_enableVP9SWDecoder) {
+        m_enableVP9SWDecoder = true;
+#if PLATFORM(COCOA)
+        WebCore::registerWebKitVP9Decoder();
+#endif
+    }
 }
 #endif
 

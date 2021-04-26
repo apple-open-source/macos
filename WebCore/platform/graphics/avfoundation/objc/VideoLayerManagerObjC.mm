@@ -43,10 +43,21 @@ OBJC_CLASS AVPlayerLayer;
 
 namespace WebCore {
 
+#if !RELEASE_LOG_DISABLED
 VideoLayerManagerObjC::VideoLayerManagerObjC(const Logger& logger, const void* logIdentifier)
     : m_logger(logger)
     , m_logIdentifier(logIdentifier)
 {
+}
+#endif
+
+VideoLayerManagerObjC::~VideoLayerManagerObjC()
+{
+}
+
+PlatformLayer* VideoLayerManagerObjC::videoInlineLayer() const
+{
+    return m_videoInlineLayer.get();
 }
 
 void VideoLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, IntSize contentSize)
@@ -58,8 +69,7 @@ void VideoLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, IntSize con
 
     m_videoInlineLayer = adoptNS([[WebVideoContainerLayer alloc] init]);
     [m_videoInlineLayer setName:@"WebVideoContainerLayer"];
-    m_videoInlineFrame = CGRectMake(0, 0, contentSize.width(), contentSize.height());
-    [m_videoInlineLayer setFrame:m_videoInlineFrame];
+    [m_videoInlineLayer setFrame:CGRectMake(0, 0, contentSize.width(), contentSize.height())];
     [m_videoInlineLayer setContentsGravity:kCAGravityResizeAspect];
     if (PAL::isAVFoundationFrameworkAvailable() && [videoLayer isKindOfClass:PAL::getAVPlayerLayerClass()])
         [m_videoInlineLayer setPlayerLayer:(AVPlayerLayer *)videoLayer];
@@ -71,20 +81,29 @@ void VideoLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, IntSize con
     } else
 #endif
     {
-        [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
         [m_videoLayer setFrame:m_videoInlineLayer.get().bounds];
+        [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
     }
+}
+
+void VideoLayerManagerObjC::didDestroyVideoLayer()
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+
+    [m_videoLayer removeFromSuperlayer];
+
+    m_videoInlineLayer = nil;
+    m_videoLayer = nil;
 }
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 
-void VideoLayerManagerObjC::updateVideoFullscreenInlineImage(NativeImagePtr image)
+PlatformLayer* VideoLayerManagerObjC::videoFullscreenLayer() const
 {
-    if (m_videoInlineLayer)
-        [m_videoInlineLayer setContents:(__bridge id)image.get()];
+    return m_videoFullscreenLayer.get();
 }
 
-void VideoLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscreenLayer, WTF::Function<void()>&& completionHandler, NativeImagePtr currentImage)
+void VideoLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscreenLayer, WTF::Function<void()>&& completionHandler, PlatformImagePtr currentImage)
 {
     if (m_videoFullscreenLayer == videoFullscreenLayer) {
         completionHandler();
@@ -105,8 +124,8 @@ void VideoLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscre
             [m_videoInlineLayer setContents:(__bridge id)currentImage.get()];
 
         if (m_videoFullscreenLayer) {
-            [m_videoFullscreenLayer insertSublayer:m_videoLayer.get() atIndex:0];
             [m_videoLayer setFrame:CGRectMake(0, 0, m_videoFullscreenFrame.width(), m_videoFullscreenFrame.height())];
+            [m_videoFullscreenLayer insertSublayer:m_videoLayer.get() atIndex:0];
         } else if (m_videoInlineLayer) {
             [m_videoLayer setFrame:[m_videoInlineLayer bounds]];
             [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
@@ -131,6 +150,11 @@ void VideoLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscre
     [CATransaction commit];
 }
 
+FloatRect VideoLayerManagerObjC::videoFullscreenFrame() const
+{
+    return m_videoFullscreenFrame;
+}
+
 void VideoLayerManagerObjC::setVideoFullscreenFrame(FloatRect videoFullscreenFrame)
 {
     ALWAYS_LOG(LOGIDENTIFIER, videoFullscreenFrame.x(), ", ", videoFullscreenFrame.y(), ", ", videoFullscreenFrame.width(), ", ", videoFullscreenFrame.height());
@@ -143,17 +167,13 @@ void VideoLayerManagerObjC::setVideoFullscreenFrame(FloatRect videoFullscreenFra
     syncTextTrackBounds();
 }
 
-#endif
-
-void VideoLayerManagerObjC::didDestroyVideoLayer()
+void VideoLayerManagerObjC::updateVideoFullscreenInlineImage(PlatformImagePtr image)
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
-
-    [m_videoLayer removeFromSuperlayer];
-
-    m_videoInlineLayer = nil;
-    m_videoLayer = nil;
+    if (m_videoInlineLayer)
+        [m_videoInlineLayer setContents:(__bridge id)image.get()];
 }
+
+#endif
 
 bool VideoLayerManagerObjC::requiresTextTrackRepresentation() const
 {
@@ -182,14 +202,13 @@ void VideoLayerManagerObjC::syncTextTrackBounds()
 #endif
 }
 
-void VideoLayerManagerObjC::setTextTrackRepresentation(TextTrackRepresentation* representation)
+void VideoLayerManagerObjC::setTextTrackRepresentationLayer(PlatformLayer* representationLayer)
 {
 #if !ENABLE(VIDEO_PRESENTATION_MODE)
-    UNUSED_PARAM(representation);
+    UNUSED_PARAM(representationLayer);
 #else
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    PlatformLayer* representationLayer = representation ? representation->platformLayer() : nil;
     if (representationLayer == m_textTrackRepresentationLayer) {
         syncTextTrackBounds();
         return;

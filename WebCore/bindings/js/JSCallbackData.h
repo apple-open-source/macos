@@ -43,6 +43,7 @@ namespace WebCore {
 // (and synchronization would be slow).
 
 class JSCallbackData {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class CallbackType { Function, Object, FunctionOrObject };
 
@@ -61,7 +62,7 @@ protected:
 #endif
     }
     
-    static JSC::JSValue invokeCallback(JSDOMGlobalObject&, JSC::JSObject* callback, JSC::JSValue thisValue, JSC::MarkedArgumentBuffer&, CallbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException);
+    WEBCORE_EXPORT static JSC::JSValue invokeCallback(JSDOMGlobalObject&, JSC::JSObject* callback, JSC::JSValue thisValue, JSC::MarkedArgumentBuffer&, CallbackType, JSC::PropertyName functionName, NakedPtr<JSC::Exception>& returnedException);
 
 private:
     JSC::Weak<JSDOMGlobalObject> m_globalObject;
@@ -72,7 +73,7 @@ private:
 
 class JSCallbackDataStrong : public JSCallbackData {
 public:
-    JSCallbackDataStrong(JSC::JSObject* callback, JSDOMGlobalObject* globalObject, void*)
+    JSCallbackDataStrong(JSC::JSObject* callback, JSDOMGlobalObject* globalObject, void* = nullptr)
         : JSCallbackData(globalObject)
         , m_callback(globalObject->vm(), callback)
     {

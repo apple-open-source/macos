@@ -24,15 +24,12 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
-#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 
 #include "sudo_compat.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 int
 main(int argc, char *argv[])
@@ -56,5 +53,5 @@ main(int argc, char *argv[])
     }
     printf("};\n");
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }

@@ -360,8 +360,8 @@ os_log_t GSSHelperOSLog(void)
 			    &in,
 			    &out);
     if (ret) {
-	os_log_error(GSSHelperOSLog(),  "Failed to renew credentials for cache: %@",
-		     clientName);
+	os_log_error(GSSHelperOSLog(),  "Failed to renew credentials for cache: %@, %d",
+		     clientName, ret);
 	goto out;
     }
       

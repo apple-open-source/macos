@@ -26,7 +26,6 @@
 #include "config.h"
 #include "NetworkSession.h"
 
-#include "AdClickAttributionManager.h"
 #include "Logging.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
@@ -34,11 +33,11 @@
 #include "NetworkResourceLoader.h"
 #include "NetworkSessionCreationParameters.h"
 #include "PingLoad.h"
+#include "PrivateClickMeasurementManager.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessProxy.h"
 #include "WebSocketTask.h"
-#include <WebCore/AdClickAttribution.h>
 #include <WebCore/CookieJar.h>
 #include <WebCore/ResourceRequest.h>
 
@@ -91,7 +90,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     , m_firstPartyWebsiteDataRemovalMode(parameters.resourceLoadStatisticsParameters.firstPartyWebsiteDataRemovalMode)
     , m_standaloneApplicationDomain(parameters.resourceLoadStatisticsParameters.standaloneApplicationDomain)
 #endif
-    , m_adClickAttribution(makeUniqueRef<AdClickAttributionManager>(networkProcess, parameters.sessionID))
+    , m_privateClickMeasurement(makeUniqueRef<PrivateClickMeasurementManager>(*this, networkProcess, parameters.sessionID))
     , m_testSpeedMultiplier(parameters.testSpeedMultiplier)
     , m_allowsServerPreconnect(parameters.allowsServerPreconnect)
 {
@@ -120,7 +119,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 
     m_isStaleWhileRevalidateEnabled = parameters.staleWhileRevalidateEnabled;
 
-    m_adClickAttribution->setPingLoadFunction([this, weakThis = makeWeakPtr(this)](NetworkResourceLoadParameters&& loadParameters, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse&)>&& completionHandler) {
+    m_privateClickMeasurement->setPingLoadFunction([this, weakThis = makeWeakPtr(this)](NetworkResourceLoadParameters&& loadParameters, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse&)>&& completionHandler) {
         if (!weakThis)
             return;
         // PingLoad manages its own lifetime, deleting itself when its purpose has been fulfilled.
@@ -148,20 +147,12 @@ void NetworkSession::destroyResourceLoadStatistics(CompletionHandler<void()>&& c
     m_resourceLoadStatistics->didDestroyNetworkSession(WTFMove(completionHandler));
     m_resourceLoadStatistics = nullptr;
 }
-
-void NetworkSession::flushAndDestroyPersistentStore(CompletionHandler<void()>&& completionHandler)
-{
-    if (!m_resourceLoadStatistics)
-        return completionHandler();
-
-    m_resourceLoadStatistics->flushAndDestroyPersistentStore(WTFMove(completionHandler));
-}
 #endif
 
 void NetworkSession::invalidateAndCancel()
 {
-    for (auto* task : m_dataTaskSet)
-        task->invalidateAndCancel();
+    for (auto& task : m_dataTaskSet)
+        task.invalidateAndCancel();
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (m_resourceLoadStatistics)
         m_resourceLoadStatistics->invalidateAndCancel();
@@ -232,11 +223,6 @@ void NetworkSession::notifyResourceLoadStatisticsProcessed()
 void NetworkSession::logDiagnosticMessageWithValue(const String& message, const String& description, unsigned value, unsigned significantFigures, WebCore::ShouldSample shouldSample)
 {
     m_networkProcess->parentProcessConnection()->send(Messages::WebPageProxy::LogDiagnosticMessageWithValue(message, description, value, significantFigures, shouldSample), 0);
-}
-
-void NetworkSession::notifyPageStatisticsTelemetryFinished(unsigned numberOfPrevalentResources, unsigned numberOfPrevalentResourcesWithUserInteraction, unsigned numberOfPrevalentResourcesWithoutUserInteraction, unsigned topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, unsigned medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, unsigned top3NumberOfPrevalentResourcesWithUI, unsigned top3MedianSubFrameWithoutUI, unsigned top3MedianSubResourceWithoutUI, unsigned top3MedianUniqueRedirectsWithoutUI, unsigned top3MedianDataRecordsRemovedWithoutUI)
-{
-    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::NotifyResourceLoadStatisticsTelemetryFinished(numberOfPrevalentResources, numberOfPrevalentResourcesWithUserInteraction, numberOfPrevalentResourcesWithoutUserInteraction, topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, top3NumberOfPrevalentResourcesWithUI, top3MedianSubFrameWithoutUI, top3MedianSubResourceWithoutUI, top3MedianUniqueRedirectsWithoutUI, top3MedianDataRecordsRemovedWithoutUI), 0);
 }
 
 void NetworkSession::deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domains, bool shouldNotifyPage, CompletionHandler<void(const HashSet<RegistrableDomain>&)>&& completionHandler)
@@ -317,44 +303,54 @@ void NetworkSession::resetCNAMEDomainData()
 }
 #endif // ENABLE(RESOURCE_LOAD_STATISTICS)
 
-void NetworkSession::storeAdClickAttribution(WebCore::AdClickAttribution&& adClickAttribution)
+void NetworkSession::storePrivateClickMeasurement(WebCore::PrivateClickMeasurement&& privateClickMeasurement)
 {
-    m_adClickAttribution->storeUnconverted(WTFMove(adClickAttribution));
+    m_privateClickMeasurement->storeUnattributed(WTFMove(privateClickMeasurement));
 }
 
-void NetworkSession::handleAdClickAttributionConversion(AdClickAttribution::Conversion&& conversion, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest)
+void NetworkSession::handlePrivateClickMeasurementConversion(PrivateClickMeasurement::AttributionTriggerData&& attributionTriggerData, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest)
 {
-    m_adClickAttribution->handleConversion(WTFMove(conversion), requestURL, redirectRequest);
+    m_privateClickMeasurement->handleAttribution(WTFMove(attributionTriggerData), requestURL, redirectRequest);
 }
 
-void NetworkSession::dumpAdClickAttribution(CompletionHandler<void(String)>&& completionHandler)
+void NetworkSession::dumpPrivateClickMeasurement(CompletionHandler<void(String)>&& completionHandler)
 {
-    m_adClickAttribution->toString(WTFMove(completionHandler));
+    m_privateClickMeasurement->toString(WTFMove(completionHandler));
 }
 
-void NetworkSession::clearAdClickAttribution()
+void NetworkSession::clearPrivateClickMeasurement()
 {
-    m_adClickAttribution->clear();
+    m_privateClickMeasurement->clear();
 }
 
-void NetworkSession::clearAdClickAttributionForRegistrableDomain(WebCore::RegistrableDomain&& domain)
+void NetworkSession::clearPrivateClickMeasurementForRegistrableDomain(WebCore::RegistrableDomain&& domain)
 {
-    m_adClickAttribution->clearForRegistrableDomain(WTFMove(domain));
+    m_privateClickMeasurement->clearForRegistrableDomain(WTFMove(domain));
 }
 
-void NetworkSession::setAdClickAttributionOverrideTimerForTesting(bool value)
+void NetworkSession::setPrivateClickMeasurementOverrideTimerForTesting(bool value)
 {
-    m_adClickAttribution->setOverrideTimerForTesting(value);
+    m_privateClickMeasurement->setOverrideTimerForTesting(value);
 }
 
-void NetworkSession::setAdClickAttributionConversionURLForTesting(URL&& url)
+void NetworkSession::markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&& completionHandler)
 {
-    m_adClickAttribution->setConversionURLForTesting(WTFMove(url));
+    m_privateClickMeasurement->markAttributedPrivateClickMeasurementsAsExpiredForTesting(WTFMove(completionHandler));
 }
 
-void NetworkSession::markAdClickAttributionsAsExpiredForTesting()
+void NetworkSession::setPrivateClickMeasurementConversionURLForTesting(URL&& url)
 {
-    m_adClickAttribution->markAllUnconvertedAsExpiredForTesting();
+    m_privateClickMeasurement->setConversionURLForTesting(WTFMove(url));
+}
+
+void NetworkSession::markPrivateClickMeasurementsAsExpiredForTesting()
+{
+    m_privateClickMeasurement->markAllUnattributedAsExpiredForTesting();
+}
+
+void NetworkSession::firePrivateClickMeasurementTimerImmediately()
+{
+    m_privateClickMeasurement->startTimer(0_s);
 }
 
 void NetworkSession::addKeptAliveLoad(Ref<NetworkResourceLoader>&& loader)
@@ -374,6 +370,16 @@ void NetworkSession::removeKeptAliveLoad(NetworkResourceLoader& loader)
 std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol)
 {
     return nullptr;
+}
+
+void NetworkSession::registerNetworkDataTask(NetworkDataTask& task)
+{
+    m_dataTaskSet.add(task);
+}
+
+void NetworkSession::unregisterNetworkDataTask(NetworkDataTask& task)
+{
+    m_dataTaskSet.remove(task);
 }
 
 } // namespace WebKit

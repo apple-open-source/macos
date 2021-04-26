@@ -39,9 +39,11 @@
 #include "PluginProcessConnectionManager.h"
 #include "ShareableBitmap.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebEvent.h"
+#include "WebKeyboardEvent.h"
+#include "WebMouseEvent.h"
 #include "WebProcess.h"
 #include "WebProcessConnectionMessages.h"
+#include "WebWheelEvent.h"
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/SharedBuffer.h>
 
@@ -54,22 +56,15 @@ static uint64_t generatePluginInstanceID()
     return ++uniquePluginInstanceID;
 }
 
-Ref<PluginProxy> PluginProxy::create(uint64_t pluginProcessToken, bool isRestartedProcess)
+Ref<PluginProxy> PluginProxy::create(uint64_t pluginProcessToken)
 {
-    return adoptRef(*new PluginProxy(pluginProcessToken, isRestartedProcess));
+    return adoptRef(*new PluginProxy(pluginProcessToken));
 }
 
-PluginProxy::PluginProxy(uint64_t pluginProcessToken, bool isRestartedProcess)
+PluginProxy::PluginProxy(uint64_t pluginProcessToken)
     : Plugin(PluginProxyType)
     , m_pluginProcessToken(pluginProcessToken)
     , m_pluginInstanceID(generatePluginInstanceID())
-    , m_pluginBackingStoreContainsValidData(false)
-    , m_isStarted(false)
-    , m_waitingForPaintInResponseToUpdate(false)
-    , m_wantsWheelEvents(false)
-    , m_remoteLayerClientID(0)
-    , m_waitingOnAsynchronousInitialization(false)
-    , m_isRestartedProcess(isRestartedProcess)
 {
 }
 

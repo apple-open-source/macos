@@ -51,22 +51,6 @@ WI.CollectionContentView = class CollectionContentView extends WI.ContentView
         return [];
     }
 
-    shown()
-    {
-        super.shown();
-
-        for (let contentView of this._contentViewMap.values())
-            contentView.shown();
-    }
-
-    hidden()
-    {
-        for (let contentView of this._contentViewMap.values())
-            contentView.hidden();
-
-        super.hidden();
-    }
-
     get selectionEnabled()
     {
         return this._selectionEnabled;
@@ -131,12 +115,6 @@ WI.CollectionContentView = class CollectionContentView extends WI.ContentView
 
         this.addSubview(contentView);
         this.contentViewAdded(contentView);
-
-        if (!this.visible)
-            return;
-
-        contentView.visible = true;
-        contentView.shown();
     }
 
     removeContentViewForItem(item)
@@ -155,13 +133,6 @@ WI.CollectionContentView = class CollectionContentView extends WI.ContentView
         this.removeSubview(contentView);
         this._contentViewMap.delete(item);
         this.contentViewRemoved(contentView);
-
-        if (this.visible) {
-            contentView.visible = false;
-            contentView.hidden();
-        }
-
-        contentView.removeEventListener(null, null, this);
 
         if (!this.subviews.length)
             this.showContentPlaceholder();
@@ -231,7 +202,8 @@ WI.CollectionContentView = class CollectionContentView extends WI.ContentView
 
     detached()
     {
-        this.representedObject.removeEventListener(null, null, this);
+        this.representedObject.removeEventListener(WI.Collection.Event.ItemAdded, this._handleItemAdded, this);
+        this.representedObject.removeEventListener(WI.Collection.Event.ItemRemoved, this._handleItemRemoved, this);
 
         super.detached();
     }

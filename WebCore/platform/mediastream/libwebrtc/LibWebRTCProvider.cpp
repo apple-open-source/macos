@@ -69,6 +69,10 @@ bool LibWebRTCProvider::webRTCAvailable()
 void LibWebRTCProvider::registerWebKitVP9Decoder()
 {
 }
+
+void LibWebRTCProvider::setH264HardwareEncoderAllowed(bool)
+{
+}
 #endif
 
 void LibWebRTCProvider::setActive(bool)
@@ -260,7 +264,7 @@ webrtc::PeerConnectionFactoryInterface* LibWebRTCProvider::factory()
 
     auto& factoryAndThreads = getStaticFactoryAndThreads(m_useNetworkThreadWithSocketServer);
 
-    m_factory = createPeerConnectionFactory(factoryAndThreads.networkThread.get(), factoryAndThreads.networkThread.get());
+    m_factory = createPeerConnectionFactory(factoryAndThreads.networkThread.get(), factoryAndThreads.signalingThread.get());
 
     return m_factory;
 }
@@ -399,8 +403,18 @@ static inline RTCRtpCapabilities toRTCRtpCapabilities(const webrtc::RtpCapabilit
     RTCRtpCapabilities capabilities;
 
     capabilities.codecs.reserveInitialCapacity(rtpCapabilities.codecs.size());
-    for (auto& codec : rtpCapabilities.codecs)
-        capabilities.codecs.uncheckedAppend(RTCRtpCodecCapability { fromStdString(codec.mime_type()), static_cast<uint32_t>(codec.clock_rate ? *codec.clock_rate : 0), toChannels(codec.num_channels), { } });
+    for (auto& codec : rtpCapabilities.codecs) {
+        StringBuilder sdpFmtpLineBuilder;
+        bool hasParameter = false;
+        for (auto& parameter : codec.parameters) {
+            sdpFmtpLineBuilder.append(hasParameter ? ";" : "", StringView(parameter.first.data(), parameter.first.length()), '=', StringView(parameter.second.data(), parameter.second.length()));
+            hasParameter = true;
+        }
+        String sdpFmtpLine;
+        if (sdpFmtpLineBuilder.length())
+            sdpFmtpLine = sdpFmtpLineBuilder.toString();
+        capabilities.codecs.uncheckedAppend(RTCRtpCodecCapability { fromStdString(codec.mime_type()), static_cast<uint32_t>(codec.clock_rate ? *codec.clock_rate : 0), toChannels(codec.num_channels), WTFMove(sdpFmtpLine) });
+    }
 
     capabilities.headerExtensions.reserveInitialCapacity(rtpCapabilities.header_extensions.size());
     for (auto& header : rtpCapabilities.header_extensions)

@@ -28,10 +28,12 @@
 
 #import "CookieStorageUtilsCF.h"
 #import "DefaultWebBrowserChecks.h"
+#import "NetworkProcessProxy.h"
 #import "SandboxUtilities.h"
 #import "StorageManager.h"
 #import "WebFramePolicyListenerProxy.h"
 #import "WebPreferencesKeys.h"
+#import "WebProcessProxy.h"
 #import "WebResourceLoadStatisticsStore.h"
 #import "WebsiteDataStoreParameters.h"
 #import <WebCore/NetworkStorageSession.h>
@@ -44,6 +46,7 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/URL.h>
+#import <wtf/cocoa/Entitlements.h>
 #import <wtf/text/StringBuilder.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -61,16 +64,15 @@ static HashSet<WebsiteDataStore*>& dataStores()
     return dataStores;
 }
 
-static NSString * const WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey = @"WebKitNetworkLoadThrottleLatencyMilliseconds";
-
+#if ENABLE(APP_BOUND_DOMAINS)
 static WorkQueue& appBoundDomainQueue()
 {
     static auto& queue = WorkQueue::create("com.apple.WebKit.AppBoundDomains", WorkQueue::Type::Serial).leakRef();
     return queue;
 }
-
 static std::atomic<bool> hasInitializedAppBoundDomains = false;
 static std::atomic<bool> keyExists = false;
+#endif
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
 WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlockingMode() const
@@ -112,7 +114,6 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
         else
             firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies;
     }
-    m_isInAppBrowserPrivacyTestModeEnabled = [defaults boolForKey:[NSString stringWithFormat:@"WebKitDebug%@", WebPreferencesKey::isInAppBrowserPrivacyEnabledKey().createCFString().get()]];
 
     auto* manualPrevalentResource = [defaults stringForKey:@"ITPManualPrevalentResource"];
     if (manualPrevalentResource) {
@@ -167,7 +168,6 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     parameters.networkSessionParameters.sourceApplicationBundleIdentifier = configuration().sourceApplicationBundleIdentifier();
     parameters.networkSessionParameters.sourceApplicationSecondaryIdentifier = configuration().sourceApplicationSecondaryIdentifier();
     parameters.networkSessionParameters.shouldLogCookieInformation = shouldLogCookieInformation;
-    parameters.networkSessionParameters.loadThrottleLatency = Seconds { [defaults integerForKey:WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey] / 1000. };
     parameters.networkSessionParameters.httpProxy = WTFMove(httpProxy);
     parameters.networkSessionParameters.httpsProxy = WTFMove(httpsProxy);
 #if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
@@ -215,8 +215,9 @@ void WebsiteDataStore::platformInitialize()
 {
     ASSERT(!dataStores().contains(this));
     dataStores().add(this);
-
+#if ENABLE(APP_BOUND_DOMAINS)
     initializeAppBoundDomains();
+#endif
 }
 
 void WebsiteDataStore::platformDestroy()
@@ -393,6 +394,7 @@ WTF::String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const
     return url.absoluteURL.path.fileSystemRepresentation;
 }
 
+#if ENABLE(APP_BOUND_DOMAINS)
 static HashSet<WebCore::RegistrableDomain>& appBoundDomains()
 {
     ASSERT(RunLoop::isMain());
@@ -473,9 +475,8 @@ void WebsiteDataStore::addTestDomains() const
 void WebsiteDataStore::ensureAppBoundDomains(CompletionHandler<void(const HashSet<WebCore::RegistrableDomain>&, const HashSet<String>&)>&& completionHandler) const
 {
     if (hasInitializedAppBoundDomains) {
-        if (m_isInAppBrowserPrivacyTestModeEnabled) {
+        if (m_configuration->enableInAppBrowserPrivacyForTesting())
             addTestDomains();
-        }
         completionHandler(appBoundDomains(), appBoundSchemes());
         return;
     }
@@ -485,27 +486,25 @@ void WebsiteDataStore::ensureAppBoundDomains(CompletionHandler<void(const HashSe
     appBoundDomainQueue().dispatch([this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] () mutable {
         RunLoop::main().dispatch([this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)] () mutable {
             ASSERT(hasInitializedAppBoundDomains);
-            if (m_isInAppBrowserPrivacyTestModeEnabled) {
+            if (m_configuration->enableInAppBrowserPrivacyForTesting())
                 addTestDomains();
-            }
             completionHandler(appBoundDomains(), appBoundSchemes());
         });
     });
 }
 
-static NavigatingToAppBoundDomain schemeOrDomainIsAppBound(const URL& requestURL, const HashSet<WebCore::RegistrableDomain>& domains, const HashSet<String>& schemes)
+static NavigatingToAppBoundDomain schemeOrDomainIsAppBound(const String& host, const String& protocol, const HashSet<WebCore::RegistrableDomain>& domains, const HashSet<String>& schemes)
 {
-    auto protocol = requestURL.protocol().toString();
     auto schemeIsAppBound = !protocol.isNull() && schemes.contains(protocol);
-    auto domainIsAppBound = domains.contains(WebCore::RegistrableDomain(requestURL));
+    auto domainIsAppBound = domains.contains(WebCore::RegistrableDomain::uncheckedCreateFromHost(host));
     return schemeIsAppBound || domainIsAppBound ? NavigatingToAppBoundDomain::Yes : NavigatingToAppBoundDomain::No;
 }
 
-void WebsiteDataStore::beginAppBoundDomainCheck(const URL& requestURL, WebFramePolicyListenerProxy& listener)
+void WebsiteDataStore::beginAppBoundDomainCheck(const String& host, const String& protocol, WebFramePolicyListenerProxy& listener)
 {
     ASSERT(RunLoop::isMain());
 
-    ensureAppBoundDomains([&requestURL, listener = makeRef(listener)] (auto& domains, auto& schemes) mutable {
+    ensureAppBoundDomains([&host, &protocol, listener = makeRef(listener)] (auto& domains, auto& schemes) mutable {
         // Must check for both an empty app bound domains list and an empty key before returning nullopt
         // because test cases may have app bound domains but no key.
         bool hasAppBoundDomains = keyExists || !domains.isEmpty();
@@ -513,7 +512,7 @@ void WebsiteDataStore::beginAppBoundDomainCheck(const URL& requestURL, WebFrameP
             listener->didReceiveAppBoundDomainResult(WTF::nullopt);
             return;
         }
-        listener->didReceiveAppBoundDomainResult(schemeOrDomainIsAppBound(requestURL, domains, schemes));
+        listener->didReceiveAppBoundDomainResult(schemeOrDomainIsAppBound(host, protocol, domains, schemes));
     });
 }
 
@@ -557,6 +556,31 @@ void WebsiteDataStore::reinitializeAppBoundDomains()
 {
     hasInitializedAppBoundDomains = false;
     initializeAppBoundDomains(ForceReinitialization::Yes);
+}
+#endif
+
+bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String& entitlement)
+{
+    return WTF::hasEntitlement(networkProcess().connection()->xpcConnection(), entitlement.utf8().data());
+}
+
+void WebsiteDataStore::sendNetworkProcessXPCEndpointToWebProcess(WebProcessProxy& process)
+{
+    if (process.state() != AuxiliaryProcessProxy::State::Running)
+        return;
+    auto* connection = process.connection();
+    if (!connection)
+        return;
+    auto message = networkProcess().xpcEndpointMessage();
+    if (!message)
+        return;
+    xpc_connection_send_message(connection->xpcConnection(), message);
+}
+
+void WebsiteDataStore::sendNetworkProcessXPCEndpointToAllWebProcesses()
+{
+    for (auto& process : m_processes)
+        sendNetworkProcessXPCEndpointToWebProcess(process);
 }
 
 }

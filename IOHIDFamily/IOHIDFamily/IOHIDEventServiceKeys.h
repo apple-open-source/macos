@@ -129,4 +129,16 @@
  */
 #define kIOHIDHeightKey "Height"
 
+/*!
+ * @define kIOHIDEventDriverHandlesReport
+ *
+ * @abstract
+ * Boolean property used to let handleReport in an IOUserHIDEventDriver get the
+ * report before any other processing is done in IOUserHIDEventService.
+ * If this property is enabled the IOUserHIDEventService subclass should update
+ * the elements with IOHIDInterface::processReport to update the IOHIDElements as
+ * IOUserHIDEventService will not do this like when this property is not set.
+ */
+#define kIOHIDEventDriverHandlesReport "IOHIDEventDriverHandlesReport"
+
 #endif /* IOHIDDeviceTypes_h */

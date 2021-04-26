@@ -24,12 +24,10 @@ messages -> DownloadProxy {
     DidStart(WebCore::ResourceRequest request, AtomString suggestedFilename)
     DidReceiveAuthenticationChallenge(WebCore::AuthenticationChallenge challenge, uint64_t challengeID)
     WillSendRequest(WebCore::ResourceRequest redirectRequest, WebCore::ResourceResponse redirectResponse))
-    DecideDestinationWithSuggestedFilenameAsync(WebKit::DownloadID downloadID, String suggestedFilename)
+    DecideDestinationWithSuggestedFilename(WebCore::ResourceResponse response, String suggestedFilename) -> (String filename, WebKit::SandboxExtension::Handle handle, enum:bool WebKit::AllowOverwrite allowOverwrite) Async
 
-    DidReceiveResponse(WebCore::ResourceResponse response)
     DidReceiveData(uint64_t bytesWritten, uint64_t totalBytesWritten, uint64_t totalBytesExpectedToWrite)
     DidCreateDestination(String path)
     DidFinish()
     DidFail(WebCore::ResourceError error, IPC::DataReference resumeData)
-    DidCancel(IPC::DataReference resumeData)
 }

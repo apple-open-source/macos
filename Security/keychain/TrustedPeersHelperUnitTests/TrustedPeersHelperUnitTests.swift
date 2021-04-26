@@ -50,7 +50,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         tmpURL = URL(fileURLWithPath: tmpPath, isDirectory: true)
         do {
             try FileManager.default.createDirectory(atPath: String(format: "%@/Library/Keychains", tmpPath), withIntermediateDirectories: true, attributes: nil)
-            SetCustomHomeURLString(tmpPath as CFString)
+            SecSetCustomHomeURLString(tmpPath as CFString)
             SecKeychainDbReset(nil)
         } catch {
             XCTFail("setUp failed: \(error)")
@@ -1790,12 +1790,38 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerC.dumpSync(test: self)
     }
 
-    func testDepart() throws {
+    func testDepartLastTrustedPeer() throws {
         let description = tmpStoreDescription(name: "container.db")
         let (container, peerID) = try establish(reload: false, store: description)
 
-        XCTAssertNil(container.departByDistrustingSelfSync(test: self), "Should be no error distrusting self")
-        assertDistrusts(context: container, peerIDs: [peerID])
+        XCTAssertNotNil(container.departByDistrustingSelfSync(test: self), "Should be an error distrusting self (when it's illegal to do so)")
+
+        // But, having no trusted peers is not a valid state. So, this peer must still trust itself...
+        assertTrusts(context: container, peerIDs: [peerID])
+    }
+
+    func testDepart() throws {
+        let store = tmpStoreDescription(name: "container.db")
+        let (c, peerID1) = try establish(reload: false, store: store)
+
+        let (c2, peerID2) = try joinByVoucher(sponsor: c,
+                                              containerID: "second",
+                                              machineID: "bbb",
+                                              machineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false,
+                                              store: store)
+
+        let (_, _, cUpdateError) = c.updateSync(test: self)
+        XCTAssertNil(cUpdateError, "Should be able to update first container")
+        assertTrusts(context: c, peerIDs: [peerID1, peerID2])
+
+        XCTAssertNil(c.departByDistrustingSelfSync(test: self), "Should be no error distrusting self")
+        assertDistrusts(context: c, peerIDs: [peerID1])
+        assertTrusts(context: c, peerIDs: [])
+
+        let (_, _, c2UpdateError) = c2.updateSync(test: self)
+        XCTAssertNil(c2UpdateError, "Should be able to update second container")
+        assertDistrusts(context: c2, peerIDs: [peerID1])
+        assertTrusts(context: c2, peerIDs: [peerID2])
     }
 
     func testDistrustPeers() throws {
@@ -2608,6 +2634,41 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         // Setting the list again should kick out X, since it was 'added' too long ago
         XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: ["aaa", "bbb"], accountIsDemo: false, listDifference: true), "should be able to set allowed machine IDs")
         try self.assert(container: container, allowedMachineIDs: Set(["aaa", "bbb"]), disallowedMachineIDs: Set(["ccc", "ddd", "eee", "xxx"]), persistentStore: description, cuttlefish: self.cuttlefish)
+    }
+
+    func testSingleDeviceWillNotDepartWhenTakenOffMIDList() throws {
+        let description = tmpStoreDescription(name: "container.db")
+        let container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+
+        XCTAssertNil(error)
+        XCTAssertNotNil(peerID)
+        XCTAssertNotNil(permanentInfo)
+        XCTAssertNotNil(permanentInfoSig)
+
+        try self.assert(container: container, allowedMachineIDs: [], disallowedMachineIDs: [], persistentStore: description, cuttlefish: self.cuttlefish)
+
+        XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false), "should be able to set allowed machine IDs")
+        let (_, _, _, establishError) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+        XCTAssertNil(establishError, "Should be able to establish() with no error")
+        try self.assert(container: container, allowedMachineIDs: Set(["aaa", "bbb", "ccc"]), disallowedMachineIDs: Set([]), persistentStore: description, cuttlefish: self.cuttlefish)
+        XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
+
+        // Removing the peer from the MID list doesn't cause the sole peer to distrust itself
+        XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: [], accountIsDemo: false), "should be able to set allowed machine IDs")
+        try self.assert(container: container, allowedMachineIDs: Set([]), disallowedMachineIDs: Set(["aaa", "bbb", "ccc"]), persistentStore: description, cuttlefish: self.cuttlefish)
+
+        do {
+            let (_, _, updateError) = container.updateSync(test: self)
+            XCTAssertNil(updateError, "Should not be an error updating the container after establishing")
+        }
+
+        assertTrusts(context: container, peerIDs: [peerID!])
+
+        // THe update() will wipe out the deny-listing of bbb and ccc, but we should keep aaa. around.
+        try self.assert(container: container, allowedMachineIDs: Set([]), disallowedMachineIDs: Set(["aaa"]), persistentStore: description, cuttlefish: self.cuttlefish)
+        XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
     }
 
     func testAllowSetUpgrade() throws {

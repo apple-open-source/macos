@@ -68,11 +68,9 @@ public:
 
     void drawGlyphs(const Font&, const GlyphBuffer&, unsigned, unsigned, const FloatPoint&, FontSmoothingMode) override;
 
-    ImageDrawResult drawImage(Image&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) override;
-    ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatPoint&, const FloatSize&, const FloatSize&, const ImagePaintingOptions&) override;
-    ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatRect&, const FloatSize&, Image::TileRule, Image::TileRule, const ImagePaintingOptions&) override;
-    void drawNativeImage(const NativeImagePtr&, const FloatSize&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) override;
-    void drawPattern(Image&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, const ImagePaintingOptions&) override;
+    bool drawImageBuffer(ImageBuffer&, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions&) override;
+    bool drawNativeImage(NativeImage&, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
+    void drawPattern((NativeImage&, const FloatSize& imageSize, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, const ImagePaintingOptions&) override;
 
     void drawRect(const FloatRect&, float) override;
     void drawLine(const FloatPoint&, const FloatPoint&) override;
@@ -103,6 +101,9 @@ public:
     void clipPath(const Path&, WindRule) override;
     IntRect clipBounds() override;
     void clipToImageBuffer(ImageBuffer&, const FloatRect&) override;
+    void clipToDrawingCommands(const FloatRect& destination, ColorSpace, Function<void(GraphicsContext&)>&&) override;
+    void paintFrameForMedia(MediaPlayer&, const FloatRect& destination) override;
+    bool canPaintFrameForMedia(const MediaPlayer&) const override { return false; }
     
     void applyDeviceScaleFactor(float) override;
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -43,12 +43,15 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.x";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).h",
 				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE)_xdr.c",
 			);
-			script = "RPCGEN=/System/Library/PrivateFrameworks/oncrpc.framework/bin/rpcgen &&\n$RPCGEN -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH} &&\n$RPCGEN -x -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}";
+			runOncePerArchitecture = 0;
+			script = "RPCGEN=/System/Library/PrivateFrameworks/oncrpc.framework/bin/rpcgen &&\n$RPCGEN -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH} &&\n$RPCGEN -x -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}\n";
 		};
 /* End PBXBuildRule section */
 

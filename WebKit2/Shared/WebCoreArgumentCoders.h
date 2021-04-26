@@ -34,6 +34,7 @@
 #include <WebCore/IndexedDB.h>
 #include <WebCore/InputMode.h>
 #include <WebCore/MediaSelectionOption.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/NotificationDirection.h>
 #include <WebCore/RealtimeMediaSource.h>
@@ -62,8 +63,19 @@
 #include <WebCore/CDMInstanceSession.h>
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+#include <WebCore/InspectorOverlay.h>
+#endif
+
 #if PLATFORM(GTK)
 #include "ArgumentCodersGtk.h"
+#endif
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+#include "ArrayReference.h"
+#include <WebCore/GraphicsContextGL.h>
+#include <WebCore/GraphicsContextGLAttributes.h>
+#include <WebCore/GraphicsTypesGL.h>
 #endif
 
 #if PLATFORM(COCOA)
@@ -94,7 +106,8 @@ class FloatRect;
 class FloatRoundedRect;
 class FloatSize;
 class FixedPositionViewportConstraints;
-class FontHandle;
+class Font;
+class FontPlatformData;
 class HTTPHeaderMap;
 class ImageHandle;
 class IntPoint;
@@ -104,7 +117,6 @@ class KeyframeValueList;
 class LayoutSize;
 class LayoutPoint;
 class LinearTimingFunction;
-class NativeImageHandle;
 class Notification;
 class PasteboardCustomData;
 class PaymentInstallmentConfiguration;
@@ -162,7 +174,6 @@ struct KeypressCommand;
 #if PLATFORM(IOS_FAMILY)
 class FloatQuad;
 class SelectionRect;
-struct Highlight;
 struct PasteboardImage;
 struct PasteboardWebContent;
 #endif
@@ -187,10 +198,6 @@ class ContentFilterUnblockHandler;
 class MediaPlaybackTargetContext;
 #endif
 
-#if ENABLE(MEDIA_SESSION)
-class MediaSessionMetadata;
-#endif
-
 #if ENABLE(MEDIA_STREAM)
 struct MediaConstraints;
 #endif
@@ -201,6 +208,10 @@ struct SerializedAttachmentData;
 
 #if ENABLE(INDEXED_DATABASE)
 using IDBKeyPath = Variant<String, Vector<String>>;
+#endif
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+struct GraphicsContextGLAttributes;
 #endif
 
 namespace DOMCacheEngine {
@@ -407,21 +418,16 @@ template<> struct ArgumentCoder<WebCore::Cursor> {
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::Cursor&);
 };
 
-template<> struct ArgumentCoder<WebCore::FontHandle> {
-    static void encode(Encoder&, const WebCore::FontHandle&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::FontHandle&);
-    static void encodePlatformData(Encoder&, const WebCore::FontHandle&);
-    static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::FontHandle&);
+template<> struct ArgumentCoder<Ref<WebCore::Font>> {
+    static void encode(Encoder&, const Ref<WebCore::Font>&);
+    static Optional<Ref<WebCore::Font>> decode(Decoder&);
+    static void encodePlatformData(Encoder&, const Ref<WebCore::Font>&);
+    static Optional<WebCore::FontPlatformData> decodePlatformData(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::ImageHandle> {
     static void encode(Encoder&, const WebCore::ImageHandle&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ImageHandle&);
-};
-
-template<> struct ArgumentCoder<WebCore::NativeImageHandle> {
-    static void encode(Encoder&, const WebCore::NativeImageHandle&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::NativeImageHandle&);
 };
 
 template<> struct ArgumentCoder<WebCore::ResourceRequest> {
@@ -489,9 +495,9 @@ template<> struct ArgumentCoder<WebCore::SelectionRect> {
     static Optional<WebCore::SelectionRect> decode(Decoder&);
 };
 
-template<> struct ArgumentCoder<WebCore::Highlight> {
-    static void encode(Encoder&, const WebCore::Highlight&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::Highlight&);
+template<> struct ArgumentCoder<WebCore::InspectorOverlay::Highlight> {
+    static void encode(Encoder&, const WebCore::InspectorOverlay::Highlight&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::InspectorOverlay::Highlight&);
 };
 
 template<> struct ArgumentCoder<WebCore::PasteboardWebContent> {
@@ -632,13 +638,6 @@ template<> struct ArgumentCoder<WebCore::BlobPart> {
 template<> struct ArgumentCoder<WebCore::ContentFilterUnblockHandler> {
     static void encode(Encoder&, const WebCore::ContentFilterUnblockHandler&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ContentFilterUnblockHandler&);
-};
-#endif
-
-#if ENABLE(MEDIA_SESSION)
-template<> struct ArgumentCoder<WebCore::MediaSessionMetadata> {
-    static void encode(Encoder&, const WebCore::MediaSessionMetadata&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::MediaSessionMetadata&);
 };
 #endif
 
@@ -880,6 +879,19 @@ template<> struct ArgumentCoder<WebCore::PaymentInstallmentConfiguration> {
 };
 #endif
 
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+
+template<> struct ArgumentCoder<WebCore::GraphicsContextGLAttributes> {
+    static void encode(Encoder&, const WebCore::GraphicsContextGLAttributes&);
+    static Optional<WebCore::GraphicsContextGLAttributes> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo> {
+    static void encode(Encoder&, const WebCore::GraphicsContextGL::ActiveInfo&);
+    static Optional<WebCore::GraphicsContextGL::ActiveInfo> decode(Decoder&);
+};
+#endif
+
 } // namespace IPC
 
 namespace WTF {
@@ -896,12 +908,8 @@ template<> struct EnumTraits<WebCore::ColorSpace> {
 template<> struct EnumTraits<WebCore::RenderingMode> {
     using values = EnumValues<
     WebCore::RenderingMode,
-    WebCore::RenderingMode::Accelerated,
     WebCore::RenderingMode::Unaccelerated,
-    WebCore::RenderingMode::DisplayListAccelerated,
-    WebCore::RenderingMode::DisplayListUnaccelerated,
-    WebCore::RenderingMode::RemoteAccelerated,
-    WebCore::RenderingMode::RemoteUnaccelerated
+    WebCore::RenderingMode::Accelerated
     >;
 };
 
@@ -1050,6 +1058,28 @@ template <> struct EnumTraits<WebCore::CDMInstance::HDCPStatus> {
     >;
 };
 
+#endif
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+
+template <> struct EnumTraits<WebCore::GraphicsContextGLPowerPreference> {
+    using values = EnumValues <
+    WebCore::GraphicsContextGLPowerPreference,
+    WebCore::GraphicsContextGLPowerPreference::Default,
+    WebCore::GraphicsContextGLPowerPreference::LowPower,
+    WebCore::GraphicsContextGLPowerPreference::HighPerformance
+    >;
+};
+
+template <> struct EnumTraits<WebCore::GraphicsContextGLWebGLVersion> {
+    using values = EnumValues <
+    WebCore::GraphicsContextGLWebGLVersion,
+    WebCore::GraphicsContextGLWebGLVersion::WebGL1
+#if ENABLE(WEBGL2)
+    , WebCore::GraphicsContextGLWebGLVersion::WebGL2
+#endif
+    >;
+};
 #endif
 
 } // namespace WTF

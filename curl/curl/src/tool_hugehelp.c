@@ -363,10 +363,12 @@ void hugehelp(void)
 "              set as \"ENG\" if none was provided.\n"
 "\n"
 "              (iOS  and macOS only) If curl is built against Secure Transport,\n"
-"              then the certificate string can either be the name of a certifi-\n"
-"              cate/private  key in the system or user keychain, or the path to\n"
-"              a PKCS#12-encoded certificate and private key. If  you  want  to\n"
-"              use  a  file  from the current directory, please precede it with\n"
+"              then the certificate string can either be the name or public key\n"
+"              hash of a certificate/private key in the system or user keychain,\n"
+"              or the path to a PKCS#12-encoded certificate and private key.\n"
+"              A string beginning with \"pkh/\" will be interpreted as a public key\n"
+"              hash. If  you  want  to use  a  file  from the current directory,\n"
+"              please precede it with\n"
 , stdout);
  fputs(
 "              \"./\" prefix, in order to avoid confusion with a nickname.\n"

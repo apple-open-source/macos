@@ -30,6 +30,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+NSURL * _Nullable setUpTmpDir(void);
 int ping_host(char *host_name);
 
 @interface TestTrustEvaluation : NSObject

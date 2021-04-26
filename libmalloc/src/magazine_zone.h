@@ -226,6 +226,11 @@ typedef struct {
 
 typedef uint32_t region_cookie_t;
 
+OS_ENUM(rack_dispose_flags, uint32_t,
+	RACK_DISPOSE_DELAY = 0x1,
+	RACK_DISPOSE_NEEDED = 0x2,
+);
+
 typedef struct region_trailer {
 	struct region_trailer *prev;
 	struct region_trailer *next;
@@ -234,6 +239,8 @@ typedef struct region_trailer {
 	mag_index_t mag_index;
 	volatile int32_t pinned_to_depot;
 	bool recirc_suitable;
+	// Locking: dispose_flags must be locked under the rack's region lock
+	rack_dispose_flags_t dispose_flags;
 } region_trailer_t;
 
 typedef struct tiny_region {

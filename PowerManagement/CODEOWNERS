@@ -9,16 +9,16 @@
 #
 
 #Radar: PowerManagement | all
-*							@archana_venkatesh @jliu @saurabh_shah @vlingutla @kartik_venkatraman
+*							@archana_venkatesh @saurabh_shah @vlingutla @kartik_venkatraman
 
-CODEOWNERS					@kartik_venkatraman @archana_venkatesh @jliu @saurabh_shah @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel
+CODEOWNERS					@kartik_venkatraman @archana_venkatesh @saurabh_shah @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel
 
 #Radar: PowerManagement | (BatteryDataCollection|Health)
-*Battery*					@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @nwidzer @fisiaka @navneetk_22 @lawrence_cayton
-*/*Battery*					@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @nwidzer @fisiaka @navneetk_22 @lawrence_cayton
+*Battery*					@archana_venkatesh @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @nwidzer @fisiaka @navneetk_22 @lawrence_cayton
+*/*Battery*					@archana_venkatesh @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @nwidzer @fisiaka @navneetk_22 @lawrence_cayton
 
 #Radar: PowerManagement | Batteries
-AppleSmartBatteryManager/*	@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka
+AppleSmartBatteryManager/*	@archana_venkatesh @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka
 
 #Radar: PowerManagement | PowerSources
-ioupsd/*					@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka
+ioupsd/*					@archana_venkatesh @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka

@@ -26,9 +26,8 @@
 #pragma once
 
 #include "JSObject.h"
+#include <unicode/ucol.h>
 #include <wtf/unicode/icu/ICUHelpers.h>
-
-struct UCollator;
 
 namespace JSC {
 
@@ -92,9 +91,7 @@ private:
     enum class Sensitivity : uint8_t { Base, Accent, Case, Variant };
     enum class CaseFirst : uint8_t { Upper, Lower, False };
 
-    struct UCollatorDeleter {
-        void operator()(UCollator*) const;
-    };
+    using UCollatorDeleter = ICUDeleter<ucol_close>;
 
     static ASCIILiteral usageString(Usage);
     static ASCIILiteral sensitivityString(Sensitivity);

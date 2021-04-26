@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011,2012-2013,2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2011,2012-2013,2016-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -119,7 +119,7 @@ OSStatus SecIdentityCopyPreference(CFStringRef name, CSSM_KEYUSE keyUsage, CFArr
     @param keyUsage A CFArrayRef value, containing items defined in SecItem.h  Pass NULL to ignore this parameter. (kSecAttrCanEncrypt, kSecAttrCanDecrypt, kSecAttrCanDerive, kSecAttrCanSign, kSecAttrCanVerify, kSecAttrCanWrap, kSecAttrCanUnwrap)
     @param validIssuers (optional) An array of CFDataRef instances whose contents are the subject names of allowable issuers, as returned by a call to SSLCopyDistinguishedNames (SecureTransport.h). Pass NULL if any issuer is allowed.
     @result An identity or NULL, if the preferred identity has not been set. Your code should then typically perform a search for possible identities using the SecItem APIs.
-    @discussion If a preferred identity has not been set for the supplied name, the returned identity reference will be NULL. Your code should then perform a search for possible identities, using the SecItemCopyMatching API.
+    @discussion If a preferred identity has not been set for the supplied name, the returned identity reference will be NULL. Your code should then perform a search for possible identities, using the SecItemCopyMatching API. Note: in versions of macOS prior to 11.3, identity preferences are shared between processes running as the same user. Starting in 11.3, URI names are considered per-application preferences. An identity preference for a URI name may not be found if the calling application is different from the one which set the preference with SecIdentitySetPreferred.
 */
 __nullable
 SecIdentityRef SecIdentityCopyPreferred(CFStringRef name, CFArrayRef __nullable keyUsage, CFArrayRef __nullable validIssuers)
@@ -144,6 +144,7 @@ OSStatus SecIdentitySetPreference(SecIdentityRef identity, CFStringRef name, CSS
     @param name A string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies a service requiring this identity.
     @param keyUsage A CFArrayRef value, containing items defined in SecItem.h  Pass NULL to specify any key usage. (kSecAttrCanEncrypt, kSecAttrCanDecrypt, kSecAttrCanDerive, kSecAttrCanSign, kSecAttrCanVerify, kSecAttrCanWrap, kSecAttrCanUnwrap)
     @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion Note: in versions of macOS prior to 11.3, identity preferences are shared between processes running as the same user. Starting in 11.3, URI names are considered per-application preferences. An identity preference for a URI name will be scoped to the application which created it, such that a subsequent call to SecIdentityCopyPreferred will only return it for that same application.
 */
 OSStatus SecIdentitySetPreferred(SecIdentityRef __nullable identity, CFStringRef name, CFArrayRef __nullable keyUsage)
      __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);

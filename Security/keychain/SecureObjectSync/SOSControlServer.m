@@ -197,6 +197,11 @@
     [self.account iCloudIdentityStatus_internal:complete];
 }
 
+- (void)removeV0Peers:(void (^)(bool, NSError *))reply { 
+    [self.account removeV0Peers:reply];
+}
+
+
 
 @end
 

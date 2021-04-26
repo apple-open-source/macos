@@ -1,0 +1,34 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index f1545ce..340127b 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -67,7 +67,7 @@ Expat_Not_Installed;
+ 
+ if (not $expat_libpath and $] >= 5.006001 and $^O ne 'MSWin32') {
+   require ExtUtils::Liblist;		# Buggy before this
+-  ($expat_libpath) = ExtUtils::Liblist->ext('-lexpat');
++  ($expat_libpath) = ExtUtils::Liblist->ext([ '-L@SDKROOT@/usr/lib -lexpat ' ]);
+ }
+ 
+ =for cmt
+@@ -156,6 +156,7 @@ WriteMakefile1(
+       repository => 'http://github.com/chorny/XML-Parser',
+     },
+   },
++  LIBS => [ '-L@SDKROOT@/usr/lib -lexpat ' ],
+   #BUILD_REQUIRES => {
+   #},
+ 
+diff --git a/Expat/Makefile.PL b/Expat/Makefile.PL
+index 6d5111c..20d02f8 100644
+--- a/Expat/Makefile.PL
++++ b/Expat/Makefile.PL
+@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
+ use Config;
+ use English;
+ 
+-my $libs = "-lexpat";
++my $libs = "-L@SDKROOT@/usr/lib -lexpat";
+ my @extras = ();
+ 
+ push(@extras, INC => "-I$expat_incpath") if $expat_incpath;

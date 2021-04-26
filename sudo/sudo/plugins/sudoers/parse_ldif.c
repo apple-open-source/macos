@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,12 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
@@ -58,7 +55,7 @@ STAILQ_HEAD(sudo_role_list, sudo_role);
 static void
 sudo_role_free(struct sudo_role *role)
 {
-    debug_decl(sudo_role_free, SUDOERS_DEBUG_UTIL)
+    debug_decl(sudo_role_free, SUDOERS_DEBUG_UTIL);
 
     if (role != NULL) {
 	free(role->cn);
@@ -80,7 +77,7 @@ static struct sudo_role *
 sudo_role_alloc(void)
 {
     struct sudo_role *role;
-    debug_decl(sudo_role_alloc, SUDOERS_DEBUG_UTIL)
+    debug_decl(sudo_role_alloc, SUDOERS_DEBUG_UTIL);
 
     role = calloc(1, sizeof(*role));
     if (role != NULL) {
@@ -112,7 +109,7 @@ ldif_parse_attribute(char *line, char **name, char **value)
     bool encoded = false;
     char *attr, *cp, *ep, *colon;
     size_t len;
-    debug_decl(ldif_parse_attribute, SUDOERS_DEBUG_UTIL)
+    debug_decl(ldif_parse_attribute, SUDOERS_DEBUG_UTIL);
 
     /* Parse attribute name: [a-zA-Z][a-zA-Z0-9-]*: */
     if (!isalpha((unsigned char)*line))
@@ -180,7 +177,7 @@ static void
 ldif_store_string(const char *str, struct sudoers_str_list *strlist, bool sorted)
 {
     struct sudoers_string *ls;
-    debug_decl(ldif_store_string, SUDOERS_DEBUG_UTIL)
+    debug_decl(ldif_store_string, SUDOERS_DEBUG_UTIL);
 
     if ((ls = sudoers_string_alloc(str)) == NULL) {
 	sudo_fatalx(U_("%s: %s"), __func__,
@@ -231,7 +228,7 @@ role_order_cmp(const void *va, const void *vb)
 {
     const struct sudo_role *a = *(const struct sudo_role **)va;
     const struct sudo_role *b = *(const struct sudo_role **)vb;
-    debug_decl(role_order_cmp, SUDOERS_DEBUG_LDAP)
+    debug_decl(role_order_cmp, SUDOERS_DEBUG_LDAP);
 
     debug_return_int(a->order < b->order ? -1 :
         (a->order > b->order ? 1 : 0));
@@ -247,7 +244,7 @@ ldif_store_options(struct sudoers_parse_tree *parse_tree,
     struct defaults *d;
     struct sudoers_string *ls;
     char *var, *val;
-    debug_decl(ldif_store_options, SUDOERS_DEBUG_UTIL)
+    debug_decl(ldif_store_options, SUDOERS_DEBUG_UTIL);
 
     STAILQ_FOREACH(ls, options, entries) {
 	if ((d = calloc(1, sizeof(*d))) == NULL ||
@@ -297,7 +294,7 @@ str_list_cache(struct rbtree *cache, struct sudoers_str_list **strlistp)
     struct sudoers_str_list *strlist = *strlistp;
     struct rbnode *node;
     int ret;
-    debug_decl(str_list_cache, SUDOERS_DEBUG_UTIL)
+    debug_decl(str_list_cache, SUDOERS_DEBUG_UTIL);
 
     ret = rbinsert(cache, strlist, &node);
     switch (ret) {
@@ -328,7 +325,7 @@ role_to_sudoers(struct sudoers_parse_tree *parse_tree, struct sudo_role *role,
     struct sudoers_string *ls;
     struct userspec *us;
     struct member *m;
-    debug_decl(role_to_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(role_to_sudoers, SUDOERS_DEBUG_UTIL);
 
     /*
      * TODO: use cn to create a UserAlias if multiple users in it?
@@ -355,19 +352,32 @@ role_to_sudoers(struct sudoers_parse_tree *parse_tree, struct sudo_role *role,
 		    U_("unable to allocate memory"));
 	    }
 	    m->negated = sudo_ldap_is_negated(&user);
-	    m->name = strdup(user);
-	    if (m->name == NULL) {
-		sudo_fatalx(U_("%s: %s"), __func__,
-		    U_("unable to allocate memory"));
-	    }
-	    if (strcmp(user, "ALL") == 0) {
-		m->type = ALL;
-	    } else if (*user == '+') {
+	    switch (*user) {
+	    case '\0':
+		/* Empty RunAsUser means run as the invoking user. */
+		m->type = MYSELF;
+		break;
+	    case '+':
 		m->type = NETGROUP;
-	    } else if (*user == '%') {
+		break;
+	    case '%':
 		m->type = USERGROUP;
-	    } else {
+		break;
+	    case 'A':
+		if (strcmp(user, "ALL") == 0) {
+		    m->type = ALL;
+		    break;
+		}
+		FALLTHROUGH;
+	    default:
 		m->type = WORD;
+		break;
+	    }
+	    if (m->type != ALL && m->type != MYSELF) {
+		if ((m->name = strdup(user)) == NULL) {
+		    sudo_fatalx(U_("%s: %s"), __func__,
+			U_("unable to allocate memory"));
+		}
 	    }
 	    TAILQ_INSERT_TAIL(&us->users, m, entries);
 	}
@@ -465,7 +475,7 @@ ldif_to_sudoers(struct sudoers_parse_tree *parse_tree,
 {
     struct sudo_role **role_array, *role = NULL;
     unsigned int n;
-    debug_decl(ldif_to_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(ldif_to_sudoers, SUDOERS_DEBUG_UTIL);
 
     /* Convert from list of roles to array and sort by order. */
     role_array = reallocarray(NULL, numroles + 1, sizeof(*role_array));
@@ -531,7 +541,7 @@ char *unquote_cn(const char *src)
 {
     char *dst, *new_cn;
     size_t len;
-    debug_decl(unquote_cn, SUDOERS_DEBUG_UTIL)
+    debug_decl(unquote_cn, SUDOERS_DEBUG_UTIL);
 
     len = strlen(src);
     if ((new_cn = malloc(len + 1)) == NULL)
@@ -566,7 +576,7 @@ sudoers_parse_ldif(struct sudoers_parse_tree *parse_tree,
     ssize_t savedlen = 0;
     bool mismatch = false;
     int errors = 0;
-    debug_decl(sudoers_parse_ldif, SUDOERS_DEBUG_UTIL)
+    debug_decl(sudoers_parse_ldif, SUDOERS_DEBUG_UTIL);
 
     /* Free old contents of the parse tree (if any). */
     free_parse_tree(parse_tree);

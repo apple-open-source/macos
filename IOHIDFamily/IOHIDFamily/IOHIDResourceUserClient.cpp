@@ -756,6 +756,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     __ReportResult                  result;
     AbsoluteTime                    ts;
     IOReturn                        ret;
+    IOReturn                        threadWakeReason;
     OSData *                        retData = NULL;
     IOMemoryDescriptor *            report = arguments->report;
     bzero(&header, sizeof(header));
@@ -818,8 +819,9 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
 
     // if we successfully enqueue, let's sleep till we get a result from postReportResult
     clock_interval_to_deadline(_maxClientTimeoutUS, kMicrosecondScale, (uint64_t *)&ts);
-    
-    switch ( _commandGate->commandSleep(retData, ts, THREAD_ABORTSAFE) ) {
+
+    threadWakeReason = _commandGate->commandSleep(retData, ts, THREAD_ABORTSAFE);
+    switch ( threadWakeReason ) {
         case THREAD_AWAKENED:
             ret = result.ret;
             _setReportCompletedCount++;
@@ -830,6 +832,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
             _setReportTimeoutCount++;
             break;
         default:
+            HIDLogError("%#llx: IOHIDUserDevice setReport thread aborted. (%#x)", getRegistryEntryID(), threadWakeReason);
             ret = kIOReturnError;
             break;
     }

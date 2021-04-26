@@ -193,9 +193,10 @@ smb_usr_close(struct smb_share *share, struct smb2ioc_close *close_ioc, vfs_cont
     closep->share = share;
     closep->flags = close_ioc->ioc_flags;
     closep->fid = close_ioc->ioc_fid;
-    
+    closep->mc_flags = 0;
+
 	/* Now do the real work */
-	error = smb2_smb_close(share, closep, NULL, context);
+	error = smb2_smb_close(share, closep, NULL, NULL, context);
     
     /* always return the ntstatus error */
     close_ioc->ioc_ret_ntstatus = closep->ret_ntstatus;
@@ -304,6 +305,7 @@ smb_usr_create(struct smb_share *share, struct smb2ioc_create *create_ioc,
     createp->disposition = create_ioc->ioc_disposition;
     createp->create_options = create_ioc->ioc_create_options;
     createp->dnp = NULL;
+    createp->mc_flags = 0;
     
     /* Now do the real work */
     error = smb2_smb_create(share, createp, NULL, context);
@@ -355,7 +357,7 @@ smb_usr_get_dfs_referral(struct smb_share *share, struct smb_session *sessionp,
     uint32_t local_path_len = get_dfs_refer_ioc->ioc_file_name_len;
 	size_t network_path_len = PATH_MAX + 1;
 	char *network_pathp = NULL;
-    
+
     SMB_MALLOC(ioctlp,
                struct smb2_ioctl_rq *, 
                sizeof(struct smb2_ioctl_rq), 
@@ -441,7 +443,8 @@ again:
     ioctlp->share = share;
     ioctlp->ctl_code = FSCTL_DFS_GET_REFERRALS;
     ioctlp->fid = -1;
-    
+    ioctlp->mc_flags = 0;
+
 	ioctlp->snd_input_buffer = (uint8_t *) &dfs_referral;
 	ioctlp->snd_input_len = sizeof(struct smb2_get_dfs_referral);
 	ioctlp->snd_output_len = 0;
@@ -457,7 +460,7 @@ again:
     }
 
     /* Now do the real work */
-	error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+	error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
     
     if ((error) &&
         (ioctlp->ret_ntstatus == STATUS_INVALID_PARAMETER) &&
@@ -487,7 +490,6 @@ again:
             uio_free(ioctlp->rcv_output_uio);
             ioctlp->rcv_output_uio = NULL;
         }
-
         goto again;
     }    
     
@@ -524,7 +526,6 @@ bad:
     if (network_pathp) {
         SMB_FREE(network_pathp, M_SMBSTR);
     }
-
     return error;
 }
 
@@ -534,7 +535,7 @@ smb_usr_ioctl(struct smb_share *share, struct smb_session *sessionp,
 {
 	int error;
  	struct smb2_ioctl_rq *ioctlp = NULL;
-    
+
     SMB_MALLOC(ioctlp,
                struct smb2_ioctl_rq *, 
                sizeof(struct smb2_ioctl_rq), 
@@ -550,7 +551,8 @@ again:
     ioctlp->share = share;
     ioctlp->ctl_code = ioctl_ioc->ioc_ctl_code;
     ioctlp->fid = ioctl_ioc->ioc_fid;
-    
+    ioctlp->mc_flags = 0;
+
 	ioctlp->snd_input_len = ioctl_ioc->ioc_snd_input_len;
 	ioctlp->snd_output_len = ioctl_ioc->ioc_snd_output_len;
 	ioctlp->rcv_input_len = ioctl_ioc->ioc_rcv_input_len;
@@ -656,7 +658,7 @@ again:
     }
     
     /* Now do the real work */
-	error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+	error = smb2_smb_ioctl(share, NULL, ioctlp, NULL, context);
 
     if ((error) &&
         (ioctlp->ret_ntstatus == STATUS_INVALID_PARAMETER) &&
@@ -686,7 +688,6 @@ again:
             uio_free(ioctlp->rcv_output_uio);
             ioctlp->rcv_output_uio = NULL;
         }
-
         goto again;
     }
 
@@ -716,7 +717,6 @@ bad:
         }
         SMB_FREE(ioctlp, M_SMBTEMP);
     }
-    
     return error;
 }
 
@@ -789,6 +789,7 @@ smb_usr_query_dir(struct smb_share *share,
 	queryp->fid = query_dir_ioc->ioc_fid;
 	queryp->name_len = query_dir_ioc->ioc_name_len;
 	queryp->name_flags = query_dir_ioc->ioc_name_flags;
+    queryp->mc_flags = 0;
     /* 
      * Never used for user ioctl query dir. User must have already opened
      * the dir to be searched.
@@ -810,7 +811,7 @@ smb_usr_query_dir(struct smb_share *share,
     }
     
 	/* Now do the real work */
-	error = smb2_smb_query_dir(share, queryp, NULL, context);
+	error = smb2_smb_query_dir(share, queryp, NULL, NULL, context);
     
     /* always return the ntstatus error */
     query_dir_ioc->ioc_ret_ntstatus = queryp->ret_ntstatus;
@@ -884,6 +885,7 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
         read_writep->remaining = rw_ioc->ioc_remaining;
         read_writep->write_flags = rw_ioc->ioc_write_flags;
         read_writep->fid = rw_ioc->ioc_fid;
+        read_writep->mc_flags = 0;
         
         /* Now do the real work */
         if (cmd == SMB2IOC_READ) {

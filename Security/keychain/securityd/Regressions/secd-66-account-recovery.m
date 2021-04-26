@@ -346,6 +346,7 @@ int secd_66_account_recovery(int argc, char *const *argv) {
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests(true);
     tests(false);
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

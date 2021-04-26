@@ -745,11 +745,15 @@ void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
 {
     os_assert(__IOHIDDeviceSetupAsyncSupport(device));
     
-    device->dispatchQueue = dispatch_queue_create_with_target("IOHIDDeviceDispatchQueue", DISPATCH_QUEUE_SERIAL, queue);
+    char label[32] = {0};
+    
+    snprintf(label, sizeof(label), "IOHIDDeviceRef:0x%llx", device->regID);
+    
+    device->dispatchQueue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL, queue);
     require(device->dispatchQueue, exit);
     
     CFRetain(device);
-    device->dispatchMach = dispatch_mach_create("IOHIDDeviceDispatchMach", device->dispatchQueue,
+    device->dispatchMach = dispatch_mach_create(label, device->dispatchQueue,
                                                 ^(dispatch_mach_reason_t reason,
                                                   dispatch_mach_msg_t message,
                                                   mach_error_t error __unused) {

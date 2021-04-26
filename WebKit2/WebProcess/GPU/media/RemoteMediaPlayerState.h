@@ -30,6 +30,7 @@
 #include <WebCore/FloatSize.h>
 #include <WebCore/MediaPlayerEnums.h>
 #include <WebCore/PlatformTimeRanges.h>
+#include <WebCore/VideoPlaybackQualityMetrics.h>
 #include <wtf/MediaTime.h>
 
 namespace WebKit {
@@ -54,6 +55,7 @@ struct RemoteMediaPlayerState {
     double seekableTimeRangesLastModifiedTime { 0 };
     double liveUpdateInterval { 0 };
     uint64_t totalBytes { 0 };
+    Optional<WebCore::VideoPlaybackQualityMetrics> videoMetrics;
     Optional<bool> wouldTaintDocumentSecurityOrigin { true };
     bool paused { true };
     bool loadingProgressed { false };
@@ -65,7 +67,6 @@ struct RemoteMediaPlayerState {
     bool wirelessVideoPlaybackDisabled { false };
     bool hasSingleSecurityOrigin { false };
     bool didPassCORSAccessCheck { false };
-    bool requiresTextTrackRepresentation { false };
 
     template<class Encoder>
     void encode(Encoder& encoder) const
@@ -89,6 +90,7 @@ struct RemoteMediaPlayerState {
         encoder << seekableTimeRangesLastModifiedTime;
         encoder << liveUpdateInterval;
         encoder << totalBytes;
+        encoder << videoMetrics;
         encoder << wouldTaintDocumentSecurityOrigin;
         encoder << paused;
         encoder << loadingProgressed;
@@ -100,7 +102,6 @@ struct RemoteMediaPlayerState {
         encoder << wirelessVideoPlaybackDisabled;
         encoder << hasSingleSecurityOrigin;
         encoder << didPassCORSAccessCheck;
-        encoder << requiresTextTrackRepresentation;
     }
 
     template <class Decoder>
@@ -197,6 +198,11 @@ struct RemoteMediaPlayerState {
         if (!totalBytes)
             return WTF::nullopt;
 
+        Optional<Optional<WebCore::VideoPlaybackQualityMetrics>> videoMetrics;
+        decoder >> videoMetrics;
+        if (!videoMetrics)
+            return WTF::nullopt;
+
         Optional<Optional<bool>> wouldTaintDocumentSecurityOrigin;
         decoder >> wouldTaintDocumentSecurityOrigin;
         if (!wouldTaintDocumentSecurityOrigin)
@@ -252,11 +258,6 @@ struct RemoteMediaPlayerState {
         if (!didPassCORSAccessCheck)
             return WTF::nullopt;
 
-        Optional<bool> requiresTextTrackRepresentation;
-        decoder >> requiresTextTrackRepresentation;
-        if (!requiresTextTrackRepresentation)
-            return WTF::nullopt;
-
         return {{
             WTFMove(*currentTime),
             WTFMove(*duration),
@@ -277,6 +278,7 @@ struct RemoteMediaPlayerState {
             *seekableTimeRangesLastModifiedTime,
             *liveUpdateInterval,
             *totalBytes,
+            WTFMove(*videoMetrics),
             WTFMove(*wouldTaintDocumentSecurityOrigin),
             *paused,
             *loadingProgressed,
@@ -287,8 +289,7 @@ struct RemoteMediaPlayerState {
             *hasAvailableVideoFrame,
             *wirelessVideoPlaybackDisabled,
             *hasSingleSecurityOrigin,
-            *didPassCORSAccessCheck,
-            *requiresTextTrackRepresentation,
+            *didPassCORSAccessCheck
         }};
     }
 

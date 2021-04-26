@@ -11,11 +11,13 @@
 //
 // XFAIL: darwin
 
+// UNSUPPORTED: libunwind-arm-ehabi
+
 #include <assert.h>
 #include <stdlib.h>
 #include <libunwind.h>
 
-int main(void) {
+void test() {
   asm(".cfi_signal_frame");
   unw_cursor_t cursor;
   unw_context_t uc;
@@ -23,5 +25,9 @@ int main(void) {
   unw_init_local(&cursor, &uc);
   assert(unw_step(&cursor) > 0);
   assert(unw_is_signal_frame(&cursor));
+}
+
+int main() {
+  test();
   return 0;
 }

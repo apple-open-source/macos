@@ -44,9 +44,22 @@ static NSString* applicationIdentifierForSelf() {
             identifier = CFBridgingRelease(val);
         }
 
-        // security tool doesn't have entitlements, I wonder if there are more.
+        if (!identifier) {
+            CFBundleRef mainbundle = CFBundleGetMainBundle();
+            if (mainbundle != NULL) {
+                CFStringRef tmp = CFBundleGetIdentifier(mainbundle);
+                if (tmp != NULL) {
+                    identifier = (__bridge NSString*)tmp;
+                }
+            }
+        }
+
         if (!identifier) {
             identifier = CFBridgingRelease(SecTaskCopySigningIdentifier(task, NULL));
+        }
+
+        if (!identifier) {
+            identifier = [NSString stringWithCString:getprogname() encoding:NSUTF8StringEncoding];
         }
 
         CFRelease(task);
@@ -65,6 +78,17 @@ static BOOL countLegacyAPIEnabledForThread() {
     return NO;
 }
 
+static NSString* identifier;
+static BOOL shouldCount;
+
+static void setup() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        identifier = applicationIdentifierForSelf() ?: @"unknown";
+        shouldCount = os_feature_enabled(Security, LegacyAPICounts);
+    });
+}
+
 #pragma mark - SPI
 
 void setCountLegacyAPIEnabledForThread(bool value) {
@@ -72,13 +96,7 @@ void setCountLegacyAPIEnabledForThread(bool value) {
 }
 
 void countLegacyAPI(dispatch_once_t* token, const char* api) {
-    static NSString* identifier;
-    static BOOL shouldCount;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        identifier = applicationIdentifierForSelf() ?: @"unknown";
-        shouldCount = os_feature_enabled(Security, LegacyAPICounts);
-    });
+    setup();
 
     if (api == nil) {
         secerror("LegacyAPICounts: Attempt to count API without name");
@@ -103,4 +121,40 @@ void countLegacyAPI(dispatch_once_t* token, const char* api) {
             };
         }];
     });
+}
+
+void countLegacyMDSPlugin(const char* path, const char* guid) {
+    setup();
+
+    if (!shouldCount) {
+        return;
+    }
+
+    NSString* pathString = [NSString stringWithCString:path encoding:NSUTF8StringEncoding];
+    if (!pathString) {
+        secerror("LegacyAPICounts: Unable to make NSString from path %s", path);
+        return;
+    }
+
+    NSString* guidString = [NSString stringWithCString:guid encoding:NSUTF8StringEncoding];
+    if (!guidString) {
+        secerror("LegacyAPICounts: Unable to make NSString from guid %s", guid);
+        return;
+    }
+
+    if(path && *path == '*') {
+        // These are apparently 'built-in psuedopaths'. Don't log.
+        secinfo("mds", "Ignoring the built-in MDS plugin: %@ %@", pathString, guidString);
+
+    } else {
+        secnotice("mds", "Recording an MDS plugin: %@ %@", pathString, guidString);
+
+        [SecCoreAnalytics sendEventLazy:@"com.apple.security.LegacyMDSPluginCounts" builder:^NSDictionary<NSString *,NSObject *> * _Nonnull{
+            return @{
+                @"app" : identifier,
+                @"mdsPath" : pathString,
+                @"mdsGuid" : guidString,
+            };
+        }];
+    }
 }

@@ -176,8 +176,16 @@ void Structure::forEachPropertyConcurrently(const Functor& functor)
 
         seenProperties.add(structure->m_transitionPropertyName.get());
 
-        if (structure->isPropertyDeletionTransition())
+        switch (structure->transitionKind()) {
+        case TransitionKind::PropertyAddition:
+        case TransitionKind::PropertyAttributeChange:
+            break;
+        case TransitionKind::PropertyDeletion:
             continue;
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        }
 
         if (!functor(PropertyMapEntry(structure->m_transitionPropertyName.get(), structure->transitionOffset(), structure->transitionPropertyAttributes()))) {
             if (table)
@@ -208,6 +216,7 @@ void Structure::forEachProperty(VM& vm, const Functor& functor)
             if (!functor(entry))
                 return;
         }
+        ensureStillAliveHere(table);
     }
 }
 
@@ -267,7 +276,7 @@ inline bool Structure::canCacheOwnPropertyNames() const
         return false;
     if (hasIndexedProperties(indexingType()))
         return false;
-    if (typeInfo().overridesAnyFormOfGetPropertyNames())
+    if (typeInfo().overridesAnyFormOfGetOwnPropertyNames())
         return false;
     return true;
 }
@@ -521,6 +530,49 @@ inline PropertyOffset Structure::remove(VM& vm, PropertyName propertyName, const
     return offset;
 }
 
+template<Structure::ShouldPin shouldPin, typename Func>
+inline PropertyOffset Structure::attributeChange(VM& vm, PropertyName propertyName, unsigned attributes, const Func& func)
+{
+    PropertyTable* table = ensurePropertyTable(vm);
+
+    GCSafeConcurrentJSLocker locker(m_lock, vm.heap);
+
+    switch (shouldPin) {
+    case ShouldPin::Yes:
+        pin(locker, vm, table);
+        break;
+    case ShouldPin::No:
+        setPropertyTable(vm, table);
+        break;
+    }
+
+    ASSERT(JSC::isValidOffset(get(vm, propertyName)));
+
+    checkConsistency();
+    PropertyMapEntry* entry = table->get(propertyName.uid());
+    if (!entry)
+        return invalidOffset;
+
+    PropertyOffset offset = entry->offset;
+
+    if (attributes & PropertyAttribute::DontEnum)
+        setIsQuickPropertyAccessAllowedForEnumeration(false);
+    if (attributes & PropertyAttribute::ReadOnly)
+        setContainsReadOnlyProperties();
+
+    entry->attributes = attributes;
+
+    PropertyOffset newMaxOffset = maxOffset();
+
+    func(locker, offset, newMaxOffset);
+
+    ASSERT(maxOffset() == newMaxOffset);
+    ASSERT(JSC::isValidOffset(get(vm, propertyName)));
+
+    checkConsistency();
+    return offset;
+}
+
 template<typename Func>
 inline PropertyOffset Structure::addPropertyWithoutTransition(VM& vm, PropertyName propertyName, unsigned attributes, const Func& func)
 {
@@ -535,6 +587,12 @@ inline PropertyOffset Structure::removePropertyWithoutTransition(VM& vm, Propert
     ASSERT(propertyTableOrNull());
     
     return remove<ShouldPin::Yes>(vm, propertyName, func);
+}
+
+template<typename Func>
+inline PropertyOffset Structure::attributeChangeWithoutTransition(VM& vm, PropertyName propertyName, unsigned attributes, const Func& func)
+{
+    return attributeChange<ShouldPin::Yes>(vm, propertyName, attributes, func);
 }
 
 ALWAYS_INLINE void Structure::setPrototypeWithoutTransition(VM& vm, JSValue prototype)

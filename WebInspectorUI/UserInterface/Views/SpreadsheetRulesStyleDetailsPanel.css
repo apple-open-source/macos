@@ -52,6 +52,11 @@
     display: none;
 }
 
+.sidebar > .panel.details.css-style > .content > .rules > :nth-last-child(1 of .spreadsheet-css-declaration) {
+    /* Unset border-bottom of last CSS rule. */
+    border-bottom: none;
+}
+
 @media (prefers-color-scheme: dark) {
     .sidebar > .panel.details.css-style > .content > .rules .section-header {
         color: var(--text-color-secondary);

@@ -80,10 +80,6 @@ WK_EXPORT void WKPreferencesSetLoadsSiteIconsIgnoringImageLoadingPreference(WKPr
 WK_EXPORT bool WKPreferencesGetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferences);
 
 // Defaults to true.
-WK_EXPORT void WKPreferencesSetIsITPDatabaseEnabled(WKPreferencesRef preferences, bool isITPDatabaseEnabled);
-WK_EXPORT bool WKPreferencesGetIsITPDatabaseEnabled(WKPreferencesRef preferences);
-
-// Defaults to true.
 WK_EXPORT void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferences, bool offlineWebApplicationCacheEnabled);
 WK_EXPORT bool WKPreferencesGetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferences);
 
@@ -327,9 +323,9 @@ WK_EXPORT void WKPreferencesSetMediaCapabilitiesEnabled(WKPreferencesRef prefere
 WK_EXPORT bool WKPreferencesGetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef, bool allow);
 
-// Defaults to false.
-WK_EXPORT bool WKPreferencesGetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef);
-WK_EXPORT void WKPreferencesSetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef, bool allow);
+// Obsolete. Always returns true.
+WK_EXPORT bool WKPreferencesGetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef) WK_C_API_DEPRECATED;
+WK_EXPORT void WKPreferencesSetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef, bool allow) WK_C_API_DEPRECATED;
 
 // Defaults to false.
 WK_EXPORT bool WKPreferencesGetProcessSwapOnNavigationEnabled(WKPreferencesRef preferencesRef);

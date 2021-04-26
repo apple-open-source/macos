@@ -21,8 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <TargetConditionals.h>
+
 // For now at least, we'll support backups only on iOS and macOS
-#define SECDB_BACKUPS_ENABLED ((TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_MACCATALYST) && !TARGET_OS_SIMULATOR && !TARGET_DARWINOS)
+#if (TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_MACCATALYST) && !TARGET_OS_SIMULATOR && !(defined(TARGET_DARWINOS) && TARGET_DARWINOS)
+#define SECDB_BACKUPS_ENABLED 1
+#else
+#define SECDB_BACKUPS_ENABLED 0
+#endif
 
 #if __OBJC2__
 #import <Foundation/Foundation.h>

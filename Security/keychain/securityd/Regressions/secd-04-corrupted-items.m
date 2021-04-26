@@ -48,7 +48,7 @@ static const char *corrupt_item_sql = "UPDATE inet SET data=X'12345678' WHERE ro
 
 int secd_04_corrupted_items(int argc, char *const *argv)
 {
-    plan_tests(11 + kSecdTestSetupTestCount);
+    plan_tests(12 + kSecdTestSetupTestCount);
     
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_04_corrupted_items", NULL);
@@ -105,6 +105,8 @@ int secd_04_corrupted_items(int argc, char *const *argv)
         is(sqlite3_exec(db, corrupt_item_sql, NULL, NULL, NULL), SQLITE_OK,
            "corrupting keychain items");
 
+        is(sqlite3_close_v2(db), SQLITE_OK,
+           "Should be able to close db");;
     });
 
     /* Try the update again */
@@ -136,6 +138,8 @@ int secd_04_corrupted_items(int argc, char *const *argv)
     CFReleaseNull(eighty);
     CFReleaseNull(eighty_one);
     CFReleaseNull(eighty_two);
+
+    secd_test_teardown_delete_temp_keychain("secd_04_corrupted_items");
 
     return 0;
 }

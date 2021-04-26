@@ -8,9 +8,10 @@ RUN: | grep 'clang => apple-xbs-support/clang.mk'
 RUN: stat %t/dest/Makefile
 RUN: stat %t/dest/apple-xbs-support
 RUN: stat %t/dest/clang
+RUN: stat %t/dest/clang-shims
 RUN: stat %t/dest/clang-tools-extra
 RUN: stat %t/dest/compiler-rt
 RUN: stat %t/dest/libcxx
+RUN: stat %t/dest/libcxxabi
 RUN: stat %t/dest/llvm
-RUN: ! stat %t/dest/libcxxabi
 RUN: ! stat %t/dest/polly

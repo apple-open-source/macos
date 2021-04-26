@@ -394,9 +394,10 @@ void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
             uDelimLen = ulocdata_getDelimiter(uldata, delimTypes[delimIndex][1], uDelim, kUDelimBuf, &status);
             if (U_SUCCESS(status) && uDelimLen==1) {
                 quotClose = uDelim[0];
-                if (quotClose == 0x201C && // rdar://67787054, rdar://67804156
-                        (uprv_strcmp(locale.getLanguage(),"de") == 0 || uprv_strcmp(locale.getLanguage(),"hr") == 0)) {
-                    quotClose = 0x201D; // In de/hr, 0x201C can be ambiguous, 0x201D is unambiguously close if used
+                if (quotClose == 0x201C && uprv_strstr("be bg de hr ky ru uk",locale.getLanguage()) != nullptr) {
+                    // In several locales (de,hr,ru...), 0x201C can be ambiguous, 0x201D is unambiguously close
+                    // if used. rdar://67787054, rdar://67804156, rdar://73179567
+                    quotClose = 0x201D;
                 }
             }
             if (quotOpen != quotClose) { // if they are the same we cannot distinguish OP and CL !

@@ -32,10 +32,12 @@
 
 #if OCTAGON
 #import <CloudKit/CloudKit.h>
+#import "keychain/ckks/CKKSMemoryKeyCache.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
+@class CKKSKeychainViewState;
 
 @interface CKKSOutgoingQueueEntry : CKKSSQLDatabaseObject
 
@@ -53,19 +55,20 @@ NS_ASSUME_NONNULL_BEGIN
                        waitUntil:(NSDate* _Nullable)waitUntil
                      accessGroup:(NSString*)accessgroup;
 
-+ (instancetype)withItem:(SecDbItemRef)item
-                  action:(NSString*)action
-                  zoneID:(CKRecordZoneID*)zoneID
-                   error:(NSError* __autoreleasing*)error;
-+ (instancetype)fromDatabase:(NSString*)uuid
-                       state:(NSString*)state
-                      zoneID:(CKRecordZoneID*)zoneID
-                       error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(NSString*)uuid
-                          state:(NSString*)state
-                         zoneID:(CKRecordZoneID*)zoneID
-                          error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)withItem:(SecDbItemRef)item
+                            action:(NSString*)action
+                            zoneID:(CKRecordZoneID*)zoneID
+                          keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                             error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                                 state:(NSString*)state
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                    state:(NSString*)state
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSOutgoingQueueEntry*>*)fetch:(ssize_t)n
                                      state:(NSString*)state
@@ -82,6 +85,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
+
+- (BOOL)intransactionMoveToState:(NSString*)state
+                       viewState:(CKKSKeychainViewState*)viewState
+                           error:(NSError**)error;
+- (BOOL)intransactionMarkAsError:(NSError*)itemError
+                       viewState:(CKKSKeychainViewState*)viewState
+                           error:(NSError**)error;
 
 @end
 

@@ -30,12 +30,12 @@
 #include "MessageNames.h"
 #include "StringReference.h"
 #include <WebCore/ContextMenuItem.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 
 namespace IPC {
 
-class DataReference;
 enum class MessageFlags : uint8_t;
 enum class MessageName : uint16_t;
 enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t;
@@ -50,8 +50,7 @@ public:
     MessageName messageName() const { return m_messageName; }
     uint64_t destinationID() const { return m_destinationID; }
 
-    void setIsSyncMessage(bool);
-    bool isSyncMessage() const;
+    bool isSyncMessage() const { return messageIsSync(messageName()); }
 
     void setShouldDispatchMessageWhenWaitingForSyncReply(ShouldDispatchWhenWaitingForSyncReply);
     ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
@@ -61,7 +60,6 @@ public:
     void wrapForTesting(std::unique_ptr<Encoder>);
 
     void encodeFixedLengthData(const uint8_t* data, size_t, size_t alignment);
-    void encodeVariableLengthByteArray(const DataReference&);
 
     template<typename T, std::enable_if_t<!std::is_enum<typename std::remove_const_t<std::remove_reference_t<T>>>::value && !std::is_arithmetic<typename std::remove_const_t<std::remove_reference_t<T>>>::value>* = nullptr>
     void encode(T&& t)
@@ -99,7 +97,24 @@ public:
 
     static const bool isIPCEncoder = true;
 
+    template<typename T>
+    static RefPtr<WebCore::SharedBuffer> encodeSingleObject(const T& object)
+    {
+        Encoder encoder(ConstructWithoutHeader);
+        encoder << object;
+
+        if (encoder.hasAttachments()) {
+            ASSERT_NOT_REACHED();
+            return nullptr;
+        }
+
+        return WebCore::SharedBuffer::create(encoder.buffer(), encoder.bufferSize());
+    }
+
 private:
+    enum ConstructWithoutHeaderTag { ConstructWithoutHeader };
+    Encoder(ConstructWithoutHeaderTag);
+
     uint8_t* grow(size_t alignment, size_t);
 
     template<typename E, std::enable_if_t<std::is_enum<E>::value>* = nullptr>
@@ -108,6 +123,8 @@ private:
         ASSERT(WTF::isValidEnum<E>(WTF::enumToUnderlyingType<E>(enumValue)));
         encode(WTF::enumToUnderlyingType<E>(enumValue));
     }
+
+    bool hasAttachments() const;
 
     void encodeHeader();
     const OptionSet<MessageFlags>& messageFlags() const;

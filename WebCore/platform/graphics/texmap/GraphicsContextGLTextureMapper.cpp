@@ -2,6 +2,7 @@
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2011 Igalia S.L.
+ * Copyright (C) 2020 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,37 +29,16 @@
 #include "config.h"
 #include "GraphicsContextGLOpenGL.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_GL) && USE(TEXTURE_MAPPER)
+#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
 
-#include "GraphicsContextGLOpenGLPrivate.h"
+#include "GLContext.h"
 #include "TextureMapperGCGLPlatformLayer.h"
 #include <ANGLE/ShaderLang.h>
 #include <wtf/Deque.h>
 #include <wtf/NeverDestroyed.h>
 
 #if USE(ANGLE)
-#define EGL_EGL_PROTOTYPES 0
-// Skip the inclusion of ANGLE's explicit context entry points for now.
-#define GL_ANGLE_explicit_context
-#define GL_ANGLE_explicit_context_gles1
-typedef void* GLeglContext;
-#include <ANGLE/egl.h>
-#include <ANGLE/eglext.h>
-#include <ANGLE/eglext_angle.h>
-#include <ANGLE/entry_points_egl.h>
-#include <ANGLE/entry_points_gles_2_0_autogen.h>
-#include <ANGLE/entry_points_gles_ext_autogen.h>
-#include <ANGLE/gl2ext.h>
-#include <ANGLE/gl2ext_angle.h>
-#if defined(Above)
-#undef Above
-#endif
-#if defined(Below)
-#undef Below
-#endif
-#if defined(None)
-#undef None
-#endif
+#include "ANGLEHeaders.h"
 #elif USE(LIBEPOXY)
 #include <epoxy/gl.h>
 #elif !USE(OPENGL_ES)
@@ -119,9 +99,9 @@ RefPtr<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::create(GraphicsContextG
     // Create the GraphicsContextGLOpenGL object first in order to establist a current context on this thread.
     auto context = adoptRef(new GraphicsContextGLOpenGL(attributes, hostWindow, destination));
 
-#if USE(LIBEPOXY) && USE(OPENGL_ES)
+#if USE(LIBEPOXY) && USE(OPENGL_ES) && ENABLE(WEBGL2)
     // Bail if GLES3 was requested but cannot be provided.
-    if (attributes.isWebGL2 && !epoxy_is_desktop_gl() && epoxy_gl_version() < 30)
+    if (attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2 && !epoxy_is_desktop_gl() && epoxy_gl_version() < 30)
         return nullptr;
 #endif
 
@@ -134,25 +114,30 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     : GraphicsContextGL(attributes, destination, sharedContext)
 {
     ASSERT_UNUSED(sharedContext, !sharedContext);
+#if ENABLE(WEBGL2)
+    m_isForWebGL2 = attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2;
+#endif
 #if USE(NICOSIA)
     m_nicosiaLayer = WTF::makeUnique<Nicosia::GCGLANGLELayer>(*this, destination);
 #else
     m_texmapLayer = WTF::makeUnique<TextureMapperGCGLPlatformLayer>(*this, destination);
 #endif
-    makeContextCurrent();
+    bool success = makeContextCurrent();
+    ASSERT_UNUSED(success, success);
 
     validateAttributes();
     attributes = contextAttributes(); // They may have changed during validation.
 
     if (destination == Destination::Offscreen) {
+        GLenum textureTarget = drawingBufferTextureTarget();
         // Create a texture to render into.
         gl::GenTextures(1, &m_texture);
-        gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, m_texture);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, 0);
+        gl::BindTexture(textureTarget, m_texture);
+        gl::TexParameterf(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl::TexParameterf(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        gl::TexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        gl::TexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        gl::BindTexture(textureTarget, 0);
 
         // Create an FBO.
         gl::GenFramebuffers(1, &m_fbo);
@@ -160,20 +145,20 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
 
 #if USE(COORDINATED_GRAPHICS)
         gl::GenTextures(1, &m_compositorTexture);
-        gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, m_compositorTexture);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        gl::BindTexture(texureType, m_compositorTexture);
+        gl::TexParameterf(texureType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl::TexParameterf(texureType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        gl::TexParameteri(texureType, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        gl::TexParameteri(texureType, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         gl::GenTextures(1, &m_intermediateTexture);
-        gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, m_intermediateTexture);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        gl::TexParameterf(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        gl::TexParameteri(GL_TEXTURE_RECTANGLE_ANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        gl::BindTexture(texureType, m_intermediateTexture);
+        gl::TexParameterf(texureType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl::TexParameterf(texureType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        gl::TexParameteri(texureType, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        gl::TexParameteri(texureType, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, 0);
+        gl::BindTexture(texureType, 0);
 #endif
 
         // Create a multisample FBO.
@@ -189,12 +174,6 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
             // Bind canvas FBO.
             gl::BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
             m_state.boundDrawFBO = m_state.boundReadFBO = m_fbo;
-#if USE(OPENGL_ES)
-            if (attributes.depth)
-                gl::GenRenderbuffers(1, &m_depthBuffer);
-            if (attributes.stencil)
-                gl::GenRenderbuffers(1, &m_stencilBuffer);
-#endif
             if (attributes.stencil || attributes.depth)
                 gl::GenRenderbuffers(1, &m_depthStencilBuffer);
         }
@@ -213,7 +192,8 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     m_texmapLayer = makeUnique<TextureMapperGCGLPlatformLayer>(*this, destination);
 #endif
 
-    makeContextCurrent();
+    bool success = makeContextCurrent();
+    ASSERT_UNUSED(success, success);
 
     validateAttributes();
     attributes = contextAttributes(); // They may have changed during validation.
@@ -287,8 +267,7 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
         // From version 3.2 on we use the OpenGL Core profile, and we need a VAO for rendering.
         // A VAO could be created and bound by each component using GL rendering (TextureMapper, WebGL, etc). This is
         // a simpler solution: the first GraphicsContextGLOpenGL created on a GLContext will create and bind a VAO for that context.
-        GCGLint currentVAO = 0;
-        getIntegerv(GraphicsContextGLOpenGL::VERTEX_ARRAY_BINDING, &currentVAO);
+        GCGLint currentVAO = getInteger(GraphicsContextGLOpenGL::VERTEX_ARRAY_BINDING);
         if (!currentVAO) {
             m_vao = createVertexArray();
             bindVertexArray(m_vao);
@@ -302,25 +281,30 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     }
 #else
     // Adjust the shader specification depending on whether GLES3 (i.e. WebGL2 support) was requested.
-    m_compiler = ANGLEWebKitBridge(SH_ESSL_OUTPUT, attributes.isWebGL2 ? SH_WEBGL2_SPEC : SH_WEBGL_SPEC);
+#if ENABLE(WEBGL2)
+    m_compiler = ANGLEWebKitBridge(SH_ESSL_OUTPUT, (attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2) ? SH_WEBGL2_SPEC : SH_WEBGL_SPEC);
+#else
+    m_compiler = ANGLEWebKitBridge(SH_ESSL_OUTPUT, SH_WEBGL_SPEC);
+#endif
 #endif
 
     // ANGLE initialization.
     ShBuiltInResources ANGLEResources;
     sh::InitBuiltInResources(&ANGLEResources);
 
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_ATTRIBS, &ANGLEResources.MaxVertexAttribs);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_UNIFORM_VECTORS, &ANGLEResources.MaxVertexUniformVectors);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VARYING_VECTORS, &ANGLEResources.MaxVaryingVectors);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_VERTEX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxVertexTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxCombinedTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_TEXTURE_IMAGE_UNITS, &ANGLEResources.MaxTextureImageUnits);
-    getIntegerv(GraphicsContextGLOpenGL::MAX_FRAGMENT_UNIFORM_VECTORS, &ANGLEResources.MaxFragmentUniformVectors);
+    ANGLEResources.MaxVertexAttribs = getInteger(GraphicsContextGLOpenGL::MAX_VERTEX_ATTRIBS);
+    ANGLEResources.MaxVertexUniformVectors = getInteger(GraphicsContextGLOpenGL::MAX_VERTEX_UNIFORM_VECTORS);
+    ANGLEResources.MaxVaryingVectors = getInteger(GraphicsContextGLOpenGL::MAX_VARYING_VECTORS);
+    ANGLEResources.MaxVertexTextureImageUnits = getInteger(GraphicsContextGLOpenGL::MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+    ANGLEResources.MaxCombinedTextureImageUnits = getInteger(GraphicsContextGLOpenGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+    ANGLEResources.MaxTextureImageUnits = getInteger(GraphicsContextGLOpenGL::MAX_TEXTURE_IMAGE_UNITS);
+    ANGLEResources.MaxFragmentUniformVectors = getInteger(GraphicsContextGLOpenGL::MAX_FRAGMENT_UNIFORM_VECTORS);
 
     // Always set to 1 for OpenGL ES.
     ANGLEResources.MaxDrawBuffers = 1;
 
-    GCGLint range[2], precision;
+    GCGLint range[2] { };
+    GCGLint precision = 0;
     getShaderPrecisionFormat(GraphicsContextGLOpenGL::FRAGMENT_SHADER, GraphicsContextGLOpenGL::HIGH_FLOAT, range, &precision);
     ANGLEResources.FragmentPrecisionHigh = (range[0] || range[1] || precision);
 
@@ -333,7 +317,8 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
 #if USE(ANGLE)
 GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 {
-    makeContextCurrent();
+    bool success = makeContextCurrent();
+    ASSERT_UNUSED(success, success);
     if (m_texture)
         gl::DeleteTextures(1, &m_texture);
 #if USE(COORDINATED_GRAPHICS)
@@ -349,7 +334,7 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
             gl::DeleteRenderbuffers(1, &m_multisampleDepthStencilBuffer);
         gl::DeleteFramebuffers(1, &m_multisampleFBO);
     } else if (attributes.stencil || attributes.depth) {
-#if USE(OPENGL_ES)
+#if !USE(ANGLE) && USE(OPENGL_ES)
         if (m_depthBuffer)
             glDeleteRenderbuffers(1, &m_depthBuffer);
 
@@ -377,7 +362,8 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 #else
 GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 {
-    makeContextCurrent();
+    bool success = makeContextCurrent();
+    ASSERT_UNUSED(success, success);
     if (m_texture)
         ::glDeleteTextures(1, &m_texture);
 #if USE(COORDINATED_GRAPHICS)
@@ -433,23 +419,11 @@ void GraphicsContextGLOpenGL::checkGPUStatus()
 {
 }
 
-PlatformGraphicsContextGL GraphicsContextGLOpenGL::platformGraphicsContextGL() const
-{
-#if USE(NICOSIA)
-    return m_nicosiaLayer->platformContext();
-#else
-    return m_texmapLayer->platformContext();
-#endif
-}
-
-PlatformGLObject GraphicsContextGLOpenGL::platformTexture() const
-{
-    return m_texture;
-}
-
 bool GraphicsContextGLOpenGL::isGLES2Compliant() const
 {
-#if USE(OPENGL_ES)
+#if USE(ANGLE)
+    return m_isForWebGL2;
+#elif USE(OPENGL_ES)
     return true;
 #else
     return false;
@@ -464,6 +438,17 @@ PlatformLayer* GraphicsContextGLOpenGL::platformLayer() const
     return m_texmapLayer.get();
 #endif
 }
+
+#if USE(ANGLE)
+GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTarget()
+{
+#if PLATFORM(WIN)
+    return GL_TEXTURE_2D;
+#else
+    return GL_TEXTURE_RECTANGLE_ANGLE;
+#endif
+}
+#endif
 
 #if PLATFORM(GTK) && !USE(ANGLE)
 ExtensionsGL& GraphicsContextGLOpenGL::getExtensions()
@@ -483,4 +468,4 @@ ExtensionsGL& GraphicsContextGLOpenGL::getExtensions()
 
 } // namespace WebCore
 
-#endif // ENABLE(GRAPHICS_CONTEXT_GL) && USE(TEXTURE_MAPPER)
+#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER)

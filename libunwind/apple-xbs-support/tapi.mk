@@ -14,25 +14,22 @@ $(info SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
 #
 # Common settings
 #
-TAPI_VERSION := 11.0.0
+TAPI_VERSION := 12.0.0
 TAPI_INSTALL_PREFIX := $(DSTROOT)/$(DT_VARIANT)/$(TOOLCHAIN_INSTALL_DIR)
 TAPI_LIBRARY_PATH := $(TAPI_INSTALL_PREFIX)/usr/lib
+TAPI_LOCAL_LIBRARY_PATH := $(TAPI_INSTALL_PREFIX)/usr/local/lib
 TAPI_HEADER_PATH := $(TAPI_INSTALL_PREFIX)/usr/local/include
 
 TAPI_COMMON_OPTS := -dynamiclib \
 		    -xc++ \
 		    -std=c++11 \
 		    $(RC_ARCHS:%=-arch %) \
-		    -install_name @rpath/libtapi.dylib \
 		    -current_version $(RC_ProjectSourceVersion) \
 		    -compatibility_version 1 \
-		    -allowable_client ld \
-		    -I$(TAPI_HEADER_PATH) \
-		    -o $(OBJROOT)/libtapi.tbd
+		    -I$(TAPI_HEADER_PATH)
 
 TAPI_VERIFY_OPTS := $(TAPI_COMMON_OPTS) \
-		    --verify-mode=Pedantic \
-        	--verify-against=$(TAPI_LIBRARY_PATH)/libtapi.dylib
+		    --verify-mode=Pedantic
 
 
 .PHONY: installsrc installhdrs installapi install tapi build installapi-verify clean
@@ -62,6 +59,7 @@ installhdrs: $(DSTROOT)
 	@echo ++++++++++++++++++++++
 	@echo
 	ditto $(SRCROOT)/tapi/include/tapi/*.h $(TAPI_HEADER_PATH)/tapi/
+	ditto $(SRCROOT)/tapi/include/tapi-c/*.h $(TAPI_HEADER_PATH)/tapi-c/
 	# Generate Version.inc
 	echo "$(TAPI_VERSION)" | awk -F. '{                        \
 	  printf "#define TAPI_VERSION %d.%d.%d\n", $$1, $$2, $$3; \
@@ -84,10 +82,23 @@ installapi: installhdrs $(OBJROOT) $(DSTROOT)
 
 	xcrun --sdk $(SDKROOT) tapi installapi \
 	  $(TAPI_COMMON_OPTS) \
-	  $(TAPI_INSTALL_PREFIX)
+		-allowable_client ld \
+		-install_name @rpath/libtapi.dylib \
+		-o $(OBJROOT)/libtapi.tbd \
+		-exclude-private-header "**/tapi-c/*" \
+		$(TAPI_INSTALL_PREFIX)
+
+	xcrun --sdk $(SDKROOT) tapi installapi \
+	  $(TAPI_COMMON_OPTS) \
+		-install_name @rpath/libtapiMRM.dylib \
+		-o $(OBJROOT)/libtapiMRM.tbd \
+		-exclude-private-header "**/tapi/*" \
+		$(TAPI_INSTALL_PREFIX)
 
 	$(INSTALL) -d -m 0755 $(TAPI_LIBRARY_PATH)
 	$(INSTALL) -c -m 0755 $(OBJROOT)/libtapi.tbd $(TAPI_LIBRARY_PATH)/libtapi.tbd
+	$(INSTALL) -d -m 0755 $(TAPI_LOCAL_LIBRARY_PATH)
+	$(INSTALL) -c -m 0755 $(OBJROOT)/libtapiMRM.tbd $(TAPI_LOCAL_LIBRARY_PATH)/libtapiMRM.tbd
 
 tapi: install
 install: build
@@ -114,10 +125,25 @@ installapi-verify: build
 
 	xcrun --sdk $(SDKROOT) tapi installapi \
 	  $(TAPI_VERIFY_OPTS) \
-	  $(TAPI_INSTALL_PREFIX)
+		-allowable_client ld \
+		-install_name @rpath/libtapi.dylib \
+		-o $(OBJROOT)/libtapi.tbd \
+    --verify-against=$(TAPI_LIBRARY_PATH)/libtapi.dylib \
+		-exclude-private-header "**/tapi-c/*" \
+		$(TAPI_INSTALL_PREFIX)
+
+	xcrun --sdk $(SDKROOT) tapi installapi \
+	  $(TAPI_VERIFY_OPTS) \
+		-install_name @rpath/libtapiMRM.dylib \
+		-o $(OBJROOT)/libtapiMRM.tbd \
+    --verify-against=$(TAPI_LOCAL_LIBRARY_PATH)/libtapiMRM.dylib \
+		-exclude-private-header "**/tapi/*" \
+		$(TAPI_INSTALL_PREFIX)
 
 	$(INSTALL) -d -m 0755 $(TAPI_LIBRARY_PATH)
 	$(INSTALL) -c -m 0755 $(OBJROOT)/libtapi.tbd $(TAPI_LIBRARY_PATH)/libtapi.tbd
+	$(INSTALL) -d -m 0755 $(TAPI_LOCAL_LIBRARY_PATH)
+	$(INSTALL) -c -m 0755 $(OBJROOT)/libtapiMRM.tbd $(TAPI_LOCAL_LIBRARY_PATH)/libtapiMRM.tbd
 
 clean:
 	@echo

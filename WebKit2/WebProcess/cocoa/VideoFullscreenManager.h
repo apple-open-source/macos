@@ -35,15 +35,19 @@
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/PlatformCALayer.h>
 #include <WebCore/VideoFullscreenModelVideoElement.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace IPC {
-class Attachment;
 class Connection;
 class Decoder;
 class MessageReceiver;
+}
+
+namespace WTF {
+class MachSendRight;
 }
 
 namespace WebCore {
@@ -100,7 +104,7 @@ private:
     VideoFullscreenManager* m_manager;
     PlaybackSessionContextIdentifier m_contextId;
     std::unique_ptr<LayerHostingContext> m_layerHostingContext;
-    AnimationType m_animationType { false };
+    AnimationType m_animationType { AnimationType::None };
     bool m_targetIsFullscreen { false };
     WebCore::HTMLMediaElementEnums::VideoFullscreenMode m_fullscreenMode { WebCore::HTMLMediaElementEnums::VideoFullscreenModeNone };
     bool m_fullscreenStandby { false };
@@ -113,14 +117,16 @@ public:
     virtual ~VideoFullscreenManager();
     
     void invalidate();
-    
+
+    bool hasVideoPlayingInPictureInPicture() const;
+
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Interface to WebChromeClient
     bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const;
     bool supportsVideoFullscreenStandby() const;
     void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool standby);
-    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
+    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WTF::CompletionHandler<void(bool)>&& = [](bool) { });
     void exitVideoFullscreenToModeWithoutAnimation(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
 
 protected:
@@ -146,15 +152,17 @@ protected:
     void requestUpdateInlineRect(PlaybackSessionContextIdentifier);
     void requestVideoContentLayer(PlaybackSessionContextIdentifier);
     void returnVideoContentLayer(PlaybackSessionContextIdentifier);
+#if !PLATFORM(IOS_FAMILY)
     void didSetupFullscreen(PlaybackSessionContextIdentifier);
+#endif
     void willExitFullscreen(PlaybackSessionContextIdentifier);
     void didExitFullscreen(PlaybackSessionContextIdentifier);
-    void didEnterFullscreen(PlaybackSessionContextIdentifier);
+    void didEnterFullscreen(PlaybackSessionContextIdentifier, Optional<WebCore::FloatSize>);
     void didCleanupFullscreen(PlaybackSessionContextIdentifier);
-    void setVideoLayerFrameFenced(PlaybackSessionContextIdentifier, WebCore::FloatRect bounds, IPC::Attachment fencePort);
+    void setVideoLayerFrameFenced(PlaybackSessionContextIdentifier, WebCore::FloatRect bounds, const WTF::MachSendRight&);
     void setVideoLayerGravityEnum(PlaybackSessionContextIdentifier, unsigned gravity);
     void fullscreenModeChanged(PlaybackSessionContextIdentifier, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
-    void fullscreenWillReturnToInline(PlaybackSessionContextIdentifier, bool isPageVisible);
+    void fullscreenMayReturnToInline(PlaybackSessionContextIdentifier, bool isPageVisible);
     void requestRouteSharingPolicyAndContextUID(PlaybackSessionContextIdentifier, Messages::VideoFullscreenManager::RequestRouteSharingPolicyAndContextUIDAsyncReply&&);
 
     WebPage* m_page;
@@ -163,6 +171,7 @@ protected:
     HashMap<PlaybackSessionContextIdentifier, ModelInterfaceTuple> m_contextMap;
     PlaybackSessionContextIdentifier m_controlsManagerContextId;
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;
+    WeakPtr<WebCore::HTMLVideoElement> m_videoElementInPictureInPicture;
 };
 
 } // namespace WebKit

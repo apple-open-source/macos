@@ -49,6 +49,7 @@
 #include "RealtimeMediaSourceCenter.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
@@ -79,6 +80,7 @@ Ref<MediaStreamTrack> MediaStreamTrack::create(ScriptExecutionContext& context, 
 MediaStreamTrack::MediaStreamTrack(ScriptExecutionContext& context, Ref<MediaStreamTrackPrivate>&& privateTrack)
     : ActiveDOMObject(&context)
     , m_private(WTFMove(privateTrack))
+    , m_muted(m_private->muted())
     , m_isCaptureTrack(m_private->isCaptureTrack())
 {
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -193,6 +195,11 @@ void MediaStreamTrack::setEnabled(bool enabled)
 bool MediaStreamTrack::muted() const
 {
     return m_private->muted();
+}
+
+bool MediaStreamTrack::mutedForBindings() const
+{
+    return m_muted;
 }
 
 auto MediaStreamTrack::readyState() const -> State
@@ -429,6 +436,7 @@ MediaProducer::MediaStateFlags sourceCaptureState(RealtimeMediaSource& source)
         if (source.isProducingData())
             return MediaProducer::HasActiveDisplayCaptureDevice;
         break;
+    case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
     }
@@ -471,7 +479,7 @@ void MediaStreamTrack::updateCaptureAccordingToMutedState(Document& document)
     auto* activeAudioSource = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().activeSource();
     if (activeAudioSource && isSourceCapturingForTrackInDocument(*activeAudioSource, document)) {
         bool pageMuted = page->mutedState() & MediaProducer::AudioAndVideoCaptureIsMuted;
-        activeAudioSource->setMuted(pageMuted || (document.hidden() && RuntimeEnabledFeatures::sharedFeatures().interruptAudioOnPageVisibilityChangeEnabled()));
+        activeAudioSource->setMuted(pageMuted || (document.hidden() && document.settings().interruptAudioOnPageVisibilityChangeEnabled()));
     }
 
     auto* activeVideoSource = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().activeSource();
@@ -503,6 +511,7 @@ void MediaStreamTrack::updateToPageMutedState()
     case CaptureDevice::DeviceType::Window:
         m_private->setMuted(page->mutedState() & MediaProducer::ScreenCaptureIsMuted);
         break;
+    case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
         break;
@@ -559,9 +568,12 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
     if (scriptExecutionContext()->activeDOMObjectsAreStopped() || m_ended)
         return;
 
-    AtomString eventType = muted() ? eventNames().muteEvent : eventNames().unmuteEvent;
-    queueTaskToDispatchEvent(*this, TaskSource::Networking, Event::create(eventType, Event::CanBubble::No, Event::IsCancelable::No));
-
+    queueTaskKeepingObjectAlive(*this, TaskSource::Networking, [this, muted = m_private->muted()] {
+        if (!scriptExecutionContext() || scriptExecutionContext()->activeDOMObjectsAreStopped())
+            return;
+        m_muted = muted;
+        dispatchEvent(Event::create(muted ? eventNames().muteEvent : eventNames().unmuteEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    });
     configureTrackRendering();
 }
 

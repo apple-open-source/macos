@@ -1957,6 +1957,15 @@ _dispatch_queue_class_probe(dispatch_lane_class_t dqu)
 	return unlikely(tail != NULL);
 }
 
+extern const struct dispatch_queue_global_s _dispatch_custom_workloop_root_queue;
+
+DISPATCH_ALWAYS_INLINE DISPATCH_CONST
+inline bool
+_dispatch_is_custom_pri_workloop(dispatch_queue_t dq)
+{
+	return dq == (dispatch_queue_t) _dispatch_custom_workloop_root_queue._as_dq;
+}
+
 DISPATCH_ALWAYS_INLINE DISPATCH_CONST
 static inline bool
 _dispatch_is_in_root_queues_array(dispatch_queue_class_t dqu)

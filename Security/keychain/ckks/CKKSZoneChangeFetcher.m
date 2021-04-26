@@ -91,6 +91,7 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
 @property NSString* name;
 @property NSOperationQueue* operationQueue;
 @property dispatch_queue_t queue;
+@property BOOL halted;
 
 @property NSError* lastCKFetchError;
 
@@ -280,6 +281,12 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
 
 -(void)maybeCreateNewFetchOnQueue {
     dispatch_assert_queue(self.queue);
+
+    if(self.halted) {
+        ckksnotice_global("ckksfetcher", "Halted; not starting a new fetch");
+        return;
+    }
+
     if(self.newRequests &&
        (self.currentFetch == nil || [self.currentFetch isFinished]) &&
        (self.currentProcessResult == nil || [self.currentProcessResult isFinished])) {
@@ -433,6 +440,20 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
 
 -(void)cancel {
     [self.fetchScheduler cancel];
+}
+
+- (void)halt
+{
+    [self.fetchScheduler cancel];
+    dispatch_sync(self.queue, ^{
+        self.halted = YES;
+    });
+
+    [self.currentFetch cancel];
+    if(self.holdOperation) {
+        [self.currentFetch removeDependency:self.holdOperation];
+    }
+    [self.currentFetch waitUntilFinished];
 }
 
 @end

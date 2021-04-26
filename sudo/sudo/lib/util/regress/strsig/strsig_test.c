@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,26 +18,20 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif
 
 #include "sudo_compat.h"
 #include "sudo_util.h"
 #include "sudo_fatal.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 /*
  * Note: we do not test SIGUNUSED as it may not appear in sys_sigabbrev[]
- *       on Linux.
+ *       on Linux.  FreeBSD is missing SIGLWP (aka SIGTHR) in sys_signame[].
  */
 static struct signal_data {
     int rval;
@@ -159,7 +153,7 @@ static struct signal_data {
 #ifdef SIGWAITING
     { 0, SIGWAITING, "WAITING", NULL },
 #endif
-#ifdef SIGLWP
+#if defined(SIGLWP) && !defined(__FreeBSD__)
     { 0, SIGLWP, "LWP", NULL },
 #endif
 #ifdef SIGFREEZE

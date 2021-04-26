@@ -1131,7 +1131,7 @@ JSTokenType Lexer<CharacterType>::parseIdentifierSlowCase(JSTokenData* tokenData
     };
 
     JSTokenType type = fillBuffer(identCharsStart == currentSourcePtr());
-    if (UNLIKELY(type & ErrorTokenFlag))
+    if (UNLIKELY(type & CanBeErrorTokenFlag))
         return type;
 
     while (true) {
@@ -1143,7 +1143,7 @@ JSTokenType Lexer<CharacterType>::parseIdentifierSlowCase(JSTokenData* tokenData
             break;
 
         type = fillBuffer();
-        if (UNLIKELY(type & ErrorTokenFlag))
+        if (UNLIKELY(type & CanBeErrorTokenFlag))
             return type;
     }
 
@@ -1166,7 +1166,7 @@ JSTokenType Lexer<CharacterType>::parseIdentifierSlowCase(JSTokenData* tokenData
             return identType;
         JSTokenType token = static_cast<JSTokenType>(entry->lexerValue());
         if ((token != RESERVED_IF_STRICT) || strictMode)
-            return UNEXPECTED_ESCAPE_ERRORTOK;
+            return ESCAPED_KEYWORD;
     }
 
     return identType;
@@ -1575,7 +1575,7 @@ ALWAYS_INLINE auto Lexer<T>::parseHex() -> Optional<NumberParseResult>
         shift();
     }
 
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n'))
+    if (UNLIKELY(m_current == 'n'))
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
     
     return NumberParseResult { parseIntOverflow(m_buffer8.data(), m_buffer8.size(), 16) };
@@ -1626,7 +1626,7 @@ ALWAYS_INLINE auto Lexer<T>::parseBinary() -> Optional<NumberParseResult>
         shift();
     }
 
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n'))
+    if (UNLIKELY(m_current == 'n'))
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
 
     if (isASCIIDigit(m_current))
@@ -1682,7 +1682,7 @@ ALWAYS_INLINE auto Lexer<T>::parseOctal() -> Optional<NumberParseResult>
         shift();
     }
 
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n') && !isLegacyLiteral)
+    if (UNLIKELY(m_current == 'n') && !isLegacyLiteral)
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
 
     if (isASCIIDigit(m_current))
@@ -1742,7 +1742,7 @@ ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> Optional<NumberParseResult>
         shift();
     }
     
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n' && !isLegacyLiteral))
+    if (UNLIKELY(m_current == 'n' && !isLegacyLiteral))
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
 
     return WTF::nullopt;
@@ -2576,7 +2576,7 @@ invalidCharacter:
 returnError:
     m_error = true;
     fillTokenInfo(tokenRecord, token, m_lineNumber, currentOffset(), currentLineStartOffset(), currentPosition());
-    RELEASE_ASSERT(token & ErrorTokenFlag);
+    RELEASE_ASSERT(token & CanBeErrorTokenFlag);
     return token;
 }
 

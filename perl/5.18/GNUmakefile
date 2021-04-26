@@ -199,8 +199,6 @@ $(OBJROOT)/$(PROJECT)::
 	mv $(PROJVERS) $(PROJECT) && \
 	cat hints.append >> $(PROJECT)/hints/darwin.sh && \
 	ed - $(PROJECT)/Configure < fix/Configure.ed && \
-	ed - $(PROJECT)/cpan/Compress-Raw-Bzip2/Makefile.PL < fix/cpan_Compress-Raw-Bzip2_Makefile.PL.ed && \
-	ed - $(PROJECT)/cpan/Compress-Raw-Zlib/Makefile.PL < fix/cpan_Compress-Raw-Zlib_Makefile.PL.ed && \
 	ed - $(PROJECT)/cpan/DB_File/config.in < fix/cpan_DB_File_config.in.ed && \
 	ed - $(PROJECT)/cpan/DB_File/Makefile.PL < fix/cpan_DB_File_Makefile.PL.ed && \
 	ed - $(PROJECT)/cpan/Pod-Perldoc/lib/Pod/Perldoc.pm < fix/lib_Pod_Perldoc.pm.ed && \
@@ -228,7 +226,11 @@ $(OBJROOT)/$(PROJECT)::
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
 	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/CVE-2020-10543-CVE-2020-12723-CVE-2020-10878.patch)
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/CVE-2020-10543-CVE-2020-12723-CVE-2020-10878.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-extutils-makemaker-tbd-support.patch) && \
+	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-bzip2-use-sdk.patch | patch -p1) && \
+	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-zlib-use-sdk.patch | patch -p1)
+
 
 ifneq "$(RC_XBS)" "YES"
 clean:

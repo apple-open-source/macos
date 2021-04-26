@@ -33,6 +33,7 @@
 #include "MediaStream.h"
 #include "MediaStreamTrackPrivate.h"
 #include "Timer.h"
+#include <wtf/Deque.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -69,8 +70,13 @@ public:
     using RefCounted::deref;
     
     ExceptionOr<void> startRecording(Optional<unsigned>);
-    ExceptionOr<void> stopRecording();
+    void stopRecording();
     ExceptionOr<void> requestData();
+    ExceptionOr<void> pauseRecording();
+    ExceptionOr<void> resumeRecording();
+
+    unsigned videoBitsPerSecond() const { return m_options.videoBitsPerSecond.valueOr(0); }
+    unsigned audioBitsPerSecond() const { return m_options.audioBitsPerSecond.valueOr(0); }
 
     MediaStream& stream() { return m_stream.get(); }
 
@@ -97,7 +103,7 @@ private:
     void dispatchError(Exception&&);
 
     enum class TakePrivateRecorder { No, Yes };
-    using FetchDataCallback = Function<void(RefPtr<SharedBuffer>&&, const String& mimeType)>;
+    using FetchDataCallback = Function<void(RefPtr<SharedBuffer>&&, const String& mimeType, double)>;
     void fetchData(FetchDataCallback&&, TakePrivateRecorder);
 
     // MediaStream::Observer

@@ -64,6 +64,8 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAppleID, NSString*)
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationPassword, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupiCloudDataProtectionDeleteAllRecordsKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupContainsiCDPDataKey, NSString*);
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryKeyKey, NSString*);
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesRecoveryKeyKey, NSString*);
 
 #pragma clang diagnostic pop
 #endif
@@ -509,6 +511,20 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
             [clique joinAfterRestore:&localError];
             secnotice("clique-recovery", "joinAfterRestore: %@", localError);
         }
+    }
+
+    NSString* recoveryKey = sbdRecoveryArguments[getkSecureBackupRecoveryKeyKey()];
+    NSNumber* usesRecoveryKey = sbdRecoveryArguments[getkSecureBackupUsesRecoveryKeyKey()];
+
+    if((recoveryKey != nil || [usesRecoveryKey boolValue] == YES)
+       && [clique fetchCliqueStatus:&localError] == CliqueStatusIn) {
+        secnotice("clique-recovery", "recovery key used during secure backup recovery, skipping bottle check");
+        secnotice("clique-recovery", "recovery complete: %@", clique);
+
+        subTaskSuccess = clique ? true : false;
+        OctagonSignpostEnd(performEscrowRecoverySignpost, OctagonSignpostNamePerformEscrowRecovery, OctagonSignpostNumber1(OctagonSignpostNamePerformEscrowRecovery), (int)subTaskSuccess);
+
+        return clique;
     }
 
     // look for OT Bottles

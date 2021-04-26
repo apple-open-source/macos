@@ -46,8 +46,11 @@
 
 @implementation CKKSLockStateTracker
 
-- (instancetype)init {
+- (instancetype)initWithProvider:(id<CKKSLockStateProviderProtocol>)provider
+{
     if((self = [super init])) {
+        _lockStateProvider = provider;
+
         _queue = dispatch_queue_create("lock-state-tracker", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
 
@@ -120,24 +123,12 @@
     }
 }
 
-+(bool)queryAKSLocked {
-    CFErrorRef aksError = NULL;
-    bool locked = true;
-
-    if(!SecAKSGetIsLocked(&locked, &aksError)) {
-        ckkserror_global("ckks", "error querying lock state: %@", aksError);
-        CFReleaseNull(aksError);
-    }
-
-    return locked;
-}
-
 -(void)_onqueueRecheck {
     dispatch_assert_queue(self.queue);
 
     static bool first = true;
     bool wasLocked = self.queueIsLocked;
-    self.queueIsLocked = [CKKSLockStateTracker queryAKSLocked];
+    self.queueIsLocked = [self.lockStateProvider queryAKSLocked];
 
     if(wasLocked != self.queueIsLocked || first) {
         first = false;
@@ -229,12 +220,32 @@
     static CKKSLockStateTracker* tracker;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        tracker = [[CKKSLockStateTracker alloc] init];
+        tracker = [[CKKSLockStateTracker alloc] initWithProvider:[[CKKSActualLockStateProvider alloc] init]];
     });
     return tracker;
 }
 
 
+@end
+
+@implementation CKKSActualLockStateProvider
+- (instancetype)init {
+    if((self = [super init])) {
+    }
+    return self;
+}
+
+- (BOOL)queryAKSLocked {
+    CFErrorRef aksError = NULL;
+    bool locked = true;
+
+    if(!SecAKSGetIsLocked(&locked, &aksError)) {
+        ckkserror_global("ckks", "error querying lock state: %@", aksError);
+        CFReleaseNull(aksError);
+    }
+
+    return locked ? YES : NO;
+}
 @end
 
 #endif // OCTAGON

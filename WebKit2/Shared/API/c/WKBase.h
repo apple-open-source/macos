@@ -105,8 +105,6 @@ typedef const struct OpaqueWKHitTestResult* WKHitTestResultRef;
 typedef const struct OpaqueWKIconDatabase* WKIconDatabaseRef;
 typedef const struct OpaqueWKInspector* WKInspectorRef;
 typedef const struct OpaqueWKKeyValueStorageManager* WKKeyValueStorageManagerRef;
-typedef const struct OpaqueWKMediaSessionFocusManager* WKMediaSessionFocusManagerRef;
-typedef const struct OpaqueWKMediaSessionMetadata* WKMediaSessionMetadataRef;
 typedef const struct OpaqueWKMessageListener* WKMessageListenerRef;
 typedef const struct OpaqueWKNavigationAction* WKNavigationActionRef;
 typedef const struct OpaqueWKNavigationData* WKNavigationDataRef;
@@ -143,6 +141,7 @@ typedef const struct OpaqueWKWebsiteDataConfigurationStore* WKWebsiteDataStoreCo
 typedef const struct OpaqueWKWebsiteDataStore* WKWebsiteDataStoreRef;
 typedef const struct OpaqueWKWebsitePolicies* WKWebsitePoliciesRef;
 typedef const struct OpaqueWKWindowFeatures* WKWindowFeaturesRef;
+typedef const struct OpaqueWKSpeechRecognitionPermissionCallback* WKSpeechRecognitionPermissionCallbackRef;
 
 /* WebKit2 Bundle types */
 

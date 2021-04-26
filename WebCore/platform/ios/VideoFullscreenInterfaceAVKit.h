@@ -79,9 +79,9 @@ public:
     // PlaybackSessionModelClient
     WEBCORE_EXPORT void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) final;
 
-    WEBCORE_EXPORT void setupFullscreen(UIView& videoView, const IntRect& initialRect, const FloatSize& videoDimensions, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback, bool standby);
+    WEBCORE_EXPORT void setupFullscreen(UIView& videoView, const IntRect& initialRect, const FloatSize& videoDimensions, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture);
     WEBCORE_EXPORT void enterFullscreen();
-    WEBCORE_EXPORT void exitFullscreen(const IntRect& finalRect);
+    WEBCORE_EXPORT bool exitFullscreen(const IntRect& finalRect);
     WEBCORE_EXPORT void cleanupFullscreen();
     WEBCORE_EXPORT void invalidate();
     WEBCORE_EXPORT void requestHideAndExitFullscreen();
@@ -89,6 +89,8 @@ public:
     WEBCORE_EXPORT void preparedToExitFullscreen();
     WEBCORE_EXPORT void setHasVideoContentLayer(bool);
     WEBCORE_EXPORT void setInlineRect(const IntRect&, bool visible);
+    WEBCORE_EXPORT void preparedToReturnToStandby();
+    bool changingStandbyOnly() { return m_changingStandbyOnly; }
 
     enum class ExitFullScreenReason {
         DoneButtonTapped,
@@ -136,6 +138,8 @@ public:
     void prepareForPictureInPictureStop(WTF::Function<void(bool)>&& callback);
     bool wirelessVideoPlaybackDisabled() const;
     WEBCORE_EXPORT void applicationDidBecomeActive();
+    bool inPictureInPicture() const { return m_enteringPictureInPicture || m_currentMode.hasPictureInPicture(); }
+    bool returningToStandby() const { return m_returningToStandby; }
 
     void willStartPictureInPicture();
     void didStartPictureInPicture();
@@ -146,12 +150,9 @@ public:
     void exitFullscreenHandler(BOOL success, NSError *);
     void enterFullscreenHandler(BOOL success, NSError *);
     bool isPlayingVideoInEnhancedFullscreen() const;
-    WEBCORE_EXPORT void setReadyToStopPictureInPicture(BOOL);
-    WEBCORE_EXPORT bool willEnterStandbyFromPictureInPicture();
-    WEBCORE_EXPORT void setWillEnterStandbyFromPictureInPicture(BOOL);
 
-    WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode);
-    void clearMode(HTMLMediaElementEnums::VideoFullscreenMode);
+    WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
+    void clearMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
     bool hasMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const { return m_currentMode.hasMode(mode); }
 
     UIViewController *presentingViewController();
@@ -190,8 +191,10 @@ protected:
     String m_routingContextUID;
     bool m_allowsPictureInPicturePlayback { false };
     bool m_wirelessVideoPlaybackDisabled { true };
-    bool m_shouldReturnToFullscreenWhenStoppingPiP { false };
+    bool m_shouldReturnToFullscreenWhenStoppingPictureInPicture { false };
+    bool m_blocksReturnToFullscreenFromPictureInPicture { false };
     bool m_restoringFullscreenForPictureInPictureStop { false };
+    bool m_returningToStandby { false };
 
     bool m_setupNeedsInlineRect { false };
     bool m_exitFullscreenNeedInlineRect { false };
@@ -217,6 +220,7 @@ protected:
     bool m_inlineIsVisible { false };
     bool m_standby { false };
     bool m_targetStandby { false };
+    bool m_changingStandbyOnly { false };
 
 #if PLATFORM(WATCHOS)
     bool m_waitingForPreparedToExit { false };
@@ -224,8 +228,6 @@ protected:
     bool m_shouldIgnoreAVKitCallbackAboutExitFullscreenReason { false };
     bool m_enteringPictureInPicture { false };
     bool m_exitingPictureInPicture { false };
-    bool m_readyToStopPictureInPicture { true };
-    bool m_willEnterStandbyFromPictureInPicture { false };
 };
 
 }

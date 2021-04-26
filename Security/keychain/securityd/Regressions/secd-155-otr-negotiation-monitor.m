@@ -145,6 +145,7 @@ static void tests(void)
             SOSTestDeviceAddGenericItem(device, CFSTR("Bob"), CFSTR("Bob-add"));
         }
 
+        SOSTestDeviceForceCloseDatabase(device);
         CFReleaseNull(device);
     }
     CFReleaseNull(deviceIDs);
@@ -167,6 +168,7 @@ int secd_155_otr_negotiation_monitor(int argc, char *const *argv)
     plan_tests(44);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

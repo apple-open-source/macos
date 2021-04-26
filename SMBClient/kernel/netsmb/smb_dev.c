@@ -51,6 +51,7 @@
 #include <sys/kauth.h>
 
 #include <net/if.h>
+#include <netinet/in.h>
 #include <sys/smb_apple.h>
 #include <sys/smb_byte_order.h>
 #include <sys/mchain.h>
@@ -107,6 +108,11 @@ extern lck_attr_t * dev_lck_attr;
 
 extern int dev_open_cnt;
 extern int unloadInProgress;
+
+pid_t mc_notifier_pid = -1;
+extern lck_mtx_t mc_notifier_lck;
+
+extern struct smb_connobj smb_session_list;
 
 static int
 nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
@@ -287,14 +293,129 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		}
         case SMBIOC_UPDATE_CLIENT_INTERFACES:
         {
+            SMBDEBUG("SMBIOC_UPDATE_CLIENT_INTERFACES received.\n");
+            lck_rw_lock_shared(&sdp->sd_rwlock);
+            
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
+            
+            struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
+            sessionp = sdp->sd_session;
+            error =  smb2_mc_parse_client_interface_array(&sessionp->session_interface_table, client_info);
+            lck_rw_unlock_shared(&sdp->sd_rwlock);
+            break;
+        }
+        case SMBIOC_UPDATE_NOTIFIER_PID:
+        {
+            SMBDEBUG("SMBIOC_UPDATE_NOTIFIER_PID received.\n");
             lck_rw_lock_shared(&sdp->sd_rwlock);
 
             /* free global lock now since we now have sd_rwlock */
             lck_rw_unlock_shared(dev_rw_lck);
+            lck_mtx_lock(&mc_notifier_lck);
+
+            struct smbioc_notifier_pid* notifier_info = (struct smbioc_notifier_pid*)data;
+            /*
+             * Check if we already have an open notifier
+             * In that case prevent from opening more then 1
+             */
+            if (mc_notifier_pid != -1) {
+                char name[1024];
+                proc_name(mc_notifier_pid, (char*) &name, 1024);
+                if (!strncmp((char*) &name, "mc_notifier", 11)) {
+                    error = EEXIST;
+                }
+            } else {
+                mc_notifier_pid = notifier_info->pid;
+            }
+
+            lck_mtx_unlock(&mc_notifier_lck);
+            lck_rw_unlock_shared(&sdp->sd_rwlock);
+            break;
+        }
+        case SMBIOC_NOTIFIER_UPDATE_INTERFACES:
+        {
+            SMBDEBUG("SMBIOC_NOTIFIER_UPDATE_INTERFACES received.\n");
 
             struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
-            sessionp = sdp->sd_session;
-            smb2_mc_parse_client_interface_array(&sessionp->session_interface_table, client_info);
+
+            smb_sm_lock_session_list();
+
+            /* For every open session we want to update the client interface list */
+            struct smb_session *sessionp, *tsessionp;
+            SMBCO_FOREACH_SAFE(sessionp, &smb_session_list, tsessionp) {
+
+                error = smb_session_lock(sessionp);
+                if (error != 0) {
+                    /* Can happen with bad servers */
+                    client_info->ioc_errno = error;
+                    SMBDEBUG("smb_session_lock returned error %d\n", error);
+                    break;
+                }
+
+                error = smb2_mc_notifier_event(&sessionp->session_interface_table, client_info);
+
+                if (!error) {
+                    struct smbiod *iod = NULL;
+                    
+                    /*
+                     * echo inactive channel if there is such one.
+                     * we do the echo to detect client interface, used by
+                     * inactive channel, going down.
+                     * active channel interfaces going down should be detected
+                     * by the usage of the channel so no need to echo.
+                     * assume there is only one inactive channel here instead
+                     * of interating.
+                     */
+                    error = smb_iod_get_non_main_iod(sessionp, &iod, __FUNCTION__, 1);
+
+                    if ((error == 0) && iod) {
+                        (void)smb_smb_echo(iod, SMBNOREPLYWAIT, 1, iod->iod_context);
+                        smb_iod_rel(iod, NULL, __FUNCTION__);
+                    }
+
+                    error = smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__);
+                    if (error) {
+                        SMBERROR("smb_iod_get_main_iod failed %d \n", error);
+                    }
+                    else {
+                        error = smb_iod_establish_alt_ch(iod);
+                        smb_iod_rel(iod, NULL, __FUNCTION__);
+                    }
+                }
+
+                smb_session_unlock(sessionp);
+                if (error != 0) {
+                    SMBDEBUG("smb2_mc_update_client_interface_array returned error %d\n", error);
+                    client_info->ioc_errno = error;
+                    break;
+                }
+            }
+
+            smb_sm_unlock_session_list();
+
+            /* free global lock */
+            lck_rw_unlock_shared(dev_rw_lck);
+            break;
+        }
+        case SMBIOC_GET_NOTIFIER_PID:
+        {
+            lck_rw_lock_shared(&sdp->sd_rwlock);
+            
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
+            lck_mtx_lock(&mc_notifier_lck);
+
+            char name[1024];
+            proc_name(mc_notifier_pid, (char*) &name, 1024);
+            if (strncmp((char*) &name, "mc_notifier", 11)) {
+                mc_notifier_pid = -1;
+            }
+            
+            struct smbioc_notifier_pid* notifier_info = (struct smbioc_notifier_pid*)data;
+            notifier_info->pid = mc_notifier_pid;
+
+            lck_mtx_unlock(&mc_notifier_lck);
             lck_rw_unlock_shared(&sdp->sd_rwlock);
             break;
         }
@@ -336,7 +457,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else if (!sdp->sd_session) {
 				error = ENOTCONN;
 			} else {
-				error = smb_sm_ssnsetup(sdp->sd_session, sspec, context);				
+				error = smb_sm_ssnsetup(sdp->sd_session, sspec, context);
 			}
             
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
@@ -429,8 +550,8 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		case SMBIOC_AUTH_INFO:
 		{
 			struct smbioc_auth_info * auth_info = (struct smbioc_auth_info *)data;
-			
-			lck_rw_lock_shared(&sdp->sd_rwlock);
+
+            lck_rw_lock_shared(&sdp->sd_rwlock);
             
             /* free global lock now since we now have sd_rwlock */
             lck_rw_unlock_shared(dev_rw_lck);
@@ -440,42 +561,256 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else if (!sdp->sd_session) {
 				error = ENOTCONN;
 			} else {
-				sessionp = sdp->sd_session;
-				auth_info->ioc_client_nt = sessionp->session_gss.gss_client_nt;				
-				auth_info->ioc_target_nt = sessionp->session_gss.gss_target_nt;
+                sessionp = sdp->sd_session;
+
+                struct smbiod *iod = NULL;
+                if (smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__)) {
+                    SMBERROR("NULL iod.\n");
+                    error = EINVAL;
+                    lck_rw_unlock_shared(&sdp->sd_rwlock);
+                    break;
+                }
+                
+				auth_info->ioc_client_nt = iod->iod_gss.gss_client_nt;
+				auth_info->ioc_target_nt = iod->iod_gss.gss_target_nt;
 				/* 
 				 * On input the client_size and target_size must be the max size
 				 * of the buffer. On output we set them to the correct size or
 				 * zero if the buffer is not big enough.
 				 */
-				if (sessionp->session_gss.gss_cpn_len >= auth_info->ioc_client_size) {
-					auth_info->ioc_client_size = sessionp->session_gss.gss_cpn_len;
+				if (iod->iod_gss.gss_cpn_len >= auth_info->ioc_client_size) {
+					auth_info->ioc_client_size = iod->iod_gss.gss_cpn_len;
 				} else {
 					auth_info->ioc_client_size = 0;
 				}
-				if (sessionp->session_gss.gss_spn_len >= auth_info->ioc_target_size) {
-					auth_info->ioc_target_size = sessionp->session_gss.gss_spn_len;
+				if (iod->iod_gss.gss_spn_len >= auth_info->ioc_target_size) {
+					auth_info->ioc_target_size = iod->iod_gss.gss_spn_len;
 				} else {
 					auth_info->ioc_target_size = 0;
 				}
-				if (sessionp->session_gss.gss_cpn && auth_info->ioc_client_size) {
-					error = copyout(sessionp->session_gss.gss_cpn, auth_info->ioc_client_name, 
+				if (iod->iod_gss.gss_cpn && auth_info->ioc_client_size) {
+					error = copyout(iod->iod_gss.gss_cpn, auth_info->ioc_client_name,
 									(size_t)auth_info->ioc_client_size);
 					if (error) {
+                        smb_iod_rel(iod, NULL, __FUNCTION__);
 						lck_rw_unlock_shared(&sdp->sd_rwlock);
 						break;
 					}
 				}
-				if (sessionp->session_gss.gss_spn && auth_info->ioc_target_size) {
-					error = copyout(sessionp->session_gss.gss_spn, auth_info->ioc_target_name, 
+				if (iod->iod_gss.gss_spn && auth_info->ioc_target_size) {
+					error = copyout(iod->iod_gss.gss_spn, auth_info->ioc_target_name, 
 									(size_t)auth_info->ioc_target_size);
 				}
+                
+                smb_iod_rel(iod, NULL, __FUNCTION__);
 			}
             
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
-		case SMBIOC_SESSION_PROPERTIES:
+
+        case SMBIOC_MULTICHANNEL_PROPERTIES:
+        {
+            struct smbioc_multichannel_properties *mc_prop = (struct smbioc_multichannel_properties *)data;
+
+            lck_rw_lock_shared(&sdp->sd_rwlock);
+
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
+
+            if (mc_prop->ioc_version != SMB_IOC_STRUCT_VERSION) {
+                error = EINVAL;
+            } else if (!sdp->sd_session) {
+                error = ENOTCONN;
+            } else {
+                sessionp = sdp->sd_session;
+
+                memset(&mc_prop->iod_properties[0], 0, sizeof(mc_prop->iod_properties));
+
+                lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+                struct smbiod *iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
+                uint32_t u;
+                for(u=0; u<MAX_NUM_OF_IODS_IN_QUERY; u++) {
+
+                    if (!iod) {
+                        break;
+                    }
+
+                    lck_mtx_lock(&iod->iod_session->session_interface_table.interface_table_lck);
+
+                    SMB_IOD_FLAGSLOCK(iod);
+
+                    if ((iod->iod_flags & SMBIOD_RUNNING) &&
+                        (!(iod->iod_flags & SMBIOD_SHUTDOWN))) {
+                        struct smbioc_iod_prop *p = &mc_prop->iod_properties[u];
+                        p->iod_prop_id    = iod->iod_id;
+                        p->iod_flags      = iod->iod_flags;
+                        p->iod_prop_state = iod->iod_state;
+
+                        p->iod_prop_rx = iod->iod_total_rx_bytes;
+                        p->iod_prop_tx = iod->iod_total_tx_bytes;
+                        p->iod_prop_setup_time.tv_sec = iod->iod_session_setup_time.tv_sec;
+
+                        p->iod_prop_c_if  = iod->iod_conn_entry.client_if_idx;
+                        p->iod_prop_s_if  = (-1);
+                        if (iod->iod_conn_entry.con_entry) {
+                            p->iod_prop_con_speed = iod->iod_conn_entry.con_entry->con_speed;
+                            if (iod->iod_conn_entry.con_entry->con_client_nic) {
+                                p->iod_prop_c_if_type = iod->iod_conn_entry.con_entry->con_client_nic->nic_type;
+                            }
+                            if (iod->iod_conn_entry.con_entry->con_server_nic) {
+                                p->iod_prop_s_if = iod->iod_conn_entry.con_entry->con_server_nic->nic_index;
+                                p->iod_prop_s_if_caps = iod->iod_conn_entry.con_entry->con_server_nic->nic_caps;
+                            }
+                        }
+
+                        if (iod->iod_saddr) {
+
+                            p->iod_prop_s_addr.addr_family = iod->iod_saddr->sa_family;
+
+                            switch (p->iod_prop_s_addr.addr_family) {
+                                case AF_INET:
+                                {
+                                    struct sockaddr_in *sa = (void*)iod->iod_saddr;
+                                    *((uint32_t*)p->iod_prop_s_addr.addr_ipv4) = sa->sin_addr.s_addr;
+                                    p->iod_prop_con_port = ntohs(sa->sin_port);
+                                }
+                                break;
+                                case AF_INET6:
+                                {
+                                    struct sockaddr_in6 *sa6 = (void*)iod->iod_saddr;
+                                    memcpy(p->iod_prop_s_addr.addr_ipv6, &sa6->sin6_addr, sizeof(p->iod_prop_s_addr.addr_ipv6));
+                                    p->iod_prop_con_port = ntohs(sa6->sin6_port);
+                                }
+                                break;
+                                default:
+                                    SMBERROR("Unknown family.\n");
+                            }
+                        }
+                    }
+                    SMB_IOD_FLAGSUNLOCK(iod);
+                    lck_mtx_unlock(&iod->iod_session->session_interface_table.interface_table_lck);
+                    iod = TAILQ_NEXT(iod, tailq);
+                }
+
+                lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+                mc_prop->num_of_iod_properties = u;
+            }
+
+            lck_rw_unlock_shared(&sdp->sd_rwlock);
+            break;
+        }
+
+        case SMBIOC_NIC_INFO:
+        {
+            struct smbioc_nic_info *nic_info = (struct smbioc_nic_info *)data;
+
+            lck_rw_lock_shared(&sdp->sd_rwlock);
+
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
+
+            if (nic_info->ioc_version != SMB_IOC_STRUCT_VERSION) {
+                error = EINVAL;
+            } else if (!sdp->sd_session) {
+                error = ENOTCONN;
+            } else if ((sdp->sd_session->session_flags & SMBV_MULTICHANNEL_ON) == 0) {
+                /* nic info when MC is off is irrelevant */
+                nic_info->num_of_nics = 0;
+            } else {
+                sessionp = sdp->sd_session;
+
+                lck_mtx_lock(&sessionp->session_interface_table.interface_table_lck);
+
+                struct session_network_interface_info nic_info_table = sessionp->session_interface_table;
+
+                uint32_t nic_count = 0;
+                struct complete_nic_info_entry *nic = NULL;
+                switch (nic_info->flags) {
+                    case SERVER_NICS:
+                        nic_count = nic_info_table.server_nic_count;
+                        nic = TAILQ_FIRST(&nic_info_table.server_nic_info_list);
+                        break;
+                    case CLIENT_NICS:
+                        nic_count = nic_info_table.client_nic_count;
+                        nic = TAILQ_FIRST(&nic_info_table.client_nic_info_list);
+                        break;
+
+                    default:
+                        error = EINVAL;
+                        break;
+                }
+                nic_count = min(nic_count,MAX_NUM_OF_NICS);
+
+                nic_info->num_of_nics = 0;
+
+                uint32_t i;
+                for (i = 0; i < nic_count; )
+                {
+                    struct nic_properties *p = &nic_info->nic_props[i];
+
+                    if (nic == NULL) {
+                        break;
+                    }
+                    if (nic->nic_index & SMB2_IF_RSS_INDEX_MASK) { // don't send duplicate RSS channels
+                        nic = TAILQ_NEXT(nic,next);
+                        continue;
+                    }
+                    p->if_index = nic->nic_index;
+                    p->capabilities = nic->nic_caps;
+                    p->speed = nic->nic_link_speed;
+                    p->nic_type = nic->nic_type;
+                    p->ip_types = nic->nic_ip_types;
+                    p->state = nic->nic_state;
+
+                    struct sock_addr_entry *sock_addr = TAILQ_FIRST(&nic->addr_list);
+                    uint32_t j;
+                    for (j = 0; j < MAX_ADDRS_FOR_NIC; j++)
+                    {
+                        if (!sock_addr) {
+                            break;
+                        }
+                        if (sock_addr->addr) {
+                            p->addr_list[j].addr_family = sock_addr->addr->sa_family;
+
+                            switch (p->addr_list[j].addr_family) {
+                                case AF_INET:
+                                {
+                                    struct sockaddr_in *sa = (void*)sock_addr->addr;
+                                    *((uint32_t*)p->addr_list[j].addr_ipv4) = sa->sin_addr.s_addr;
+                                }
+                                break;
+                                case AF_INET6:
+                                {
+                                    struct sockaddr_in6 *sa6 = (void*)sock_addr->addr;
+                                    memcpy(p->addr_list[j].addr_ipv6, &sa6->sin6_addr, sizeof(p->addr_list[j].addr_ipv6));
+                                }
+                                break;
+                                default:
+                                    SMBERROR("Unknown family.\n");
+                            }
+
+                        }
+
+                        sock_addr = TAILQ_NEXT(sock_addr,next);
+                    }
+
+                    p->num_of_addrs = j;
+                    nic = TAILQ_NEXT(nic,next);
+                    i++;
+                }
+                nic_info->num_of_nics = i;
+
+                lck_mtx_unlock(&sessionp->session_interface_table.interface_table_lck);
+            }
+            lck_rw_unlock_shared(&sdp->sd_rwlock);
+            break;
+
+        }
+
+        case SMBIOC_SESSION_PROPERTIES:
 		{
 			struct smbioc_session_properties * properties = (struct smbioc_session_properties *)data;
             size_t str_len = 0;
@@ -526,6 +861,59 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 
                     lck_mtx_unlock(&sessionp->session_model_info_lock);
                 }
+
+                /* mc additions */
+                properties->ioc_session_reconnect_count = sessionp->session_reconnect_count;
+                properties->ioc_session_reconnect_time = sessionp->session_reconnect_time;
+                properties->ioc_session_setup_time = sessionp->session_setup_time;
+
+                /*
+                 * the total number of bytes transmitted received by
+                 * this session on all channels is the sum of all iod rx/tx bytes
+                 * and the number of tx/rx bytes of gone iod's
+                 */
+                properties->ioc_total_rx_bytes = sessionp->session_gone_iod_total_rx_bytes;
+                properties->ioc_total_tx_bytes = sessionp->session_gone_iod_total_tx_bytes;
+
+                lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+                struct smbiod *iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
+
+                while(iod) {
+                    SMB_IOD_FLAGSLOCK(iod);
+
+                    if ((iod->iod_flags & SMBIOD_RUNNING) &&
+                        (!(iod->iod_flags & SMBIOD_SHUTDOWN))) {
+                        properties->ioc_total_rx_bytes += iod->iod_total_rx_bytes;
+                        properties->ioc_total_tx_bytes += iod->iod_total_tx_bytes;
+                    }
+
+                    SMB_IOD_FLAGSUNLOCK(iod);
+                    iod = TAILQ_NEXT(iod, tailq);
+                }
+
+                lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+                /* Copy snapshot string out if present */
+                if (sessionp->session_misc_flags & SMBV_MNT_SNAPSHOT) {
+                    str_len = strnlen(sessionp->snapshot_time,
+                                      sizeof(sessionp->snapshot_time));
+                     if (str_len > 0) {
+                         /* Only copy if there is a string to copy */
+                        if (str_len < sizeof(properties->snapshot_time)) {
+                             /* Make sure to not read past end of snapshot_time */
+                             strlcpy(properties->snapshot_time,
+                                     sessionp->snapshot_time,
+                                     sizeof(sessionp->snapshot_time));
+                         }
+                         else {
+                             /* Make sure to not write past end of snapshot_time */
+                             strlcpy(properties->snapshot_time,
+                                     sessionp->snapshot_time,
+                                     sizeof(properties->snapshot_time));
+                         }
+                     }
+                }
 			}
 
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
@@ -555,6 +943,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
+            
         case SMBIOC_GET_OS_LANMAN:
 		{
 			lck_rw_lock_shared(&sdp->sd_rwlock);
@@ -584,7 +973,9 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
             lck_rw_unlock_shared(dev_rw_lck);
 
 			/* Check to see if the session is still up and running */
-			if (sdp->sd_session && (SMB_TRAN_FATAL(sdp->sd_session, 0) == 0)) {
+			if (sdp->sd_session &&
+                sdp->sd_session->session_iod &&
+                (SMB_TRAN_FATAL(sdp->sd_session->session_iod, 0) == 0)) {
 				*(uint16_t *)data = EISCONN;
 			} else {
 				*(uint16_t *)data = ENOTCONN;

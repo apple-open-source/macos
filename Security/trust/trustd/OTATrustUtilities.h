@@ -36,9 +36,6 @@ __BEGIN_DECLS
 // Opaque type that holds the data for a specific version of the OTA PKI assets
 typedef struct _OpaqueSecOTAPKI *SecOTAPKIRef;
 
-// Returns a boolean for whether the current instance is the system trustd
-bool SecOTAPKIIsSystemTrustd(void);
-
 // Returns the trust server workloop
 dispatch_queue_t SecTrustServerGetWorkloop(void);
 

@@ -164,6 +164,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case ArrayPop:
         case ArrayIndexOf:
         case HasIndexedProperty:
+        case HasEnumerableIndexedProperty:
         case AtomicsAdd:
         case AtomicsAnd:
         case AtomicsCompareExchange:
@@ -253,8 +254,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case AtomicsIsLockFree:
-        if (node->child1().useKind() == Int32Use)
-            def(PureValue(node));
+        if (graph.child(node, 0).useKind() == Int32Use)
+            def(PureValue(graph, node));
         else
             clobberTop();
         return;
@@ -348,7 +349,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
     }
 
-    case HasIndexedProperty: {
+    case HasIndexedProperty:
+    case HasEnumerableIndexedProperty: {
         read(JSObject_butterfly);
         ArrayMode mode = node->arrayMode();
         switch (mode.type()) {
@@ -457,6 +459,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         def(PureValue(CheckNotEmpty, AdjacencyList(AdjacencyList::Fixed, node->child1())));
         return;
 
+    case AssertInBounds:
     case AssertNotEmpty:
         write(SideState);
         return;
@@ -474,7 +477,6 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
          
     case MovHint:
-    case ZombieHint:
     case ExitOK:
     case Upsilon:
     case Phi:
@@ -671,6 +673,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case PutGetterSetterById:
     case PutGetterByVal:
     case PutSetterByVal:
+    case PutPrivateName:
+    case PutPrivateNameById:
+    case GetPrivateName:
+    case GetPrivateNameById:
     case DefineDataProperty:
     case DefineAccessorProperty:
     case DeleteById:
@@ -701,8 +707,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ResolveScopeForHoistingFuncDeclInEval:
     case ResolveScope:
     case ToObject:
-    case HasGenericProperty:
-    case HasStructureProperty:
+    case HasEnumerableStructureProperty:
+    case HasEnumerableProperty:
     case HasOwnStructureProperty:
     case InStructureProperty:
     case GetPropertyEnumerator:
@@ -1154,7 +1160,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         read(JSCell_structureID);
         return;
 
-    case CheckNeutered:
+    case CheckDetached:
         read(MiscFields);
         return; 
         
@@ -1184,7 +1190,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         write(JSCell_typeInfoFlags);
         write(JSCell_indexingType);
 
-        if (node->transition()->next->isPropertyDeletionTransition()) {
+        if (node->transition()->next->transitionKind() == TransitionKind::PropertyDeletion) {
             // We use this "delete fence" to model the proper aliasing of future stores.
             // Both in DFG and when we lower to B3, we model aliasing of properties by
             // property  name. In a world without delete, that also models {base, propertyOffset}.

@@ -72,7 +72,9 @@ WI.EventListenerSectionGroup = class EventListenerSectionGroup extends WI.Detail
             }
 
             if (WI.DOMManager.supportsEventListenerBreakpoints()) {
-                this._eventListenerBreakpointToggleElement = document.createElement("input");
+                let toggleContainer = document.createElement("span");
+
+                this._eventListenerBreakpointToggleElement = toggleContainer.appendChild(document.createElement("input"));
                 this._eventListenerBreakpointToggleElement.type = "checkbox";
                 this._updateBreakpointToggle();
                 this._eventListenerBreakpointToggleElement.addEventListener("change", (event) => {
@@ -80,13 +82,24 @@ WI.EventListenerSectionGroup = class EventListenerSectionGroup extends WI.Detail
                     this.hasEventListenerBreakpoint = !!this._eventListenerBreakpointToggleElement.checked;
                 });
 
+                if (WI.DOMManager.supportsEventListenerBreakpointConfiguration()) {
+                    let revealBreakpointGoToArrow = toggleContainer.appendChild(WI.createGoToArrowButton());
+                    revealBreakpointGoToArrow.title = WI.UIString("Reveal in Sources Tab");
+                    revealBreakpointGoToArrow.addEventListener("click", (event) => {
+                        console.assert(this.hasEventListenerBreakpoint);
+                        WI.showSourcesTab({
+                            representedObjectToSelect: WI.domManager.breakpointForEventListenerId(this._eventListener.eventListenerId),
+                        });
+                    });
+                }
+
                 let toggleLabel = document.createElement("span");
                 toggleLabel.textContent = WI.UIString("Breakpoint");
                 toggleLabel.addEventListener("click", (event) => {
                     this._eventListenerBreakpointToggleElement.click();
                 });
 
-                rows.push(new WI.DetailsSectionSimpleRow(toggleLabel, this._eventListenerBreakpointToggleElement));
+                rows.push(new WI.DetailsSectionSimpleRow(toggleLabel, toggleContainer));
             }
         }
 

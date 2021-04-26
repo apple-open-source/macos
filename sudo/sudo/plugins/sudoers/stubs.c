@@ -28,15 +28,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
-#include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -83,8 +76,22 @@ group_plugin_query(const char *user, const char *group, const struct passwd *pw)
 struct interface_list *
 get_interfaces(void)
 {
-    static struct interface_list dummy = SLIST_HEAD_INITIALIZER(interfaces);
-    return &dummy;
+    static struct interface_list empty = SLIST_HEAD_INITIALIZER(interfaces);
+    return &empty;
+}
+
+/* STUB */
+int
+set_cmnd_path(const char *runchroot)
+{
+    return FOUND;
+}
+
+/* STUB */
+void
+init_eventlog_config(void)
+{
+    return;
 }
 
 /*
@@ -94,7 +101,7 @@ void
 get_hostname(void)
 {
     char *cp;
-    debug_decl(get_hostname, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_hostname, SUDOERS_DEBUG_UTIL);
 
     if ((user_host = sudo_gethostname()) != NULL) {
 	if ((cp = strchr(user_host, '.'))) {

@@ -23,26 +23,35 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.URLBreakpoint = class URLBreakpoint extends WI.Object
+WI.URLBreakpoint = class URLBreakpoint extends WI.Breakpoint
 {
-    constructor(type, url, {disabled} = {})
+    constructor(type, url, {disabled, actions, condition, ignoreCount, autoContinue} = {})
     {
         console.assert(Object.values(WI.URLBreakpoint.Type).includes(type), type);
         console.assert(typeof url === "string", url);
 
-        super();
+        super({disabled, actions, condition, ignoreCount, autoContinue});
 
         this._type = type;
         this._url = url;
-        this._disabled = disabled || false;
     }
 
     // Static
 
-    static deserialize(serializedInfo)
+    static get supportsEditing()
     {
-        return new WI.URLBreakpoint(serializedInfo.type, serializedInfo.url, {
-            disabled: !!serializedInfo.disabled,
+        // COMPATIBILITY (iOS 14): DOMDebugger.setURLBreakpoint did not have an "options" parameter yet.
+        return InspectorBackend.hasCommand("DOMDebugger.setURLBreakpoint", "options");
+    }
+
+    static fromJSON(json)
+    {
+        return new WI.URLBreakpoint(json.type, json.url, {
+            disabled: json.disabled,
+            condition: json.condition,
+            actions: json.actions?.map((actionJSON) => WI.BreakpointAction.fromJSON(actionJSON)) || [],
+            ignoreCount: json.ignoreCount,
+            autoContinue: json.autoContinue,
         });
     }
 
@@ -51,19 +60,38 @@ WI.URLBreakpoint = class URLBreakpoint extends WI.Object
     get type() { return this._type; }
     get url() { return this._url; }
 
-    get disabled()
+    get displayName()
     {
-        return this._disabled;
+        if (this === WI.domDebuggerManager.allRequestsBreakpoint)
+            return WI.repeatedUIString.allRequests();
+
+        switch (this._type) {
+        case WI.URLBreakpoint.Type.Text:
+            return doubleQuotedString(this._url);
+
+        case WI.URLBreakpoint.Type.RegularExpression:
+            return "/" + this._url + "/";
+        }
+
+        console.assert();
+        return WI.UIString("URL");
     }
 
-    set disabled(disabled)
+    get special()
     {
-        if (this._disabled === disabled)
-            return;
+        return this === WI.domDebuggerManager.allRequestsBreakpoint || super.special;
+    }
 
-        this._disabled = disabled;
+    get editable()
+    {
+        return WI.URLBreakpoint.supportsEditing || super.editable;
+    }
 
-        this.dispatchEventToListeners(WI.URLBreakpoint.Event.DisabledStateChanged);
+    remove()
+    {
+        super.remove();
+
+        WI.domDebuggerManager.removeURLBreakpoint(this);
     }
 
     saveIdentityToCookie(cookie)
@@ -74,23 +102,18 @@ WI.URLBreakpoint = class URLBreakpoint extends WI.Object
 
     toJSON(key)
     {
-        let json = {
-            type: this._type,
-            url: this._url,
-        };
-        if (this._disabled)
-            json.disabled = true;
+        let json = super.toJSON(key);
+        json.type = this._type;
+        json.url = this._url;
         if (key === WI.ObjectStore.toJSONSymbol)
             json[WI.objectStores.urlBreakpoints.keyPath] = this._type + ":" + this._url;
         return json;
     }
 };
 
-WI.URLBreakpoint.Event = {
-    DisabledStateChanged: "url-breakpoint-disabled-state-changed",
-};
-
 WI.URLBreakpoint.Type = {
     Text: "text",
     RegularExpression: "regex",
 };
+
+WI.URLBreakpoint.ReferencePage = WI.ReferencePage.URLBreakpoints;

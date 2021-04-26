@@ -56,9 +56,9 @@ void SecCoreAnalyticsSendKernEntropyHealth()
     rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.failure_count", &adaptive_proportion_failure_count, &sz_uint, NULL, 0);
     rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.max_observation_count", &adaptive_proportion_max_observation_count, &sz_uint, NULL, 0);
     rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.reset_count", &adaptive_proportion_reset_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_test.failure_count", &repetition_failure_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_test.max_observation_count", &repetition_max_observation_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_test.reset_count", &repetition_reset_count, &sz_uint, NULL, 0);
+    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.failure_count", &repetition_failure_count, &sz_uint, NULL, 0);
+    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.max_observation_count", &repetition_max_observation_count, &sz_uint, NULL, 0);
+    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.reset_count", &repetition_reset_count, &sz_uint, NULL, 0);
 
     // Round up to next power of two.
     if (adaptive_proportion_reset_count > 0) {

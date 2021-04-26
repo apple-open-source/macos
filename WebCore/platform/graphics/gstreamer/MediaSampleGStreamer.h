@@ -37,7 +37,7 @@ public:
     }
 
     static Ref<MediaSampleGStreamer> createFakeSample(GstCaps*, MediaTime pts, MediaTime dts, MediaTime duration, const FloatSize& presentationSize, const AtomString& trackId);
-    static Ref<MediaSampleGStreamer> createImageSample(Vector<uint8_t>&&, unsigned width, unsigned height);
+    static Ref<MediaSampleGStreamer> createImageSample(Vector<uint8_t>&&, unsigned width, unsigned height, double frameRate = 1);
 
     void extendToTheBeginning();
     MediaTime presentationTime() const override { return m_pts; }
@@ -54,6 +54,7 @@ public:
     Ref<MediaSample> createNonDisplayingCopy() const override;
     SampleFlags flags() const override { return m_flags; }
     PlatformSample platformSample() override;
+    Optional<ByteRange> byteRange() const override { return WTF::nullopt; }
     void dump(PrintStream&) const override;
     RefPtr<JSC::Uint8ClampedArray> getRGBAImageData() const final;
 

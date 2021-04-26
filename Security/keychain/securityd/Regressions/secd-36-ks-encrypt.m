@@ -93,6 +93,8 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
     CFReleaseNull(error);
     CFReleaseNull(enc);
 
+    secd_test_teardown_delete_temp_keychain("secd_36_ks_encrypt");
+
     return 0;
 }
 

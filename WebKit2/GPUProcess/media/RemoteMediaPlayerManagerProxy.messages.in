@@ -24,12 +24,11 @@
 #if ENABLE(GPU_PROCESS)
 
 messages -> RemoteMediaPlayerManagerProxy NotRefCounted {
-    CreateMediaPlayer(WebKit::MediaPlayerPrivateRemoteIdentifier id, enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, struct WebKit::RemoteMediaPlayerProxyConfiguration proxyConfiguration) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration) Async
-     DeleteMediaPlayer(WebKit::MediaPlayerPrivateRemoteIdentifier id)
+    CreateMediaPlayer(WebCore::MediaPlayerIdentifier identifier, enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, struct WebKit::RemoteMediaPlayerProxyConfiguration proxyConfiguration) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration) Async
+    DeleteMediaPlayer(WebCore::MediaPlayerIdentifier identifier)
 
     GetSupportedTypes(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier) -> (Vector<String> types) Synchronous
     SupportsTypeAndCodecs(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, struct WebCore::MediaEngineSupportParameters type) -> (enum:uint8_t WebCore::MediaPlayerEnums::SupportsType support) Synchronous
-    CanDecodeExtendedType(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, String mimeType) -> (bool supports) Synchronous
     OriginsInMediaCache(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, String path) -> (Vector<WebCore::SecurityOriginData> origins) Synchronous
     ClearMediaCache(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, String path, WallTime modifiedSince)
     ClearMediaCacheForOrigins(enum:uint8_t WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, String path, Vector<WebCore::SecurityOriginData> origins)

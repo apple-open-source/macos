@@ -10,7 +10,6 @@ add_definitions(-DBUILDING_WEBKIT)
 
 list(APPEND WebKit_SOURCES
     NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
-    NetworkProcess/Classifier/WebResourceLoadStatisticsTelemetry.cpp
 
     NetworkProcess/WebStorage/StorageManager.cpp
 
@@ -187,8 +186,6 @@ if (ENABLE_REMOTE_INSPECTOR)
     )
 endif ()
 
-WEBKIT_WRAP_SOURCELIST(${WebKit_SOURCES})
-
 # Windows specific
 list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     Shared/API/c/curl/WKCertificateInfoCurl.h
@@ -199,9 +196,4 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/C/curl/WKWebsiteDataStoreRefCurl.h
 
     UIProcess/API/C/win/WKView.h
-)
-
-list(APPEND WebKit_PRIVATE_DEFINITIONS
-    STATICALLY_LINKED_WITH_PAL
-    STATICALLY_LINKED_WITH_WebCore
 )

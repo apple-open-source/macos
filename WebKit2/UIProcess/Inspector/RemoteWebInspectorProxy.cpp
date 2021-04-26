@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,10 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/NotImplemented.h>
 
+#if ENABLE(INSPECTOR_EXTENSIONS)
+#include "WebInspectorUIExtensionControllerProxy.h"
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -65,10 +69,10 @@ void RemoteWebInspectorProxy::setDiagnosticLoggingAvailable(bool available)
 
 void RemoteWebInspectorProxy::load(Ref<API::DebuggableInfo>&& debuggableInfo, const String& backendCommandsURL)
 {
-    createFrontendPageAndWindow();
-
     m_debuggableInfo = WTFMove(debuggableInfo);
     m_backendCommandsURL = backendCommandsURL;
+
+    createFrontendPageAndWindow();
 
     m_inspectorPage->send(Messages::RemoteWebInspectorUI::Initialize(m_debuggableInfo->debuggableInfoData(), backendCommandsURL));
     m_inspectorPage->loadRequest(URL(URL(), WebInspectorProxy::inspectorPageURL()));
@@ -93,6 +97,13 @@ void RemoteWebInspectorProxy::show()
 void RemoteWebInspectorProxy::sendMessageToFrontend(const String& message)
 {
     m_inspectorPage->send(Messages::RemoteWebInspectorUI::SendMessageToFrontend(message));
+}
+
+void RemoteWebInspectorProxy::frontendLoaded()
+{
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_extensionController->inspectorFrontendLoaded();
+#endif
 }
 
 void RemoteWebInspectorProxy::frontendDidClose()
@@ -148,9 +159,9 @@ void RemoteWebInspectorProxy::startWindowDrag()
     platformStartWindowDrag();
 }
 
-void RemoteWebInspectorProxy::openInNewTab(const String& url)
+void RemoteWebInspectorProxy::openURLExternally(const String& url)
 {
-    platformOpenInNewTab(url);
+    platformOpenURLExternally(url);
 }
 
 void RemoteWebInspectorProxy::showCertificate(const CertificateInfo& certificateInfo)
@@ -175,6 +186,10 @@ void RemoteWebInspectorProxy::createFrontendPageAndWindow()
 
     m_inspectorPage->process().addMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->webPageID(), *this);
     m_inspectorPage->process().assumeReadAccessToBaseURL(*m_inspectorPage, WebInspectorProxy::inspectorBaseURL());
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_extensionController = makeUnique<WebInspectorUIExtensionControllerProxy>(*m_inspectorPage);
+#endif
 }
 
 void RemoteWebInspectorProxy::closeFrontendPageAndWindow()
@@ -205,7 +220,7 @@ void RemoteWebInspectorProxy::platformAppend(const String&, const String&) { }
 void RemoteWebInspectorProxy::platformSetSheetRect(const FloatRect&) { }
 void RemoteWebInspectorProxy::platformSetForcedAppearance(InspectorFrontendClient::Appearance) { }
 void RemoteWebInspectorProxy::platformStartWindowDrag() { }
-void RemoteWebInspectorProxy::platformOpenInNewTab(const String&) { }
+void RemoteWebInspectorProxy::platformOpenURLExternally(const String&) { }
 void RemoteWebInspectorProxy::platformShowCertificate(const CertificateInfo&) { }
 void RemoteWebInspectorProxy::platformCloseFrontendPageAndWindow() { }
 #endif // !ENABLE(REMOTE_INSPECTOR) || (!PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN))

@@ -67,6 +67,7 @@
 #endif
 #include <os/tsd.h>
 #include <paths.h>
+#include <pthread/pthread.h>  // _pthread_threadid_self_np_direct()
 #include <pthread/private.h>  // _pthread_threadid_self_np_direct()
 #include <pthread/tsd_private.h>  // TSD keys
 #include <signal.h>
@@ -143,6 +144,18 @@ static inline bool
 malloc_traced(void)
 {
 	return malloc_tracing_enabled;
+}
+
+static inline uint32_t
+_malloc_cpu_number(void)
+{
+#if TARGET_OS_SIMULATOR
+	size_t n;
+	pthread_cpu_number_np(&n);
+	return (uint32_t)n;
+#else
+	return _os_cpu_number();
+#endif
 }
 
 /*

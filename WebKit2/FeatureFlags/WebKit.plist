@@ -2,12 +2,37 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>app_highlights</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
     <key>async_frame_and_overflow_scrolling</key>
     <dict>
         <key>Enabled</key>
         <true/>
     </dict>
-    <key>canvas_and_media_in_gpu_process</key>
+    <key>gpu_process_canvas_rendering</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+    <key>gpu_process_dom_rendering</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+    <key>gpu_process_media</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+    <key>gpu_process_webgl</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+    <key>gpu_process_webrtc</key>
     <dict>
         <key>Enabled</key>
         <false/>
@@ -27,6 +52,16 @@
         <key>Enabled</key>
         <false/>
     </dict>
+	<key>sw_vp9_decoder_on_battery</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+	<key>vp9_decoder</key>
+    <dict>
+        <key>Enabled</key>
+        <true/>
+    </dict>
     <key>WebGL2</key>
     <dict>
         <key>Enabled</key>
@@ -42,25 +77,20 @@
         <key>Enabled</key>
         <false/>
     </dict>
-    <key>webrtc_in_gpu_process</key>
-    <dict>
-        <key>Enabled</key>
-        <false/>
-    </dict>
-    <key>vp9_decoder</key>
+    <key>webm_format_reader</key>
     <dict>
         <key>Enabled</key>
         <true/>
-    </dict>
-    <key>sw_vp9_decoder_on_battery</key>
-    <dict>
-        <key>Enabled</key>
-        <false/>
     </dict>
     <key>webm_parser</key>
     <dict>
         <key>Enabled</key>
         <true/>
+    </dict>
+    <key>RB_full_manage_WK_jetsam</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
     </dict>
 </dict>
 </plist>

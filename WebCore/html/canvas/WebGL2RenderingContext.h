@@ -42,7 +42,7 @@ class WebGL2RenderingContext final : public WebGLRenderingContextBase {
     WTF_MAKE_ISO_ALLOCATED(WebGL2RenderingContext);
 public:
     static std::unique_ptr<WebGL2RenderingContext> create(CanvasBase&, GraphicsContextGLAttributes);
-    static std::unique_ptr<WebGL2RenderingContext> create(CanvasBase&, Ref<GraphicsContextGLOpenGL>&&, GraphicsContextGLAttributes);
+    static std::unique_ptr<WebGL2RenderingContext> create(CanvasBase&, Ref<GraphicsContextGL>&&, GraphicsContextGLAttributes);
 
     ~WebGL2RenderingContext();
 
@@ -256,8 +256,8 @@ public:
 
     GCGLuint maxTransformFeedbackSeparateAttribs() const;
 
-    GraphicsContextGLOpenGL::PixelStoreParams getPackPixelStoreParams() const override;
-    GraphicsContextGLOpenGL::PixelStoreParams getUnpackPixelStoreParams(TexImageDimension) const override;
+    PixelStoreParams getPackPixelStoreParams() const override;
+    PixelStoreParams getUnpackPixelStoreParams(TexImageDimension) const override;
 
     bool checkAndTranslateAttachments(const char* functionName, GCGLenum, Vector<GCGLenum>&);
 
@@ -265,7 +265,7 @@ public:
 
 private:
     WebGL2RenderingContext(CanvasBase&, GraphicsContextGLAttributes);
-    WebGL2RenderingContext(CanvasBase&, Ref<GraphicsContextGLOpenGL>&&, GraphicsContextGLAttributes);
+    WebGL2RenderingContext(CanvasBase&, Ref<GraphicsContextGL>&&, GraphicsContextGLAttributes);
 
     bool isWebGL2() const final { return true; }
 
@@ -292,7 +292,8 @@ private:
     bool validateIndexArrayConservative(GCGLenum type, unsigned& numElementsRequired) final;
     bool validateBlendEquation(const char* functionName, GCGLenum mode) final;
     bool validateCapability(const char* functionName, GCGLenum cap) final;
-    bool validateClearBuffer(const char* functionName, GCGLenum buffer, size_t, GCGLuint srcOffset);
+    template<typename T, typename TypedArrayType>
+    Optional<GCGLSpan<const T>> validateClearBuffer(const char* functionName, GCGLenum buffer, TypedList<TypedArrayType, T>& values, GCGLuint srcOffset);
     bool validateFramebufferTarget(GCGLenum target) final;
     WebGLFramebuffer* getFramebufferBinding(GCGLenum target) final;
     WebGLFramebuffer* getReadFramebufferBinding() final;

@@ -136,6 +136,10 @@ public:
         GrammarDetail,
         IconDatabase,
         Inspector,
+        InspectorConfiguration,
+#if ENABLE(INSPECTOR_EXTENSIONS)
+        InspectorExtension,
+#endif
         KeyValueStorageManager,
         MediaCacheManager,
         MessageListener,
@@ -164,6 +168,7 @@ public:
         RunJavaScriptAlertResultListener,
         RunJavaScriptConfirmResultListener,
         RunJavaScriptPromptResultListener,
+        SpeechRecognitionPermissionCallback,
         TextChecker,
         URLSchemeTask,
         UserContentController,
@@ -178,11 +183,6 @@ public:
         WebsiteDataStoreConfiguration,
         WebsitePolicies,
         WindowFeatures,
-
-#if ENABLE(MEDIA_SESSION)
-        MediaSessionFocusManager,
-        MediaSessionMetadata,
-#endif
 
 #if ENABLE(WEB_AUTHN)
         WebAuthenticationAssertionResponse,
@@ -385,6 +385,10 @@ template<> struct EnumTraits<API::Object::Type> {
         API::Object::Type::GrammarDetail,
         API::Object::Type::IconDatabase,
         API::Object::Type::Inspector,
+        API::Object::Type::InspectorConfiguration,
+#if ENABLE(INSPECTOR_EXTENSIONS)
+        API::Object::Type::InspectorExtension,
+#endif
         API::Object::Type::KeyValueStorageManager,
         API::Object::Type::MediaCacheManager,
         API::Object::Type::MessageListener,
@@ -413,6 +417,7 @@ template<> struct EnumTraits<API::Object::Type> {
         API::Object::Type::RunJavaScriptAlertResultListener,
         API::Object::Type::RunJavaScriptConfirmResultListener,
         API::Object::Type::RunJavaScriptPromptResultListener,
+        API::Object::Type::SpeechRecognitionPermissionCallback,
         API::Object::Type::TextChecker,
         API::Object::Type::URLSchemeTask,
         API::Object::Type::UserContentController,
@@ -427,11 +432,6 @@ template<> struct EnumTraits<API::Object::Type> {
         API::Object::Type::WebsiteDataStoreConfiguration,
         API::Object::Type::WebsitePolicies,
         API::Object::Type::WindowFeatures,
-
-#if ENABLE(MEDIA_SESSION)
-        API::Object::Type::MediaSessionFocusManager,
-        API::Object::Type::MediaSessionMetadata,
-#endif
 
 #if ENABLE(WEB_AUTHN)
         API::Object::Type::WebAuthenticationAssertionResponse,

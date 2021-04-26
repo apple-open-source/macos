@@ -489,7 +489,9 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					}
 				if (!hash)
 					hash.take(resources.hashFile(ent->fts_accpath, kSecCodeSignatureHashSHA1));
-				if (ruleFlags == 0) {	// default case - plain hash
+				// The user controlled rule flag is a runtime only flag and shouldn't cause use of a more
+				// complex resource serialization as doing so would break serialized adhoc opaque hashes.
+				if ((ruleFlags & ~ResourceBuilder::user_controlled) == 0) {	// default case - plain hash
 					cfadd(files, "{%s=%O}", relpath.c_str(), hash.get());
 					secinfo("csresource", "%s added simple (rule %p)", relpath.c_str(), rule);
 				} else {	// more complicated - use a sub-dictionary

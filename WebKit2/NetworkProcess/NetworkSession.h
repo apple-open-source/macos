@@ -29,9 +29,9 @@
 #include "SandboxExtension.h"
 #include "ServiceWorkerSoftUpdateLoader.h"
 #include "WebResourceLoadStatisticsStore.h"
-#include <WebCore/AdClickAttribution.h>
 #include <WebCore/BlobRegistryImpl.h>
 #include <WebCore/NetworkStorageSession.h>
+#include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/RegistrableDomain.h>
 #include <pal/SessionID.h>
 #include <wtf/HashSet.h>
@@ -51,7 +51,7 @@ struct SecurityOriginData;
 
 namespace WebKit {
 
-class AdClickAttributionManager;
+class PrivateClickMeasurementManager;
 class NetworkDataTask;
 class NetworkProcess;
 class NetworkResourceLoader;
@@ -75,7 +75,6 @@ public:
     virtual void invalidateAndCancel();
     virtual void clearCredentials() { };
     virtual bool shouldLogCookieInformation() const { return false; }
-    virtual Seconds loadThrottleLatency() const { return { }; }
     virtual Vector<WebCore::SecurityOriginData> hostNamesWithAlternativeServices() const { return { }; }
     virtual void deleteAlternativeServicesForHostNames(const Vector<String>&) { }
     virtual void clearAlternativeServices(WallTime) { }
@@ -84,8 +83,8 @@ public:
     NetworkProcess& networkProcess() { return m_networkProcess; }
     WebCore::NetworkStorageSession* networkStorageSession() const;
 
-    void registerNetworkDataTask(NetworkDataTask& task) { m_dataTaskSet.add(&task); }
-    void unregisterNetworkDataTask(NetworkDataTask& task) { m_dataTaskSet.remove(&task); }
+    void registerNetworkDataTask(NetworkDataTask&);
+    void unregisterNetworkDataTask(NetworkDataTask&);
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
@@ -96,7 +95,6 @@ public:
     void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(const HashSet<WebCore::RegistrableDomain>&)>&&);
     void registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType>, bool shouldNotifyPage, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     void logDiagnosticMessageWithValue(const String& message, const String& description, unsigned value, unsigned significantFigures, WebCore::ShouldSample);
-    void notifyPageStatisticsTelemetryFinished(unsigned numberOfPrevalentResources, unsigned numberOfPrevalentResourcesWithUserInteraction, unsigned numberOfPrevalentResourcesWithoutUserInteraction, unsigned topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, unsigned medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, unsigned top3NumberOfPrevalentResourcesWithUI, unsigned top3MedianSubFrameWithoutUI, unsigned top3MedianSubResourceWithoutUI, unsigned top3MedianUniqueRedirectsWithoutUI, unsigned top3MedianDataRecordsRemovedWithoutUI);
     bool enableResourceLoadStatisticsLogTestingEvent() const { return m_enableResourceLoadStatisticsLogTestingEvent; }
     void setResourceLoadStatisticsLogTestingEvent(bool log) { m_enableResourceLoadStatisticsLogTestingEvent = log; }
     virtual bool hasIsolatedSession(const WebCore::RegistrableDomain) const { return false; }
@@ -111,19 +109,22 @@ public:
     Optional<WebCore::RegistrableDomain> thirdPartyCNAMEDomainForTesting() const { return m_thirdPartyCNAMEDomainForTesting; }
     void resetCNAMEDomainData();
     void destroyResourceLoadStatistics(CompletionHandler<void()>&&);
-    void flushAndDestroyPersistentStore(CompletionHandler<void()>&&);
 #endif
     
+#if ENABLE(APP_BOUND_DOMAINS)
     virtual bool hasAppBoundSession() const { return false; }
     virtual void clearAppBoundSession() { }
-    void storeAdClickAttribution(WebCore::AdClickAttribution&&);
-    void handleAdClickAttributionConversion(WebCore::AdClickAttribution::Conversion&&, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest);
-    void dumpAdClickAttribution(CompletionHandler<void(String)>&&);
-    void clearAdClickAttribution();
-    void clearAdClickAttributionForRegistrableDomain(WebCore::RegistrableDomain&&);
-    void setAdClickAttributionOverrideTimerForTesting(bool value);
-    void setAdClickAttributionConversionURLForTesting(URL&&);
-    void markAdClickAttributionsAsExpiredForTesting();
+#endif
+    void storePrivateClickMeasurement(WebCore::PrivateClickMeasurement&&);
+    void handlePrivateClickMeasurementConversion(WebCore::PrivateClickMeasurement::AttributionTriggerData&&, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest);
+    void dumpPrivateClickMeasurement(CompletionHandler<void(String)>&&);
+    void clearPrivateClickMeasurement();
+    void clearPrivateClickMeasurementForRegistrableDomain(WebCore::RegistrableDomain&&);
+    void setPrivateClickMeasurementOverrideTimerForTesting(bool value);
+    void markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&);
+    void setPrivateClickMeasurementConversionURLForTesting(URL&&);
+    void markPrivateClickMeasurementsAsExpiredForTesting();
+    void firePrivateClickMeasurementTimerImmediately();
 
     void addKeptAliveLoad(Ref<NetworkResourceLoader>&&);
     void removeKeptAliveLoad(NetworkResourceLoader&);
@@ -158,7 +159,7 @@ protected:
 
     PAL::SessionID m_sessionID;
     Ref<NetworkProcess> m_networkProcess;
-    HashSet<NetworkDataTask*> m_dataTaskSet;
+    WeakHashSet<NetworkDataTask> m_dataTaskSet;
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     String m_resourceLoadStatisticsDirectory;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
@@ -175,7 +176,7 @@ protected:
     Optional<WebCore::RegistrableDomain> m_thirdPartyCNAMEDomainForTesting;
 #endif
     bool m_isStaleWhileRevalidateEnabled { false };
-    UniqueRef<AdClickAttributionManager> m_adClickAttribution;
+    UniqueRef<PrivateClickMeasurementManager> m_privateClickMeasurement;
 
     HashSet<Ref<NetworkResourceLoader>> m_keptAliveLoads;
 

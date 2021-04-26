@@ -67,10 +67,10 @@ public:
 
     const String& webSQLDatabaseDirectory() const { return m_webSQLDatabaseDirectory; }
     void setWebSQLDatabaseDirectory(String&& directory) { m_webSQLDatabaseDirectory = WTFMove(directory); }
-#if USE(GLIB) // According to r245075 this will eventually move here.
+
     const String& hstsStorageDirectory() const { return m_hstsStorageDirectory; }
     void setHSTSStorageDirectory(String&& directory) { m_hstsStorageDirectory = WTFMove(directory); }
-#endif
+
     const String& localStorageDirectory() const { return m_localStorageDirectory; }
     void setLocalStorageDirectory(String&& directory) { m_localStorageDirectory = WTFMove(directory); }
 
@@ -163,6 +163,9 @@ public:
     const URL& standaloneApplicationURL() const { return m_standaloneApplicationURL; }
     void setStandaloneApplicationURL(URL&& url) { m_standaloneApplicationURL = WTFMove(url); }
 
+    bool enableInAppBrowserPrivacyForTesting() const { return m_enableInAppBrowserPrivacyForTesting; }
+    void setEnableInAppBrowserPrivacyForTesting(bool value) { m_enableInAppBrowserPrivacyForTesting = value; }
+    
 private:
     IsPersistent m_isPersistent { IsPersistent::No };
 
@@ -175,8 +178,8 @@ private:
     String m_indexedDBDatabaseDirectory;
     String m_serviceWorkerRegistrationDirectory;
     String m_webSQLDatabaseDirectory;
-#if USE(GLIB)
     String m_hstsStorageDirectory;
+#if USE(GLIB)
     bool m_networkCacheSpeculativeValidationEnabled { true };
 #else
     bool m_networkCacheSpeculativeValidationEnabled { false };
@@ -208,6 +211,7 @@ private:
     bool m_requiresSecureHTTPSProxyConnection { false };
     unsigned m_testSpeedMultiplier { 1 };
     URL m_standaloneApplicationURL;
+    bool m_enableInAppBrowserPrivacyForTesting { false };
 #if PLATFORM(COCOA)
     RetainPtr<CFDictionaryRef> m_proxyConfiguration;
 #endif

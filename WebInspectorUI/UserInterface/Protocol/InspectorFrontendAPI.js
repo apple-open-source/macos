@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -196,5 +196,24 @@ InspectorFrontendAPI = {
             InspectorFrontendAPI.dispatch(InspectorFrontendAPI._pendingCommands[i]);
 
         delete InspectorFrontendAPI._pendingCommands;
-    }
+    },
+
+    // Returns a WI.WebInspectorExtension.ErrorCode if an error occurred, otherwise nothing.
+    registerExtension(extensionID, displayName)
+    {
+        return WI.sharedApp.extensionController.registerExtension(extensionID, displayName);
+    },
+
+    // Returns a WI.WebInspectorExtension.ErrorCode if an error occurred, otherwise nothing.
+    unregisterExtension(extensionID)
+    {
+        return WI.sharedApp.extensionController.unregisterExtension(extensionID);
+    },
+
+    // Returns a WI.WebInspectorExtension.ErrorCode if an error occurred, otherwise an object
+    // with an 'inspectorExtensionID' key representing the tab identifier for the newly created tab.
+    createTabForExtension(extensionID, tabName, tabIconURL, sourceURL)
+    {
+        return WI.sharedApp.extensionController.createTabForExtension(extensionID, tabName, tabIconURL, sourceURL);
+    },
 };

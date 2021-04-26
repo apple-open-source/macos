@@ -1,12 +1,12 @@
 # Serbian translations for sudo package.
 # This file is put in the public domain.
-# Мирослав Николић <miroslavnikolic@rocketmail.com>, 2011—2017.
+# Мирослав Николић <miroslavnikolic@rocketmail.com>, 2011—2020.
 msgid ""
 msgstr ""
-"Project-Id-Version: sudo-1.8.21b2\n"
+"Project-Id-Version: sudo-1.9.3b1\n"
 "Report-Msgid-Bugs-To: https://bugzilla.sudo.ws\n"
-"POT-Creation-Date: 2017-08-03 10:04-0600\n"
-"PO-Revision-Date: 2017-08-06 14:45+0200\n"
+"POT-Creation-Date: 2020-09-12 08:28-0600\n"
+"PO-Revision-Date: 2020-12-11 07:41+0200\n"
 "Last-Translator: Мирослав Николић <miroslavnikolic@rocketmail.com>\n"
 "Language-Team: Serbian <(nothing)>\n"
 "Language: sr\n"
@@ -16,72 +16,119 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "X-Bugs: Report translation errors to the Language-Team address.\n"
 
-#: lib/util/aix.c:85 lib/util/aix.c:172
+#: lib/util/aix.c:89 lib/util/aix.c:169
 msgid "unable to open userdb"
 msgstr "не могу да отворим корисничку базу података"
 
-#: lib/util/aix.c:227
+#: lib/util/aix.c:224
 #, c-format
 msgid "unable to switch to registry \"%s\" for %s"
 msgstr "не могу да се пребацим на регистар „%s“ за %s"
 
-#: lib/util/aix.c:252
+#: lib/util/aix.c:249
 msgid "unable to restore registry"
 msgstr "не могу да повратим регистар"
 
-#: lib/util/aix.c:275 lib/util/gidlist.c:64 lib/util/gidlist.c:74
-#: lib/util/sudo_conf.c:186 lib/util/sudo_conf.c:272 lib/util/sudo_conf.c:349
-#: lib/util/sudo_conf.c:553 src/conversation.c:75 src/exec_common.c:107
-#: src/exec_common.c:123 src/exec_common.c:132 src/exec_monitor.c:167
-#: src/exec_nopty.c:462 src/exec_pty.c:667 src/exec_pty.c:676
-#: src/exec_pty.c:738 src/exec_pty.c:867 src/load_plugins.c:52
-#: src/load_plugins.c:65 src/load_plugins.c:215 src/load_plugins.c:238
-#: src/load_plugins.c:303 src/load_plugins.c:318 src/parse_args.c:177
-#: src/parse_args.c:198 src/parse_args.c:273 src/parse_args.c:540
-#: src/parse_args.c:562 src/preserve_fds.c:47 src/preserve_fds.c:130
-#: src/selinux.c:84 src/selinux.c:309 src/selinux.c:432 src/selinux.c:441
-#: src/sesh.c:115 src/sudo.c:389 src/sudo.c:416 src/sudo.c:481 src/sudo.c:603
-#: src/sudo.c:663 src/sudo.c:673 src/sudo.c:693 src/sudo.c:712 src/sudo.c:721
-#: src/sudo.c:730 src/sudo.c:747 src/sudo.c:788 src/sudo.c:798 src/sudo.c:818
-#: src/sudo.c:1058 src/sudo.c:1079 src/sudo.c:1253 src/sudo.c:1351
-#: src/sudo_edit.c:148 src/sudo_edit.c:771 src/sudo_edit.c:868
-#: src/sudo_edit.c:982 src/sudo_edit.c:1002
+#: lib/util/aix.c:272 lib/util/gidlist.c:66 lib/util/gidlist.c:76
+#: lib/util/json.c:54 lib/util/json.c:180 lib/util/sudo_conf.c:186
+#: lib/util/sudo_conf.c:272 lib/util/sudo_conf.c:349 lib/util/sudo_conf.c:575
+#: src/conversation.c:80 src/exec_common.c:106 src/exec_common.c:122
+#: src/exec_common.c:131 src/exec_monitor.c:206 src/exec_monitor.c:455
+#: src/exec_monitor.c:461 src/exec_monitor.c:469 src/exec_monitor.c:477
+#: src/exec_monitor.c:484 src/exec_monitor.c:491 src/exec_monitor.c:498
+#: src/exec_monitor.c:505 src/exec_monitor.c:512 src/exec_monitor.c:519
+#: src/exec_monitor.c:526 src/exec_nopty.c:212 src/exec_nopty.c:221
+#: src/exec_nopty.c:228 src/exec_nopty.c:235 src/exec_nopty.c:242
+#: src/exec_nopty.c:249 src/exec_nopty.c:256 src/exec_nopty.c:263
+#: src/exec_nopty.c:270 src/exec_nopty.c:277 src/exec_nopty.c:284
+#: src/exec_nopty.c:291 src/exec_nopty.c:299 src/exec_nopty.c:473
+#: src/exec_pty.c:827 src/exec_pty.c:836 src/exec_pty.c:893
+#: src/exec_pty.c:1046 src/exec_pty.c:1218 src/exec_pty.c:1227
+#: src/exec_pty.c:1234 src/exec_pty.c:1241 src/exec_pty.c:1248
+#: src/exec_pty.c:1255 src/exec_pty.c:1262 src/exec_pty.c:1269
+#: src/exec_pty.c:1276 src/exec_pty.c:1283 src/exec_pty.c:1290
+#: src/exec_pty.c:1298 src/exec_pty.c:1740 src/load_plugins.c:52
+#: src/load_plugins.c:65 src/load_plugins.c:163 src/load_plugins.c:188
+#: src/load_plugins.c:223 src/load_plugins.c:463 src/load_plugins.c:469
+#: src/parse_args.c:181 src/parse_args.c:202 src/parse_args.c:275
+#: src/parse_args.c:616 src/parse_args.c:638 src/parse_args.c:663
+#: src/preserve_fds.c:46 src/preserve_fds.c:131 src/selinux.c:90
+#: src/selinux.c:360 src/selinux.c:489 src/selinux.c:498 src/sesh.c:115
+#: src/sudo.c:632 src/sudo.c:701 src/sudo.c:711 src/sudo.c:732 src/sudo.c:751
+#: src/sudo.c:760 src/sudo.c:769 src/sudo.c:786 src/sudo.c:828 src/sudo.c:838
+#: src/sudo.c:867 src/sudo.c:1053 src/sudo.c:1075 src/sudo.c:1373
+#: src/sudo.c:1546 src/sudo.c:1740 src/sudo.c:2084 src/sudo_edit.c:263
+#: src/sudo_edit.c:770 src/sudo_edit.c:854 src/sudo_edit.c:976
+#: src/sudo_edit.c:996
 #, c-format
 msgid "%s: %s"
 msgstr "%s: %s"
 
-#: lib/util/aix.c:275 lib/util/gidlist.c:64 lib/util/sudo_conf.c:187
-#: lib/util/sudo_conf.c:272 lib/util/sudo_conf.c:349 lib/util/sudo_conf.c:553
-#: src/conversation.c:76 src/exec_common.c:107 src/exec_common.c:124
-#: src/exec_common.c:133 src/exec_pty.c:667 src/exec_pty.c:676
-#: src/exec_pty.c:738 src/load_plugins.c:215 src/load_plugins.c:238
-#: src/load_plugins.c:303 src/load_plugins.c:318 src/parse_args.c:177
-#: src/parse_args.c:199 src/parse_args.c:273 src/parse_args.c:540
-#: src/parse_args.c:562 src/preserve_fds.c:47 src/preserve_fds.c:130
-#: src/selinux.c:84 src/selinux.c:309 src/selinux.c:432 src/selinux.c:441
-#: src/sesh.c:115 src/sudo.c:389 src/sudo.c:416 src/sudo.c:481 src/sudo.c:603
-#: src/sudo.c:818 src/sudo.c:1058 src/sudo.c:1079 src/sudo.c:1253
-#: src/sudo.c:1351 src/sudo_edit.c:148 src/sudo_edit.c:771 src/sudo_edit.c:868
-#: src/sudo_edit.c:982 src/sudo_edit.c:1002
+#: lib/util/aix.c:272 lib/util/gidlist.c:66 lib/util/json.c:55
+#: lib/util/json.c:181 lib/util/sudo_conf.c:187 lib/util/sudo_conf.c:272
+#: lib/util/sudo_conf.c:349 lib/util/sudo_conf.c:575 src/conversation.c:81
+#: src/exec_common.c:106 src/exec_common.c:123 src/exec_common.c:132
+#: src/exec_monitor.c:455 src/exec_monitor.c:461 src/exec_monitor.c:469
+#: src/exec_monitor.c:477 src/exec_monitor.c:484 src/exec_monitor.c:491
+#: src/exec_monitor.c:498 src/exec_monitor.c:505 src/exec_monitor.c:512
+#: src/exec_monitor.c:519 src/exec_monitor.c:526 src/exec_nopty.c:212
+#: src/exec_nopty.c:221 src/exec_nopty.c:228 src/exec_nopty.c:235
+#: src/exec_nopty.c:242 src/exec_nopty.c:249 src/exec_nopty.c:256
+#: src/exec_nopty.c:263 src/exec_nopty.c:270 src/exec_nopty.c:277
+#: src/exec_nopty.c:284 src/exec_nopty.c:291 src/exec_nopty.c:299
+#: src/exec_pty.c:827 src/exec_pty.c:836 src/exec_pty.c:893
+#: src/exec_pty.c:1218 src/exec_pty.c:1227 src/exec_pty.c:1234
+#: src/exec_pty.c:1241 src/exec_pty.c:1248 src/exec_pty.c:1255
+#: src/exec_pty.c:1262 src/exec_pty.c:1269 src/exec_pty.c:1276
+#: src/exec_pty.c:1283 src/exec_pty.c:1290 src/exec_pty.c:1298
+#: src/exec_pty.c:1740 src/load_plugins.c:163 src/load_plugins.c:188
+#: src/load_plugins.c:223 src/load_plugins.c:463 src/load_plugins.c:469
+#: src/parse_args.c:181 src/parse_args.c:203 src/parse_args.c:275
+#: src/parse_args.c:616 src/parse_args.c:638 src/parse_args.c:663
+#: src/preserve_fds.c:46 src/preserve_fds.c:131 src/selinux.c:90
+#: src/selinux.c:360 src/selinux.c:489 src/selinux.c:498 src/sesh.c:115
+#: src/sudo.c:235 src/sudo.c:632 src/sudo.c:867 src/sudo.c:1053
+#: src/sudo.c:1075 src/sudo.c:1373 src/sudo.c:1546 src/sudo.c:1740
+#: src/sudo.c:2084 src/sudo_edit.c:263 src/sudo_edit.c:770 src/sudo_edit.c:854
+#: src/sudo_edit.c:976 src/sudo_edit.c:996
 msgid "unable to allocate memory"
 msgstr "не могу да доделим меморију"
 
-#: lib/util/strsignal.c:48
+#: lib/util/mkdir_parents.c:69 lib/util/sudo_conf.c:614 src/selinux.c:234
+#: src/selinux.c:264 src/sudo.c:369
+#, c-format
+msgid "unable to open %s"
+msgstr "не могу да отворим %s"
+
+#: lib/util/mkdir_parents.c:84
+#, c-format
+msgid "unable to mkdir %s"
+msgstr "не могу да направим директоријум „%s“"
+
+#: lib/util/mkdir_parents.c:93 lib/util/sudo_conf.c:591
+#, c-format
+msgid "unable to stat %s"
+msgstr "не могу да добијем податке о „%s“"
+
+#: lib/util/mkdir_parents.c:98
+#, c-format
+msgid "%s exists but is not a directory (0%o)"
+msgstr "„%s“ постоји али није директоријум (0%o)"
+
+#: lib/util/strsignal.c:50
 msgid "Unknown signal"
 msgstr "Непознати сигнал"
 
-#: lib/util/strtoid.c:77 lib/util/strtoid.c:124 lib/util/strtoid.c:152
-#: lib/util/strtomode.c:49 lib/util/strtonum.c:58 lib/util/strtonum.c:176
+#: lib/util/strtoid.c:87 lib/util/strtomode.c:52 lib/util/strtonum.c:148
+#: lib/util/strtonum.c:187
 msgid "invalid value"
 msgstr "неисправна вредност"
 
-#: lib/util/strtoid.c:84 lib/util/strtoid.c:131 lib/util/strtoid.c:159
-#: lib/util/strtomode.c:55 lib/util/strtonum.c:61 lib/util/strtonum.c:188
+#: lib/util/strtomode.c:58 lib/util/strtonum.c:160
 msgid "value too large"
 msgstr "вредност је превелика"
 
-#: lib/util/strtoid.c:86 lib/util/strtoid.c:137 lib/util/strtomode.c:55
-#: lib/util/strtonum.c:61 lib/util/strtonum.c:182
+#: lib/util/strtomode.c:58 lib/util/strtonum.c:154
 msgid "value too small"
 msgstr "вредност је премала"
 
@@ -90,160 +137,206 @@ msgstr "вредност је премала"
 msgid "invalid Path value \"%s\" in %s, line %u"
 msgstr "неисправна вредност путање „%s“ у „%s“, %u. ред"
 
-#: lib/util/sudo_conf.c:371 lib/util/sudo_conf.c:424
+#: lib/util/sudo_conf.c:371 lib/util/sudo_conf.c:387 lib/util/sudo_conf.c:440
 #, c-format
 msgid "invalid value for %s \"%s\" in %s, line %u"
 msgstr "неисправна вредност за %s „%s“ у „%s“, %u. ред"
 
-#: lib/util/sudo_conf.c:392
+#: lib/util/sudo_conf.c:408
 #, c-format
 msgid "unsupported group source \"%s\" in %s, line %u"
 msgstr "неподржани извор групе „%s“ у „%s“, %u. ред"
 
-#: lib/util/sudo_conf.c:408
+#: lib/util/sudo_conf.c:424
 #, c-format
 msgid "invalid max groups \"%s\" in %s, line %u"
 msgstr "неисправне највеће групе „%s“ у „%s“, %u. ред"
 
-#: lib/util/sudo_conf.c:569
-#, c-format
-msgid "unable to stat %s"
-msgstr "не могу да добијем податке о „%s“"
-
-#: lib/util/sudo_conf.c:572
+#: lib/util/sudo_conf.c:594
 #, c-format
 msgid "%s is not a regular file"
 msgstr "„%s“ није обична датотека"
 
-#: lib/util/sudo_conf.c:575
+#: lib/util/sudo_conf.c:597
 #, c-format
 msgid "%s is owned by uid %u, should be %u"
 msgstr "%s је у власништву уиб-а %u, а треба бити %u"
 
-#: lib/util/sudo_conf.c:579
+#: lib/util/sudo_conf.c:601
 #, c-format
 msgid "%s is world writable"
 msgstr "%s је светски уписив"
 
-#: lib/util/sudo_conf.c:582
+#: lib/util/sudo_conf.c:604
 #, c-format
 msgid "%s is group writable"
 msgstr "%s је групно уписив"
 
-#: lib/util/sudo_conf.c:592 src/selinux.c:208 src/selinux.c:225 src/sudo.c:357
+#: src/copy_file.c:91
 #, c-format
-msgid "unable to open %s"
-msgstr "не могу да отворим %s"
+msgid "%s: truncate %s to zero bytes? (y/n) [n] "
+msgstr "%s: да скратим „%s“ на нула бајта? (y/n) [n] "
 
-#: src/exec.c:160
+#: src/copy_file.c:95
+#, c-format
+msgid "not overwriting %s"
+msgstr "не преписујем „%s“"
+
+#: src/copy_file.c:117
+#, c-format
+msgid "unable to read from %s"
+msgstr "не могу да читам из „%s“"
+
+#: src/copy_file.c:134 src/sudo_edit.c:695
+#, c-format
+msgid "unable to write to %s"
+msgstr "не могу да упишем у %s"
+
+#: src/exec.c:128
 #, c-format
 msgid "unknown login class %s"
 msgstr "непозната класа пријаве %s"
 
-#: src/exec.c:173
+#: src/exec.c:140
 msgid "unable to set user context"
 msgstr "не могу да подесим кориснички контекст"
 
-#: src/exec.c:189
+#: src/exec.c:156
 msgid "unable to set process priority"
 msgstr "не могу да подесим приоритет процеса"
 
-#: src/exec.c:197
+#: src/exec.c:170
 #, c-format
 msgid "unable to change root to %s"
 msgstr "не могу да променим администратора на %s"
 
-#: src/exec.c:210 src/exec.c:216 src/exec.c:223
+#: src/exec.c:183 src/exec.c:189 src/exec.c:196
 #, c-format
 msgid "unable to change to runas uid (%u, %u)"
 msgstr "не могу да се пребацим у покрени_као уид (%u, %u)"
 
-#: src/exec.c:241
+#: src/exec.c:214
 #, c-format
 msgid "unable to change directory to %s"
 msgstr "не могу да променим директоријум у %s"
 
-#: src/exec.c:337 src/exec_monitor.c:526 src/exec_monitor.c:528
-#: src/exec_nopty.c:520 src/exec_pty.c:472 src/exec_pty.c:1184
-#: src/exec_pty.c:1186 src/signal.c:139 src/signal.c:153
+#: src/exec.c:218
+#, c-format
+msgid "starting from %s"
+msgstr "почевши од „%s“"
+
+#: src/exec.c:300 src/exec_monitor.c:564 src/exec_monitor.c:566
+#: src/exec_nopty.c:531 src/exec_pty.c:568 src/exec_pty.c:1386
+#: src/exec_pty.c:1388 src/signal.c:139 src/signal.c:153
 #, c-format
 msgid "unable to set handler for signal %d"
 msgstr "не могу да подесим руковаоца за сигнал „%d“"
 
-#: src/exec_common.c:166
+#: src/exec_common.c:165
 msgid "unable to remove PRIV_PROC_EXEC from PRIV_LIMIT"
 msgstr "не могу да уклоним PRIV_PROC_EXEC из PRIV_LIMIT"
 
-#: src/exec_monitor.c:326
+#: src/exec_monitor.c:360
 msgid "error reading from socketpair"
 msgstr "грешка у читању из пара прикључка"
 
-#: src/exec_monitor.c:338
+#: src/exec_monitor.c:377
 #, c-format
 msgid "unexpected reply type on backchannel: %d"
 msgstr "неочекивана врста одговора на повратном каналу: %d"
 
-#: src/exec_monitor.c:423 src/exec_monitor.c:431 src/exec_monitor.c:439
-#: src/exec_monitor.c:446 src/exec_monitor.c:453 src/exec_monitor.c:460
-#: src/exec_monitor.c:467 src/exec_monitor.c:474 src/exec_monitor.c:481
-#: src/exec_monitor.c:488 src/exec_nopty.c:215 src/exec_nopty.c:224
-#: src/exec_nopty.c:231 src/exec_nopty.c:238 src/exec_nopty.c:245
-#: src/exec_nopty.c:252 src/exec_nopty.c:259 src/exec_nopty.c:266
-#: src/exec_nopty.c:273 src/exec_nopty.c:280 src/exec_nopty.c:287
-#: src/exec_nopty.c:294 src/exec_nopty.c:302 src/exec_pty.c:563
-#: src/exec_pty.c:568 src/exec_pty.c:635 src/exec_pty.c:642 src/exec_pty.c:743
-#: src/exec_pty.c:1029 src/exec_pty.c:1038 src/exec_pty.c:1045
-#: src/exec_pty.c:1052 src/exec_pty.c:1059 src/exec_pty.c:1066
-#: src/exec_pty.c:1073 src/exec_pty.c:1080 src/exec_pty.c:1087
-#: src/exec_pty.c:1094 src/exec_pty.c:1101 src/exec_pty.c:1446
-#: src/exec_pty.c:1456 src/exec_pty.c:1501 src/exec_pty.c:1508
-#: src/exec_pty.c:1533
+#: src/exec_monitor.c:463 src/exec_monitor.c:471 src/exec_monitor.c:479
+#: src/exec_monitor.c:486 src/exec_monitor.c:493 src/exec_monitor.c:500
+#: src/exec_monitor.c:507 src/exec_monitor.c:514 src/exec_monitor.c:521
+#: src/exec_monitor.c:528 src/exec_nopty.c:214 src/exec_nopty.c:223
+#: src/exec_nopty.c:230 src/exec_nopty.c:237 src/exec_nopty.c:244
+#: src/exec_nopty.c:251 src/exec_nopty.c:258 src/exec_nopty.c:265
+#: src/exec_nopty.c:272 src/exec_nopty.c:279 src/exec_nopty.c:286
+#: src/exec_nopty.c:293 src/exec_nopty.c:301 src/exec_pty.c:693
+#: src/exec_pty.c:698 src/exec_pty.c:795 src/exec_pty.c:802 src/exec_pty.c:899
+#: src/exec_pty.c:1220 src/exec_pty.c:1229 src/exec_pty.c:1236
+#: src/exec_pty.c:1243 src/exec_pty.c:1250 src/exec_pty.c:1257
+#: src/exec_pty.c:1264 src/exec_pty.c:1271 src/exec_pty.c:1278
+#: src/exec_pty.c:1285 src/exec_pty.c:1292 src/exec_pty.c:1693
+#: src/exec_pty.c:1703 src/exec_pty.c:1748 src/exec_pty.c:1755
+#: src/exec_pty.c:1782
 msgid "unable to add event to queue"
 msgstr "не могу да додам догађај у ред"
 
-#: src/exec_monitor.c:540
+#: src/exec_monitor.c:582
 msgid "unable to set controlling tty"
 msgstr "не могу да подесим контролисање tty"
 
-#: src/exec_monitor.c:548 src/exec_nopty.c:359 src/exec_pty.c:1261
-#: src/exec_pty.c:1280 src/exec_pty.c:1298 src/tgetpass.c:246
+#: src/exec_monitor.c:590 src/exec_nopty.c:358 src/exec_pty.c:1465
+#: src/exec_pty.c:1486 src/exec_pty.c:1506 src/tgetpass.c:306
 msgid "unable to create pipe"
 msgstr "не могу да направим спојку"
 
-#: src/exec_monitor.c:553 src/exec_nopty.c:377 src/exec_pty.c:1335
-#: src/tgetpass.c:250
+#: src/exec_monitor.c:598
+msgid "unable to receive message from parent"
+msgstr "не могу да примим поруку од родитеља"
+
+#: src/exec_monitor.c:612 src/exec_nopty.c:387 src/exec_pty.c:1544
+#: src/sudo_edit.c:735 src/tgetpass.c:310
 msgid "unable to fork"
 msgstr "не могу да поделим"
 
-#: src/exec_monitor.c:639 src/exec_nopty.c:430
+#: src/exec_monitor.c:616 src/exec_monitor.c:715 src/exec_nopty.c:441
 msgid "unable to restore tty label"
 msgstr "не могу да повратим tty натпис"
 
-#: src/exec_nopty.c:353 src/exec_pty.c:1193
+#: src/exec_monitor.c:632 src/sesh.c:125 src/sudo.c:1131
+#, c-format
+msgid "unable to execute %s"
+msgstr "не могу да извршим %s"
+
+#: src/exec_nopty.c:352 src/exec_pty.c:1395
 msgid "policy plugin failed session initialization"
 msgstr "није успело покретање сесије прикључка политике"
 
-#: src/exec_nopty.c:419 src/exec_pty.c:1404
+#: src/exec_nopty.c:429 src/exec_pty.c:1632
 msgid "error in event loop"
 msgstr "грешка у петљи догађаја"
 
-#: src/exec_nopty.c:528 src/exec_pty.c:504 src/signal.c:101
+#: src/exec_nopty.c:539 src/exec_pty.c:606 src/signal.c:101
 #, c-format
 msgid "unable to restore handler for signal %d"
 msgstr "не могу да повратим руковаоца за сигнал „%d“"
 
-#: src/exec_pty.c:143
+#: src/exec_pty.c:152
 msgid "unable to allocate pty"
 msgstr "не могу да доделим pty"
 
-#: src/exec_pty.c:1173
+#: src/exec_pty.c:216 src/exec_pty.c:255 src/exec_pty.c:294 src/exec_pty.c:344
+#: src/exec_pty.c:394
+msgid "I/O plugin error"
+msgstr "грешка У/И прикључка"
+
+#: src/exec_pty.c:219 src/exec_pty.c:258 src/exec_pty.c:297 src/exec_pty.c:347
+#: src/exec_pty.c:397
+msgid "command rejected by I/O plugin"
+msgstr "наредбу је одбацио У/И прикључак"
+
+#: src/exec_pty.c:444
+msgid "error logging suspend"
+msgstr "грешка обуставе писања дневника"
+
+#: src/exec_pty.c:477
+msgid "error changing window size"
+msgstr "грешка промене величине прозора"
+
+#: src/exec_pty.c:1375
 msgid "unable to create sockets"
 msgstr "не могу да направим утичнице"
 
+#: src/exec_pty.c:1587
+msgid "unable to send message to monitor process"
+msgstr "не могу да пошаљем поруку процесу праћења"
+
 #: src/load_plugins.c:50 src/load_plugins.c:63 src/load_plugins.c:85
-#: src/load_plugins.c:115 src/load_plugins.c:123 src/load_plugins.c:129
-#: src/load_plugins.c:170 src/load_plugins.c:178 src/load_plugins.c:185
-#: src/load_plugins.c:191
+#: src/load_plugins.c:115 src/load_plugins.c:129 src/load_plugins.c:135
+#: src/load_plugins.c:287 src/load_plugins.c:297 src/load_plugins.c:307
+#: src/load_plugins.c:354
 #, c-format
 msgid "error in %s, line %d while loading plugin \"%s\""
 msgstr "грешка у „%s“, %d. ред приликом учитавања прикључка „%s“"
@@ -253,107 +346,102 @@ msgstr "грешка у „%s“, %d. ред приликом учитавања
 msgid "%s%s: %s"
 msgstr "%s%s: %s"
 
-#: src/load_plugins.c:125
+#: src/load_plugins.c:131
 #, c-format
 msgid "%s must be owned by uid %d"
 msgstr "%s мора бити у власништву уида %d"
 
-#: src/load_plugins.c:131
+#: src/load_plugins.c:137
 #, c-format
 msgid "%s must be only be writable by owner"
 msgstr "%s мора бити уписив само од стране власника"
 
-#: src/load_plugins.c:172
+#: src/load_plugins.c:247 src/load_plugins.c:322
+#, c-format
+msgid "ignoring duplicate plugin \"%s\" in %s, line %d"
+msgstr "занемарујем удвостручени „%s“ прикључак у %s, %d. ред"
+
+#: src/load_plugins.c:289
 #, c-format
 msgid "unable to load %s: %s"
 msgstr "не могу да учитам %s: %s"
 
-#: src/load_plugins.c:180
+#: src/load_plugins.c:299
 #, c-format
 msgid "unable to find symbol \"%s\" in %s"
 msgstr "не могу да пронађем симбол „%s“ у %s"
 
-#: src/load_plugins.c:187
-#, c-format
-msgid "unknown policy type %d found in %s"
-msgstr "непозната врста сигурности %d је пронађена у %s"
-
-#: src/load_plugins.c:193
+#: src/load_plugins.c:309
 #, c-format
 msgid "incompatible plugin major version %d (expected %d) found in %s"
 msgstr "пронађено је несагласно главно издање прикључка %d (очекивано је %d) у „%s“"
 
-#: src/load_plugins.c:202
+#: src/load_plugins.c:327
 #, c-format
 msgid "ignoring policy plugin \"%s\" in %s, line %d"
 msgstr "занемарујем прикључак сигурности „%s“ у %s, %d. ред"
 
-#: src/load_plugins.c:204
+#: src/load_plugins.c:330
 msgid "only a single policy plugin may be specified"
 msgstr "може бити наведен само један прикључак сигурности"
 
-#: src/load_plugins.c:207
+#: src/load_plugins.c:356
 #, c-format
-msgid "ignoring duplicate policy plugin \"%s\" in %s, line %d"
-msgstr "занемарујем удвостручен прикључак сигурности „%s“ у %s, %d. ред"
+msgid "unknown plugin type %d found in %s"
+msgstr "нађох непознату врсту прикључка %d у „%s“"
 
-#: src/load_plugins.c:228
-#, c-format
-msgid "ignoring duplicate I/O plugin \"%s\" in %s, line %d"
-msgstr "занемарујем удвостручени У/И прикључак „%s“ у %s, %d. ред"
-
-#: src/load_plugins.c:331
+#: src/load_plugins.c:552
 #, c-format
 msgid "policy plugin %s does not include a check_policy method"
 msgstr "прикључак сигурности %s не садржи метод провере_сигурности"
 
-#: src/net_ifs.c:173 src/net_ifs.c:190 src/net_ifs.c:335 src/sudo.c:476
+#: src/net_ifs.c:178 src/net_ifs.c:195 src/net_ifs.c:340 src/sudo.c:479
 #, c-format
 msgid "internal error, %s overflow"
 msgstr "унутрашња грешка, прекорачење функције „%s“"
 
-#: src/parse_args.c:219
+#: src/parse_args.c:223
 #, c-format
 msgid "invalid environment variable name: %s"
 msgstr "неисправан назив променљиве окружења: %s"
 
-#: src/parse_args.c:313
+#: src/parse_args.c:325
 msgid "the argument to -C must be a number greater than or equal to 3"
 msgstr "аргумент уз -C мора бити број већи или једнак 3"
 
-#: src/parse_args.c:480
-msgid "you may not specify both the `-i' and `-s' options"
+#: src/parse_args.c:552
+msgid "you may not specify both the -i and -s options"
 msgstr "не можете да наведете обе опције „-i“ и „-s“"
 
-#: src/parse_args.c:484
-msgid "you may not specify both the `-i' and `-E' options"
+#: src/parse_args.c:557
+msgid "you may not specify both the -i and -E options"
 msgstr "не можете да наведете обе опције „-i“ и „-E“"
 
-#: src/parse_args.c:494
-msgid "the `-E' option is not valid in edit mode"
+#: src/parse_args.c:567
+msgid "the -E option is not valid in edit mode"
 msgstr "опција „-E“ није исправна у режиму уређивања"
 
-#: src/parse_args.c:496
+#: src/parse_args.c:570
 msgid "you may not specify environment variables in edit mode"
 msgstr "не можете да одредите променљиве окружења у режиму уређивања"
 
-#: src/parse_args.c:504
-msgid "the `-U' option may only be used with the `-l' option"
+#: src/parse_args.c:580
+msgid "the -U option may only be used with the -l option"
 msgstr "опција „-U“ може бити коришћена само са опцијом „-l“"
 
-#: src/parse_args.c:508
-msgid "the `-A' and `-S' options may not be used together"
+#: src/parse_args.c:584
+msgid "the -A and -S options may not be used together"
 msgstr "опције „-A“ и „-S“ не могу бити коришћене заједно"
 
-#: src/parse_args.c:584
+#: src/parse_args.c:677
 msgid "sudoedit is not supported on this platform"
 msgstr "„sudoedit“ није подржано на овој платформи"
 
-#: src/parse_args.c:657
+#: src/parse_args.c:759
 msgid "Only one of the -e, -h, -i, -K, -l, -s, -v or -V options may be specified"
 msgstr "Само једна од опција -e, -h, -i, -K, -l, -s, -v или -V може бити наведена"
 
-#: src/parse_args.c:671
+#: src/parse_args.c:773
 #, c-format
 msgid ""
 "%s - edit files as another user\n"
@@ -362,7 +450,7 @@ msgstr ""
 "%s — уредите датотеке као други корисник\n"
 "\n"
 
-#: src/parse_args.c:673
+#: src/parse_args.c:775
 #, c-format
 msgid ""
 "%s - execute a command as another user\n"
@@ -371,8 +459,7 @@ msgstr ""
 "%s — извршите наредбу као други корисник\n"
 "\n"
 
-#: src/parse_args.c:678
-#, c-format
+#: src/parse_args.c:780
 msgid ""
 "\n"
 "Options:\n"
@@ -380,215 +467,231 @@ msgstr ""
 "\n"
 "Опције:\n"
 
-#: src/parse_args.c:680
+#: src/parse_args.c:782
 msgid "use a helper program for password prompting"
 msgstr "користи програм испомоћи за упит лозинке"
 
-#: src/parse_args.c:683
+#: src/parse_args.c:785
 msgid "use specified BSD authentication type"
 msgstr "користи наведену врсту БСД потврде идентитета"
 
-#: src/parse_args.c:686
+#: src/parse_args.c:788
 msgid "run command in the background"
 msgstr "покреће наредбу у позадини"
 
-#: src/parse_args.c:688
+#: src/parse_args.c:790
+msgid "ring bell when prompting"
+msgstr "звони приликом постављања упита"
+
+#: src/parse_args.c:792
 msgid "close all file descriptors >= num"
 msgstr "затвара све описнике датотеке >= fd"
 
-#: src/parse_args.c:691
+#: src/parse_args.c:795
 msgid "run command with the specified BSD login class"
 msgstr "покреће наредбу са наведеним разредом БСД пријаве"
 
-#: src/parse_args.c:694
+#: src/parse_args.c:798
+msgid "change the working directory before running command"
+msgstr "мења радни директоријум пре покретања наредбе"
+
+#: src/parse_args.c:800
 msgid "preserve user environment when running command"
 msgstr "чува корисничко окружење приликом покретања наредбе"
 
-#: src/parse_args.c:696
+#: src/parse_args.c:802
 msgid "preserve specific environment variables"
 msgstr "чува нарочите променљиве окружења"
 
-#: src/parse_args.c:698
+#: src/parse_args.c:804
 msgid "edit files instead of running a command"
 msgstr "уређује датотеке уместо да изврши наредбу"
 
-#: src/parse_args.c:700
+#: src/parse_args.c:806
 msgid "run command as the specified group name or ID"
 msgstr "извршава наредбу као наведени назив групе или ИБ"
 
-#: src/parse_args.c:702
+#: src/parse_args.c:808
 msgid "set HOME variable to target user's home dir"
 msgstr "подешава променљиву ЛИЧНО у циљну корисничку личну фасциклу"
 
-#: src/parse_args.c:704
+#: src/parse_args.c:810
 msgid "display help message and exit"
 msgstr "приказује поруку помоћи и излази"
 
-#: src/parse_args.c:706
+#: src/parse_args.c:812
 msgid "run command on host (if supported by plugin)"
 msgstr "покреће наредбу на домаћину (ако је подржано прикључком)"
 
-#: src/parse_args.c:708
+#: src/parse_args.c:814
 msgid "run login shell as the target user; a command may also be specified"
 msgstr "покреће љуску пријаве као крајњи корисник; наредба може такође бити наведена"
 
-#: src/parse_args.c:710
+#: src/parse_args.c:816
 msgid "remove timestamp file completely"
 msgstr "потпуно уклања датотеку записа датума и времена"
 
-#: src/parse_args.c:712
+#: src/parse_args.c:818
 msgid "invalidate timestamp file"
 msgstr "чини неисправном датотеку датума и времена"
 
-#: src/parse_args.c:714
+#: src/parse_args.c:820
 msgid "list user's privileges or check a specific command; use twice for longer format"
 msgstr "исписује привилегије корисника или проверава посебну наредбу; користи се двапута за дуже записе"
 
-#: src/parse_args.c:716
+#: src/parse_args.c:822
 msgid "non-interactive mode, no prompts are used"
 msgstr "немеђудејствени режим, не користи упите"
 
-#: src/parse_args.c:718
+#: src/parse_args.c:824
 msgid "preserve group vector instead of setting to target's"
 msgstr "чува вектор групе уместо да подеси на циљеве"
 
-#: src/parse_args.c:720
+#: src/parse_args.c:826
 msgid "use the specified password prompt"
 msgstr "користи упит наведене лозинке"
 
-#: src/parse_args.c:723
+#: src/parse_args.c:828
+msgid "change the root directory before running command"
+msgstr "мења корени директоријум пре покретања наредбе"
+
+#: src/parse_args.c:831
 msgid "create SELinux security context with specified role"
 msgstr "ствара СЕЛинукс сигурносни контекст са наведеном улогом"
 
-#: src/parse_args.c:726
+#: src/parse_args.c:834
 msgid "read password from standard input"
 msgstr "чита лозинку са стандардног улаза"
 
-#: src/parse_args.c:728
+#: src/parse_args.c:836
 msgid "run shell as the target user; a command may also be specified"
 msgstr "покреће љуску као крајњи корисник; наредба такође може бити наведена"
 
-#: src/parse_args.c:731
+#: src/parse_args.c:839
 msgid "create SELinux security context with specified type"
 msgstr "ствара СЕЛинукс сигурносни контекст са наведеном улогом"
 
-#: src/parse_args.c:734
+#: src/parse_args.c:842
 msgid "terminate command after the specified time limit"
 msgstr "окончава наредбу након наведеног временског ограничења"
 
-#: src/parse_args.c:736
+#: src/parse_args.c:844
 msgid "in list mode, display privileges for user"
 msgstr "у режиму списка, приказује привилегије за корисника"
 
-#: src/parse_args.c:738
+#: src/parse_args.c:846
 msgid "run command (or edit file) as specified user name or ID"
 msgstr "покреће наредбу (или уређује датотеку) као наведени корисник"
 
-#: src/parse_args.c:740
+#: src/parse_args.c:848
 msgid "display version information and exit"
 msgstr "приказује податке о издању и излази"
 
-#: src/parse_args.c:742
+#: src/parse_args.c:850
 msgid "update user's timestamp without running a command"
 msgstr "освежава кориснички запис датума и времена без покретања наредбе"
 
-#: src/parse_args.c:744
+#: src/parse_args.c:852
 msgid "stop processing command line arguments"
 msgstr "зауставља обрађивање аргумената линије наредби"
 
-#: src/selinux.c:78
+#: src/selinux.c:84
 msgid "unable to open audit system"
 msgstr "не могу да отворим аудит систем"
 
-#: src/selinux.c:88
+#: src/selinux.c:94
 msgid "unable to send audit message"
 msgstr "не могу да пошаљем аудит поруку"
 
-#: src/selinux.c:116
+#: src/selinux.c:128
 #, c-format
 msgid "unable to fgetfilecon %s"
 msgstr "не могу да добавим контекст отворене датотеке %s"
 
-#: src/selinux.c:121
+#: src/selinux.c:133
 #, c-format
 msgid "%s changed labels"
 msgstr "%s измењена натписа"
 
-#: src/selinux.c:126
+#: src/selinux.c:141
 #, c-format
 msgid "unable to restore context for %s"
 msgstr "не могу да повратим контекст за %s"
 
-#: src/selinux.c:167
+#: src/selinux.c:189
 #, c-format
 msgid "unable to open %s, not relabeling tty"
 msgstr "не могу да отворим %s, није тту за поновно натписивање"
 
-#: src/selinux.c:171 src/selinux.c:212 src/selinux.c:229
+#: src/selinux.c:193 src/selinux.c:238 src/selinux.c:268
 #, c-format
 msgid "%s is not a character device, not relabeling tty"
 msgstr "„%s“ није знаковни уређај, није конзола за поновно натписивање"
 
-#: src/selinux.c:180
+#: src/selinux.c:202
 msgid "unable to get current tty context, not relabeling tty"
 msgstr "не могу да добавим текући тту контекст, није тту за поновно натписивање"
 
-#: src/selinux.c:187
+#: src/selinux.c:209
 msgid "unknown security class \"chr_file\", not relabeling tty"
 msgstr "непознат разред безбедности „chr_file“, није тту за поновно натписивање"
 
-#: src/selinux.c:192
+#: src/selinux.c:214
 msgid "unable to get new tty context, not relabeling tty"
 msgstr "не могу да добавим нови тту контекст, није тту за поновно натписивање"
 
-#: src/selinux.c:199
+#: src/selinux.c:223
 msgid "unable to set new tty context"
 msgstr "не могу да подесим нови тту контекст"
 
-#: src/selinux.c:273
+#: src/selinux.c:321
 #, c-format
 msgid "you must specify a role for type %s"
 msgstr "морате да наведете улогу за врсту %s"
 
-#: src/selinux.c:279
+#: src/selinux.c:327
 #, c-format
 msgid "unable to get default type for role %s"
 msgstr "не могу да добавим основну врсту за улогу %s"
 
-#: src/selinux.c:297
+#: src/selinux.c:339
+msgid "failed to get new context"
+msgstr "нисам успео да добавим нови контекст"
+
+#: src/selinux.c:348
 #, c-format
 msgid "failed to set new role %s"
 msgstr "нисам успео да подесим нову улогу %s"
 
-#: src/selinux.c:301
+#: src/selinux.c:352
 #, c-format
 msgid "failed to set new type %s"
 msgstr "нисам успео да подесим нову врсту %s"
 
-#: src/selinux.c:313
+#: src/selinux.c:364
 #, c-format
 msgid "%s is not a valid context"
 msgstr "%s није исправан контекст"
 
-#: src/selinux.c:348
-msgid "failed to get old_context"
-msgstr "нисам успео да добавим стари_контекст"
+#: src/selinux.c:396
+msgid "failed to get old context"
+msgstr "нисам успео да добавим стари контекст"
 
-#: src/selinux.c:354
+#: src/selinux.c:402
 msgid "unable to determine enforcing mode."
 msgstr "не могу да одредим режим присиљавања."
 
-#: src/selinux.c:371
+#: src/selinux.c:419
 #, c-format
 msgid "unable to set tty context to %s"
 msgstr "не могу да подесим тту контекст на %s"
 
-#: src/selinux.c:410
+#: src/selinux.c:440
 #, c-format
 msgid "unable to set exec context to %s"
 msgstr "не могу да подесим извршни контекст за %s"
 
-#: src/selinux.c:417
+#: src/selinux.c:447
 #, c-format
 msgid "unable to set key creation context to %s"
 msgstr "не могу да подесим контекст стварања кључа за %s"
@@ -607,281 +710,318 @@ msgstr "неисправан број описника датотеке: %s"
 msgid "unable to run %s as a login shell"
 msgstr "не могу да покренем „%s“ као шкољку пријављивања"
 
-#: src/sesh.c:125 src/sudo.c:1117
-#, c-format
-msgid "unable to execute %s"
-msgstr "не могу да извршим %s"
-
-#: src/signal.c:83
+#: src/signal.c:79
 #, c-format
 msgid "unable to save handler for signal %d"
 msgstr "не могу да сачувам руковаоца за сигнал „%d“"
 
-#: src/solaris.c:76
+#: src/solaris.c:72
 msgid "resource control limit has been reached"
 msgstr "ограничење контроле ресурса је достигнуто"
 
-#: src/solaris.c:79
+#: src/solaris.c:75
 #, c-format
 msgid "user \"%s\" is not a member of project \"%s\""
 msgstr "корисник „%s“ није члан пројекта „%s“"
 
-#: src/solaris.c:83
+#: src/solaris.c:79
 msgid "the invoking task is final"
 msgstr "задатак призивања је завршни"
 
-#: src/solaris.c:86
+#: src/solaris.c:82
 #, c-format
 msgid "could not join project \"%s\""
 msgstr "не могу да приступим пројекту „%s“"
 
-#: src/solaris.c:91
+#: src/solaris.c:89
 #, c-format
 msgid "no resource pool accepting default bindings exists for project \"%s\""
 msgstr "не постоји депо извора који прихвата основне пречице за пројекат „%s“"
 
-#: src/solaris.c:95
+#: src/solaris.c:93
 #, c-format
 msgid "specified resource pool does not exist for project \"%s\""
 msgstr "наведени депо извора не постоји за пројекат „%s“"
 
-#: src/solaris.c:99
+#: src/solaris.c:97
 #, c-format
 msgid "could not bind to default resource pool for project \"%s\""
 msgstr "не могу да се повежем са основним депоом извора за пројекат „%s“"
 
-#: src/solaris.c:105
+#: src/solaris.c:104
 #, c-format
 msgid "setproject failed for project \"%s\""
 msgstr "подешавање пројекта није успело за пројекат „%s“"
 
-#: src/solaris.c:107
+#: src/solaris.c:106
 #, c-format
 msgid "warning, resource control assignment failed for project \"%s\""
 msgstr "упозорење, није успело додељивање контроле ресурса за пројекат „%s“"
 
-#: src/sudo.c:198
+#: src/sudo.c:220
 #, c-format
 msgid "Sudo version %s\n"
 msgstr "Судо издање %s\n"
 
-#: src/sudo.c:200
+#: src/sudo.c:222
 #, c-format
 msgid "Configure options: %s\n"
 msgstr "Опције подешавања: %s\n"
 
-#: src/sudo.c:208
+#: src/sudo.c:231
 msgid "fatal error, unable to load plugins"
 msgstr "кобна грешка, не могу да учитам прикључке"
 
-#: src/sudo.c:216
-msgid "unable to initialize policy plugin"
-msgstr "не могу да започнем прикључак сигурности"
-
-#: src/sudo.c:260
+#: src/sudo.c:277
 msgid "plugin did not return a command to execute"
 msgstr "прикључак није вратио наредбу за извршавање"
 
-#: src/sudo.c:276
-#, c-format
-msgid "error initializing I/O plugin %s"
-msgstr "грешка приликом покретања У/И прикључка %s"
-
-#: src/sudo.c:299
+#: src/sudo.c:312
 #, c-format
 msgid "unexpected sudo mode 0x%x"
 msgstr "неочекивани судо режим 0x%x"
 
-#: src/sudo.c:461
-msgid "unable to get group vector"
-msgstr "не могу да добавим вектор групе"
-
-#: src/sudo.c:523
+#: src/sudo.c:546
 #, c-format
-msgid "unknown uid %u: who are you?"
-msgstr "непознати уид %u: ко сте ви?"
+msgid "you do not exist in the %s database"
+msgstr "не постојите у „%s“ бази података"
 
-#: src/sudo.c:579
+#: src/sudo.c:603
 msgid "unable to determine tty"
 msgstr "не могу да одредим конзолу"
 
-#: src/sudo.c:867
+#: src/sudo.c:913
 #, c-format
 msgid "%s must be owned by uid %d and have the setuid bit set"
 msgstr "%s мора бити власништвo уида %d и треба да има подешен бит „setuid“"
 
-#: src/sudo.c:870
+#: src/sudo.c:916
 #, c-format
 msgid "effective uid is not %d, is %s on a file system with the 'nosuid' option set or an NFS file system without root privileges?"
 msgstr "стварни уид није %d, већ %s на систему датотека са подешеном опцијом „nosuid“ или је НФС систем датотека без администраторских привилегија?"
 
-#: src/sudo.c:876
+#: src/sudo.c:922
 #, c-format
 msgid "effective uid is not %d, is sudo installed setuid root?"
 msgstr "стварни уид није %d, већ сетуид администратор инсталиран судоом?"
 
-#: src/sudo.c:929
+#: src/sudo.c:938
 msgid "unable to set supplementary group IDs"
 msgstr "не могу да подесим додатне ИБ-ове групе"
 
-#: src/sudo.c:936
+#: src/sudo.c:945
 #, c-format
 msgid "unable to set effective gid to runas gid %u"
 msgstr "не могу да подесим ефективан гид да се покрене_као гид %u"
 
-#: src/sudo.c:942
+#: src/sudo.c:951
 #, c-format
 msgid "unable to set gid to runas gid %u"
 msgstr "не могу да подесим гид да се покрене као гид %u"
 
-#: src/sudo.c:999
+#: src/sudo.c:994
 #, c-format
 msgid "unexpected child termination condition: %d"
 msgstr "неочекивани услов завршетка потпроцеса: %d"
 
-#: src/sudo.c:1145
+#: src/sudo.c:1103
+msgid "unable to initialize policy plugin"
+msgstr "не могу да започнем прикључак сигурности"
+
+#: src/sudo.c:1166
 #, c-format
-msgid "policy plugin %s is missing the `check_policy' method"
+msgid "policy plugin %s is missing the \"check_policy\" method"
 msgstr "прикључак сигурности %s не садржи метод „check_policy“"
 
-#: src/sudo.c:1163
+#: src/sudo.c:1181 src/sudo.c:1234 src/sudo.c:1278
+msgid "command rejected by policy"
+msgstr "наредба је одбачена политиком"
+
+#: src/sudo.c:1186 src/sudo.c:1239 src/sudo.c:1283
+msgid "policy plugin error"
+msgstr "грешка прикључка политике"
+
+#: src/sudo.c:1220
 #, c-format
 msgid "policy plugin %s does not support listing privileges"
 msgstr "прикључак сигурности %s не подржава привилегије исписивања"
 
-#: src/sudo.c:1180
+#: src/sudo.c:1264
 #, c-format
 msgid "policy plugin %s does not support the -v option"
 msgstr "прикључак сигурности %s не подржава опцију -v"
 
-#: src/sudo.c:1195
+#: src/sudo.c:1302
 #, c-format
 msgid "policy plugin %s does not support the -k/-K options"
 msgstr "прикључак сигурности %s не подржава опције -k/-K"
 
-#: src/sudo_edit.c:178 src/sudo_edit.c:267
+#: src/sudo.c:1431
+#, c-format
+msgid "error initializing I/O plugin %s"
+msgstr "грешка приликом покретања У/И прикључка %s"
+
+#: src/sudo.c:1585
+#, c-format
+msgid "error initializing audit plugin %s"
+msgstr "грешка покретања аудит прикључка „%s“"
+
+#: src/sudo.c:1763
+#, c-format
+msgid "error initializing approval plugin %s"
+msgstr "грешка покретања прикључка одобравања „%s“"
+
+#: src/sudo.c:1839
+msgid "command rejected by approver"
+msgstr "наредбу је одбацио одобравач"
+
+#: src/sudo.c:1848
+msgid "approval plugin error"
+msgstr "грешка прикључка одобравања"
+
+#: src/sudo_edit.c:226
+msgid "no writable temporary directory found"
+msgstr "нисам нашао уписиви привремени директоријум"
+
+#: src/sudo_edit.c:351
 msgid "unable to restore current working directory"
 msgstr "не могу да повратим текући радни директоријум"
 
-#: src/sudo_edit.c:574 src/sudo_edit.c:686
+#: src/sudo_edit.c:566 src/sudo_edit.c:666
 #, c-format
 msgid "%s: not a regular file"
 msgstr "%s: није обична датотека"
 
-#: src/sudo_edit.c:581
+#: src/sudo_edit.c:573
 #, c-format
 msgid "%s: editing symbolic links is not permitted"
 msgstr "%s: уређивање симболичких веза није допуштено"
 
-#: src/sudo_edit.c:584
+#: src/sudo_edit.c:576
 #, c-format
 msgid "%s: editing files in a writable directory is not permitted"
 msgstr "%s: уређивање датотека у уписивом директоријуму није допуштено"
 
-#: src/sudo_edit.c:617 src/sudo_edit.c:724
-#, c-format
-msgid "%s: short write"
-msgstr "%s: кратак упис"
-
-#: src/sudo_edit.c:687
+#: src/sudo_edit.c:667
 #, c-format
 msgid "%s left unmodified"
 msgstr "%s је остао неизмењен"
 
-#: src/sudo_edit.c:700 src/sudo_edit.c:885
+#: src/sudo_edit.c:680 src/sudo_edit.c:871
 #, c-format
 msgid "%s unchanged"
 msgstr "%s је непромењен"
 
-#: src/sudo_edit.c:713 src/sudo_edit.c:735
-#, c-format
-msgid "unable to write to %s"
-msgstr "не могу да упишем у %s"
-
-#: src/sudo_edit.c:714 src/sudo_edit.c:733 src/sudo_edit.c:736
-#: src/sudo_edit.c:910 src/sudo_edit.c:914
+#: src/sudo_edit.c:706 src/sudo_edit.c:909
 #, c-format
 msgid "contents of edit session left in %s"
 msgstr "садржај сесије уређивања је остао у %s"
 
-#: src/sudo_edit.c:732
-msgid "unable to read temporary file"
-msgstr "не могу да прочитам привремену датотеку"
-
-#: src/sudo_edit.c:815
+#: src/sudo_edit.c:814
 msgid "sesh: internal error: odd number of paths"
 msgstr "sesh: унутрашња грешка: непарн број путања"
 
-#: src/sudo_edit.c:817
+#: src/sudo_edit.c:816
 msgid "sesh: unable to create temporary files"
 msgstr "sesh: не могу да направим привремене датотеке"
 
-#: src/sudo_edit.c:819 src/sudo_edit.c:917
+#: src/sudo_edit.c:818 src/sudo_edit.c:902
+msgid "sesh: killed by a signal"
+msgstr "sesh: убијено сигналом"
+
+#: src/sudo_edit.c:820 src/sudo_edit.c:905
 #, c-format
 msgid "sesh: unknown error %d"
 msgstr "sesh: непозната грешка „%d“"
 
-#: src/sudo_edit.c:909
+#: src/sudo_edit.c:895
 msgid "unable to copy temporary files back to their original location"
 msgstr "не могу да умножим привремене датотеке назад на њихова првобитна места"
 
-#: src/sudo_edit.c:913
+#: src/sudo_edit.c:899
 msgid "unable to copy some of the temporary files back to their original location"
 msgstr "не могу да умножим неке од привремених датотека назад на њихова првобитна места"
 
-#: src/sudo_edit.c:958
+#: src/sudo_edit.c:943
 #, c-format
 msgid "unable to change uid to root (%u)"
 msgstr "не могу да променим уид у администратора (%u)"
 
-#: src/sudo_edit.c:975
+#: src/sudo_edit.c:960
 msgid "plugin error: missing file list for sudoedit"
 msgstr "грешка прикључка: недостаје датотеа списка за уређивање судоа"
 
-#: src/sudo_edit.c:1016 src/sudo_edit.c:1029
+#: src/sudo_edit.c:1011 src/sudo_edit.c:1024
 msgid "unable to read the clock"
 msgstr "не могу да прочитам сат"
 
-#: src/tgetpass.c:107
-msgid "no tty present and no askpass program specified"
-msgstr "тту не постоји и није наведен програм за пропуштање"
+#: src/tgetpass.c:95
+msgid "timed out reading password"
+msgstr "истече време при читању лозинке"
 
-#: src/tgetpass.c:116
+#: src/tgetpass.c:98
+msgid "no password was provided"
+msgstr "лозинка није достављена"
+
+#: src/tgetpass.c:101
+msgid "unable to read password"
+msgstr "не могу да прочитам лозинку"
+
+#: src/tgetpass.c:141
+msgid "a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"
+msgstr "терминал је потребан за читање лозинке; или користите опцију „-S“ да читате из стандардног улаза или подесите помоћника тражиоца пролаза"
+
+#: src/tgetpass.c:152
 msgid "no askpass program specified, try setting SUDO_ASKPASS"
 msgstr "није наведен програм за пропуштање, покушајте да подесите SUDO_ASKPASS"
 
-#: src/tgetpass.c:261
+#: src/tgetpass.c:327
 #, c-format
 msgid "unable to set gid to %u"
 msgstr "не могу да подесим гид у %u"
 
-#: src/tgetpass.c:265
+#: src/tgetpass.c:331
 #, c-format
 msgid "unable to set uid to %u"
 msgstr "не могу да подесим уид у %u"
 
-#: src/tgetpass.c:270
+#: src/tgetpass.c:336
 #, c-format
 msgid "unable to run %s"
 msgstr "не могу да покренем %s"
 
-#: src/utmp.c:268
+#: src/utmp.c:287
 msgid "unable to save stdin"
 msgstr "не могу да сачувам стандардни улаз"
 
-#: src/utmp.c:270
+#: src/utmp.c:289
 msgid "unable to dup2 stdin"
 msgstr "не могу да дуп2 стандардни улаз"
 
-#: src/utmp.c:273
+#: src/utmp.c:292
 msgid "unable to restore stdin"
 msgstr "не могу да повратим стандардни улаз"
 
+#~ msgid "%s: short write"
+#~ msgstr "%s: кратак упис"
+
+#~ msgid "unable to read temporary file"
+#~ msgstr "не могу да прочитам привремену датотеку"
+
+#~ msgid "ignoring duplicate policy plugin \"%s\" in %s, line %d"
+#~ msgstr "занемарујем удвостручен прикључак сигурности „%s“ у %s, %d. ред"
+
+#~ msgid "unable to get group vector"
+#~ msgstr "не могу да добавим вектор групе"
+
+#~ msgid "unknown uid %u: who are you?"
+#~ msgstr "непознати уид %u: ко сте ви?"
+
+#~ msgid "no tty present and no askpass program specified"
+#~ msgstr "тту не постоји и није наведен програм за пропуштање"
+
 #~ msgid "error reading from signal pipe"
 #~ msgstr "грешка у читању из спојке сигнала"
-
-#~ msgid "error reading from pipe"
-#~ msgstr "грешка у читању из спојке"
 
 #~ msgid "internal error, tried allocate zero bytes"
 #~ msgstr "унутрашња грешка, покушах да доделим нула бајта"

@@ -415,7 +415,7 @@
     unsigned n = 0;
 
     // We need a fresh directory to plop down our SQLite data
-    SetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"loadManualDB"]);
+    SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"loadManualDB"]);
     NSString* path = CFBridgingRelease(__SecKeychainCopyPath());
     // On macOS the full path gets created, on iOS not (yet?)
     [self createKeychainDirectoryWithSubPath:@"loadManualDB/Library/Keychains"];
@@ -706,7 +706,7 @@
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, &output), errSecSuccess, "Found key in keychain");
     XCTAssertNotNil((__bridge id)output, "got output from SICM");
     XCTAssertEqual(CFGetTypeID(output), CFDictionaryGetTypeID(), "output is a dictionary");
-    XCTAssertEqual(CFDictionaryGetValue(output, (id)kSecAttrKeyType), (__bridge CFNumberRef)[NSNumber numberWithUnsignedInt:0x80000001L], "keytype is unchanged");
+    XCTAssertEqualObjects((__bridge NSNumber*)CFDictionaryGetValue(output, (id)kSecAttrKeyType), [NSNumber numberWithUnsignedInt:0x80000001L], "keytype is unchanged");
 }
 
 - (NSData *)objectToDER:(NSDictionary *)dict
@@ -794,6 +794,7 @@
             CFReleaseNull(localError);
             return true;
         });
+        SecKeychainDbForceClose();
         SecKeychainDbReset(NULL);
 
         XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound, "should successfully get item");
@@ -879,6 +880,7 @@
         });
 
         // force it to reload
+        SecKeychainDbForceClose();
         SecKeychainDbReset(NULL);
 
         //dont care about result, we might have done a good number on this item
@@ -946,6 +948,7 @@
     XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
 
     // Drop metadata keys
+    SecKeychainDbForceClose();
     SecKeychainDbReset(NULL);
     [SecMockAKS setOperationsUntilUnlock:1];    // The first call is the metadata key unwrap to allow encrypting the item
     [SecMockAKS lockClassA];
@@ -986,7 +989,7 @@
 
     LAContext* context = [[LAContext alloc] init];
 
-#if TARGET_OS_IPHONE || TARGET_OS_OSX
+#if TARGET_OS_IOS || TARGET_OS_OSX
     // This field is only usable on iPhone/macOS. It isn't stricly necessary for this test, though.
     context.touchIDAuthenticationAllowableReuseDuration = 10;
 #endif

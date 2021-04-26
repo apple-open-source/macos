@@ -143,6 +143,10 @@ private:
     RefPtr<WebDataListSuggestionsDropdown> createDataListSuggestionsDropdown(WebPageProxy&) override;
 #endif
 
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    RefPtr<WebDateTimePicker> createDateTimePicker(WebPageProxy&) override;
+#endif
+
     Ref<WebCore::ValidationBubble> createValidationBubble(const String& message, const WebCore::ValidationBubble::Settings&) final;
 
     void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorWindowLifetime) override;
@@ -185,6 +189,13 @@ private:
     void setEditableElementIsFocused(bool) override;
 
     void registerInsertionUndoGrouping() override;
+
+#if ENABLE(UI_PROCESS_PDF_HUD)
+    void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&) override;
+    void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) override;
+    void removePDFHUD(PDFPluginIdentifier) override;
+    void removeAllPDFHUDs() override;
+#endif
 
     // Auxiliary Client Creation
 #if ENABLE(FULLSCREEN_API)

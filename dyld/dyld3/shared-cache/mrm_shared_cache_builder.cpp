@@ -33,6 +33,7 @@
 #include <map>
 #include <sys/stat.h>
 
+
 static const uint64_t kMinBuildVersion = 1; //The minimum version BuildOptions struct we can support
 static const uint64_t kMaxBuildVersion = 2; //The maximum version BuildOptions struct we can support
 
@@ -252,6 +253,7 @@ struct MRMSharedCacheBuilder {
     // We keep this in a vector to own the data.
     std::vector<CacheResult*>    cacheResults;
     std::vector<CacheResult>     cacheResultStorage;
+
 
     // The files to remove.  These are in every copy of the caches we built
     std::vector<const char*> filesToRemove;
@@ -697,6 +699,7 @@ bool runSharedCacheBuilder(struct MRMSharedCacheBuilder* builder) {
             cacheBuilder->deleteBuffer();
             buildInstance.builder.reset();
         }
+
 
         // Now that we have run all of the builds, collect the results
         // First push file results for each of the shared caches we built

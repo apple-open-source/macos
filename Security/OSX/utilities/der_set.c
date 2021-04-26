@@ -118,6 +118,7 @@ size_t der_sizeof_set(CFSetRef dict, CFErrorRef *error)
 
 struct encode_context {
     bool         success;
+    bool         repair_contents;
     CFErrorRef * error;
     CFMutableArrayRef list;
     CFAllocatorRef allocator;
@@ -137,7 +138,7 @@ static void add_sequence_to_array(const void *value_void, void *context_void)
             uint8_t* const encode_begin = CFDataGetMutableBytePtr(value);
             uint8_t *encode_end = encode_begin + der_size;
             
-            encode_end = der_encode_plist(value_void, context->error, encode_begin, encode_end);
+            encode_end = der_encode_plist_repair(value_void, context->error, context->repair_contents, encode_begin, encode_end);
             
             if (encode_end != NULL) {
                 CFDataDeleteBytes(value, CFRangeMake(0, (encode_end - encode_begin)));
@@ -159,9 +160,15 @@ static CFComparisonResult cfdata_compare_der_contents(const void *val1, const vo
 uint8_t* der_encode_set(CFSetRef set, CFErrorRef *error,
                                const uint8_t *der, uint8_t *der_end)
 {
+    return der_encode_set_repair(set, error, false, der, der_end);
+}
+
+uint8_t* der_encode_set_repair(CFSetRef set, CFErrorRef *error,
+                               bool repair, const uint8_t *der, uint8_t *der_end)
+{
     CFMutableArrayRef elements = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    
-    struct encode_context context = { .success = true, .error = error, .list = elements };
+
+    struct encode_context context = { .success = true, .error = error, .list = elements, .repair_contents = repair };
     CFSetApplyFunction(set, add_sequence_to_array, &context);
     
     if (!context.success) {

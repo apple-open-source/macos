@@ -28,8 +28,8 @@
 #include "WebPage.h"
 
 #include "EditorState.h"
-#include "WebEvent.h"
 #include "WebFrame.h"
+#include "WebKeyboardEvent.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/BackForwardController.h>
@@ -43,6 +43,7 @@
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/PointerCharacteristics.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/UserAgent.h>
@@ -113,6 +114,26 @@ bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 String WebPage::platformUserAgent(const URL&) const
 {
     return { };
+}
+
+bool WebPage::hoverSupportedByPrimaryPointingDevice() const
+{
+    return true;
+}
+
+bool WebPage::hoverSupportedByAnyAvailablePointingDevice() const
+{
+    return true;
+}
+
+Optional<PointerCharacteristics> WebPage::pointerCharacteristicsOfPrimaryPointingDevice() const
+{
+    return PointerCharacteristics::Fine;
+}
+
+OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailablePointingDevices() const
+{
+    return PointerCharacteristics::Fine;
 }
 
 static const unsigned CtrlKey = 1 << 0;

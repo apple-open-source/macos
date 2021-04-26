@@ -348,9 +348,6 @@ WI.TimelineRuler = class TimelineRuler extends WI.View
         markerElement.classList.add(marker.type, "marker");
 
         switch (marker.type) {
-        case WI.TimelineMarker.Type.StoppingTime:
-            markerElement.title = WI.UIString("Recording stop requested \u2014 %s").format(Number.secondsToString(markerTime));
-            break;
         case WI.TimelineMarker.Type.LoadEvent:
             markerElement.title = WI.UIString("Load \u2014 %s").format(Number.secondsToString(markerTime));
             break;
@@ -373,7 +370,7 @@ WI.TimelineRuler = class TimelineRuler extends WI.View
     clearMarkers()
     {
         for (let [marker, markerElement] of this._markerElementMap) {
-            marker.removeEventListener(null, null, this);
+            marker.removeEventListener(WI.TimelineMarker.Event.TimeChanged, this._timelineMarkerTimeChanged, this);
             markerElement.remove();
         }
 

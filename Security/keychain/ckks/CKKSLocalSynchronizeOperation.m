@@ -95,7 +95,6 @@
 
         // Step 2
         CKKSIncomingQueueOperation* incomingOp = [[CKKSIncomingQueueOperation alloc] initWithDependencies:ckks.operationDependencies
-                                                                                                     ckks:ckks
                                                                                                 intending:SecCKKSZoneKeyStateReady
                                                                                                errorState:SecCKKSZoneKeyStateUnhealthy
                                                                                      errorOnClassAFailure:true
@@ -112,7 +111,6 @@
 
         // Step 4
         CKKSIncomingQueueOperation* incomingResyncOp = [[CKKSIncomingQueueOperation alloc] initWithDependencies:ckks.operationDependencies
-                                                                                                           ckks:ckks
                                                                                                       intending:SecCKKSZoneKeyStateReady
                                                                                                      errorState:SecCKKSZoneKeyStateUnhealthy
                                                                                            errorOnClassAFailure:true

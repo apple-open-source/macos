@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2017-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2017-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,28 +18,17 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif
+#include <string.h>
 #include <errno.h>
 
 #include "sudo_compat.h"
 #include "sudo_fatal.h"
 #include "sudo_util.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 /*
  * Test that sudo_vsyslog() works as expected.
@@ -49,7 +38,7 @@ static int errors;
 static int ntests;
 
 /*
- * Dummy version of syslog to verify the message
+ * Replacement for syslog(3) that just verifies the message
  */
 void
 syslog(int priority, const char *fmt, ...)
@@ -100,7 +89,7 @@ main(int argc, char *argv[])
     len = snprintf(buf1, sizeof(buf1),
 	 "unable to open %s: %s", "/var/log/sudo-io/seq", strerror(ENOENT));
     if (len < 0 || len >= ssizeof(buf1))
-	sudo_warnx_nodebug("buf1 trucated at %s:%d", __FILE__, __LINE__);
+	sudo_warnx_nodebug("buf1 truncated at %s:%d", __FILE__, __LINE__);
     expected_result = buf1;
     errno = ENOENT;
     test_vsyslog(0, "unable to open %s: %m", "/var/log/sudo-io/seq");
@@ -116,7 +105,7 @@ main(int argc, char *argv[])
     buf1[8184] = '\0';
     len = snprintf(buf2, sizeof(buf2), "%s: %s", buf1, strerror(EINVAL));
     if (len < 0 || len >= ssizeof(buf2))
-	sudo_warnx_nodebug("buf2 trucated at %s:%d", __FILE__, __LINE__);
+	sudo_warnx_nodebug("buf2 truncated at %s:%d", __FILE__, __LINE__);
     expected_result = buf2;
     errno = EINVAL;
     test_vsyslog(0, "%s: %m", buf1);
@@ -126,7 +115,7 @@ main(int argc, char *argv[])
     buf1[8184] = '\0';
     len = snprintf(buf2, sizeof(buf2), "%.*s", 2047, buf1);
     if (len < 0 || len >= ssizeof(buf2))
-	sudo_warnx_nodebug("buf2 trucated at %s:%d", __FILE__, __LINE__);
+	sudo_warnx_nodebug("buf2 truncated at %s:%d", __FILE__, __LINE__);
     expected_result = buf2;
     test_vsyslog(0, buf1);
 

@@ -145,7 +145,7 @@ hr{
         IL{"Izrael"}
         IM{"Otok Man"}
         IN{"Indija"}
-        IO{"Britanski Indijskooceanski teritorij"}
+        IO{"Arhipelag Chagos"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Island"}

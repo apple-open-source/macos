@@ -34,22 +34,22 @@
 
 __BEGIN_DECLS
 
+CFURLRef SecCopyURLForFileInBaseDirectory(bool system, CFStringRef directoryPath, CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInKeychainDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInSystemKeychainDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInUserCacheDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInPreferencesDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInManagedPreferencesDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
-CFURLRef SecCopyURLForFileInRevocationInfoDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInProtectedDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 
+void WithPathInDirectory(CFURLRef fileURL, void(^operation)(const char *utf8String));
 void WithPathInKeychainDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
-void WithPathInRevocationInfoDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 void WithPathInUserCacheDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 void WithPathInProtectedDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 
 void SetCustomHomePath(const char* path);
-void SetCustomHomeURLString(CFStringRef path);
-void SetCustomHomeURL(CFURLRef url);
+void SecSetCustomHomeURLString(CFStringRef path);
+void SecSetCustomHomeURL(CFURLRef url);
 
 CFURLRef SecCopyHomeURL(void) CF_RETURNS_RETAINED;
 

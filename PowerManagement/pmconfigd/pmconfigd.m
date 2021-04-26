@@ -22,16 +22,6 @@
  */
 
 #include "pmconfigd.h"
-
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
-#include <reboot2.h>
-
-#ifndef kIOPMMessageRequestSystemShutdown
-#define kIOPMMessageRequestSystemShutdown \
-        iokit_family_msg(sub_iokit_powermanagement, 0x470)
-#endif
-#endif /* (TARGET_OS_OSX && TARGET_CPU_ARM64) */
-
 /* load
  *
  * configd entry point
@@ -763,8 +753,11 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                          sendAdapterDetails(peer, event);
                      }
 #if TARGET_OS_OSX
-                     else if (xpc_dictionary_get_value(event, "readBatteryHealthPersistentData")) {
+                     else if (xpc_dictionary_get_value(event, kReadPersistentBHData)) {
                          getBatteryHealthPersistentData(peer, event);
+                     }
+                     else if (xpc_dictionary_get_value(event, kSetPermFaultStatus)) {
+                        setPermFaultStatus(peer, event);
                      }
 #endif  // TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kCustomBatteryProps)) {
@@ -1542,19 +1535,6 @@ RootDomainInterest(
         });
 #endif
     }
-
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
-    if (messageType == kIOPMMessageRequestSystemShutdown)
-    {
-        INFO_LOG("Received system shutdown request\n");
-        dispatch_async(_getPMMainQueue(), ^{
-            int ret = reboot3(RB_HALT);
-            if (ret) {
-                INFO_LOG("Failed to shutdown system: %d (%s)", errno, strerror(errno));
-            }
-        });
-    }
-#endif
 }
 
 static void

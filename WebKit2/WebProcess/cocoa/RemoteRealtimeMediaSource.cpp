@@ -72,6 +72,7 @@ static inline RealtimeMediaSource::Type sourceTypeFromDeviceType(CaptureDevice::
     case CaptureDevice::DeviceType::Screen:
     case CaptureDevice::DeviceType::Window:
         return RealtimeMediaSource::Type::Video;
+    case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
     }
@@ -99,6 +100,7 @@ RemoteRealtimeMediaSource::RemoteRealtimeMediaSource(RealtimeMediaSourceIdentifi
     case CaptureDevice::DeviceType::Screen:
     case CaptureDevice::DeviceType::Window:
         break;
+    case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
     }
@@ -120,6 +122,7 @@ RemoteRealtimeMediaSource::~RemoteRealtimeMediaSource()
     case CaptureDevice::DeviceType::Screen:
     case CaptureDevice::DeviceType::Window:
         break;
+    case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
     }

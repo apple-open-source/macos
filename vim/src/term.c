@@ -43,7 +43,7 @@
 #  ifdef HAVE_OUTFUNTYPE
 #   define TPUTSFUNCAST (outfuntype)
 #  else
-#   define TPUTSFUNCAST (int (*)())
+#   define TPUTSFUNCAST (int (*)(int))
 #  endif
 # endif
 #endif
@@ -126,6 +126,9 @@ static termrequest_T crv_status = TERMREQUEST_INIT;
 // Request Cursor position report:
 static termrequest_T u7_status = TERMREQUEST_INIT;
 
+// Request xterm compatibility check:
+static termrequest_T xcc_status = TERMREQUEST_INIT;
+
 #  ifdef FEAT_TERMINAL
 // Request foreground color report:
 static termrequest_T rfg_status = TERMREQUEST_INIT;
@@ -152,6 +155,7 @@ static termrequest_T winpos_status = TERMREQUEST_INIT;
 static termrequest_T *all_termrequests[] = {
     &crv_status,
     &u7_status,
+    &xcc_status,
 #  ifdef FEAT_TERMINAL
     &rfg_status,
 #  endif
@@ -293,7 +297,7 @@ static struct builtin_term builtin_termcaps[] =
     {(int)KS_UE,	"\033[0m"},
     {(int)KS_CZH,	"\033[3m"},
     {(int)KS_CZR,	"\033[0m"},
-#if defined(__MORPHOS__) || defined(__AROS__)
+#if defined(__amigaos4__) || defined(__MORPHOS__) || defined(__AROS__)
     {(int)KS_CCO,	"8"},		// allow 8 colors
 #  ifdef TERMINFO
     {(int)KS_CAB,	"\033[4%p1%dm"},// set background color
@@ -777,7 +781,7 @@ static struct builtin_term builtin_termcaps[] =
     {K_BS,		"\x7f"},	// for some reason 0177 doesn't work
 # endif
 
-# if defined(ALL_BUILTIN_TCAPS) || defined(__MINT__)
+# if defined(ALL_BUILTIN_TCAPS)
 /*
  * Ordinary vt52
  */
@@ -801,41 +805,8 @@ static struct builtin_term builtin_termcaps[] =
     {K_F1,		IF_EB("\033P", ESC_STR "P")},
     {K_F2,		IF_EB("\033Q", ESC_STR "Q")},
     {K_F3,		IF_EB("\033R", ESC_STR "R")},
-#  ifdef __MINT__
-    {(int)KS_CL,	IF_EB("\033E", ESC_STR "E")},
-    {(int)KS_VE,	IF_EB("\033e", ESC_STR "e")},
-    {(int)KS_VI,	IF_EB("\033f", ESC_STR "f")},
-    {(int)KS_SO,	IF_EB("\033p", ESC_STR "p")},
-    {(int)KS_SE,	IF_EB("\033q", ESC_STR "q")},
-    {K_S_UP,		IF_EB("\033a", ESC_STR "a")},
-    {K_S_DOWN,		IF_EB("\033b", ESC_STR "b")},
-    {K_S_LEFT,		IF_EB("\033d", ESC_STR "d")},
-    {K_S_RIGHT,		IF_EB("\033c", ESC_STR "c")},
-    {K_F4,		IF_EB("\033S", ESC_STR "S")},
-    {K_F5,		IF_EB("\033T", ESC_STR "T")},
-    {K_F6,		IF_EB("\033U", ESC_STR "U")},
-    {K_F7,		IF_EB("\033V", ESC_STR "V")},
-    {K_F8,		IF_EB("\033W", ESC_STR "W")},
-    {K_F9,		IF_EB("\033X", ESC_STR "X")},
-    {K_F10,		IF_EB("\033Y", ESC_STR "Y")},
-    {K_S_F1,		IF_EB("\033p", ESC_STR "p")},
-    {K_S_F2,		IF_EB("\033q", ESC_STR "q")},
-    {K_S_F3,		IF_EB("\033r", ESC_STR "r")},
-    {K_S_F4,		IF_EB("\033s", ESC_STR "s")},
-    {K_S_F5,		IF_EB("\033t", ESC_STR "t")},
-    {K_S_F6,		IF_EB("\033u", ESC_STR "u")},
-    {K_S_F7,		IF_EB("\033v", ESC_STR "v")},
-    {K_S_F8,		IF_EB("\033w", ESC_STR "w")},
-    {K_S_F9,		IF_EB("\033x", ESC_STR "x")},
-    {K_S_F10,		IF_EB("\033y", ESC_STR "y")},
-    {K_INS,		IF_EB("\033I", ESC_STR "I")},
-    {K_HOME,		IF_EB("\033E", ESC_STR "E")},
-    {K_PAGEDOWN,	IF_EB("\033b", ESC_STR "b")},
-    {K_PAGEUP,		IF_EB("\033a", ESC_STR "a")},
-#  else
     {(int)KS_CL,	IF_EB("\033H\033J", ESC_STR "H" ESC_STR_nc "J")},
     {(int)KS_MS,	"y"},
-#  endif
 # endif
 
 # if defined(UNIX) || defined(ALL_BUILTIN_TCAPS) || defined(SOME_BUILTIN_TCAPS)
@@ -928,7 +899,9 @@ static struct builtin_term builtin_termcaps[] =
     // These are printf strings, not terminal codes.
     {(int)KS_8F,	IF_EB("\033[38;2;%lu;%lu;%lum", ESC_STR "[38;2;%lu;%lu;%lum")},
     {(int)KS_8B,	IF_EB("\033[48;2;%lu;%lu;%lum", ESC_STR "[48;2;%lu;%lu;%lum")},
+    {(int)KS_8U,	IF_EB("\033[58;2;%lu;%lu;%lum", ESC_STR "[58;2;%lu;%lu;%lum")},
 #  endif
+    {(int)KS_CAU,	IF_EB("\033[58;5;%dm", ESC_STR "[58;5;%dm")},
     {(int)KS_CBE,	IF_EB("\033[?2004h", ESC_STR "[?2004h")},
     {(int)KS_CBD,	IF_EB("\033[?2004l", ESC_STR "[?2004l")},
     {(int)KS_CST,	IF_EB("\033[22;2t", ESC_STR "[22;2t")},
@@ -1187,6 +1160,7 @@ static struct builtin_term builtin_termcaps[] =
     {(int)KS_CSB,	"[CSB%d]"},
     {(int)KS_CSF,	"[CSF%d]"},
 #  endif
+    {(int)KS_CAU,	"[CAU%d]"},
     {(int)KS_OP,	"[OP]"},
     {(int)KS_LE,	"[LE]"},
     {(int)KS_CL,	"[CL]"},
@@ -1392,12 +1366,8 @@ termgui_mch_get_rgb(guicolor_T color)
 # define DEFAULT_TERM	(char_u *)"win32"
 #endif
 
-#if defined(UNIX) && !defined(__MINT__)
+#if defined(UNIX)
 # define DEFAULT_TERM	(char_u *)"ansi"
-#endif
-
-#ifdef __MINT__
-# define DEFAULT_TERM	(char_u *)"vt52"
 #endif
 
 #ifdef VMS
@@ -1424,7 +1394,86 @@ static int	need_gather = FALSE;	    // need to fill termleader[]
 static char_u	termleader[256 + 1];	    // for check_termcode()
 #ifdef FEAT_TERMRESPONSE
 static int	check_for_codes = FALSE;    // check for key code response
-static int	is_not_xterm = FALSE;	    // recognized not-really-xterm
+
+/*
+ * Structure and table to store terminal features that can be detected by
+ * querying the terminal.  Either by inspecting the termresponse or a more
+ * specific request.  Besides this there are:
+ * t_colors - number of colors supported
+ */
+typedef struct {
+    char    *tpr_name;
+    int	    tpr_set_by_termresponse;
+    int	    tpr_status;
+} termprop_T;
+
+// Values for tpr_status.
+#define TPR_UNKNOWN	    'u'
+#define TPR_YES		    'y'
+#define TPR_NO		    'n'
+#define TPR_MOUSE_XTERM     'x'	// use "xterm" for 'ttymouse'
+#define TPR_MOUSE_XTERM2    '2'	// use "xterm2" for 'ttymouse'
+#define TPR_MOUSE_SGR	    's'	// use "sgr" for 'ttymouse'
+
+// can request the cursor style without messing up the display
+#define TPR_CURSOR_STYLE	    0
+// can request the cursor blink mode without messing up the display
+#define TPR_CURSOR_BLINK	    1
+// can set the underline color with t_8u without resetting other colors
+#define TPR_UNDERLINE_RGB	    2
+// mouse support - TPR_MOUSE_XTERM, TPR_MOUSE_XTERM2 or TPR_MOUSE_SGR
+#define TPR_MOUSE		    3
+// table size
+#define TPR_COUNT		    4
+
+static termprop_T term_props[TPR_COUNT];
+
+/*
+ * Initialize the term_props table.
+ * When "all" is FALSE only set those that are detected from the version
+ * response.
+ */
+    void
+init_term_props(int all)
+{
+    int i;
+
+    term_props[TPR_CURSOR_STYLE].tpr_name = "cursor_style";
+    term_props[TPR_CURSOR_STYLE].tpr_set_by_termresponse = FALSE;
+    term_props[TPR_CURSOR_BLINK].tpr_name = "cursor_blink_mode";
+    term_props[TPR_CURSOR_BLINK].tpr_set_by_termresponse = FALSE;
+    term_props[TPR_UNDERLINE_RGB].tpr_name = "underline_rgb";
+    term_props[TPR_UNDERLINE_RGB].tpr_set_by_termresponse = TRUE;
+    term_props[TPR_MOUSE].tpr_name = "mouse";
+    term_props[TPR_MOUSE].tpr_set_by_termresponse = TRUE;
+
+    for (i = 0; i < TPR_COUNT; ++i)
+	if (all || term_props[i].tpr_set_by_termresponse)
+	    term_props[i].tpr_status = TPR_UNKNOWN;
+}
+#endif
+
+#if defined(FEAT_EVAL) || defined(PROTO)
+    void
+f_terminalprops(typval_T *argvars UNUSED, typval_T *rettv)
+{
+# ifdef FEAT_TERMRESPONSE
+    int i;
+# endif
+
+    if (rettv_dict_alloc(rettv) != OK)
+	return;
+# ifdef FEAT_TERMRESPONSE
+    for (i = 0; i < TPR_COUNT; ++i)
+    {
+	char_u	value[2];
+
+	value[0] = term_props[i].tpr_status;
+	value[1] = NUL;
+	dict_add_string(rettv->vval.v_dict, term_props[i].tpr_name, value);
+    }
+# endif
+}
 #endif
 
     static struct builtin_term *
@@ -1617,7 +1666,8 @@ get_term_entries(int *height, int *width)
 			{KS_KE, "ke"}, {KS_TI, "ti"}, {KS_TE, "te"},
 			{KS_CTI, "TI"}, {KS_CTE, "TE"},
 			{KS_BC, "bc"}, {KS_CSB,"Sb"}, {KS_CSF,"Sf"},
-			{KS_CAB,"AB"}, {KS_CAF,"AF"}, {KS_LE, "le"},
+			{KS_CAB,"AB"}, {KS_CAF,"AF"}, {KS_CAU,"AU"},
+			{KS_LE, "le"},
 			{KS_ND, "nd"}, {KS_OP, "op"}, {KS_CRV, "RV"},
 			{KS_VS, "vs"}, {KS_CVS, "VS"},
 			{KS_CIS, "IS"}, {KS_CIE, "IE"},
@@ -1626,7 +1676,7 @@ get_term_entries(int *height, int *width)
 			{KS_CWP, "WP"}, {KS_CWS, "WS"},
 			{KS_CSI, "SI"}, {KS_CEI, "EI"},
 			{KS_U7, "u7"}, {KS_RFG, "RF"}, {KS_RBG, "RB"},
-			{KS_8F, "8f"}, {KS_8B, "8b"},
+			{KS_8F, "8f"}, {KS_8B, "8b"}, {KS_8U, "8u"},
 			{KS_CBE, "BE"}, {KS_CBD, "BD"},
 			{KS_CPS, "PS"}, {KS_CPE, "PE"},
 			{KS_CST, "ST"}, {KS_CRT, "RT"},
@@ -1713,6 +1763,7 @@ get_term_entries(int *height, int *width)
 report_term_error(char *error_msg, char_u *term)
 {
     struct builtin_term *termp;
+    int			i;
 
     mch_errmsg("\r\n");
     if (error_msg != NULL)
@@ -1737,6 +1788,10 @@ report_term_error(char *error_msg, char_u *term)
 	    mch_errmsg("\r\n");
 	}
     }
+    // Output extra 'cmdheight' line breaks to avoid that the following error
+    // message overwrites the last terminal name.
+    for (i = 1; i < p_ch; ++i)
+	mch_errmsg("\r\n");
 }
 
     static void
@@ -1745,7 +1800,7 @@ report_default_term(char_u *term)
     mch_errmsg(_("defaulting to '"));
     mch_errmsg((char *)term);
     mch_errmsg("'\r\n");
-    if (emsg_silent == 0)
+    if (emsg_silent == 0 && !in_assert_fails)
     {
 	screen_start();	// don't know where cursor is now
 	out_flush();
@@ -1949,8 +2004,9 @@ set_termname(char_u *term)
     term_is_xterm = vim_is_xterm(term);
 #endif
 #ifdef FEAT_TERMRESPONSE
-    is_not_xterm = FALSE;
-    is_mac_terminal = FALSE;
+    // Reset terminal properties that are set based on the termresponse, which
+    // will be sent out soon.
+    init_term_props(FALSE);
 #endif
 
 #if defined(UNIX) || defined(VMS)
@@ -2459,6 +2515,14 @@ out_flush(void)
 	len = out_pos;
 	out_pos = 0;
 	ui_write(out_buf, len);
+#ifdef FEAT_JOB_CHANNEL
+	if (ch_log_output)
+	{
+	    out_buf[len] = NUL;
+	    ch_log(NULL, "raw terminal output: \"%s\"", out_buf);
+	    ch_log_output = FALSE;
+	}
+#endif
     }
 }
 
@@ -2530,13 +2594,14 @@ out_char(unsigned c)
 /*
  * Output "c" like out_char(), but don't flush when p_wd is set.
  */
-    static void
-out_char_nf(unsigned c)
+    static int
+out_char_nf(int c)
 {
-    out_buf[out_pos++] = c;
+    out_buf[out_pos++] = (unsigned)c;
 
     if (out_pos >= OUT_SIZE)
 	out_flush();
+    return (unsigned)c;
 }
 
 /*
@@ -2881,6 +2946,13 @@ term_bg_color(int n)
 	term_color(T_CSB, n);
 }
 
+    void
+term_ul_color(int n)
+{
+    if (*T_CAU)
+	term_color(T_CAU, n);
+}
+
 /*
  * Return "dark" or "light" depending on the kind of terminal.
  * This is just guessing!  Recognized are:
@@ -2952,6 +3024,12 @@ term_bg_rgb_color(guicolor_T rgb)
 {
     term_rgb_color(T_8B, rgb);
 }
+
+    void
+term_ul_rgb_color(guicolor_T rgb)
+{
+    term_rgb_color(T_8U, rgb);
+}
 #endif
 
 #if (defined(FEAT_TITLE) && (defined(UNIX) || defined(VMS) \
@@ -2962,6 +3040,9 @@ term_bg_rgb_color(guicolor_T rgb)
     void
 term_settitle(char_u *title)
 {
+#ifdef FEAT_JOB_CHANNEL
+    ch_log_output = TRUE;
+#endif
     // t_ts takes one argument: column in status line
     OUT_STR(tgoto((char *)T_TS, 0, 0));	// set title start
     out_str_nf(title);
@@ -3460,6 +3541,9 @@ settmode(tmode_T tmode)
 	    if (termcap_active && tmode != TMODE_SLEEP
 						   && cur_tmode != TMODE_SLEEP)
 	    {
+#ifdef FEAT_JOB_CHANNEL
+		ch_log_output = TRUE;
+#endif
 		if (tmode != TMODE_RAW)
 		{
 		    out_str(T_BD);	// disable bracketed paste mode
@@ -3490,6 +3574,9 @@ starttermcap(void)
 {
     if (full_screen && !termcap_active)
     {
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
 	out_str(T_TI);			// start termcap mode
 	out_str(T_CTI);			// start "raw" mode
 	out_str(T_KS);			// start "keypad transmit" mode
@@ -3529,7 +3616,7 @@ stoptermcap(void)
 	    {
 # ifdef UNIX
 		// Give the terminal a chance to respond.
-		mch_delay(100L, FALSE);
+		mch_delay(100L, 0);
 # endif
 # ifdef TCIFLUSH
 		// Discard data received but not read.
@@ -3541,6 +3628,9 @@ stoptermcap(void)
 	    // get them.
 	    check_for_codes_from_term();
 	}
+#endif
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
 #endif
 	out_str(T_BD);			// disable bracketed paste mode
 	out_str(T_KE);			// stop "keypad transmit" mode
@@ -3577,6 +3667,9 @@ may_req_termresponse(void)
 	    && starting == 0
 	    && *T_CRV != NUL)
     {
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
 	LOG_TR(("Sending CRV request"));
 	out_str(T_CRV);
 	termrequest_sent(&crv_status);
@@ -3588,40 +3681,90 @@ may_req_termresponse(void)
 }
 
 /*
- * Check how the terminal treats ambiguous character width (UAX #11).
- * First, we move the cursor to (1, 0) and print a test ambiguous character
- * \u25bd (WHITE DOWN-POINTING TRIANGLE) and query current cursor position.
- * If the terminal treats \u25bd as single width, the position is (1, 1),
- * or if it is treated as double width, that will be (1, 2).
- * This function has the side effect that changes cursor position, so
- * it must be called immediately after entering termcap mode.
+ * Send sequences to the terminal and check with t_u7 how the cursor moves, to
+ * find out properties of the terminal.
+ * Note that this goes out before T_CRV, so that the result can be used when
+ * the termresponse arrives.
  */
     void
-may_req_ambiguous_char_width(void)
+check_terminal_behavior(void)
 {
+    int	    did_send = FALSE;
+
+    if (!can_get_termresponse() || starting != 0 || *T_U7 == NUL)
+	return;
+
     if (u7_status.tr_progress == STATUS_GET
-	    && can_get_termresponse()
-	    && starting == 0
-	    && *T_U7 != NUL
 	    && !option_was_set((char_u *)"ambiwidth"))
     {
 	char_u	buf[16];
 
-	LOG_TR(("Sending U7 request"));
+	// Ambiguous width check.
+	// Check how the terminal treats ambiguous character width (UAX #11).
+	// First, we move the cursor to (1, 0) and print a test ambiguous
+	// character \u25bd (WHITE DOWN-POINTING TRIANGLE) and then query
+	// the current cursor position.  If the terminal treats \u25bd as
+	// single width, the position is (1, 1), or if it is treated as double
+	// width, that will be (1, 2).  This function has the side effect that
+	// changes cursor position, so it must be called immediately after
+	// entering termcap mode.
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
+	LOG_TR(("Sending request for ambiwidth check"));
 	// Do this in the second row.  In the first row the returned sequence
 	// may be CSI 1;2R, which is the same as <S-F3>.
 	term_windgoto(1, 0);
-	buf[mb_char2bytes(0x25bd, buf)] = 0;
+	buf[mb_char2bytes(0x25bd, buf)] = NUL;
 	out_str(buf);
 	out_str(T_U7);
 	termrequest_sent(&u7_status);
 	out_flush();
+	did_send = TRUE;
 
 	// This overwrites a few characters on the screen, a redraw is needed
 	// after this. Clear them out for now.
 	screen_stop_highlight();
 	term_windgoto(1, 0);
 	out_str((char_u *)"  ");
+	line_was_clobbered(1);
+    }
+
+    if (xcc_status.tr_progress == STATUS_GET)
+    {
+	// 2. Check compatibility with xterm.
+	// We move the cursor to (2, 0), print a test sequence and then query
+	// the current cursor position.  If the terminal properly handles
+	// unknown DCS string and CSI sequence with intermediate byte, the test
+	// sequence is ignored and the cursor does not move.  If the terminal
+	// handles test sequence incorrectly, a garbage string is displayed and
+	// the cursor does move.
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
+	LOG_TR(("Sending xterm compatibility test sequence."));
+	// Do this in the third row.  Second row is used by ambiguous
+	// chararacter width check.
+	term_windgoto(2, 0);
+	// send the test DCS string.
+	out_str((char_u *)"\033Pzz\033\\");
+	// send the test CSI sequence with intermediate byte.
+	out_str((char_u *)"\033[0%m");
+	out_str(T_U7);
+	termrequest_sent(&xcc_status);
+	out_flush();
+	did_send = TRUE;
+
+	// If the terminal handles test sequence incorrectly, garbage text is
+	// displayed. Clear them out for now.
+	screen_stop_highlight();
+	term_windgoto(2, 0);
+	out_str((char_u *)"           ");
+	line_was_clobbered(2);
+    }
+
+    if (did_send)
+    {
 	term_windgoto(0, 0);
 
 	// Need to reset the known cursor position.
@@ -3649,6 +3792,9 @@ may_req_bg_color(void)
 	// Only request foreground if t_RF is set.
 	if (rfg_status.tr_progress == STATUS_GET && *T_RFG != NUL)
 	{
+#ifdef FEAT_JOB_CHANNEL
+	    ch_log_output = TRUE;
+#endif
 	    LOG_TR(("Sending FG request"));
 	    out_str(T_RFG);
 	    termrequest_sent(&rfg_status);
@@ -3659,6 +3805,9 @@ may_req_bg_color(void)
 	// Only request background if t_RB is set.
 	if (rbg_status.tr_progress == STATUS_GET && *T_RBG != NUL)
 	{
+#ifdef FEAT_JOB_CHANNEL
+	    ch_log_output = TRUE;
+#endif
 	    LOG_TR(("Sending BG request"));
 	    out_str(T_RBG);
 	    termrequest_sent(&rbg_status);
@@ -3722,6 +3871,9 @@ scroll_start(void)
 {
     if (*T_VS != NUL && *T_CVS != NUL)
     {
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
 	out_str(T_VS);
 	out_str(T_CVS);
 	screen_start();		// don't know where cursor is now
@@ -3964,11 +4116,11 @@ add_termcode(char_u *name, char_u *string, int flags)
     }
 
 #if defined(MSWIN) && !defined(FEAT_GUI)
-    s = vim_strnsave(string, (int)STRLEN(string) + 1);
+    s = vim_strnsave(string, STRLEN(string) + 1);
 #else
 # ifdef VIMDLL
     if (!gui.in_use)
-	s = vim_strnsave(string, (int)STRLEN(string) + 1);
+	s = vim_strnsave(string, STRLEN(string) + 1);
     else
 # endif
 	s = vim_strsave(string);
@@ -4234,7 +4386,7 @@ is_mouse_topline(win_T *wp)
  * Remove "slen" bytes.
  * Returns FAIL for error.
  */
-    static int
+    int
 put_string_in_typebuf(
 	int	offset,
 	int	slen,
@@ -4310,7 +4462,8 @@ modifiers2keycode(int modifiers, int *key, char_u *string)
     if (modifiers != 0)
     {
 	// Some keys have the modifier included.  Need to handle that here to
-	// make mappings work.
+	// make mappings work.  This may result in a special key, such as
+	// K_S_TAB.
 	*key = simplify_key(*key, &modifiers);
 	if (modifiers != 0)
 	{
@@ -4322,10 +4475,699 @@ modifiers2keycode(int modifiers, int *key, char_u *string)
     return new_slen;
 }
 
+#ifdef FEAT_TERMRESPONSE
+/*
+ * Handle a cursor position report.
+ */
+    static void
+handle_u7_response(int *arg, char_u *tp UNUSED, int csi_len UNUSED)
+{
+    if (arg[0] == 2 && arg[1] >= 2)
+    {
+	char *aw = NULL;
+
+	LOG_TR(("Received U7 status: %s", tp));
+	u7_status.tr_progress = STATUS_GOT;
+	did_cursorhold = TRUE;
+	if (arg[1] == 2)
+	    aw = "single";
+	else if (arg[1] == 3)
+	    aw = "double";
+	if (aw != NULL && STRCMP(aw, p_ambw) != 0)
+	{
+	    // Setting the option causes a screen redraw. Do
+	    // that right away if possible, keeping any
+	    // messages.
+	    set_option_value((char_u *)"ambw", 0L, (char_u *)aw, 0);
+# ifdef DEBUG_TERMRESPONSE
+	    {
+		int r = redraw_asap(CLEAR);
+
+		log_tr("set 'ambiwidth', redraw_asap(): %d", r);
+	    }
+# else
+	    redraw_asap(CLEAR);
+# endif
+# ifdef FEAT_EVAL
+	    set_vim_var_string(VV_TERMU7RESP, tp, csi_len);
+# endif
+	}
+    }
+    else if (arg[0] == 3)
+    {
+	int value;
+
+	LOG_TR(("Received compatibility test result: %s", tp));
+	xcc_status.tr_progress = STATUS_GOT;
+
+	// Third row: xterm compatibility test.
+	// If the cursor is on the first column then the terminal can handle
+	// the request for cursor style and blinking.
+	value = arg[1] == 1 ? TPR_YES : TPR_NO;
+	term_props[TPR_CURSOR_STYLE].tpr_status = value;
+	term_props[TPR_CURSOR_BLINK].tpr_status = value;
+    }
+}
+
+/*
+ * Handle a response to T_CRV: {lead}{first}{x};{vers};{y}c
+ * Xterm and alikes use '>' for {first}.
+ * Rxvt sends "{lead}?1;2c".
+ */
+    static void
+handle_version_response(int first, int *arg, int argc, char_u *tp)
+{
+    // The xterm version.  It is set to zero when it can't be an actual xterm
+    // version.
+    int version = arg[1];
+
+    LOG_TR(("Received CRV response: %s", tp));
+    crv_status.tr_progress = STATUS_GOT;
+    did_cursorhold = TRUE;
+
+    // Reset terminal properties that are set based on the termresponse.
+    // Mainly useful for tests that send the termresponse multiple times.
+    // For testing all props can be reset.
+    init_term_props(
+#ifdef FEAT_EVAL
+	    reset_term_props_on_termresponse
+#else
+	    FALSE
+#endif
+	    );
+
+    // If this code starts with CSI, you can bet that the
+    // terminal uses 8-bit codes.
+    if (tp[0] == CSI)
+	switch_to_8bit();
+
+    // Screen sends 40500.
+    // rxvt sends its version number: "20703" is 2.7.3.
+    // Ignore it for when the user has set 'term' to xterm,
+    // even though it's an rxvt.
+    if (version > 20000)
+	version = 0;
+
+    // Figure out more if the reeponse is CSI > 99 ; 99 ; 99 c
+    if (first == '>' && argc == 3)
+    {
+	int need_flush = FALSE;
+
+	// mintty 2.9.5 sends 77;20905;0c.
+	// (77 is ASCII 'M' for mintty.)
+	if (arg[0] == 77)
+	{
+	    // mintty can do SGR mouse reporting
+	    term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	}
+
+	// If xterm version >= 141 try to get termcap codes.  For other
+	// terminals the request should be ignored.
+	if (version >= 141)
+	{
+	    LOG_TR(("Enable checking for XT codes"));
+	    check_for_codes = TRUE;
+	    need_gather = TRUE;
+	    req_codes_from_term();
+	}
+
+	// libvterm sends 0;100;0
+	if (version == 100 && arg[0] == 0 && arg[2] == 0)
+	{
+	    // If run from Vim $COLORS is set to the number of
+	    // colors the terminal supports.  Otherwise assume
+	    // 256, libvterm supports even more.
+	    if (mch_getenv((char_u *)"COLORS") == NULL)
+		may_adjust_color_count(256);
+	    // Libvterm can handle SGR mouse reporting.
+	    term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	}
+
+	if (version == 95)
+	{
+	    // Mac Terminal.app sends 1;95;0
+	    if (arg[0] == 1 && arg[2] == 0)
+	    {
+		term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	    }
+	    // iTerm2 sends 0;95;0
+	    else if (arg[0] == 0 && arg[2] == 0)
+	    {
+		// iTerm2 can do SGR mouse reporting
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	    }
+	    // old iTerm2 sends 0;95;
+	    else if (arg[0] == 0 && arg[2] == -1)
+		term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+	}
+
+	// screen sends 83;40500;0 83 is 'S' in ASCII.
+	if (arg[0] == 83)
+	{
+	    // screen supports SGR mouse codes since 4.7.0
+	    if (arg[1] >= 40700)
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	    else
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_XTERM;
+	}
+
+	// If no recognized terminal has set mouse behavior, assume xterm.
+	if (term_props[TPR_MOUSE].tpr_status == TPR_UNKNOWN)
+	{
+	    // Xterm version 277 supports SGR.
+	    // Xterm version >= 95 supports mouse dragging.
+	    if (version >= 277)
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	    else if (version >= 95)
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_XTERM2;
+	}
+
+	// Detect terminals that set $TERM to something like
+	// "xterm-256color" but are not fully xterm compatible.
+	//
+	// Gnome terminal sends 1;3801;0, 1;4402;0 or 1;2501;0.
+	// Newer Gnome-terminal sends 65;6001;1.
+	// xfce4-terminal sends 1;2802;0.
+	// screen sends 83;40500;0
+	// Assuming any version number over 2500 is not an
+	// xterm (without the limit for rxvt and screen).
+	if (arg[1] >= 2500)
+	    term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+
+	else if (version == 136 && arg[2] == 0)
+	{
+	    term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+
+	    // PuTTY sends 0;136;0
+	    if (arg[0] == 0)
+	    {
+		// supports sgr-like mouse reporting.
+		term_props[TPR_MOUSE].tpr_status = TPR_MOUSE_SGR;
+	    }
+	    // vandyke SecureCRT sends 1;136;0
+	}
+
+	// Konsole sends 0;115;0
+	else if (version == 115 && arg[0] == 0 && arg[2] == 0)
+	    term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+
+	// GNU screen sends 83;30600;0, 83;40500;0, etc.
+	// 30600/40500 is a version number of GNU screen. DA2 support is added
+	// on 3.6.  DCS string has a special meaning to GNU screen, but xterm
+	// compatibility checking does not detect GNU screen.
+	if (arg[0] == 83 && arg[1] >= 30600)
+	{
+	    term_props[TPR_CURSOR_STYLE].tpr_status = TPR_NO;
+	    term_props[TPR_CURSOR_BLINK].tpr_status = TPR_NO;
+	}
+
+	// Xterm first responded to this request at patch level
+	// 95, so assume anything below 95 is not xterm and hopefully supports
+	// the underline RGB color sequence.
+	if (version < 95)
+	    term_props[TPR_UNDERLINE_RGB].tpr_status = TPR_YES;
+
+	// Getting the cursor style is only supported properly by xterm since
+	// version 279 (otherwise it returns 0x18).
+	if (version < 279)
+	    term_props[TPR_CURSOR_STYLE].tpr_status = TPR_NO;
+
+	/*
+	 * Take action on the detected properties.
+	 */
+
+	// Unless the underline RGB color is expected to work, disable "t_8u".
+	// It does not work for the real Xterm, it resets the background color.
+	if (term_props[TPR_UNDERLINE_RGB].tpr_status != TPR_YES && *T_8U != NUL)
+	    set_string_option_direct((char_u *)"t_8u", -1, (char_u *)"",
+								  OPT_FREE, 0);
+
+	// Only set 'ttymouse' automatically if it was not set
+	// by the user already.
+	if (!option_was_set((char_u *)"ttym")
+		&& (term_props[TPR_MOUSE].tpr_status == TPR_MOUSE_XTERM2
+		    || term_props[TPR_MOUSE].tpr_status == TPR_MOUSE_SGR))
+	{
+	    set_option_value((char_u *)"ttym", 0L,
+		    term_props[TPR_MOUSE].tpr_status == TPR_MOUSE_SGR
+				    ? (char_u *)"sgr" : (char_u *)"xterm2", 0);
+	}
+
+	// Only request the cursor style if t_SH and t_RS are
+	// set. Only supported properly by xterm since version
+	// 279 (otherwise it returns 0x18).
+	// Only when getting the cursor style was detected to work.
+	// Not for Terminal.app, it can't handle t_RS, it
+	// echoes the characters to the screen.
+	if (rcs_status.tr_progress == STATUS_GET
+		&& term_props[TPR_CURSOR_STYLE].tpr_status == TPR_YES
+		&& *T_CSH != NUL
+		&& *T_CRS != NUL)
+	{
+#ifdef FEAT_JOB_CHANNEL
+	    ch_log_output = TRUE;
+#endif
+	    LOG_TR(("Sending cursor style request"));
+	    out_str(T_CRS);
+	    termrequest_sent(&rcs_status);
+	    need_flush = TRUE;
+	}
+
+	// Only request the cursor blink mode if t_RC set. Not
+	// for Gnome terminal, it can't handle t_RC, it
+	// echoes the characters to the screen.
+	// Only when getting the cursor style was detected to work.
+	if (rbm_status.tr_progress == STATUS_GET
+		&& term_props[TPR_CURSOR_BLINK].tpr_status == TPR_YES
+		&& *T_CRC != NUL)
+	{
+#ifdef FEAT_JOB_CHANNEL
+	    ch_log_output = TRUE;
+#endif
+	    LOG_TR(("Sending cursor blink mode request"));
+	    out_str(T_CRC);
+	    termrequest_sent(&rbm_status);
+	    need_flush = TRUE;
+	}
+
+	if (need_flush)
+	    out_flush();
+    }
+}
+
+/*
+ * Handle a sequence with key and modifier, one of:
+ *	{lead}27;{modifier};{key}~
+ *	{lead}{key};{modifier}u
+ * Returns the difference in length.
+ */
+    static int
+handle_key_with_modifier(
+	int	*arg,
+	int	trail,
+	int	csi_len,
+	int	offset,
+	char_u	*buf,
+	int	bufsize,
+	int	*buflen)
+{
+    int	    key;
+    int	    modifiers;
+    int	    new_slen;
+    char_u  string[MAX_KEY_CODE_LEN + 1];
+
+    seenModifyOtherKeys = TRUE;
+    if (trail == 'u')
+	key = arg[0];
+    else
+	key = arg[2];
+
+    modifiers = decode_modifiers(arg[1]);
+
+    // Some keys need adjustment when the Ctrl modifier is used.
+    key = may_adjust_key_for_ctrl(modifiers, key);
+
+    // May remove the shift modifier if it's already included in the key.
+    modifiers = may_remove_shift_modifier(modifiers, key);
+
+    // insert modifiers with KS_MODIFIER
+    new_slen = modifiers2keycode(modifiers, &key, string);
+
+    if (IS_SPECIAL(key))
+    {
+	string[new_slen++] = K_SPECIAL;
+	string[new_slen++] = KEY2TERMCAP0(key);
+	string[new_slen++] = KEY2TERMCAP1(key);
+    }
+    else if (has_mbyte)
+	new_slen += (*mb_char2bytes)(key, string + new_slen);
+    else
+	string[new_slen++] = key;
+
+    if (put_string_in_typebuf(offset, csi_len, string, new_slen,
+						 buf, bufsize, buflen) == FAIL)
+	return -1;
+    return new_slen - csi_len + offset;
+}
+
+/*
+ * Handle a CSI escape sequence.
+ * - Xterm version string.
+ *
+ * - Cursor position report: {lead}{row};{col}R
+ *   The final byte must be 'R'. It is used for checking the
+ *   ambiguous-width character state.
+ *
+ * - window position reply: {lead}3;{x};{y}t
+ *
+ * - key with modifiers when modifyOtherKeys is enabled:
+ *	    {lead}27;{modifier};{key}~
+ *	    {lead}{key};{modifier}u
+ * Return 0 for no match, -1 for partial match, > 0 for full match.
+ */
+    static int
+handle_csi(
+	char_u	*tp,
+	int	len,
+	char_u	*argp,
+	int	offset,
+	char_u  *buf,
+	int	bufsize,
+	int	*buflen,
+	char_u	*key_name,
+	int	*slen)
+{
+    int		first = -1;  // optional char right after {lead}
+    int		trail;	     // char that ends CSI sequence
+    int		arg[3] = {-1, -1, -1};	// argument numbers
+    int		argc;			// number of arguments
+    char_u	*ap = argp;
+    int		csi_len;
+
+    // Check for non-digit after CSI.
+    if (!VIM_ISDIGIT(*ap))
+	first = *ap++;
+
+    // Find up to three argument numbers.
+    for (argc = 0; argc < 3; )
+    {
+	if (ap >= tp + len)
+	    return -1;
+	if (*ap == ';')
+	    arg[argc++] = -1;  // omitted number
+	else if (VIM_ISDIGIT(*ap))
+	{
+	    arg[argc] = 0;
+	    for (;;)
+	    {
+		if (ap >= tp + len)
+		    return -1;
+		if (!VIM_ISDIGIT(*ap))
+		    break;
+		arg[argc] = arg[argc] * 10 + (*ap - '0');
+		++ap;
+	    }
+	    ++argc;
+	}
+	if (*ap == ';')
+	    ++ap;
+	else
+	    break;
+    }
+
+    // mrxvt has been reported to have "+" in the version. Assume
+    // the escape sequence ends with a letter or one of "{|}~".
+    while (ap < tp + len
+	    && !(*ap >= '{' && *ap <= '~')
+	    && !ASCII_ISALPHA(*ap))
+	++ap;
+    if (ap >= tp + len)
+	return -1;
+    trail = *ap;
+    csi_len = (int)(ap - tp) + 1;
+
+    // Cursor position report: Eat it when there are 2 arguments
+    // and it ends in 'R'. Also when u7_status is not "sent", it
+    // may be from a previous Vim that just exited.  But not for
+    // <S-F3>, it sends something similar, check for row and column
+    // to make sense.
+    if (first == -1 && argc == 2 && trail == 'R')
+    {
+	handle_u7_response(arg, tp, csi_len);
+
+	key_name[0] = (int)KS_EXTRA;
+	key_name[1] = (int)KE_IGNORE;
+	*slen = csi_len;
+    }
+
+    // Version string: Eat it when there is at least one digit and
+    // it ends in 'c'
+    else if (*T_CRV != NUL && ap > argp + 1 && trail == 'c')
+    {
+	handle_version_response(first, arg, argc, tp);
+
+	*slen = csi_len;
+# ifdef FEAT_EVAL
+	set_vim_var_string(VV_TERMRESPONSE, tp, *slen);
+# endif
+	apply_autocmds(EVENT_TERMRESPONSE,
+					NULL, NULL, FALSE, curbuf);
+	key_name[0] = (int)KS_EXTRA;
+	key_name[1] = (int)KE_IGNORE;
+    }
+
+    // Check blinking cursor from xterm:
+    // {lead}?12;1$y       set
+    // {lead}?12;2$y       not set
+    //
+    // {lead} can be <Esc>[ or CSI
+    else if (rbm_status.tr_progress == STATUS_SENT
+	    && first == '?'
+	    && ap == argp + 6
+	    && arg[0] == 12
+	    && ap[-1] == '$'
+	    && trail == 'y')
+    {
+	initial_cursor_blink = (arg[1] == '1');
+	rbm_status.tr_progress = STATUS_GOT;
+	LOG_TR(("Received cursor blinking mode response: %s", tp));
+	key_name[0] = (int)KS_EXTRA;
+	key_name[1] = (int)KE_IGNORE;
+	*slen = csi_len;
+# ifdef FEAT_EVAL
+	set_vim_var_string(VV_TERMBLINKRESP, tp, *slen);
+# endif
+    }
+
+    // Check for a window position response from the terminal:
+    //       {lead}3;{x};{y}t
+    else if (did_request_winpos && argc == 3 && arg[0] == 3
+						   && trail == 't')
+    {
+	winpos_x = arg[1];
+	winpos_y = arg[2];
+	// got finished code: consume it
+	key_name[0] = (int)KS_EXTRA;
+	key_name[1] = (int)KE_IGNORE;
+	*slen = csi_len;
+
+	if (--did_request_winpos <= 0)
+	    winpos_status.tr_progress = STATUS_GOT;
+    }
+
+    // Key with modifier:
+    //	{lead}27;{modifier};{key}~
+    //	{lead}{key};{modifier}u
+    else if ((arg[0] == 27 && argc == 3 && trail == '~')
+	    || (argc == 2 && trail == 'u'))
+    {
+	return len + handle_key_with_modifier(arg, trail,
+			    csi_len, offset, buf, bufsize, buflen);
+    }
+
+    // else: Unknown CSI sequence.  We could drop it, but then the
+    // user can't create a map for it.
+    return 0;
+}
+
+/*
+ * Handle an OSC sequence, fore/background color response from the terminal:
+ *
+ *       {lead}{code};rgb:{rrrr}/{gggg}/{bbbb}{tail}
+ * or    {lead}{code};rgb:{rr}/{gg}/{bb}{tail}
+ *
+ * {code} is 10 for foreground, 11 for background
+ * {lead} can be <Esc>] or OSC
+ * {tail} can be '\007', <Esc>\ or STERM.
+ *
+ * Consume any code that starts with "{lead}11;", it's also
+ * possible that "rgba" is following.
+ */
+    static int
+handle_osc(char_u *tp, char_u *argp, int len, char_u *key_name, int *slen)
+{
+    int		i, j;
+
+    j = 1 + (tp[0] == ESC);
+    if (len >= j + 3 && (argp[0] != '1'
+			     || (argp[1] != '1' && argp[1] != '0')
+			     || argp[2] != ';'))
+	i = 0; // no match
+    else
+	for (i = j; i < len; ++i)
+	    if (tp[i] == '\007' || (tp[0] == OSC ? tp[i] == STERM
+			: (tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')))
+	    {
+		int is_bg = argp[1] == '1';
+		int is_4digit = i - j >= 21 && tp[j + 11] == '/'
+						  && tp[j + 16] == '/';
+
+		if (i - j >= 15 && STRNCMP(tp + j + 3, "rgb:", 4) == 0
+			    && (is_4digit
+				   || (tp[j + 9] == '/' && tp[i + 12 == '/'])))
+		{
+		    char_u *tp_r = tp + j + 7;
+		    char_u *tp_g = tp + j + (is_4digit ? 12 : 10);
+		    char_u *tp_b = tp + j + (is_4digit ? 17 : 13);
+# ifdef FEAT_TERMINAL
+		    int rval, gval, bval;
+
+		    rval = hexhex2nr(tp_r);
+		    gval = hexhex2nr(tp_b);
+		    bval = hexhex2nr(tp_g);
+# endif
+		    if (is_bg)
+		    {
+			char *new_bg_val = (3 * '6' < *tp_r + *tp_g +
+					     *tp_b) ? "light" : "dark";
+
+			LOG_TR(("Received RBG response: %s", tp));
+			rbg_status.tr_progress = STATUS_GOT;
+# ifdef FEAT_TERMINAL
+			bg_r = rval;
+			bg_g = gval;
+			bg_b = bval;
+# endif
+			if (!option_was_set((char_u *)"bg")
+				      && STRCMP(p_bg, new_bg_val) != 0)
+			{
+			    // value differs, apply it
+			    set_option_value((char_u *)"bg", 0L,
+					      (char_u *)new_bg_val, 0);
+			    reset_option_was_set((char_u *)"bg");
+			    redraw_asap(CLEAR);
+			}
+		    }
+# ifdef FEAT_TERMINAL
+		    else
+		    {
+			LOG_TR(("Received RFG response: %s", tp));
+			rfg_status.tr_progress = STATUS_GOT;
+			fg_r = rval;
+			fg_g = gval;
+			fg_b = bval;
+		    }
+# endif
+		}
+
+		// got finished code: consume it
+		key_name[0] = (int)KS_EXTRA;
+		key_name[1] = (int)KE_IGNORE;
+		*slen = i + 1 + (tp[i] == ESC);
+# ifdef FEAT_EVAL
+		set_vim_var_string(is_bg ? VV_TERMRBGRESP
+						  : VV_TERMRFGRESP, tp, *slen);
+# endif
+		break;
+	    }
+    if (i == len)
+    {
+	LOG_TR(("not enough characters for RB"));
+	return FAIL;
+    }
+    return OK;
+}
+
+/*
+ * Check for key code response from xterm:
+ * {lead}{flag}+r<hex bytes><{tail}
+ *
+ * {lead} can be <Esc>P or DCS
+ * {flag} can be '0' or '1'
+ * {tail} can be Esc>\ or STERM
+ *
+ * Check for cursor shape response from xterm:
+ * {lead}1$r<digit> q{tail}
+ *
+ * {lead} can be <Esc>P or DCS
+ * {tail} can be <Esc>\ or STERM
+ *
+ * Consume any code that starts with "{lead}.+r" or "{lead}.$r".
+ */
+    static int
+handle_dcs(char_u *tp, char_u *argp, int len, char_u *key_name, int *slen)
+{
+    int i, j;
+
+    j = 1 + (tp[0] == ESC);
+    if (len < j + 3)
+	i = len; // need more chars
+    else if ((argp[1] != '+' && argp[1] != '$') || argp[2] != 'r')
+	i = 0; // no match
+    else if (argp[1] == '+')
+	// key code response
+	for (i = j; i < len; ++i)
+	{
+	    if ((tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')
+		    || tp[i] == STERM)
+	    {
+		if (i - j >= 3)
+		    got_code_from_term(tp + j, i);
+		key_name[0] = (int)KS_EXTRA;
+		key_name[1] = (int)KE_IGNORE;
+		*slen = i + 1 + (tp[i] == ESC);
+		break;
+	    }
+	}
+    else
+    {
+	// Probably the cursor shape response.  Make sure that "i"
+	// is equal to "len" when there are not sufficient
+	// characters.
+	for (i = j + 3; i < len; ++i)
+	{
+	    if (i - j == 3 && !isdigit(tp[i]))
+		break;
+	    if (i - j == 4 && tp[i] != ' ')
+		break;
+	    if (i - j == 5 && tp[i] != 'q')
+		break;
+	    if (i - j == 6 && tp[i] != ESC && tp[i] != STERM)
+		break;
+	    if ((i - j == 6 && tp[i] == STERM)
+	     || (i - j == 7 && tp[i] == '\\'))
+	    {
+		int number = argp[3] - '0';
+
+		// 0, 1 = block blink, 2 = block
+		// 3 = underline blink, 4 = underline
+		// 5 = vertical bar blink, 6 = vertical bar
+		number = number == 0 ? 1 : number;
+		initial_cursor_shape = (number + 1) / 2;
+		// The blink flag is actually inverted, compared to
+		// the value set with T_SH.
+		initial_cursor_shape_blink =
+				       (number & 1) ? FALSE : TRUE;
+		rcs_status.tr_progress = STATUS_GOT;
+		LOG_TR(("Received cursor shape response: %s", tp));
+
+		key_name[0] = (int)KS_EXTRA;
+		key_name[1] = (int)KE_IGNORE;
+		*slen = i + 1;
+# ifdef FEAT_EVAL
+		set_vim_var_string(VV_TERMSTYLERESP, tp, *slen);
+# endif
+		break;
+	    }
+	}
+    }
+
+    if (i == len)
+    {
+	// These codes arrive many together, each code can be
+	// truncated at any point.
+	LOG_TR(("not enough characters for XT"));
+	return FAIL;
+    }
+    return OK;
+}
+#endif // FEAT_TERMRESPONSE
+
 /*
  * Check if typebuf.tb_buf[] contains a terminal key code.
  * Check from typebuf.tb_buf[typebuf.tb_off] to typebuf.tb_buf[typebuf.tb_off
- * + max_offset].
+ * + "max_offset"].
  * Return 0 for no match, -1 for partial match, > 0 for full match.
  * Return KEYLEN_REMOVED when a key code was deleted.
  * With a match, the match is removed, the replacement code is inserted in
@@ -4575,545 +5417,36 @@ check_termcode(
 			    || (tp[0] == CSI && len >= 2))
 		    && (VIM_ISDIGIT(*argp) || *argp == '>' || *argp == '?'))
 	    {
-		int	first = -1;  // optional char right after {lead}
-		int	trail;	     // char that ends CSI sequence
-		int	arg[3] = {-1, -1, -1};	// argument numbers
-		int	argc;			// number of arguments
-		char_u	*ap = argp;
-		int	csi_len;
-
-		// Check for non-digit after CSI.
-		if (!VIM_ISDIGIT(*ap))
-		    first = *ap++;
-
-		// Find up to three argument numbers.
-		for (argc = 0; argc < 3; )
+		int resp = handle_csi(tp, len, argp, offset, buf,
+					     bufsize, buflen, key_name, &slen);
+		if (resp != 0)
 		{
-		    if (ap >= tp + len)
-		    {
-not_enough:
-			LOG_TR(("Not enough characters for CSI sequence"));
-			return -1;
-		    }
-		    if (*ap == ';')
-			arg[argc++] = -1;  // omitted number
-		    else if (VIM_ISDIGIT(*ap))
-		    {
-			arg[argc] = 0;
-			for (;;)
-			{
-			    if (ap >= tp + len)
-				goto not_enough;
-			    if (!VIM_ISDIGIT(*ap))
-				break;
-			    arg[argc] = arg[argc] * 10 + (*ap - '0');
-			    ++ap;
-			}
-			++argc;
-		    }
-		    if (*ap == ';')
-			++ap;
-		    else
-			break;
-		}
-		// mrxvt has been reported to have "+" in the version. Assume
-		// the escape sequence ends with a letter or one of "{|}~".
-		while (ap < tp + len
-			&& !(*ap >= '{' && *ap <= '~')
-			&& !ASCII_ISALPHA(*ap))
-		    ++ap;
-		if (ap >= tp + len)
-		    goto not_enough;
-		trail = *ap;
-		csi_len = (int)(ap - tp) + 1;
-
-		// Cursor position report: Eat it when there are 2 arguments
-		// and it ends in 'R'. Also when u7_status is not "sent", it
-		// may be from a previous Vim that just exited.  But not for
-		// <S-F3>, it sends something similar, check for row and column
-		// to make sense.
-		if (first == -1 && argc == 2 && trail == 'R')
-		{
-		    if (arg[0] == 2 && arg[1] >= 2)
-		    {
-			char *aw = NULL;
-
-			LOG_TR(("Received U7 status: %s", tp));
-			u7_status.tr_progress = STATUS_GOT;
-			did_cursorhold = TRUE;
-			if (arg[1] == 2)
-			    aw = "single";
-			else if (arg[1] == 3)
-			    aw = "double";
-			if (aw != NULL && STRCMP(aw, p_ambw) != 0)
-			{
-			    // Setting the option causes a screen redraw. Do
-			    // that right away if possible, keeping any
-			    // messages.
-			    set_option_value((char_u *)"ambw", 0L,
-					     (char_u *)aw, 0);
 # ifdef DEBUG_TERMRESPONSE
-			    {
-				int r = redraw_asap(CLEAR);
-
-				log_tr("set 'ambiwidth', redraw_asap(): %d", r);
-			    }
-# else
-			    redraw_asap(CLEAR);
+		    if (resp == -1)
+			LOG_TR(("Not enough characters for CSI sequence"));
 # endif
-			}
-		    }
-		    key_name[0] = (int)KS_EXTRA;
-		    key_name[1] = (int)KE_IGNORE;
-		    slen = csi_len;
-# ifdef FEAT_EVAL
-		    set_vim_var_string(VV_TERMU7RESP, tp, slen);
-# endif
+		    return resp;
 		}
-
-		// Version string: Eat it when there is at least one digit and
-		// it ends in 'c'
-		else if (*T_CRV != NUL && ap > argp + 1 && trail == 'c')
-		{
-		    int version = arg[1];
-
-		    LOG_TR(("Received CRV response: %s", tp));
-		    crv_status.tr_progress = STATUS_GOT;
-		    did_cursorhold = TRUE;
-
-		    // If this code starts with CSI, you can bet that the
-		    // terminal uses 8-bit codes.
-		    if (tp[0] == CSI)
-			switch_to_8bit();
-
-		    // Screen sends 40500.
-		    // rxvt sends its version number: "20703" is 2.7.3.
-		    // Ignore it for when the user has set 'term' to xterm,
-		    // even though it's an rxvt.
-		    if (version > 20000)
-			version = 0;
-
-		    if (first == '>' && argc == 3)
-		    {
-			int need_flush = FALSE;
-			int is_iterm2 = FALSE;
-			int is_mintty = FALSE;
-			int is_screen = FALSE;
-
-			// mintty 2.9.5 sends 77;20905;0c.
-			// (77 is ASCII 'M' for mintty.)
-			if (arg[0] == 77)
-			    is_mintty = TRUE;
-
-			// if xterm version >= 141 try to get termcap codes
-			if (version >= 141)
-			{
-			    LOG_TR(("Enable checking for XT codes"));
-			    check_for_codes = TRUE;
-			    need_gather = TRUE;
-			    req_codes_from_term();
-			}
-
-			// libvterm sends 0;100;0
-			if (version == 100 && arg[0] == 0 && arg[2] == 0)
-			{
-			    // If run from Vim $COLORS is set to the number of
-			    // colors the terminal supports.  Otherwise assume
-			    // 256, libvterm supports even more.
-			    if (mch_getenv((char_u *)"COLORS") == NULL)
-				may_adjust_color_count(256);
-			    // Libvterm can handle SGR mouse reporting.
-			    if (!option_was_set((char_u *)"ttym"))
-				set_option_value((char_u *)"ttym", 0L,
-							   (char_u *)"sgr", 0);
-			}
-
-			if (version == 95)
-			{
-			    // Mac Terminal.app sends 1;95;0
-			    if (arg[0] == 1 && arg[2] == 0)
-			    {
-				is_not_xterm = TRUE;
-				is_mac_terminal = TRUE;
-			    }
-			    // iTerm2 sends 0;95;0
-			    else if (arg[0] == 0 && arg[2] == 0)
-				is_iterm2 = TRUE;
-			    // old iTerm2 sends 0;95;
-			    else if (arg[0] == 0 && arg[2] == -1)
-				is_not_xterm = TRUE;
-			}
-
-			// screen sends 83;40500;0 83 is 'S' in ASCII.
-			if (arg[0] == 83)
-			    is_screen = TRUE;
-
-			// Only set 'ttymouse' automatically if it was not set
-			// by the user already.
-			if (!option_was_set((char_u *)"ttym"))
-			{
-			    // Xterm version 277 supports SGR.  Also support
-			    // Terminal.app, iTerm2, mintty, and screen 4.7+.
-			    if ((!is_screen && version >= 277)
-				    || is_iterm2
-				    || is_mac_terminal
-				    || is_mintty
-				    || (is_screen && arg[1] >= 40700))
-				set_option_value((char_u *)"ttym", 0L,
-							  (char_u *)"sgr", 0);
-			    // For xterm version >= 95 mouse dragging works.
-			    else if (version >= 95)
-				set_option_value((char_u *)"ttym", 0L,
-						       (char_u *)"xterm2", 0);
-			}
-
-			// Detect terminals that set $TERM to something like
-			// "xterm-256color" but are not fully xterm compatible.
-
-			// Gnome terminal sends 1;3801;0, 1;4402;0 or 1;2501;0.
-			// xfce4-terminal sends 1;2802;0.
-			// screen sends 83;40500;0
-			// Assuming any version number over 2500 is not an
-			// xterm (without the limit for rxvt and screen).
-			if (arg[1] >= 2500)
-			    is_not_xterm = TRUE;
-
-			// PuTTY sends 0;136;0
-			// vandyke SecureCRT sends 1;136;0
-			else if (version == 136 && arg[2] == 0)
-			{
-			    is_not_xterm = TRUE;
-
-			    // PuTTY supports sgr-like mouse reporting, but
-			    // only set 'ttymouse' if it was not set by the
-			    // user already.
-			    if (arg[0] == 0
-					  && !option_was_set((char_u *)"ttym"))
-				set_option_value((char_u *)"ttym", 0L,
-							(char_u *)"sgr", 0);
-			}
-
-			// Konsole sends 0;115;0
-			else if (version == 115 && arg[0] == 0 && arg[2] == 0)
-			    is_not_xterm = TRUE;
-
-			// Xterm first responded to this request at patch level
-			// 95, so assume anything below 95 is not xterm.
-			if (version < 95)
-			    is_not_xterm = TRUE;
-
-			// Only request the cursor style if t_SH and t_RS are
-			// set. Only supported properly by xterm since version
-			// 279 (otherwise it returns 0x18).
-			// Not for Terminal.app, it can't handle t_RS, it
-			// echoes the characters to the screen.
-			if (rcs_status.tr_progress == STATUS_GET
-				&& version >= 279
-				&& !is_not_xterm
-				&& *T_CSH != NUL
-				&& *T_CRS != NUL)
-			{
-			    LOG_TR(("Sending cursor style request"));
-			    out_str(T_CRS);
-			    termrequest_sent(&rcs_status);
-			    need_flush = TRUE;
-			}
-
-			// Only request the cursor blink mode if t_RC set. Not
-			// for Gnome terminal, it can't handle t_RC, it
-			// echoes the characters to the screen.
-			if (rbm_status.tr_progress == STATUS_GET
-				&& !is_not_xterm
-				&& *T_CRC != NUL)
-			{
-			    LOG_TR(("Sending cursor blink mode request"));
-			    out_str(T_CRC);
-			    termrequest_sent(&rbm_status);
-			    need_flush = TRUE;
-			}
-
-			if (need_flush)
-			    out_flush();
-		    }
-		    slen = csi_len;
-# ifdef FEAT_EVAL
-		    set_vim_var_string(VV_TERMRESPONSE, tp, slen);
-# endif
-		    apply_autocmds(EVENT_TERMRESPONSE,
-						   NULL, NULL, FALSE, curbuf);
-		    key_name[0] = (int)KS_EXTRA;
-		    key_name[1] = (int)KE_IGNORE;
-		}
-
-		// Check blinking cursor from xterm:
-		// {lead}?12;1$y       set
-		// {lead}?12;2$y       not set
-		//
-		// {lead} can be <Esc>[ or CSI
-		else if (rbm_status.tr_progress == STATUS_SENT
-			&& first == '?'
-			&& ap == argp + 6
-			&& arg[0] == 12
-			&& ap[-1] == '$'
-			&& trail == 'y')
-		{
-		    initial_cursor_blink = (arg[1] == '1');
-		    rbm_status.tr_progress = STATUS_GOT;
-		    LOG_TR(("Received cursor blinking mode response: %s", tp));
-		    key_name[0] = (int)KS_EXTRA;
-		    key_name[1] = (int)KE_IGNORE;
-		    slen = csi_len;
-# ifdef FEAT_EVAL
-		    set_vim_var_string(VV_TERMBLINKRESP, tp, slen);
-# endif
-		}
-
-		// Check for a window position response from the terminal:
-		//       {lead}3;{x};{y}t
-		else if (did_request_winpos && argc == 3 && arg[0] == 3
-							       && trail == 't')
-		{
-		    winpos_x = arg[1];
-		    winpos_y = arg[2];
-		    // got finished code: consume it
-		    key_name[0] = (int)KS_EXTRA;
-		    key_name[1] = (int)KE_IGNORE;
-		    slen = csi_len;
-
-		    if (--did_request_winpos <= 0)
-			winpos_status.tr_progress = STATUS_GOT;
-		}
-
-		// Key with modifier:
-		//	{lead}27;{modifier};{key}~
-		//	{lead}{key};{modifier}u
-		else if ((arg[0] == 27 && argc == 3 && trail == '~')
-			|| (argc == 2 && trail == 'u'))
-		{
-		    seenModifyOtherKeys = TRUE;
-		    if (trail == 'u')
-			key = arg[0];
-		    else
-			key = arg[2];
-
-		    modifiers = decode_modifiers(arg[1]);
-
-		    // Some keys already have Shift included, pass them as
-		    // normal keys.  Not when Ctrl is also used, because <C-H>
-		    // and <C-S-H> are different.
-		    if (modifiers == MOD_MASK_SHIFT
-			    && ((key >= '@' && key <= 'Z')
-				|| key == '^' || key == '_'
-				|| (key >= '{' && key <= '~')))
-			modifiers = 0;
-
-		    // When used with Ctrl we always make a letter upper case,
-		    // so that mapping <C-H> and <C-h> are the same.  Typing
-		    // <C-S-H> also uses "H" but modifier is different.
-		    if ((modifiers & MOD_MASK_CTRL) && ASCII_ISALPHA(key))
-			key = TOUPPER_ASC(key);
-
-		    // insert modifiers with KS_MODIFIER
-		    new_slen = modifiers2keycode(modifiers, &key, string);
-		    slen = csi_len;
-
-		    if (has_mbyte)
-			new_slen += (*mb_char2bytes)(key, string + new_slen);
-		    else
-			string[new_slen++] = key;
-
-		    if (put_string_in_typebuf(offset, slen, string, new_slen,
-						 buf, bufsize, buflen) == FAIL)
-			return -1;
-		    return len + new_slen - slen + offset;
-		}
-
-		// else: Unknown CSI sequence.  We could drop it, but then the
-		// user can't create a map for it.
 	    }
 
-	    // Check for fore/background color response from the terminal:
-	    //
-	    //       {lead}{code};rgb:{rrrr}/{gggg}/{bbbb}{tail}
-	    // or    {lead}{code};rgb:{rr}/{gg}/{bb}{tail}
-	    //
-	    // {code} is 10 for foreground, 11 for background
-	    // {lead} can be <Esc>] or OSC
-	    // {tail} can be '\007', <Esc>\ or STERM.
-	    //
-	    // Consume any code that starts with "{lead}11;", it's also
-	    // possible that "rgba" is following.
+	    // Check for fore/background color response from the terminal,
+	    // starting} with <Esc>] or OSC
 	    else if ((*T_RBG != NUL || *T_RFG != NUL)
 			&& ((tp[0] == ESC && len >= 2 && tp[1] == ']')
 			    || tp[0] == OSC))
 	    {
-		j = 1 + (tp[0] == ESC);
-		if (len >= j + 3 && (argp[0] != '1'
-					 || (argp[1] != '1' && argp[1] != '0')
-					 || argp[2] != ';'))
-		  i = 0; // no match
-		else
-		  for (i = j; i < len; ++i)
-		    if (tp[i] == '\007' || (tp[0] == OSC ? tp[i] == STERM
-			: (tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')))
-		    {
-			int is_bg = argp[1] == '1';
-			int is_4digit = i - j >= 21 && tp[j + 11] == '/'
-							  && tp[j + 16] == '/';
-
-			if (i - j >= 15 && STRNCMP(tp + j + 3, "rgb:", 4) == 0
-			    && (is_4digit
-				   || (tp[j + 9] == '/' && tp[i + 12 == '/'])))
-			{
-			    char_u *tp_r = tp + j + 7;
-			    char_u *tp_g = tp + j + (is_4digit ? 12 : 10);
-			    char_u *tp_b = tp + j + (is_4digit ? 17 : 13);
-# ifdef FEAT_TERMINAL
-			    int rval, gval, bval;
-
-			    rval = hexhex2nr(tp_r);
-			    gval = hexhex2nr(tp_b);
-			    bval = hexhex2nr(tp_g);
-# endif
-			    if (is_bg)
-			    {
-				char *new_bg_val = (3 * '6' < *tp_r + *tp_g +
-						     *tp_b) ? "light" : "dark";
-
-				LOG_TR(("Received RBG response: %s", tp));
-				rbg_status.tr_progress = STATUS_GOT;
-# ifdef FEAT_TERMINAL
-				bg_r = rval;
-				bg_g = gval;
-				bg_b = bval;
-# endif
-				if (!option_was_set((char_u *)"bg")
-					      && STRCMP(p_bg, new_bg_val) != 0)
-				{
-				    // value differs, apply it
-				    set_option_value((char_u *)"bg", 0L,
-						      (char_u *)new_bg_val, 0);
-				    reset_option_was_set((char_u *)"bg");
-				    redraw_asap(CLEAR);
-				}
-			    }
-# ifdef FEAT_TERMINAL
-			    else
-			    {
-				LOG_TR(("Received RFG response: %s", tp));
-				rfg_status.tr_progress = STATUS_GOT;
-				fg_r = rval;
-				fg_g = gval;
-				fg_b = bval;
-			    }
-# endif
-			}
-
-			// got finished code: consume it
-			key_name[0] = (int)KS_EXTRA;
-			key_name[1] = (int)KE_IGNORE;
-			slen = i + 1 + (tp[i] == ESC);
-# ifdef FEAT_EVAL
-			set_vim_var_string(is_bg ? VV_TERMRBGRESP
-						   : VV_TERMRFGRESP, tp, slen);
-# endif
-			break;
-		    }
-		if (i == len)
-		{
-		    LOG_TR(("not enough characters for RB"));
+		if (handle_osc(tp, argp, len, key_name, &slen) == FAIL)
 		    return -1;
-		}
 	    }
 
-	    // Check for key code response from xterm:
-	    // {lead}{flag}+r<hex bytes><{tail}
-	    //
-	    // {lead} can be <Esc>P or DCS
-	    // {flag} can be '0' or '1'
-	    // {tail} can be Esc>\ or STERM
-	    //
-	    // Check for cursor shape response from xterm:
-	    // {lead}1$r<digit> q{tail}
-	    //
-	    // {lead} can be <Esc>P or DCS
-	    // {tail} can be <Esc>\ or STERM
-	    //
-	    // Consume any code that starts with "{lead}.+r" or "{lead}.$r".
+	    // Check for key code response from xterm,
+	    // starting with <Esc>P or DCS
 	    else if ((check_for_codes || rcs_status.tr_progress == STATUS_SENT)
 		    && ((tp[0] == ESC && len >= 2 && tp[1] == 'P')
 			|| tp[0] == DCS))
 	    {
-		j = 1 + (tp[0] == ESC);
-		if (len < j + 3)
-		    i = len; // need more chars
-		else if ((argp[1] != '+' && argp[1] != '$') || argp[2] != 'r')
-		    i = 0; // no match
-		else if (argp[1] == '+')
-		    // key code response
-		    for (i = j; i < len; ++i)
-		    {
-			if ((tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')
-				|| tp[i] == STERM)
-			{
-			    if (i - j >= 3)
-				got_code_from_term(tp + j, i);
-			    key_name[0] = (int)KS_EXTRA;
-			    key_name[1] = (int)KE_IGNORE;
-			    slen = i + 1 + (tp[i] == ESC);
-			    break;
-			}
-		    }
-		else
-		{
-		    // Probably the cursor shape response.  Make sure that "i"
-		    // is equal to "len" when there are not sufficient
-		    // characters.
-		    for (i = j + 3; i < len; ++i)
-		    {
-			if (i - j == 3 && !isdigit(tp[i]))
-			    break;
-			if (i - j == 4 && tp[i] != ' ')
-			    break;
-			if (i - j == 5 && tp[i] != 'q')
-			    break;
-			if (i - j == 6 && tp[i] != ESC && tp[i] != STERM)
-			    break;
-			if ((i - j == 6 && tp[i] == STERM)
-			 || (i - j == 7 && tp[i] == '\\'))
-			{
-			    int number = argp[3] - '0';
-
-			    // 0, 1 = block blink, 2 = block
-			    // 3 = underline blink, 4 = underline
-			    // 5 = vertical bar blink, 6 = vertical bar
-			    number = number == 0 ? 1 : number;
-			    initial_cursor_shape = (number + 1) / 2;
-			    // The blink flag is actually inverted, compared to
-			    // the value set with T_SH.
-			    initial_cursor_shape_blink =
-						   (number & 1) ? FALSE : TRUE;
-			    rcs_status.tr_progress = STATUS_GOT;
-			    LOG_TR(("Received cursor shape response: %s", tp));
-
-			    key_name[0] = (int)KS_EXTRA;
-			    key_name[1] = (int)KE_IGNORE;
-			    slen = i + 1;
-# ifdef FEAT_EVAL
-			    set_vim_var_string(VV_TERMSTYLERESP, tp, slen);
-# endif
-			    break;
-			}
-		    }
-		}
-
-		if (i == len)
-		{
-		    // These codes arrive many together, each code can be
-		    // truncated at any point.
-		    LOG_TR(("not enough characters for XT"));
+		if (handle_dcs(tp, argp, len, key_name, &slen) == FAIL)
 		    return -1;
-		}
 	    }
 	}
 #endif
@@ -5488,8 +5821,9 @@ replace_termcodes(
 	    }
 #endif
 
-	    slen = trans_special(&src, result + dlen, TRUE, FALSE,
-			     (flags & REPTERM_NO_SIMPLIFY) == 0, did_simplify);
+	    slen = trans_special(&src, result + dlen, FSK_KEYCODE
+			  | ((flags & REPTERM_NO_SIMPLIFY) ? 0 : FSK_SIMPLIFY),
+								 did_simplify);
 	    if (slen)
 	    {
 		dlen += slen;
@@ -5835,6 +6169,9 @@ req_more_codes_from_term(void)
     {
 	char *key_name = key_names[xt_index_out];
 
+#ifdef FEAT_JOB_CHANNEL
+	ch_log_output = TRUE;
+#endif
 	LOG_TR(("Requesting XT %d: %s", xt_index_out, key_name));
 	sprintf(buf, "\033P+q%02x%02x\033\\", key_name[0], key_name[1]);
 	out_str_nf((char_u *)buf);

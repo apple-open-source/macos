@@ -28,10 +28,13 @@
 #if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
 
 #include "CaptureDeviceManager.h"
+#include "GenericTaskQueue.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/Lock.h>
 #include <wtf/RetainPtr.h>
 
+OBJC_CLASS AVAudioSession;
 OBJC_CLASS WebAVAudioSessionAvailableInputsListener;
 
 namespace WebCore {
@@ -45,20 +48,38 @@ public:
     static AVAudioSessionCaptureDeviceManager& singleton();
 
     const Vector<CaptureDevice>& captureDevices() final;
+    void getCaptureDevices(CompletionHandler<void(Vector<CaptureDevice>&&)>&&) final;
+    const Vector<CaptureDevice>& speakerDevices() const { return m_speakerDevices; }
     Optional<CaptureDevice> captureDeviceWithPersistentID(CaptureDevice::DeviceType, const String&);
 
-    Vector<AVAudioSessionCaptureDevice>& audioSessionCaptureDevices();
     Optional<AVAudioSessionCaptureDevice> audioSessionDeviceWithUID(const String&);
+    
+    void scheduleUpdateCaptureDevices();
+
+    void enableAllDevicesQuery();
+    void disableAllDevicesQuery();
 
 private:
-    AVAudioSessionCaptureDeviceManager() = default;
+    AVAudioSessionCaptureDeviceManager();
     ~AVAudioSessionCaptureDeviceManager();
 
+    void createAudioSession();
+    void activateAudioSession();
     void refreshAudioCaptureDevices();
+    Vector<AVAudioSessionCaptureDevice> retrieveAudioSessionCaptureDevices() const;
+    void setAudioCaptureDevices(Vector<AVAudioSessionCaptureDevice>&&);
+
+    enum class AudioSessionState { NotNeeded, Inactive, Active };
 
     Optional<Vector<CaptureDevice>> m_devices;
+    Vector<CaptureDevice> m_speakerDevices;
     Optional<Vector<AVAudioSessionCaptureDevice>> m_audioSessionCaptureDevices;
     RetainPtr<WebAVAudioSessionAvailableInputsListener> m_listener;
+    RetainPtr<AVAudioSession> m_audioSession;
+    GenericTaskQueue<Timer> m_updateDeviceStateQueue;
+    dispatch_queue_t m_dispatchQueue { nullptr };
+    Lock m_lock;
+    AudioSessionState m_audioSessionState { AudioSessionState::NotNeeded };
 };
 
 } // namespace WebCore

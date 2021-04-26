@@ -29,13 +29,14 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "Connection.h"
 #include "MediaPlayerPrivateRemote.h"
-#include "RemoteMediaPlayerProxyMessages.h"
+#include "RemoteVideoTrackProxyMessages.h"
 
 namespace WebKit {
 
-VideoTrackPrivateRemote::VideoTrackPrivateRemote(MediaPlayerPrivateRemote& player, TrackPrivateRemoteIdentifier idendifier, TrackPrivateRemoteConfiguration&& configuration)
-    : m_player(player)
+VideoTrackPrivateRemote::VideoTrackPrivateRemote(IPC::Connection& connection, TrackPrivateRemoteIdentifier idendifier, TrackPrivateRemoteConfiguration&& configuration)
+    : m_connection(connection)
     , m_idendifier(idendifier)
 {
     updateConfiguration(WTFMove(configuration));
@@ -44,16 +45,16 @@ VideoTrackPrivateRemote::VideoTrackPrivateRemote(MediaPlayerPrivateRemote& playe
 void VideoTrackPrivateRemote::setSelected(bool selected)
 {
     if (selected != this->selected())
-        m_player.connection().send(Messages::RemoteMediaPlayerProxy::VideoTrackSetSelected(m_idendifier, selected), m_player.itentifier());
+        m_connection.send(Messages::RemoteVideoTrackProxy::SetSelected(selected), m_idendifier);
 
     VideoTrackPrivate::setSelected(selected);
 }
 
 void VideoTrackPrivateRemote::updateConfiguration(TrackPrivateRemoteConfiguration&& configuration)
 {
-    if (configuration.id != m_id) {
+    if (configuration.trackId != m_id) {
         auto changed = !m_id.isEmpty();
-        m_id = configuration.id;
+        m_id = configuration.trackId;
         if (changed && client())
             client()->idChanged(m_id);
     }

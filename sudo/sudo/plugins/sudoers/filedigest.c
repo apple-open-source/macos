@@ -23,21 +23,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#if defined(HAVE_STDINT_H)
-# include <stdint.h>
-#elif defined(HAVE_INTTYPES_H)
-# include <inttypes.h>
-#endif
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -54,7 +42,7 @@ sudo_filedigest(int fd, const char *file, int digest_type, size_t *digest_len)
     FILE *fp = NULL;
     size_t nread;
     int fd2;
-    debug_decl(sudo_filedigest, SUDOERS_DEBUG_UTIL)
+    debug_decl(sudo_filedigest, SUDOERS_DEBUG_UTIL);
 
     *digest_len = sudo_digest_getlen(digest_type);
     if (*digest_len == (size_t)-1) {

@@ -40,6 +40,7 @@ enum class LinkTimeConstant : int32_t;
 #define JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(macro) \
     macro(argument) \
     macro(argumentCount) \
+    macro(arrayPush) \
     macro(getByIdDirect) \
     macro(getByIdDirectPrivate) \
     macro(getPrototypeOf) \
@@ -91,7 +92,6 @@ enum class LinkTimeConstant : int32_t;
     macro(newPromise) \
     macro(createPromise) \
     macro(createArgumentsButterfly) \
-    macro(defineEnumerableWritableConfigurableDataProperty) \
 
 #define JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(macro) \
     JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_SIMPLE_EACH_NAME(macro) \
@@ -151,6 +151,7 @@ enum class LinkTimeConstant : int32_t;
     macro(AsyncGeneratorSuspendReasonYield) \
     macro(AsyncGeneratorSuspendReasonAwait) \
     macro(AsyncGeneratorSuspendReasonNone) \
+    macro(useIntlDateTimeFormatDayPeriod) \
 
 #define JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_CUSTOM_EACH_NAME(macro) \
     macro(sentinelMapBucket) \

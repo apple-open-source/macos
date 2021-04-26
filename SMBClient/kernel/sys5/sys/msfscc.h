@@ -51,7 +51,7 @@
 #define IO_REPARSE_TAG_DEDUP            0x80000013          /* logging only */
 #define IO_REPARSE_TAG_FILTER_MANAGER   0x8000000B          /* unused */
 #define IO_REPARSE_TAG_SYMLINK          0xA000000C
-#define IO_REPARSE_TAG_AZURE_TIERED_FILE    0x8000001e      /* logging only */
+#define IO_REPARSE_TAG_STORAGE_SYNC     0x8000001e          /* dataless or Azure FileSync tiered file */
 
 /*
  * Notes about reparse points and offline/online status

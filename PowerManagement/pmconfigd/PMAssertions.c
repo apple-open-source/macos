@@ -4837,8 +4837,8 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
         return;
 
     if (level) {
-        if (((isA_DarkWakeState() && !isA_FullWake()) || isA_SleepState() || isDisplayAsleep())) {
-            INFO_LOG("Setting notification display wake %d %d %d %d", isA_DarkWakeState(), isA_FullWake(), isA_SleepState(), isDisplayAsleep());
+        if (!getUserActiveAssertionValid() && ((isA_DarkWakeState() && !isA_FullWake()) || isA_SleepState() || isDisplayAsleep())) {
+            INFO_LOG("Setting notification display wake  %d %d %d %d %d", getUserActiveAssertionValid(), isA_DarkWakeState(), isA_FullWake(), isA_SleepState(), isDisplayAsleep());
             set_NotificationDisplayWake( );
         }
     }

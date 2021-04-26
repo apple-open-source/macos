@@ -67,5 +67,10 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>SecCodeOCSPDefault</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

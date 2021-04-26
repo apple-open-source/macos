@@ -32,14 +32,13 @@
 #include "TextCheckerState.h"
 #include "WebAutomationSession.h"
 #include "WebCertificateInfo.h"
-#include "WebKit2Initialize.h"
 #include "WebKitAutomationSessionPrivate.h"
 #include "WebKitDownloadClient.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitGeolocationManagerPrivate.h"
+#include "WebKitInitialize.h"
 #include "WebKitInjectedBundleClient.h"
-#include "WebKitNetworkProxySettingsPrivate.h"
 #include "WebKitNotificationProvider.h"
 #include "WebKitPrivate.h"
 #include "WebKitProtocolHandler.h"
@@ -56,6 +55,7 @@
 #include "WebNotificationManagerProxy.h"
 #include "WebProcessMessages.h"
 #include "WebURLSchemeHandler.h"
+#include "WebsiteDataStore.h"
 #include "WebsiteDataType.h"
 #include <JavaScriptCore/RemoteInspector.h>
 #include <glib/gi18n-lib.h>
@@ -221,7 +221,6 @@ struct _WebKitWebContextPrivate {
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
 
     CString faviconDatabaseDirectory;
-    WebKitTLSErrorsPolicy tlsErrorsPolicy;
     WebKitProcessModel processModel;
 
     HashMap<WebPageProxyIdentifier, WebKitWebView*> webViews;
@@ -392,6 +391,7 @@ static void webkitWebContextConstructed(GObject* object)
 
     API::ProcessPoolConfiguration configuration;
     configuration.setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
+    configuration.setUsesWebProcessCache(true);
 #if PLATFORM(GTK)
     configuration.setProcessSwapsOnNavigation(priv->psonEnabled);
 #if !USE(GTK4)
@@ -402,22 +402,13 @@ static void webkitWebContextConstructed(GObject* object)
     if (!priv->websiteDataManager)
         priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new("local-storage-directory", priv->localStorageDirectory.data(), nullptr));
 
-    if (!webkit_website_data_manager_is_ephemeral(priv->websiteDataManager.get()))
-        configuration.setHSTSStorageDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_hsts_cache_directory(priv->websiteDataManager.get())));
-
     priv->processPool = WebProcessPool::create(configuration);
-    priv->processPool->setPrimaryDataStore(webkitWebsiteDataManagerGetDataStore(priv->websiteDataManager.get()));
     priv->processPool->setUserMessageHandler([webContext](UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler) {
         // Sink the floating ref.
         GRefPtr<WebKitUserMessage> userMessage = webkitUserMessageCreate(WTFMove(message), WTFMove(completionHandler));
         gboolean returnValue;
         g_signal_emit(webContext, signals[USER_MESSAGE_RECEIVED], 0, userMessage.get(), &returnValue);
     });
-
-    webkitWebsiteDataManagerAddProcessPool(priv->websiteDataManager.get(), *priv->processPool);
-
-    priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_FAIL;
-    priv->processPool->setIgnoreTLSErrors(false);
 
     priv->processModel = WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES;
 
@@ -443,12 +434,7 @@ static void webkitWebContextDispose(GObject* object)
     if (!priv->clientsDetached) {
         priv->clientsDetached = true;
         priv->processPool->setInjectedBundleClient(nullptr);
-        priv->processPool->setDownloadClient(makeUniqueRef<API::DownloadClient>());
-    }
-
-    if (priv->websiteDataManager) {
-        webkitWebsiteDataManagerRemoveProcessPool(priv->websiteDataManager.get(), *priv->processPool);
-        priv->websiteDataManager = nullptr;
+        priv->processPool->setLegacyDownloadClient(nullptr);
     }
 
     if (priv->faviconDatabase) {
@@ -466,12 +452,12 @@ static void webkitWebContextDispose(GObject* object)
 
 static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass)
 {
+    webkitInitialize();
+
     GObjectClass* gObjectClass = G_OBJECT_CLASS(webContextClass);
 
     bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
-
-    InitializeWebKit2();
 
     gObjectClass->get_property = webkitWebContextGetProperty;
     gObjectClass->set_property = webkitWebContextSetProperty;
@@ -941,29 +927,14 @@ void webkit_web_context_clear_cache(WebKitWebContext* context)
  * a valid #WebKitNetworkProxySettings; otherwise, @proxy_settings must be %NULL.
  *
  * Since: 2.16
+ *
+ * Deprecated: 2.32. Use webkit_website_data_manager_set_network_proxy_settings() instead.
  */
 void webkit_web_context_set_network_proxy_settings(WebKitWebContext* context, WebKitNetworkProxyMode proxyMode, WebKitNetworkProxySettings* proxySettings)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
-    g_return_if_fail((proxyMode != WEBKIT_NETWORK_PROXY_MODE_CUSTOM && !proxySettings) || (proxyMode == WEBKIT_NETWORK_PROXY_MODE_CUSTOM && proxySettings));
 
-    WebKitWebContextPrivate* priv = context->priv;
-    switch (proxyMode) {
-    case WEBKIT_NETWORK_PROXY_MODE_DEFAULT:
-        priv->processPool->setNetworkProxySettings({ });
-        break;
-    case WEBKIT_NETWORK_PROXY_MODE_NO_PROXY:
-        priv->processPool->setNetworkProxySettings(WebCore::SoupNetworkProxySettings(WebCore::SoupNetworkProxySettings::Mode::NoProxy));
-        break;
-    case WEBKIT_NETWORK_PROXY_MODE_CUSTOM:
-        const auto& settings = webkitNetworkProxySettingsGetNetworkProxySettings(proxySettings);
-        if (settings.isEmpty()) {
-            g_warning("Invalid attempt to set custom network proxy settings with an empty WebKitNetworkProxySettings. Use "
-                "WEBKIT_NETWORK_PROXY_MODE_NO_PROXY to not use any proxy or WEBKIT_NETWORK_PROXY_MODE_DEFAULT to use the default system settings");
-        } else
-            priv->processPool->setNetworkProxySettings(settings);
-        break;
-    }
+    webkit_website_data_manager_set_network_proxy_settings(context->priv->websiteDataManager.get(), proxyMode, proxySettings);
 }
 
 typedef HashMap<DownloadProxy*, GRefPtr<WebKitDownload> > DownloadsMap;
@@ -1498,18 +1469,14 @@ void webkit_web_context_set_preferred_languages(WebKitWebContext* context, const
  * @policy: a #WebKitTLSErrorsPolicy
  *
  * Set the TLS errors policy of @context as @policy
+ *
+ * Deprecated: 2.32. Use webkit_website_data_manager_set_tls_errors_policy() instead.
  */
 void webkit_web_context_set_tls_errors_policy(WebKitWebContext* context, WebKitTLSErrorsPolicy policy)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
 
-    if (context->priv->tlsErrorsPolicy == policy)
-        return;
-
-    context->priv->tlsErrorsPolicy = policy;
-    bool ignoreTLSErrors = policy == WEBKIT_TLS_ERRORS_POLICY_IGNORE;
-    if (context->priv->processPool->ignoreTLSErrors() != ignoreTLSErrors)
-        context->priv->processPool->setIgnoreTLSErrors(ignoreTLSErrors);
+    webkit_website_data_manager_set_tls_errors_policy(context->priv->websiteDataManager.get(), policy);
 }
 
 /**
@@ -1519,12 +1486,14 @@ void webkit_web_context_set_tls_errors_policy(WebKitWebContext* context, WebKitT
  * Get the TLS errors policy of @context
  *
  * Returns: a #WebKitTLSErrorsPolicy
+ *
+ * Deprecated: 2.32. Use webkit_website_data_manager_get_tls_errors_policy() instead.
  */
 WebKitTLSErrorsPolicy webkit_web_context_get_tls_errors_policy(WebKitWebContext* context)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), WEBKIT_TLS_ERRORS_POLICY_IGNORE);
 
-    return context->priv->tlsErrorsPolicy;
+    return webkit_website_data_manager_get_tls_errors_policy(context->priv->websiteDataManager.get());
 }
 
 /**
@@ -1605,8 +1574,8 @@ void webkit_web_context_prefetch_dns(WebKitWebContext* context, const char* host
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(hostname);
 
-    if (context->priv->dnsPrefetchedHosts.add(hostname).isNewEntry)
-        context->priv->processPool->sendToNetworkingProcess(Messages::NetworkProcess::PrefetchDNS(String::fromUTF8(hostname)));
+    auto& websiteDataStore = webkitWebsiteDataManagerGetDataStore(context->priv->websiteDataManager.get());
+    websiteDataStore.networkProcess().send(Messages::NetworkProcess::PrefetchDNS(String::fromUTF8(hostname)), 0);
     context->priv->dnsPrefetchHystereris.impulse();
 }
 
@@ -1627,7 +1596,8 @@ void webkit_web_context_allow_tls_certificate_for_host(WebKitWebContext* context
     g_return_if_fail(host);
 
     auto webCertificateInfo = WebCertificateInfo::create(WebCore::CertificateInfo(certificate, static_cast<GTlsCertificateFlags>(0)));
-    context->priv->processPool->allowSpecificHTTPSCertificateForHost(webCertificateInfo.ptr(), String::fromUTF8(host));
+    auto& websiteDataStore = webkitWebsiteDataManagerGetDataStore(context->priv->websiteDataManager.get());
+    websiteDataStore.allowSpecificHTTPSCertificateForHost(webCertificateInfo.ptr(), String::fromUTF8(host));
 }
 
 /**
@@ -1858,7 +1828,8 @@ WebKitDownload* webkitWebContextGetOrCreateDownload(DownloadProxy* downloadProxy
 WebKitDownload* webkitWebContextStartDownload(WebKitWebContext* context, const char* uri, WebPageProxy* initiatingPage)
 {
     WebCore::ResourceRequest request(String::fromUTF8(uri));
-    return webkitWebContextGetOrCreateDownload(&context->priv->processPool->download(WebKit::WebsiteDataStore::defaultDataStore().get(), initiatingPage, request));
+    auto& websiteDataStore = webkitWebsiteDataManagerGetDataStore(context->priv->websiteDataManager.get());
+    return webkitWebContextGetOrCreateDownload(&context->priv->processPool->download(websiteDataStore, initiatingPage, request));
 }
 
 void webkitWebContextRemoveDownload(DownloadProxy* downloadProxy)

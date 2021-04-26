@@ -61,6 +61,7 @@ _SOSControlSetupInterface(NSXPCInterface *interface)
         [interface setClasses:errClasses forSelector:@selector(setWatchdogParmeters:complete:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcTriggerBackup:complete:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcTriggerRingUpdate:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(removeV0Peers:) argumentIndex:1 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("Could not configure SOSControlHelper: %@", e);

@@ -67,6 +67,21 @@ SecIdentityRef SecIdentityCreate(
 */
 CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage)
   __SEC_MAC_ONLY_UNKNOWN;
+
+/*!
+    @function SecIdentityDeleteApplicationPreferenceItems
+    @abstract Delete identity preference items created by the calling application.
+    @result errSecSuccess on successful deletion, or errSecItemNotFound if no items
+    were found to be deleted. Other keychain error results may be possible (SecBase.h).
+    @discussion This function deletes all identity preference items which match the
+    application identifier of the caller. This implies that items to be deleted were
+    created with SecIdentitySetPreferred on a version of macOS where this function
+    is implemented, since older versions of macOS did not add application identifier
+    information. Note: currently, deletion is also limited to preference items whose
+    name is in URI format.
+*/
+OSStatus SecIdentityDeleteApplicationPreferenceItems(void);
+
 #endif // SEC_OS_OSX
 
 __END_DECLS

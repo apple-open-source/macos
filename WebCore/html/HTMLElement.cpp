@@ -312,6 +312,7 @@ HTMLElement::EventHandlerNameMap HTMLElement::createEventHandlerNameMap()
         &onseekingAttr.get(),
         &onselectAttr.get(),
         &onselectstartAttr.get(),
+        &onslotchangeAttr.get(),
         &onstalledAttr.get(),
         &onsubmitAttr.get(),
         &onsuspendAttr.get(),
@@ -452,7 +453,7 @@ void HTMLElement::parseAttribute(const QualifiedName& name, const AtomString& va
 
     if (name == tabindexAttr) {
         if (value.isEmpty())
-            clearTabIndexExplicitlyIfNeeded();
+            setTabIndexExplicitly(WTF::nullopt);
         else if (auto optionalTabIndex = parseHTMLInteger(value))
             setTabIndexExplicitly(optionalTabIndex.value());
         return;
@@ -539,10 +540,7 @@ ExceptionOr<void> HTMLElement::setInnerText(const String& text)
     // FIXME: This doesn't take whitespace collapsing into account at all.
 
     if (!text.contains('\n') && !text.contains('\r')) {
-        if (text.isEmpty())
-            replaceAllChildren(nullptr);
-        else
-            replaceAllChildrenWithNewText(text);
+        replaceAllChildrenWithNewText(text);
         return { };
     }
 
@@ -785,7 +783,7 @@ bool HTMLElement::rendererIsEverNeeded()
             return false;
     } else if (hasTagName(noembedTag)) {
         RefPtr<Frame> frame = document().frame();
-        if (frame && frame->loader().arePluginsEnabled())
+        if (frame && frame->arePluginsEnabled())
             return false;
     }
     return StyledElement::rendererIsEverNeeded();
@@ -948,7 +946,7 @@ void HTMLElement::calculateAndAdjustDirectionality()
         invalidateStyleForSubtree();
 }
 
-void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Element* beforeChange, ChildChangeType changeType)
+void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Element* beforeChange, ChildChange::Type changeType)
 {
     // FIXME: This function looks suspicious.
 
@@ -957,7 +955,7 @@ void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Element* befo
 
     RefPtr<Node> oldMarkedNode;
     if (beforeChange)
-        oldMarkedNode = changeType == ElementInserted ? ElementTraversal::nextSibling(*beforeChange) : beforeChange->nextSibling();
+        oldMarkedNode = changeType == ChildChange::Type::ElementInserted ? ElementTraversal::nextSibling(*beforeChange) : beforeChange->nextSibling();
 
     while (oldMarkedNode && elementAffectsDirectionality(*oldMarkedNode))
         oldMarkedNode = oldMarkedNode->nextSibling();

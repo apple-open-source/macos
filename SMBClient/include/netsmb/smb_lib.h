@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2011 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,6 +60,7 @@
 #define kHighFidelityMountKey CFSTR("SMBHighFidelityMount") /* Also an Open option! */
 #define kDataCacheOffMountKey CFSTR("SMBDataCacheOffMount")
 #define kMDataCacheOffMountKey CFSTR("SMBMDataCacheOffMount")
+#define kSnapshotTimeKey CFSTR("SMBSnapshotTimeMount")
 
 /* This one should be defined in NetFS.h, but we want it to be private */
 #define kTimeMachineMountKey CFSTR("TimeMachineMount")

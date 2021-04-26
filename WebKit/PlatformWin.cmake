@@ -9,6 +9,7 @@ if (${WTF_PLATFORM_WIN_CAIRO})
     )
     list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
         $<TARGET_OBJECTS:WebCore>
+        MediaFoundation
         OpenSSL::SSL
         mfuuid.lib
         strmiids.lib
@@ -246,6 +247,33 @@ if (USE_CF)
         ${COREFOUNDATION_LIBRARY}
     )
 endif ()
+
+
+set(WebKitLegacy_WEB_PREFERENCES_TEMPLATES
+    ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
+    ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebViewPreferencesChangedGenerated.cpp.erb
+)
+
+set(WebKitLegacy_WEB_PREFERENCES
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml
+)
+
+set_source_files_properties(${WebKitLegacy_WEB_PREFERENCES} PROPERTIES GENERATED TRUE)
+
+add_custom_command(
+    OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebViewPreferencesChangedGenerated.cpp
+    DEPENDS ${WebKitLegacy_WEB_PREFERENCES_TEMPLATES} ${WebKitLegacy_WEB_PREFERENCES} WTF_CopyPreferences
+    COMMAND ${RUBY_EXECUTABLE} ${WTF_SCRIPTS_DIR}/GeneratePreferences.rb --frontend WebKitLegacy --base ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml --debug ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml --experimental ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml --internal ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml --outputDir "${WebKitLegacy_DERIVED_SOURCES_DIR}" --template ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb --template ${WEBKITLEGACY_DIR}/win/Scripts/PreferencesTemplates/WebViewPreferencesChangedGenerated.cpp.erb
+    VERBATIM)
+
+list(APPEND WebKitLegacy_SOURCES
+    ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h
+    ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebViewPreferencesChangedGenerated.cpp
+)
+
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     enable_language(ASM_MASM)

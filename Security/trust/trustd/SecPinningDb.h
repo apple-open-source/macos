@@ -32,23 +32,37 @@
 #define _SECURITY_SECPINNINGDB_H_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <utilities/SecDb.h>
 
 __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
+extern const uint64_t PinningDbSchemaVersion;
+
 extern const CFStringRef kSecPinningDbKeyHostname;
 extern const CFStringRef kSecPinningDbKeyPolicyName;
 extern const CFStringRef kSecPinningDbKeyRules;
+extern const CFStringRef kSecPinningDbKeyTransparentConnection;
 
 CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef _Nonnull query);
 void SecPinningDbInitialize(void);
 
-#if !TARGET_OS_BRIDGE && __OBJC__
+#if __OBJC__
+#if !TARGET_OS_BRIDGE
 /* Updating the pinning DB isn't supported on BridgeOS because we treat the disk as read-only. */
 bool SecPinningDbUpdateFromURL(NSURL *url, NSError **error);
 #endif
+
+@interface SecPinningDb : NSObject
+@property (assign) SecDbRef db;
++ (NSURL *)pinningDbPath;
+- (NSNumber *)getContentVersion:(SecDbConnectionRef)dbconn error:(CFErrorRef *)error;
+- (NSNumber *)getSchemaVersion:(SecDbConnectionRef)dbconn error:(CFErrorRef *)error;
+- (BOOL) installDbFromURL:(NSURL *)localURL error:(NSError **)nserror;
+@end
+#endif // __OBJC__
 
 CFNumberRef SecPinningDbCopyContentVersion(void);
 

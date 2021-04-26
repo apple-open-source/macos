@@ -130,6 +130,7 @@ typedef enum {
 	SC_10_14_IPHONE_12_0_PRIVATE,
 	SC_10_15_IPHONE_13_0_PRIVATE,
 	SC_10_15_4_IPHONE_13_4_PRIVATE,
+	SC_11_0_IPHONE_14_0_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	SC_IPHONE_7_0_PRIVATE,
 	SC_IPHONE_8_0_PRIVATE,
@@ -369,6 +370,7 @@ typedef enum {
 #define MSCHAP1			"MSCHAP1"
 #define MSCHAP2			"MSCHAP2"
 #define MTU			"MTU"
+#define MULTIPATH		"Multipath"
 #define NAME			"Name"
 #define NAT64			"NAT64"
 #define NETBIOS			"NetBIOS"
@@ -492,12 +494,14 @@ typedef enum {
 #define TAG			"Tag"
 #define TAGS			"Tags"
 #define TERMINALSCRIPT		"TerminalScript"
+#define TFO			"TFO"
 #define TIMEOUT			"Timeout"
 #define TIMER			"Timer"
 #define TIMESTAMP		"TimeStamp"
 #define TOKEN			"Token"
 #define TRANSMITACCM		"TransmitACCM"
 #define TRANSPORT		"Transport"
+#define TRANSPORTCONVERTER	"TransportConverter"
 #define TSO			"TSO"
 #define TSO4			"TSO4"
 #define TSO6			"TSO6"
@@ -1151,6 +1155,13 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, NETPROP PROXIES, KEY_PREFIX NETENT PROXIES " Entity Keys", NULL, NULL },
 
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER ENABLE, NULL, CFNUMBER_BOOL },
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER PORT, NULL, CFNUMBER },
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER PROXY, NULL, CFARRAY_CFSTRING },
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER FALLBACK ALLOWED, NULL, CFNUMBER_BOOL },
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER MULTIPATH SERVICE TYPE, NULL, CFNUMBER },
+    { SC_11_0_IPHONE_14_0_PRIVATE, NETPROP PROXIES, TRANSPORTCONVERTER TFO MODE, NULL, CFNUMBER },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
     { SC_10_9_IPHONE_7_0_PRIVATE, NETPROP PROXIES, BYPASS ALLOWED, NULL, CFNUMBER_BOOL },
     { SC_10_9_IPHONE_6_0_PRIVATE, NETPROP PROXIES, FALLBACK ALLOWED, NULL, CFNUMBER_BOOL },
     { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP PROXIES, SUPPLEMENTAL MATCH DOMAINS, NULL, CFARRAY_CFSTRING},
@@ -1532,6 +1543,9 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_10_15_4_IPHONE_13_4_PRIVATE:
 		printf("  API_AVAILABLE(macos(10.15.4)) SPI_AVAILABLE(ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));\n");
 		break;
+	    case SC_11_0_IPHONE_14_0_PRIVATE:
+		printf("  API_AVAILABLE(macos(11.0)) SPI_AVAILABLE(ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));\n");
+		break;
 	    case SC_IPHONE_2_0_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(10.6), ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
@@ -1542,7 +1556,7 @@ print_headerdoc(schemaDefinition *def)
 		printf("  SPI_AVAILABLE(macos(10.0), ios(8.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
 	    case SC_IPHONE_14_PRIVATE:
-		printf("  SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));\n");
+		printf("  SPI_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));\n");
 		break;
 	    default:
 		printf("\n");
@@ -1724,6 +1738,7 @@ dump_names(int type)
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
+			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1765,6 +1780,7 @@ dump_names(int type)
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
+			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1797,6 +1813,7 @@ dump_names(int type)
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
+			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1827,6 +1844,7 @@ dump_names(int type)
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
+			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:

@@ -46,6 +46,8 @@ static int fetch_all_escrow_records = false;
 static int recoverRecord = false;
 static int recoverSilentRecord = false;
 
+static int resetAccountCDPContent = false;
+
 static int health = false;
 
 #if TARGET_OS_WATCH
@@ -128,6 +130,7 @@ int main(int argc, char** argv)
         {.command = "recover-record", .flag = &recoverRecord, .flagval = true, .description = "Recover record"},
         {.command = "recover-record-silent", .flag = &recoverSilentRecord, .flagval = true, .description = "Silent record recovery"},
 
+        {.command = "reset-account-cdp-contents", .flag = &resetAccountCDPContent, .flagval = true, .description = "Reset an account's CDP contents (escrow records, kvs data, cuttlefish)"},
 
 
 #if TARGET_OS_WATCH
@@ -285,6 +288,9 @@ int main(int argc, char** argv)
             }
             return (int)[ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
         }
+        if(resetAccountCDPContent){
+            return (int)[ctl resetAccountCDPContentsWithContainerName:container contextID:context];
+        }
 
         if(er_trigger) {
             internalOnly();
@@ -299,7 +305,6 @@ int main(int argc, char** argv)
         if(er_store) {
             return (int)[escrowctl storePrerecordsInEscrow];
         }
-
 
 #if TARGET_OS_WATCH
         if (pairme) {

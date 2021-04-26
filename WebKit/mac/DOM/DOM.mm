@@ -535,8 +535,10 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto textIndicator = TextIndicator::createWithRange(makeRangeSelectingNodeContents(node), options, TextIndicatorPresentationTransition::None, FloatSize(margin, margin));
 
     if (textIndicator) {
-        if (Image* image = textIndicator->contentImage())
-            *cgImage = image->nativeImage().autorelease();
+        if (Image* image = textIndicator->contentImage()) {
+            auto contentImage = image->nativeImage()->platformImage();
+            *cgImage = contentImage.autorelease();
+        }
     }
 
     if (!*cgImage) {
@@ -570,10 +572,9 @@ id <DOMEventTarget> kit(EventTarget* target)
 - (NSRect)boundingBox
 #endif
 {
-    // FIXME: The call to updateLayoutIgnorePendingStylesheets should be moved into WebCore::Range.
-    auto& range = *core(self);
-    range.ownerDocument().updateLayoutIgnorePendingStylesheets();
-    return unionRect(RenderObject::absoluteTextRects(makeSimpleRange(range)));
+    auto range = makeSimpleRange(*core(self));
+    range.start.document().updateLayoutIgnorePendingStylesheets();
+    return unionRect(RenderObject::absoluteTextRects(range));
 }
 
 #if PLATFORM(MAC)
@@ -583,7 +584,7 @@ id <DOMEventTarget> kit(EventTarget* target)
 #endif
 {
     auto range = makeSimpleRange(*core(self));
-    auto frame = makeRefPtr(range.start.container->document().frame());
+    auto frame = makeRefPtr(range.start.document().frame());
     if (!frame)
         return nil;
 
@@ -602,7 +603,7 @@ id <DOMEventTarget> kit(EventTarget* target)
 - (NSArray *)textRects
 {
     auto range = makeSimpleRange(*core(self));
-    range.start.container->document().updateLayoutIgnorePendingStylesheets();
+    range.start.document().updateLayoutIgnorePendingStylesheets();
     return createNSArray(RenderObject::absoluteTextRects(range)).autorelease();
 }
 

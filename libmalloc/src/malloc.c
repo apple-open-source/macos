@@ -50,6 +50,7 @@ int32_t malloc_num_zones_allocated = 0;
 malloc_zone_t **malloc_zones = (malloc_zone_t **)0xdeaddeaddeaddead;
 malloc_logger_t *malloc_logger = NULL;
 
+static uint32_t initial_num_zones;
 static malloc_zone_t *initial_scalable_zone;
 static malloc_zone_t *initial_nano_zone;
 static malloc_zone_t *initial_default_zone = NULL;
@@ -121,7 +122,7 @@ static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((alw
 #define DEFAULT_MALLOC_ZONE_STRING "DefaultMallocZone"
 #define DEFAULT_PUREGEABLE_ZONE_STRING "DefaultPurgeableMallocZone"
 #define MALLOC_HELPER_ZONE_STRING "MallocHelperZone"
-#define MALLOC_PGUARD_ZONE_STRING "PGuardMallocZone"
+#define MALLOC_PGUARD_ZONE_STRING "ProbGuardMallocZone"
 
 MALLOC_NOEXPORT
 unsigned int phys_ncpus;
@@ -352,6 +353,19 @@ __malloc_init(const char *apple[])
 	force_asan_init_if_present();
 
 	_malloc_initialize(apple, bootargs);
+}
+
+static void register_pgm_zone(bool internal_diagnostics);
+static void stack_logging_early_finished(const struct _malloc_late_init *funcs);
+
+// WARNING: The passed _malloc_late_init is a stack variable in
+// libSystem_initializer().  We must not hold on to it.
+void
+__malloc_late_init(const struct _malloc_late_init *mli)
+{
+	register_pgm_zone(mli->internal_diagnostics);
+	stack_logging_early_finished(mli);
+	initial_num_zones = malloc_num_zones;
 }
 
 MALLOC_NOEXPORT malloc_zone_t* lite_zone = NULL;
@@ -634,32 +648,37 @@ find_registered_zone(const void *ptr, size_t *returned_size)
 			return default_zone;
 		}
 	}
-	
-	// The default zone is registered in malloc_zones[0]. There's no danger that it will ever be unregistered.
-	// So don't advance the FRZ counter yet.
-	malloc_zone_t *zone = malloc_zones[0];
-	size_t size = zone->size(zone, ptr);
-	if (size) { // Claimed by this zone?
-		if (returned_size) {
-			*returned_size = size;
-		}
 
-		// Asan and others replace the zone at position 0 with their own zone.
-		// In that case just return that zone as they need this information.
-		// Otherwise return the virtual default zone, not the actual zone in position 0.
-		if (!has_default_zone0()) {
+	malloc_zone_t *zone;
+	size_t size;
+
+	// We assume that the initial zones will never be unregistered concurrently while this code is running so we can have
+	// a fast path without locking.  Callers who really do unregister these (to install their own default zone) need to
+	// ensure they establish their zone setup during initialization and before entering a multi-threaded environment.
+	for (uint32_t i = 0; i < initial_num_zones; i++) {
+		zone = malloc_zones[i];
+		size = zone->size(zone, ptr);
+
+		if (size) { // Claimed by this zone?
+			if (returned_size) {
+				*returned_size = size;
+			}
+
+			// Asan and others replace the zone at position 0 with their own zone.
+			// In that case just return that zone as they need this information.
+			// Otherwise return the virtual default zone, not the actual zone in position 0.
+			if (i == 0 && has_default_zone0()) {
+				return default_zone;
+			}
+
 			return zone;
-		} else {
-			return default_zone;
 		}
 	}
 
 	int32_t volatile *pFRZCounter = pFRZCounterLive;   // Capture pointer to the counter of the moment
 	OSAtomicIncrement32Barrier(pFRZCounter); // Advance this counter -- our thread is in FRZ
 
-	unsigned index;
 	int32_t limit = *(int32_t volatile *)&malloc_num_zones;
-	malloc_zone_t **zones = &malloc_zones[1];
 
 	// From this point on, FRZ is accessing the malloc_zones[] array without locking
 	// in order to avoid contention on common operations (such as non-default-zone free()).
@@ -676,8 +695,8 @@ find_registered_zone(const void *ptr, size_t *returned_size)
 	//      are still valid). It also ensures that all the pointers in the zones array are
 	//      valid until it returns, so that a stale value in limit is not dangerous.
 
-	for (index = 1; index < limit; ++index, ++zones) {
-		zone = *zones;
+	for (uint32_t i = initial_num_zones; i < limit; i++) {
+		zone = malloc_zones[i];
 		size = zone->size(zone, ptr);
 		if (size) { // Claimed by this zone?
 			goto out;
@@ -864,7 +883,7 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	nano_common_init(envp, apple, bootargs);
 #endif
 
-	const uint32_t k_max_zones = 3;
+	const uint32_t k_max_zones = 2;
 	malloc_zone_t *zone_stack[k_max_zones];
 	const char *name_stack[k_max_zones];
 	uint32_t num_zones = 0;
@@ -895,14 +914,6 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	}
 #endif
 
-	if (pguard_enabled()) {
-		malloc_zone_t *wrapped_zone = zone_stack[num_zones - 1];
-		zone_stack[num_zones] = pguard_create_zone(wrapped_zone, malloc_debug_flags);
-		name_stack[num_zones] = MALLOC_PGUARD_ZONE_STRING;
-		// TODO(yln): what is the external contract for zone names?
-		num_zones++;
-	}
-
 	MALLOC_ASSERT(num_zones <= k_max_zones);
 	initial_default_zone = zone_stack[num_zones - 1];
 
@@ -910,9 +921,25 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	for (int i = num_zones - 1; i >= 0; i--) malloc_zone_register_while_locked(zone_stack[i]);
 	for (int i = num_zones - 1; i >= 0; i--) malloc_set_zone_name(zone_stack[i], name_stack[i]);
 
+	initial_num_zones = malloc_num_zones;
+
 	// malloc_report(ASL_LEVEL_INFO, "%d registered zones\n", malloc_num_zones);
 	// malloc_report(ASL_LEVEL_INFO, "malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones,
 	// (unsigned)&malloc_num_zones);
+}
+
+static void make_last_zone_default_zone(void);
+static void
+register_pgm_zone(bool internal_diagnostics)
+{
+	if (pguard_enabled(internal_diagnostics)) {
+		malloc_zone_t *wrapped_zone = malloc_zones[0];
+		malloc_zone_t *pgm_zone = pguard_create_zone(wrapped_zone);
+		malloc_zone_register_while_locked(pgm_zone);
+		make_last_zone_default_zone();
+		initial_default_zone = pgm_zone;
+		malloc_set_zone_name(pgm_zone, MALLOC_PGUARD_ZONE_STRING);
+	}
 }
 
 static inline malloc_zone_t *
@@ -1344,6 +1371,23 @@ malloc_create_zone(vm_size_t start_size, unsigned flags)
 	return zone;
 }
 
+static void
+make_last_zone_default_zone(void)
+{
+	unsigned protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
+	mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
+
+	malloc_zone_t *last_zone = malloc_zones[malloc_num_zones - 1];
+
+	// assert(zone == malloc_zones[malloc_num_zones - 1];
+	for (int i = malloc_num_zones - 1; i > 0; --i) {
+		malloc_zones[i] = malloc_zones[i - 1];
+	}
+	malloc_zones[0] = last_zone;
+
+	mprotect(malloc_zones, protect_size, PROT_READ);
+}
+
 /*
  * For use by CheckFix: establish a new default zone whose behavior is, apart from
  * the use of death-row and per-CPU magazines, that of Leopard.
@@ -1352,7 +1396,6 @@ void
 malloc_create_legacy_default_zone(void)
 {
 	malloc_zone_t *zone;
-	int i;
 
 	zone = create_legacy_scalable_zone(0, malloc_debug_flags);
 
@@ -1368,16 +1411,7 @@ malloc_create_legacy_default_zone(void)
 	}
 	malloc_set_zone_name(zone, DEFAULT_MALLOC_ZONE_STRING);
 
-	unsigned protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
-	mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
-
-	// assert(zone == malloc_zones[malloc_num_zones - 1];
-	for (i = malloc_num_zones - 1; i > 0; --i) {
-		malloc_zones[i] = malloc_zones[i - 1];
-	}
-	malloc_zones[0] = zone;
-
-	mprotect(malloc_zones, protect_size, PROT_READ);
+	make_last_zone_default_zone();
 	MALLOC_UNLOCK();
 }
 
@@ -1773,6 +1807,10 @@ malloc_zone_unregister(malloc_zone_t *z)
 
 		mprotect(malloc_zones, protect_size, PROT_READ);
 
+		// MAX(num_zones, 1) enables the fast path in find_registered_zone() for zone 0 even
+		// if it is a custom zone, e.g., ASan and user zones.
+		initial_num_zones = MIN(MAX(malloc_num_zones, 1), initial_num_zones);
+
 		// Exchange the roles of the FRZ counters. The counter that has captured the number of threads presently
 		// executing *inside* find_registered_zone is swapped with the counter drained to zero last time through.
 		// The former is then allowed to drain to zero while this thread yields.
@@ -1993,9 +2031,11 @@ malloc_claimed_address(void *ptr)
 		return true;
 	}
 
-	// Next, try the default zone, which is always present.
-	if (malloc_zone_claimed_address(malloc_zones[0], ptr)) {
-		return true;
+	// Next, try the initial zones.
+	for (uint32_t i = 0; i < initial_num_zones; i++) {
+		if (malloc_zone_claimed_address(malloc_zones[i], ptr)) {
+			return true;
+		}
 	}
 
 	// Try all the other zones. Increment the FRZ barrier so that we can
@@ -2005,10 +2045,9 @@ malloc_claimed_address(void *ptr)
 	OSAtomicIncrement32Barrier(pFRZCounter);
 
 	int32_t limit = *(int32_t volatile *)&malloc_num_zones;
-	malloc_zone_t **zones = &malloc_zones[1];
 	boolean_t result = false;
-	for (unsigned index = 1; index < limit; ++index, ++zones) {
-		malloc_zone_t *zone = *zones;
+	for (uint32_t i = initial_num_zones; i < limit; i++) {
+		malloc_zone_t *zone = malloc_zones[i];
 		if (malloc_zone_claimed_address(zone, ptr)) {
 			result = true;
 			break;
@@ -2597,8 +2636,8 @@ malloc_debug(int level)
 
 
 /* this is called from libsystem during initialization. */
-void
-__stack_logging_early_finished(const struct _malloc_functions *funcs)
+static void
+stack_logging_early_finished(const struct _malloc_late_init *funcs)
 {
 #if !TARGET_OS_DRIVERKIT
 	_dlopen = funcs->dlopen;

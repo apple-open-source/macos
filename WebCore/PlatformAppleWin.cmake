@@ -30,6 +30,8 @@ list(APPEND WebCore_SOURCES
     platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp
     platform/graphics/avfoundation/cf/WebCoreAVCFResourceLoader.cpp
 
+    platform/graphics/displaylists/DisplayListDrawGlyphsRecorderWin.cpp
+
     platform/graphics/win/FontCustomPlatformData.cpp
 
     platform/network/cf/AuthenticationCF.cpp
@@ -126,6 +128,7 @@ else ()
         platform/graphics/ca/win/WebTiledBackingLayerWin.cpp
 
         platform/graphics/cg/ColorCG.cpp
+        platform/graphics/cg/ColorSpaceCG.cpp
         platform/graphics/cg/FloatPointCG.cpp
         platform/graphics/cg/FloatRectCG.cpp
         platform/graphics/cg/FloatSizeCG.cpp
@@ -150,11 +153,15 @@ else ()
         platform/graphics/cg/TransformationMatrixCG.cpp
         platform/graphics/cg/UTIRegistry.cpp
 
+        platform/graphics/coretext/FontCascadeCoreText.cpp
+        platform/graphics/coretext/FontCoreText.cpp
+        platform/graphics/coretext/FontPlatformDataCoreText.cpp
+        platform/graphics/coretext/GlyphPageCoreText.cpp
+
         platform/graphics/opentype/OpenTypeCG.cpp
 
         platform/graphics/win/FontCGWin.cpp
         platform/graphics/win/FontPlatformDataCGWin.cpp
-        platform/graphics/win/GlyphPageTreeNodeCGWin.cpp
         platform/graphics/win/GraphicsContextCGWin.cpp
         platform/graphics/win/ImageCGWin.cpp
         platform/graphics/win/SimpleFontDataCGWin.cpp
@@ -176,6 +183,7 @@ else ()
         platform/graphics/ca/win/CACFLayerTreeHostClient.h
         platform/graphics/ca/win/PlatformCALayerWin.h
 
+        platform/graphics/cg/ColorSpaceCG.h
         platform/graphics/cg/GraphicsContextCG.h
         platform/graphics/cg/IOSurfacePool.h
         platform/graphics/cg/ImageBufferCGBackend.h

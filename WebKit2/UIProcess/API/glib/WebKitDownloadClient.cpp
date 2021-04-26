@@ -26,25 +26,37 @@
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include "WebsiteDataStore.h"
+#include <WebCore/UserAgent.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
 using namespace WebKit;
 
-class DownloadClient final : public API::DownloadClient {
+class LegacyDownloadClient final : public API::DownloadClient {
 public:
-    explicit DownloadClient(WebKitWebContext* webContext)
+    explicit LegacyDownloadClient(WebKitWebContext* webContext)
         : m_webContext(webContext)
     {
     }
 
 private:
-    void didStart(DownloadProxy& downloadProxy) override
+    void legacyDidStart(DownloadProxy& downloadProxy) override
     {
         GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
         webkitDownloadStarted(download.get());
         webkitWebContextDownloadStarted(m_webContext, download.get());
+    }
+
+    void willSendRequest(DownloadProxy& downloadProxy, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) override
+    {
+        if (!request.hasHTTPHeaderField(HTTPHeaderName::UserAgent)) {
+            GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
+            auto* webView = webkit_download_get_web_view(download.get());
+            request.setHTTPUserAgent(webView ? webkitWebViewGetPage(webView).userAgentForURL(request.url()) : WebPageProxy::standardUserAgent());
+        }
+
+        completionHandler(WTFMove(request));
     }
 
     void didReceiveAuthenticationChallenge(DownloadProxy& downloadProxy, AuthenticationChallengeProxy& authenticationChallenge) override
@@ -58,7 +70,7 @@ private:
             webkitWebViewHandleAuthenticationChallenge(webView, &authenticationChallenge);
     }
 
-    void didReceiveResponse(DownloadProxy& downloadProxy, const ResourceResponse& resourceResponse) override
+    void didReceiveResponse(DownloadProxy& downloadProxy, const ResourceResponse& resourceResponse)
     {
         GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
         if (webkitDownloadIsCancelled(download.get()))
@@ -74,8 +86,9 @@ private:
         webkitDownloadNotifyProgress(download.get(), length);
     }
 
-    void decideDestinationWithSuggestedFilename(DownloadProxy& downloadProxy, const String& filename, Function<void(AllowOverwrite, String)>&& completionHandler) override
+    void decideDestinationWithSuggestedFilename(DownloadProxy& downloadProxy, const ResourceResponse& resourceResponse, const String& filename, CompletionHandler<void(AllowOverwrite, String)>&& completionHandler) override
     {
+        didReceiveResponse(downloadProxy, resourceResponse);
         GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
         bool allowOverwrite = false;
         String destination = webkitDownloadDecideDestinationWithSuggestedFilename(download.get(), filename.utf8(), allowOverwrite);
@@ -88,7 +101,7 @@ private:
         webkitDownloadDestinationCreated(download.get(), path);
     }
 
-    void didFail(DownloadProxy& downloadProxy, const ResourceError& error) override
+    void didFail(DownloadProxy& downloadProxy, const ResourceError& error, API::Data*) override
     {
         GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
         if (webkitDownloadIsCancelled(download.get())) {
@@ -99,7 +112,7 @@ private:
         webkitWebContextRemoveDownload(&downloadProxy);
     }
 
-    void didCancel(DownloadProxy& downloadProxy) override
+    void legacyDidCancel(DownloadProxy& downloadProxy) override
     {
         GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(&downloadProxy);
         webkitDownloadCancelled(download.get());
@@ -118,5 +131,5 @@ private:
 
 void attachDownloadClientToContext(WebKitWebContext* webContext)
 {
-    webkitWebContextGetProcessPool(webContext).setDownloadClient(makeUniqueRef<DownloadClient>(webContext));
+    webkitWebContextGetProcessPool(webContext).setLegacyDownloadClient(adoptRef(*new LegacyDownloadClient(webContext)));
 }

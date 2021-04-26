@@ -29,6 +29,7 @@
 #if ENABLE(GPU_PROCESS) && USE(AUDIO_SESSION)
 
 #include "GPUConnectionToWebProcess.h"
+#include "GPUProcess.h"
 #include "RemoteAudioSessionMessages.h"
 #include "RemoteAudioSessionProxyManager.h"
 #include "RemoteAudioSessionProxyMessages.h"
@@ -73,6 +74,9 @@ RemoteAudioSessionConfiguration RemoteAudioSessionProxy::configuration()
 
 void RemoteAudioSessionProxy::setCategory(AudioSession::CategoryType category, RouteSharingPolicy policy)
 {
+    if (m_category == category && m_routeSharingPolicy == policy)
+        return;
+
     m_category = category;
     m_routeSharingPolicy = policy;
     audioSessionManager().setCategoryForProcess(*this, category, policy);

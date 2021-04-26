@@ -111,6 +111,8 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FC8A8C8114B655ED001B97AD /* Build configuration list for PBXAggregateTarget "executables" */;
 			buildPhases = (
+				D178BEFA253DAE01001FC103 /* Copy plist */,
+				D178BF21253DAE2E001FC103 /* Copy tests */,
 			);
 			dependencies = (
 				FC8A8C8414B655FD001B97AD /* PBXTargetDependency */,
@@ -213,6 +215,10 @@
 		3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		729D06D8230B5E42000716E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 729D06D7230B5E42000716E5 /* CoreFoundation.framework */; };
 		7D0A20EA2499364700F0F6D7 /* metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D0A20E92499364700F0F6D7 /* metrics.c */; };
+		D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
+		D178BF22253DAE42001FC103 /* chgrp.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
+		D178BF48253DAE45001FC103 /* touch.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D11B5750253C22BD009A59BF /* touch.sh */; };
+		D1B4221F25762FC8003E3A47 /* cp.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D1B421D325762E9E003E3A47 /* cp.sh */; };
 		FC8A8A2814B6486E001B97AD /* chflags.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDCC14B6460C0070FACB /* chflags.c */; };
 		FC8A8BE414B6494B001B97AD /* chflags.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDCB14B6460C0070FACB /* chflags.1 */; };
 		FC8A8BE514B64958001B97AD /* chmod.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDD014B6460C0070FACB /* chmod.c */; };
@@ -851,6 +857,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D178BEFA253DAE01001FC103 /* Copy plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */,
+			);
+			name = "Copy plist";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D178BF21253DAE2E001FC103 /* Copy tests */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/file_cmds;
+			dstSubfolderSpec = 0;
+			files = (
+				D1B4221F25762FC8003E3A47 /* cp.sh in Copy tests */,
+				D178BF48253DAE45001FC103 /* touch.sh in Copy tests */,
+				D178BF22253DAE42001FC103 /* chgrp.sh in Copy tests */,
+			);
+			name = "Copy tests";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC8A8B0F14B648D7001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1203,6 +1233,8 @@
 		729D06D7230B5E42000716E5 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		7D0A20E82499364700F0F6D7 /* metrics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = metrics.h; sourceTree = "<group>"; };
 		7D0A20E92499364700F0F6D7 /* metrics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = metrics.c; sourceTree = "<group>"; };
+		D11B5750253C22BD009A59BF /* touch.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = touch.sh; sourceTree = "<group>"; };
+		D1B421D325762E9E003E3A47 /* cp.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = cp.sh; sourceTree = "<group>"; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1591,6 +1623,8 @@
 			children = (
 				3E966CEB1FB2214F0019F7A1 /* chgrp.sh */,
 				3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */,
+				D11B5750253C22BD009A59BF /* touch.sh */,
+				D1B421D325762E9E003E3A47 /* cp.sh */,
 			);
 			path = tests;
 			sourceTree = "<group>";

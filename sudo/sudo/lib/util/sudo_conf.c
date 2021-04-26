@@ -23,7 +23,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,9 +31,7 @@
 #else
 # include "compat/stdbool.h"
 #endif
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
@@ -43,24 +40,16 @@
 #include <errno.h>
 #include <limits.h>
 
-#define DEFAULT_TEXT_DOMAIN	"sudo"
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
-
 #define SUDO_ERROR_WRAP	0
 
 #include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "pathnames.h"
-#include "sudo_plugin.h"
 #include "sudo_conf.h"
 #include "sudo_debug.h"
+#include "sudo_fatal.h"
+#include "sudo_gettext.h"
+#include "sudo_plugin.h"
 #include "sudo_util.h"
-
-#ifdef __TANDEM
-# define ROOT_UID	65535
-#else
-# define ROOT_UID	0
-#endif
+#include "pathnames.h"
 
 struct sudo_conf_table {
     const char *name;
@@ -73,6 +62,15 @@ struct sudo_conf_path_table {
     unsigned int pnamelen;
     bool dynamic;
     char *pval;
+};
+
+struct sudo_conf_settings {
+    bool updated;
+    bool developer_mode;
+    bool disable_coredump;
+    bool probe_interfaces;
+    int group_source;
+    int max_groups;
 };
 
 static int parse_debug(const char *entry, const char *conf_file, unsigned int lineno);
@@ -88,12 +86,14 @@ static struct sudo_conf_table sudo_conf_table[] = {
     { NULL }
 };
 
+static int set_var_developer_mode(const char *entry, const char *conf_file, unsigned int);
 static int set_var_disable_coredump(const char *entry, const char *conf_file, unsigned int);
 static int set_var_group_source(const char *entry, const char *conf_file, unsigned int);
 static int set_var_max_groups(const char *entry, const char *conf_file, unsigned int);
 static int set_var_probe_interfaces(const char *entry, const char *conf_file, unsigned int);
 
 static struct sudo_conf_table sudo_conf_var_table[] = {
+    { "developer_mode", sizeof("developer_mode") - 1, set_var_developer_mode },
     { "disable_coredump", sizeof("disable_coredump") - 1, set_var_disable_coredump },
     { "group_source", sizeof("group_source") - 1, set_var_group_source },
     { "max_groups", sizeof("max_groups") - 1, set_var_max_groups },
@@ -108,29 +108,34 @@ static struct sudo_conf_table sudo_conf_var_table[] = {
 #define SUDO_CONF_PATH_PLUGIN_DIR	3
 #define SUDO_CONF_PATH_DEVSEARCH	4
 
+#define SUDO_CONF_PATH_INITIALIZER	{				\
+    { "askpass", sizeof("askpass") - 1, false, _PATH_SUDO_ASKPASS },	\
+    { "sesh", sizeof("sesh") - 1, false, _PATH_SUDO_SESH },		\
+    { "noexec", sizeof("noexec") - 1, false, _PATH_SUDO_NOEXEC },	\
+    { "plugin_dir", sizeof("plugin_dir") - 1, false, _PATH_SUDO_PLUGIN_DIR }, \
+    { "devsearch", sizeof("devsearch") - 1, false, _PATH_SUDO_DEVSEARCH }, \
+    { NULL } \
+}
+
+#define SUDO_CONF_SETTINGS_INITIALIZER	{				\
+    false,			/* updated */				\
+    false,			/* developer_mode */			\
+    true,			/* disable_coredump */			\
+    true,			/* probe_interfaces */			\
+    GROUP_SOURCE_ADAPTIVE,	/* group_source */			\
+    -1				/* max_groups */			\
+}
+
 static struct sudo_conf_data {
-    bool disable_coredump;
-    bool probe_interfaces;
-    int group_source;
-    int max_groups;
+    struct sudo_conf_settings settings;
     struct sudo_conf_debug_list debugging;
     struct plugin_info_list plugins;
     struct sudo_conf_path_table path_table[6];
 } sudo_conf_data = {
-    true,
-    true,
-    GROUP_SOURCE_ADAPTIVE,
-    -1,
+    SUDO_CONF_SETTINGS_INITIALIZER,
     TAILQ_HEAD_INITIALIZER(sudo_conf_data.debugging),
     TAILQ_HEAD_INITIALIZER(sudo_conf_data.plugins),
-    {
-	{ "askpass", sizeof("askpass") - 1, false, _PATH_SUDO_ASKPASS },
-	{ "sesh", sizeof("sesh") - 1, false, _PATH_SUDO_SESH },
-	{ "noexec", sizeof("noexec") - 1, false, _PATH_SUDO_NOEXEC },
-	{ "plugin_dir", sizeof("plugin_dir") - 1, false, _PATH_SUDO_PLUGIN_DIR },
-	{ "devsearch", sizeof("devsearch") - 1, false, _PATH_SUDO_DEVSEARCH },
-	{ NULL }
-    }
+    SUDO_CONF_PATH_INITIALIZER
 };
 
 /*
@@ -141,7 +146,7 @@ parse_variable(const char *entry, const char *conf_file, unsigned int lineno)
 {
     struct sudo_conf_table *var;
     int ret;
-    debug_decl(parse_variable, SUDO_DEBUG_UTIL)
+    debug_decl(parse_variable, SUDO_DEBUG_UTIL);
 
     for (var = sudo_conf_var_table; var->name != NULL; var++) {
 	if (strncmp(entry, var->name, var->namelen) == 0 &&
@@ -172,7 +177,7 @@ parse_path(const char *entry, const char *conf_file, unsigned int lineno)
     const char *ep, *name, *path;
     struct sudo_conf_path_table *cur;
     size_t namelen;
-    debug_decl(parse_path, SUDO_DEBUG_UTIL)
+    debug_decl(parse_path, SUDO_DEBUG_UTIL);
 
     /* Parse name. */
     name = sudo_strsplit(entry, entry_end, " \t", &ep);
@@ -225,7 +230,7 @@ parse_debug(const char *entry, const char *conf_file, unsigned int lineno)
     const char *ep, *path, *progname, *flags;
     const char *entry_end = entry + strlen(entry);
     size_t pathlen, prognamelen;
-    debug_decl(parse_debug, SUDO_DEBUG_UTIL)
+    debug_decl(parse_debug, SUDO_DEBUG_UTIL);
 
     /* Parse progname. */
     progname = sudo_strsplit(entry, entry_end, " \t", &ep);
@@ -297,7 +302,7 @@ parse_plugin(const char *entry, const char *conf_file, unsigned int lineno)
     char **options = NULL;
     size_t pathlen, symlen;
     unsigned int nopts = 0;
-    debug_decl(parse_plugin, SUDO_DEBUG_UTIL)
+    debug_decl(parse_plugin, SUDO_DEBUG_UTIL);
 
     /* Parse symbol. */
     symbol = sudo_strsplit(entry, entry_end, " \t", &ep);
@@ -368,18 +373,34 @@ oom:
 }
 
 static int
+set_var_developer_mode(const char *strval, const char *conf_file,
+    unsigned int lineno)
+{
+    int val = sudo_strtobool(strval);
+    debug_decl(set_var_developer_mode, SUDO_DEBUG_UTIL);
+
+    if (val == -1) {
+        sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
+            "developer_mode", strval, conf_file, lineno);
+        debug_return_bool(false);
+    }
+    sudo_conf_data.settings.developer_mode = val;
+    debug_return_bool(true);
+}
+
+static int
 set_var_disable_coredump(const char *strval, const char *conf_file,
     unsigned int lineno)
 {
     int val = sudo_strtobool(strval);
-    debug_decl(set_var_disable_coredump, SUDO_DEBUG_UTIL)
+    debug_decl(set_var_disable_coredump, SUDO_DEBUG_UTIL);
 
     if (val == -1) {
 	sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
 	    "disable_coredump", strval, conf_file, lineno);
 	debug_return_bool(false);
     }
-    sudo_conf_data.disable_coredump = val;
+    sudo_conf_data.settings.disable_coredump = val;
     debug_return_bool(true);
 }
 
@@ -387,14 +408,14 @@ static int
 set_var_group_source(const char *strval, const char *conf_file,
     unsigned int lineno)
 {
-    debug_decl(set_var_group_source, SUDO_DEBUG_UTIL)
+    debug_decl(set_var_group_source, SUDO_DEBUG_UTIL);
 
     if (strcasecmp(strval, "adaptive") == 0) {
-	sudo_conf_data.group_source = GROUP_SOURCE_ADAPTIVE;
+	sudo_conf_data.settings.group_source = GROUP_SOURCE_ADAPTIVE;
     } else if (strcasecmp(strval, "static") == 0) {
-	sudo_conf_data.group_source = GROUP_SOURCE_STATIC;
+	sudo_conf_data.settings.group_source = GROUP_SOURCE_STATIC;
     } else if (strcasecmp(strval, "dynamic") == 0) {
-	sudo_conf_data.group_source = GROUP_SOURCE_DYNAMIC;
+	sudo_conf_data.settings.group_source = GROUP_SOURCE_DYNAMIC;
     } else {
 	sudo_warnx(U_("unsupported group source \"%s\" in %s, line %u"), strval,
 	    conf_file, lineno);
@@ -408,7 +429,7 @@ set_var_max_groups(const char *strval, const char *conf_file,
     unsigned int lineno)
 {
     int max_groups;
-    debug_decl(set_var_max_groups, SUDO_DEBUG_UTIL)
+    debug_decl(set_var_max_groups, SUDO_DEBUG_UTIL);
 
     max_groups = sudo_strtonum(strval, 1, INT_MAX, NULL);
     if (max_groups <= 0) {
@@ -416,7 +437,7 @@ set_var_max_groups(const char *strval, const char *conf_file,
 	    conf_file, lineno);
 	debug_return_bool(false);
     }
-    sudo_conf_data.max_groups = max_groups;
+    sudo_conf_data.settings.max_groups = max_groups;
     debug_return_bool(true);
 }
 
@@ -425,14 +446,14 @@ set_var_probe_interfaces(const char *strval, const char *conf_file,
     unsigned int lineno)
 {
     int val = sudo_strtobool(strval);
-    debug_decl(set_var_probe_interfaces, SUDO_DEBUG_UTIL)
+    debug_decl(set_var_probe_interfaces, SUDO_DEBUG_UTIL);
 
     if (val == -1) {
 	sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
 	    "probe_interfaces", strval, conf_file, lineno);
 	debug_return_bool(false);
     }
-    sudo_conf_data.probe_interfaces = val;
+    sudo_conf_data.settings.probe_interfaces = val;
     debug_return_bool(true);
 }
 
@@ -469,13 +490,13 @@ sudo_conf_devsearch_path_v1(void)
 int
 sudo_conf_group_source_v1(void)
 {
-    return sudo_conf_data.group_source;
+    return sudo_conf_data.settings.group_source;
 }
 
 int
 sudo_conf_max_groups_v1(void)
 {
-    return sudo_conf_data.max_groups;
+    return sudo_conf_data.settings.max_groups;
 }
 
 struct plugin_info_list *
@@ -497,7 +518,7 @@ sudo_conf_debug_files_v1(const char *progname)
     struct sudo_conf_debug *debug_spec;
     size_t prognamelen, progbaselen;
     const char *progbase = progname;
-    debug_decl(sudo_conf_debug_files, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_conf_debug_files, SUDO_DEBUG_UTIL);
 
     /* Determine basename if program is fully qualified (like for plugins). */
     prognamelen = progbaselen = strlen(progname);
@@ -527,19 +548,85 @@ sudo_conf_debug_files_v1(const char *progname)
 }
 
 bool
+sudo_conf_developer_mode_v1(void)
+{
+    return sudo_conf_data.settings.developer_mode;
+}
+
+bool
 sudo_conf_disable_coredump_v1(void)
 {
-    return sudo_conf_data.disable_coredump;
+    return sudo_conf_data.settings.disable_coredump;
 }
 
 bool
 sudo_conf_probe_interfaces_v1(void)
 {
-    return sudo_conf_data.probe_interfaces;
+    return sudo_conf_data.settings.probe_interfaces;
 }
 
 /*
- * Reads in /etc/sudo.conf and populates sudo_conf_data.
+ * Free dynamically allocated parts of sudo_conf_data and
+ * reset to initial values.
+ */
+static void
+sudo_conf_init(int conf_types)
+{
+    struct sudo_conf_debug *debug_spec;
+    struct sudo_debug_file *debug_file;
+    struct plugin_info *plugin_info;
+    int i;
+    debug_decl(sudo_conf_init, SUDO_DEBUG_UTIL);
+
+    /* Free and reset paths. */
+    if (ISSET(conf_types, SUDO_CONF_PATHS)) {
+	const struct sudo_conf_path_table path_table[] = SUDO_CONF_PATH_INITIALIZER;
+	sudo_conf_clear_paths();
+	memcpy(sudo_conf_data.path_table, path_table,
+	    sizeof(sudo_conf_data.path_table));
+    }
+
+    /* Free and reset debug settings. */
+    if (ISSET(conf_types, SUDO_CONF_DEBUG)) {
+	while ((debug_spec = TAILQ_FIRST(&sudo_conf_data.debugging))) {
+	    TAILQ_REMOVE(&sudo_conf_data.debugging, debug_spec, entries);
+	    free(debug_spec->progname);
+	    while ((debug_file = TAILQ_FIRST(&debug_spec->debug_files))) {
+		TAILQ_REMOVE(&debug_spec->debug_files, debug_file, entries);
+		free(debug_file->debug_file);
+		free(debug_file->debug_flags);
+		free(debug_file);
+	    }
+	    free(debug_spec);
+	}
+    }
+
+    /* Free and reset plugins. */
+    if (ISSET(conf_types, SUDO_CONF_PLUGINS)) {
+	while ((plugin_info = TAILQ_FIRST(&sudo_conf_data.plugins))) {
+	    TAILQ_REMOVE(&sudo_conf_data.plugins, plugin_info, entries);
+	    free(plugin_info->symbol_name);
+	    free(plugin_info->path);
+	    if (plugin_info->options != NULL) {
+		for (i = 0; plugin_info->options[i] != NULL; i++)
+		    free(plugin_info->options[i]);
+		free(plugin_info->options);
+	    }
+	    free(plugin_info);
+	}
+    }
+
+    /* Set initial values. */
+    if (ISSET(conf_types, SUDO_CONF_SETTINGS)) {
+	const struct sudo_conf_settings settings = SUDO_CONF_SETTINGS_INITIALIZER;
+	sudo_conf_data.settings = settings;
+    }
+
+    debug_return;
+}
+
+/*
+ * Read in /etc/sudo.conf and populates sudo_conf_data.
  */
 int
 sudo_conf_read_v1(const char *conf_file, int conf_types)
@@ -550,7 +637,7 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
     char *prev_locale, *line = NULL;
     unsigned int conf_lineno = 0;
     size_t linesize = 0;
-    debug_decl(sudo_conf_read, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_conf_read, SUDO_DEBUG_UTIL);
 
     if ((prev_locale = setlocale(LC_ALL, NULL)) == NULL) {
 	sudo_warn("setlocale(LC_ALL, NULL)");
@@ -600,6 +687,10 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
 	goto done;
     }
 
+    /* Reset to initial values if necessary. */
+    if (sudo_conf_data.settings.updated)
+	sudo_conf_init(conf_types);
+
     while (sudo_parseln(&line, &linesize, &conf_lineno, fp, 0) != -1) {
 	struct sudo_conf_table *cur;
 	unsigned int i;
@@ -616,8 +707,15 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
 		    while (isblank((unsigned char)*cp))
 			cp++;
 		    ret = cur->parser(cp, conf_file, conf_lineno);
-		    if (ret == -1)
+		    switch (ret) {
+		    case true:
+			sudo_conf_data.settings.updated = true;
+			break;
+		    case false:
+			break;
+		    default:
 			goto done;
+		    }
 		}
 		break;
 	    }
@@ -649,7 +747,7 @@ void
 sudo_conf_clear_paths_v1(void)
 {
     struct sudo_conf_path_table *cur;
-    debug_decl(sudo_conf_clear_paths, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_conf_clear_paths, SUDO_DEBUG_UTIL);
 
     for (cur = sudo_conf_data.path_table; cur->pname != NULL; cur++) {
 	if (cur->dynamic)

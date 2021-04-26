@@ -1,6 +1,6 @@
 ##
 # User Database
-# 
+#
 # This file is the authoritative user database.
 ##
 nobody:*:-2:-2::0:0:Unprivileged User:/var/empty:/usr/bin/false
@@ -33,3 +33,4 @@ _iconservices:*:276:276::0:0:Icon services:/var/empty:/usr/bin/false
 _fud:*:278:278::0:0:Firmware Update Daemon:/var/db/fud:/usr/bin/false
 _knowledgegraphd:*:279:279::0:0:Knowledge Graph Daemon:/var/db/knowledgegraphd:/usr/bin/false
 _coreml:*:280:280::0:0:CoreML Services:/var/empty:/usr/bin/false
+_trustd:*:282:282::0:0:trustd:/var/empty:/usr/bin/false

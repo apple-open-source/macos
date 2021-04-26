@@ -516,6 +516,7 @@ int secd_81_item_acl(int argc, char *const *argv)
 #if LA_CONTEXT_IMPLEMENTED
     SecItemServerResetKeychainKeybag();
 #endif
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 
     return 0;
 }

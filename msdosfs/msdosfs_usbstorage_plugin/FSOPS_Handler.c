@@ -1041,10 +1041,12 @@ MSDOS_Mount (int iDiskFd, UVFSVolumeId volId, __unused UVFSMountFlags mountFlags
         goto end;
     }
 
-    //If failed free root node
-    DIAGNOSTIC_REMOVE(pvRootNode);
-    FILERECORD_FreeRecord(pvRootNode);
-    pvRootNode = NULL;
+    if (pvRootNode) {
+        //If failed free root node
+        DIAGNOSTIC_REMOVE(pvRootNode);
+        FILERECORD_FreeRecord(pvRootNode);
+        pvRootNode = NULL;
+    }
 
 
 free_all_and_fail:

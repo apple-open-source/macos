@@ -69,10 +69,22 @@ __FBSDID("$FreeBSD: src/bin/cp/utils.c,v 1.46 2005/09/05 04:36:08 csjp Exp $");
 #include "extern.h"
 #define	cp_pct(x,y)	(int)(100.0 * (double)(x) / (double)(y))
 
+/* Memory strategy threshold, in pages: if physmem is larger then this, use a 
+ * large buffer */
+#define PHYSPAGES_THRESHOLD (32*1024)
+
+/* Maximum buffer size in bytes - do not allow it to grow larger than this */
+#define BUFSIZE_MAX (2*1024*1024)
+
+/* Small (default) buffer size in bytes. It's inefficient for this to be
+ * smaller than MAXPHYS */
+#define BUFSIZE_SMALL (MAXPHYS)
+
 int
 copy_file(const FTSENT *entp, int dne)
 {
-	static char buf[MAXBSIZE];
+	static char *buf = NULL;
+	static size_t bufsize;
 	struct stat *fs;
 	int ch, checkch, from_fd, rval, to_fd;
 	ssize_t rcount;
@@ -258,8 +270,23 @@ copy_file(const FTSENT *entp, int dne)
 	} else
 #endif
 	{
+		if (buf == NULL) {
+			/*
+			 * Note that buf and bufsize are static. If
+			 * malloc() fails, it will fail at the start
+			 * and not copy only some files. 
+			 */ 
+			if (sysconf(_SC_PHYS_PAGES) > 
+			    PHYSPAGES_THRESHOLD)
+				bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
+			else
+				bufsize = BUFSIZE_SMALL;
+			buf = malloc(bufsize);
+			if (buf == NULL)
+				err(1, "Not enough memory");
+		}
 		wtotal = 0;
-		while ((rcount = read(from_fd, buf, MAXBSIZE)) > 0) {
+		while ((rcount = read(from_fd, buf, bufsize)) > 0) {
 			for (bufp = buf, wresid = rcount; ;
 			    bufp += wcount, wresid -= wcount) {
 				wcount = write(to_fd, bufp, wresid);
@@ -382,19 +409,28 @@ copy_special(struct stat *from_stat, int exists)
 int
 setfile(struct stat *fs, int fd)
 {
-	static struct timeval tv[2];
+	struct attrlist ts_req = {};
 	struct stat ts;
 	int rval, gotstat, islink, fdval;
+	struct {
+		struct timespec mtime;
+		struct timespec atime;
+	} set_ts;
 
 	rval = 0;
 	fdval = fd != -1;
 	islink = !fdval && S_ISLNK(fs->st_mode);
 	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
+	unsigned int options = islink ? FSOPT_NOFOLLOW : 0;
 
-	TIMESPEC_TO_TIMEVAL(&tv[0], &fs->st_atimespec);
-	TIMESPEC_TO_TIMEVAL(&tv[1], &fs->st_mtimespec);
-	if (fdval ? futimes(fd, tv) : (islink ? lutimes(to.p_path, tv) : utimes(to.p_path, tv))) {
-		warn("%sutimes: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+	ts_req.bitmapcount = ATTR_BIT_MAP_COUNT;
+	ts_req.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
+	set_ts.mtime = fs->st_mtimespec;
+	set_ts.atime = fs->st_atimespec;
+
+	if (fdval ? fsetattrlist(fd, &ts_req, &set_ts, sizeof(set_ts), options) :
+		    setattrlist(to.p_path, &ts_req, &set_ts, sizeof(set_ts), options)) {
+		warn("%ssetattrlist: %s", fdval ? "f" : "", to.p_path);
 		rval = 1;
 	}
 	if (fdval ? fstat(fd, &ts) : (islink ? lstat(to.p_path, &ts) :

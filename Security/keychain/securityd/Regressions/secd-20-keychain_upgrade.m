@@ -105,6 +105,7 @@ keychain_upgrade(bool musr, const char *dbname)
     is(sqlite3_exec(db, "INSERT into ckmirror VALUES(\"ckzone\", \"importantuuid\", \"keyuuid\", 0, \"asdf\", \"qwer\", \"ckrecord\", 0, 0, NULL, NULL, NULL);", NULL, NULL, NULL), SQLITE_OK, "row added to ckmirror table");
     is(sqlite3_close(db), SQLITE_OK, "close db");
 
+    SecKeychainDbForceClose();
     SecKeychainDbReset(^{
 
         /* Create a new keychain sqlite db */
@@ -142,6 +143,8 @@ keychain_upgrade(bool musr, const char *dbname)
     if (musr)
         SecSecuritySetMusrMode(false, 501, -1);
 #endif
+
+    secd_test_teardown_delete_temp_keychain(dbname);
 }
 
 int

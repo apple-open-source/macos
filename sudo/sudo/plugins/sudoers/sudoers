@@ -93,5 +93,4 @@ root ALL=(ALL) ALL
 # ALL ALL=(ALL) ALL  # WARNING: only use this together with 'Defaults targetpw'
 
 ## Read drop-in files from /private/etc/sudoers.d
-## (the '#' here does not indicate a comment)
-#includedir /private/etc/sudoers.d
+@includedir /private/etc/sudoers.d

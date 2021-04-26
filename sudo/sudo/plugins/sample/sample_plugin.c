@@ -23,10 +23,10 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STDBOOL_H
@@ -34,21 +34,17 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
 #include <unistd.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <grp.h>
 #include <pwd.h>
-#include <stdarg.h>
 
-#include <pathnames.h>
+#include "pathnames.h"
 #include "sudo_compat.h"
 #include "sudo_plugin.h"
 #include "sudo_util.h"
@@ -58,12 +54,6 @@
  * ("test") to run any command as root.  Since there is no credential
  * caching the validate and invalidate functions are NULL.
  */
-
-#ifdef __TANDEM
-# define ROOT_UID       65535
-#else
-# define ROOT_UID       0
-#endif
 
 static struct plugin_state {
     char **envp;
@@ -469,7 +459,7 @@ io_log_output(const char *buf, unsigned int len)
     return ret;
 }
 
-__dso_public struct policy_plugin sample_policy = {
+sudo_dso_public struct policy_plugin sample_policy = {
     SUDO_POLICY_PLUGIN,
     SUDO_API_VERSION,
     policy_open,
@@ -488,7 +478,7 @@ __dso_public struct policy_plugin sample_policy = {
  * Note: This plugin does not differentiate between tty and pipe I/O.
  *       It all gets logged to the same file.
  */
-__dso_public struct io_plugin sample_io = {
+sudo_dso_public struct io_plugin sample_io = {
     SUDO_IO_PLUGIN,
     SUDO_API_VERSION,
     io_open,

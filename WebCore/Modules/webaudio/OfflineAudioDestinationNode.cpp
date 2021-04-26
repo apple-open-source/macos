@@ -30,7 +30,11 @@
 
 #include "AudioBus.h"
 #include "AudioContext.h"
+#include "AudioUtilities.h"
+#include "AudioWorklet.h"
+#include "AudioWorkletMessagingProxy.h"
 #include "HRTFDatabaseLoader.h"
+#include "WorkerRunLoop.h"
 #include <algorithm>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
@@ -38,16 +42,15 @@
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(OfflineAudioDestinationNode);
-    
-const size_t OfflineAudioDestinationNode::renderQuantumSize = 128;
 
-OfflineAudioDestinationNode::OfflineAudioDestinationNode(BaseAudioContext& context, AudioBuffer* renderTarget)
-    : AudioDestinationNode(context)
-    , m_renderTarget(renderTarget)
-    , m_framesToProcess(renderTarget->length())
+OfflineAudioDestinationNode::OfflineAudioDestinationNode(BaseAudioContext& context, unsigned numberOfChannels, float sampleRate, RefPtr<AudioBuffer>&& renderTarget)
+    : AudioDestinationNode(context, sampleRate)
+    , m_numberOfChannels(numberOfChannels)
+    , m_renderTarget(WTFMove(renderTarget))
+    , m_framesToProcess(m_renderTarget ? m_renderTarget->length() : 0)
 {
-    m_renderBus = AudioBus::create(renderTarget->numberOfChannels(), renderQuantumSize);
-    initializeDefaultNodeOptions(renderTarget->numberOfChannels(), ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
+    m_renderBus = AudioBus::create(numberOfChannels, AudioUtilities::renderQuantumSize);
+    initializeDefaultNodeOptions(numberOfChannels, ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
 }
 
 OfflineAudioDestinationNode::~OfflineAudioDestinationNode()
@@ -57,7 +60,7 @@ OfflineAudioDestinationNode::~OfflineAudioDestinationNode()
 
 unsigned OfflineAudioDestinationNode::maxChannelCount() const
 {
-    return m_renderTarget->numberOfChannels();
+    return m_numberOfChannels;
 }
 
 void OfflineAudioDestinationNode::initialize()
@@ -81,41 +84,51 @@ void OfflineAudioDestinationNode::uninitialize()
     AudioNode::uninitialize();
 }
 
-ExceptionOr<void> OfflineAudioDestinationNode::startRendering()
+void OfflineAudioDestinationNode::startRendering(CompletionHandler<void(Optional<Exception>&&)>&& completionHandler)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
     ASSERT(isMainThread());
     ASSERT(m_renderTarget.get());
     if (!m_renderTarget.get())
-        return Exception { InvalidStateError };
+        return completionHandler(Exception { InvalidStateError, "OfflineAudioContextNode has no rendering buffer"_s });
     
     if (m_startedRendering)
-        return Exception { InvalidStateError, "Already started rendering"_s };
+        return completionHandler(Exception { InvalidStateError, "Already started rendering"_s });
 
     m_startedRendering = true;
-    ref();
-    // FIXME: Should we call lazyInitialize here?
-    // FIXME: We should probably limit the number of threads we create for offline audio.
-    m_renderThread = Thread::create("offline renderer", [this] {
+    auto protectedThis = makeRef(*this);
+
+    auto offThreadRendering = [this, protectedThis = WTFMove(protectedThis)]() mutable {
         auto result = offlineRender();
-        callOnMainThread([this, result, currentSampleFrame = m_currentSampleFrame] {
-            m_startedRendering = false;
-            switch (result) {
-            case OfflineRenderResult::Failure:
-                context().finishedRendering(false);
-                break;
-            case OfflineRenderResult::Complete:
-                context().finishedRendering(true);
-                break;
-            case OfflineRenderResult::Suspended:
-                context().didSuspendRendering(currentSampleFrame);
-                break;
-            }
-            deref();
+        callOnMainThread([this, result, currentSampleFrame = m_currentSampleFrame.load(), protectedThis = WTFMove(protectedThis)]() mutable {
+            context().postTask([this, protectedThis = WTFMove(protectedThis), result, currentSampleFrame]() mutable {
+                m_startedRendering = false;
+                switch (result) {
+                case OfflineRenderResult::Failure:
+                    context().finishedRendering(false);
+                    break;
+                case OfflineRenderResult::Complete:
+                    context().finishedRendering(true);
+                    break;
+                case OfflineRenderResult::Suspended:
+                    context().didSuspendRendering(currentSampleFrame);
+                    break;
+                }
+            });
         });
-    }, ThreadType::Audio);
-    return { };
+    };
+
+    if (auto* workletProxy = context().audioWorklet().proxy()) {
+        workletProxy->postTaskForModeToWorkletGlobalScope([offThreadRendering = WTFMove(offThreadRendering)](ScriptExecutionContext&) mutable {
+            offThreadRendering();
+        }, WorkerRunLoop::defaultMode());
+        return completionHandler(WTF::nullopt);
+    }
+
+    // FIXME: We should probably limit the number of threads we create for offline audio.
+    m_renderThread = Thread::create("offline renderer", WTFMove(offThreadRendering), ThreadType::Audio, Thread::QOS::Default);
+    completionHandler(WTF::nullopt);
 }
 
 auto OfflineAudioDestinationNode::offlineRender() -> OfflineRenderResult
@@ -133,7 +146,7 @@ auto OfflineAudioDestinationNode::offlineRender() -> OfflineRenderResult
     if (!channelsMatch)
         return OfflineRenderResult::Failure;
 
-    bool isRenderBusAllocated = m_renderBus->length() >= renderQuantumSize;
+    bool isRenderBusAllocated = m_renderBus->length() >= AudioUtilities::renderQuantumSize;
     ASSERT(isRenderBusAllocated);
     if (!isRenderBusAllocated)
         return OfflineRenderResult::Failure;
@@ -142,23 +155,22 @@ auto OfflineAudioDestinationNode::offlineRender() -> OfflineRenderResult
     // Render until we're finished.
     unsigned numberOfChannels = m_renderTarget->numberOfChannels();
 
-    unsigned n = 0;
     while (m_framesToProcess > 0) {
         if (context().shouldSuspend())
             return OfflineRenderResult::Suspended;
 
         // Render one render quantum.
-        render(0, m_renderBus.get(), renderQuantumSize, { });
+        render(0, m_renderBus.get(), AudioUtilities::renderQuantumSize, { });
         
-        size_t framesAvailableToCopy = std::min(m_framesToProcess, renderQuantumSize);
+        size_t framesAvailableToCopy = std::min(m_framesToProcess, AudioUtilities::renderQuantumSize);
         
         for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex) {
             const float* source = m_renderBus->channel(channelIndex)->data();
             float* destination = m_renderTarget->channelData(channelIndex)->data();
-            memcpy(destination + n, source, sizeof(float) * framesAvailableToCopy);
+            memcpy(destination + m_destinationOffset, source, sizeof(float) * framesAvailableToCopy);
         }
         
-        n += framesAvailableToCopy;
+        m_destinationOffset += framesAvailableToCopy;
         m_framesToProcess -= framesAvailableToCopy;
     }
 

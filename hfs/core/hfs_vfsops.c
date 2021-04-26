@@ -1384,6 +1384,9 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 	lck_mtx_init(&hfsmp->hfc_mutex, hfs_mutex_group, hfs_lock_attr);
 	lck_rw_init(&hfsmp->hfs_global_lock, hfs_rwlock_group, hfs_lock_attr);
 	lck_spin_init(&hfsmp->vcbFreeExtLock, hfs_spinlock_group, hfs_lock_attr);
+#if NEW_XATTR
+	lck_spin_init(&hfsmp->hfs_xattr_io.lock, hfs_spinlock_group, hfs_lock_attr);
+#endif
 
 	if (mp)
 		vfs_setfsprivate(mp, hfsmp);
@@ -2782,6 +2785,9 @@ hfs_locks_destroy(struct hfsmount *hfsmp)
 	lck_mtx_destroy(&hfsmp->hfc_mutex, hfs_mutex_group);
 	lck_rw_destroy(&hfsmp->hfs_global_lock, hfs_rwlock_group);
 	lck_spin_destroy(&hfsmp->vcbFreeExtLock, hfs_spinlock_group);
+#if NEW_XATTR
+	lck_spin_destroy(&hfsmp->hfs_xattr_io.lock, hfs_spinlock_group);
+#endif
 
 	return;
 }

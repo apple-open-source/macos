@@ -1,4 +1,4 @@
-OTHER_CFLAGS = -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -fconstant-cfstrings
+OTHER_CFLAGS = -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -fconstant-cfstrings -Wundef-prefix=TARGET_ -Werror=undef-prefix
 
 
 HEADER_SYMLINKS = $(PROJECT_DIR)/header_symlinks
@@ -51,6 +51,5 @@ SECURITY_XCTEST_DIRECTORY = /AppleInternal/XCTests/com.apple.security
 // If you expect to be a 'securityd', use these flags
 OTHER_LDFLAGS_FOR_SECURITYD = -framework TrustedPeers $(OTHER_LDFLAGS_COREFOLLOWUP) -lnetwork $(OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER)
 
-// Hack for runtime path for OCMock, add to your xctest bundle and embedd OCMock.framework
-OCMOCK_RUNTIME_SEARCH_PATH = $(inherited) @executable_path/Frameworks @loader_path/Frameworks
-OCMOCK_RUNTIME_SEARCH_PATH[sdk=macos*] = $(inherited) @executable_path/../Frameworks @loader_path/../Frameworks
+LD_RUNPATH_SEARCH_PATHS_OCMOCKUMBRELLA[sdk=embedded*] = /AppleInternal/XCTests/com.apple.security/Frameworks/OCMockUmbrella.framework/Frameworks
+LD_RUNPATH_SEARCH_PATHS_OCMOCKUMBRELLA[sdk=macosx*] = /AppleInternal/XCTests/com.apple.security/Frameworks/OCMockUmbrella.framework/Versions/A/Frameworks

@@ -236,13 +236,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCustomElementsEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE modernMediaControlsEnabled(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setModernMediaControlsEnabled(BOOL);
-    virtual HRESULT STDMETHODCALLTYPE webAnimationsCSSIntegrationEnabled(_Out_ BOOL*);
-    virtual HRESULT STDMETHODCALLTYPE setWebAnimationsCSSIntegrationEnabled(BOOL);
     
     // IWebPreferencesPrivate4
     virtual HRESULT STDMETHODCALLTYPE setApplicationId(BSTR);
-    virtual HRESULT STDMETHODCALLTYPE webAnimationsEnabled(_Out_ BOOL*);
-    virtual HRESULT STDMETHODCALLTYPE setWebAnimationsEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE userTimingEnabled(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setUserTimingEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE resourceTimingEnabled(_Out_ BOOL*);
@@ -301,12 +297,24 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setAspectRatioOfImgFromWidthAndHeightEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE webSQLEnabled(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setWebSQLEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE CSSIndividualTransformPropertiesEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setCSSIndividualTransformPropertiesEnabled(BOOL);
 
     // IWebPreferencesPrivate8
     virtual HRESULT STDMETHODCALLTYPE allowTopNavigationToDataURLs(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setAllowTopNavigationToDataURLs(BOOL);
     virtual HRESULT STDMETHODCALLTYPE modernUnprefixedWebAudioEnabled(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setModernUnprefixedWebAudioEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE contactPickerAPIEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setContactPickerAPIEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE setBoolPreferenceForTesting(_In_ BSTR key, _In_ BOOL);
+    virtual HRESULT STDMETHODCALLTYPE setUInt32PreferenceForTesting(_In_ BSTR key, _In_ unsigned);
+    virtual HRESULT STDMETHODCALLTYPE setDoublePreferenceForTesting(_In_ BSTR key, _In_ double);
+    virtual HRESULT STDMETHODCALLTYPE setStringPreferenceForTesting(_In_ BSTR key, _In_ BSTR);
+    virtual HRESULT STDMETHODCALLTYPE speechRecognitionEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setSpeechRecognitionEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE overscrollBehaviorEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setOverscrollBehaviorEnabled(BOOL);
 
     // WebPreferences
 

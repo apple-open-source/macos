@@ -27,9 +27,9 @@
 #import "DefaultWebBrowserChecks.h"
 
 #import "TCCSPI.h"
-#import "VersionChecks.h"
 #import <WebCore/RegistrableDomain.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/VersionChecks.h>
 #import <wtf/HashMap.h>
 #import <wtf/RunLoop.h>
 #import <wtf/SoftLinking.h>
@@ -46,7 +46,7 @@ namespace WebKit {
 
 static bool isFullWebBrowser(const String&);
 
-bool shouldBeTreatedAsFullBrowser(const String& bundleID)
+bool isRunningTest(const String& bundleID)
 {
     return bundleID == "com.apple.WebKit.TestWebKitAPI"_s || bundleID == "com.apple.WebKit.WebKitTestRunner"_s || bundleID == "org.webkit.WebKitTestRunnerApp"_s;
 }
@@ -128,7 +128,7 @@ void determineITPState()
         return;
 
     g_currentITPState = ITPState::Initializing;
-    bool appWasLinkedOnOrAfter = linkedOnOrAfter(SDKVersion::FirstWithSessionCleanupByDefault, AssumeSafariIsAlwaysLinkedOnAfter::Yes);
+    bool appWasLinkedOnOrAfter = linkedOnOrAfter(WebCore::SDKVersion::FirstWithSessionCleanupByDefault);
 
     g_itpQueue = dispatch_queue_create("com.apple.WebKit.itpCheckQueue", NULL);
 
@@ -213,7 +213,8 @@ bool hasProhibitedUsageStrings()
 bool isParentProcessAFullWebBrowser(Optional<audit_token_t> auditToken)
 {
     ASSERT(isInWebKitChildProcess());
-    RELEASE_ASSERT(auditToken);
+    if (!auditToken)
+        return false;
 
     static bool fullWebBrowser;
 
@@ -222,7 +223,7 @@ bool isParentProcessAFullWebBrowser(Optional<audit_token_t> auditToken)
         fullWebBrowser = WTF::hasEntitlement(auditToken.value(), "com.apple.developer.web-browser");
     });
 
-    return fullWebBrowser || shouldBeTreatedAsFullBrowser(WebCore::applicationBundleIdentifier());
+    return fullWebBrowser || isRunningTest(WebCore::applicationBundleIdentifier());
 }
 
 static bool isFullWebBrowser(const String& bundleIdentifier)
@@ -231,7 +232,7 @@ static bool isFullWebBrowser(const String& bundleIdentifier)
 
     static bool fullWebBrowser = WTF::processHasEntitlement("com.apple.developer.web-browser");
 
-    return fullWebBrowser || shouldBeTreatedAsFullBrowser(bundleIdentifier);
+    return fullWebBrowser || isRunningTest(bundleIdentifier);
 }
 
 bool isFullWebBrowser()

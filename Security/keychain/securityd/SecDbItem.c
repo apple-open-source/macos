@@ -26,7 +26,7 @@
  * database items (certificates, keys, identities, and passwords.)
  */
 
-#if TARGET_DARWINOS
+#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS

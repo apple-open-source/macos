@@ -229,6 +229,62 @@ announce(const struct autodir *dir, const char *what)
 	}
 }
 
+static bool
+autofs_mount(const struct autodir * const dir, int const flags,
+	     int const altflags)
+{
+	struct autofs_args ai;
+
+	/*
+	 * Mount it.  Use the real path (symlink-free),
+	 * for reasons mentioned above.
+	 */
+	ai.version	= AUTOFS_ARGSVERSION;
+	ai.path 	= dir->dir_realpath;
+	ai.opts		= dir->dir_opts;
+	ai.map		= dir->dir_map;
+	ai.subdir	= "";
+	ai.direct 	= dir->dir_direct;
+	ai.key		= dir->dir_direct ? dir->dir_name : "";
+	ai.mntflags	= altflags;
+	ai.mount_type	= MOUNT_TYPE_MAP;	/* top-level autofs mount */
+	ai.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
+
+	if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
+		  MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags, &ai) < 0) {
+		pr_msg(LOG_INFO, "mount %s: %m", dir->dir_realpath);
+		return false;
+	}
+	return true;
+}
+
+static bool
+autofs_mount_update(const struct statfs * const mntp,
+		    const struct autodir * const dir,
+		    int const altflags)
+{
+	struct autofs_update_args au;
+
+	if (strcmp(mntp->f_fstypename, MNTTYPE_AUTOFS) != 0) {
+		pr_msg(LOG_WARNING, "%s: already mounted on %s",
+			mntp->f_mntfromname, dir->dir_realpath);
+		return false;
+	}
+
+	au.fsid		= mntp->f_fsid;
+	au.opts		= dir->dir_opts;
+	au.map		= dir->dir_map;
+	au.mntflags	= altflags;
+	au.direct 	= dir->dir_direct;
+	au.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
+
+	if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS, &au) < 0) {
+		pr_msg(LOG_INFO, "update %s: %m", dir->dir_realpath);
+		return false;
+	}
+	return true;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -608,18 +664,6 @@ main(int argc, char *argv[])
 		 */
 		if (dir->dir_realpath != NULL &&
 		    (mntp = find_mount(dir->dir_realpath)) != NULL) {
-			struct autofs_update_args au;
-
-			/*
-			 * If it's not an autofs mount - don't
-			 * mount over it.
-			 */
-			if (strcmp(mntp->f_fstypename, MNTTYPE_AUTOFS) != 0) {
-				pr_msg(LOG_WARNING, "%s: already mounted on %s",
-					mntp->f_mntfromname, dir->dir_realpath);
-				continue;
-			}
-
 			/*
 			 * This is already mounted, so just update it.
 			 * We don't bother to check whether any options are
@@ -628,16 +672,7 @@ main(int argc, char *argv[])
 			 * so we might as well just make a trip to do the
 			 * update.
 			 */
-			au.fsid		= mntp->f_fsid;
-			au.opts		= dir->dir_opts;
-			au.map		= dir->dir_map;
-			au.mntflags	= altflags;
-			au.direct 	= dir->dir_direct;
-			au.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
-
-			if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS,
-			    &au) < 0) {
-				pr_msg(LOG_INFO, "update %s: %m", dir->dir_realpath);
+			if (! autofs_mount_update(mntp, dir, altflags)) {
 				continue;
 			}
 
@@ -653,7 +688,6 @@ main(int argc, char *argv[])
 			if (verbose)
 				announce(dir, "updated");
 		} else {
-			struct autofs_args ai;
 			int st_flags = 0;
 
 			/*
@@ -756,33 +790,40 @@ main(int argc, char *argv[])
 				pr_msg(LOG_WARNING, "(%s -> %s): can't set hidden", dir->dir_name, dir->dir_realpath ? dir->dir_realpath : "null");
 			}
 
-
 			/*
-			 * Mount it.  Use the real path (symlink-free),
-			 * for reasons mentioned above.
+			 * XXX We have seen in the wild cases where the
+			 * ephemeral link does not exist but the mount
+			 * *does*.  Now that we know what the full target
+			 * is, check again for a mount and perform the
+			 * update steps, rather than attempting to mount
+			 * another instance (which will only lead to pain
+			 * later on).
 			 */
-			ai.version	= AUTOFS_ARGSVERSION;
-			ai.path 	= dir->dir_realpath;
-			ai.opts		= dir->dir_opts;
-			ai.map		= dir->dir_map;
-			ai.subdir	= "";
-			ai.direct 	= dir->dir_direct;
-			if (dir->dir_direct)
-				ai.key = dir->dir_name;
-			else
-				ai.key = "";
-			ai.mntflags	= altflags;
-			ai.mount_type	= MOUNT_TYPE_MAP;	/* top-level autofs mount */
-			ai.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
+			if ((mntp = find_mount(dir->dir_realpath)) != NULL) {
+				os_log_fault(OS_LOG_DEFAULT,
+					     "UNEXPECTED MOUNT AT %s",
+					     dir->dir_realpath);
 
-			if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
-			    MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags,
-			    &ai) < 0) {
-				pr_msg(LOG_INFO, "mount %s: %m", dir->dir_realpath);
-				continue;
+				/*
+				 * This is already mounted, so just update it.
+				 * We don't bother to check whether any options are
+				 * changing, as we'd have to make a trip into the
+				 * kernel to get the current options to check them,
+				 * so we might as well just make a trip to do the
+				 * update.
+				 */
+				if (! autofs_mount_update(mntp, dir, altflags)) {
+					continue;
+				}
+				if (verbose)
+					announce(dir, "updated");
+			} else {
+				if (! autofs_mount(dir, flags, altflags)) {
+					continue;
+				}
+				if (verbose)
+					announce(dir, "mounted");
 			}
-			if (verbose)
-				announce(dir, "mounted");
 		}
 
 		count++;

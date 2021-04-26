@@ -41,6 +41,8 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
 
     activateExtraDomain(domain)
     {
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
+
         console.assert(domain === "ApplicationCache");
 
         for (let target of WI.targets)
@@ -99,7 +101,8 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
                 target.ApplicationCacheAgent.disable();
         }
 
-        WI.Frame.removeEventListener(null, null, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.ChildFrameWasRemoved, this._childFrameWasRemoved, this);
 
         this._reset();
     }

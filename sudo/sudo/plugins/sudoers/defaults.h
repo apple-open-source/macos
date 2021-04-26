@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1999-2005, 2008-2018
+ * Copyright (c) 1999-2005, 2008-2020
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -111,6 +111,8 @@ struct early_default {
 #define T_BOOL		0x100
 #undef T_PATH
 #define T_PATH		0x200
+#undef T_CHPATH
+#define T_CHPATH	0x400
 
 /*
  * Argument to update_defaults()
@@ -131,8 +133,8 @@ void dump_default(void);
 bool init_defaults(void);
 struct early_default *is_early_default(const char *name);
 bool run_early_defaults(void);
-bool set_early_default(const char *var, const char *val, int op, const char *file, int lineno, bool quiet, struct early_default *early);
-bool set_default(const char *var, const char *val, int op, const char *file, int lineno, bool quiet);
+bool set_early_default(const char *var, const char *val, int op, const char *file, int line, int column, bool quiet, struct early_default *early);
+bool set_default(const char *var, const char *val, int op, const char *file, int line, int column, bool quiet);
 bool update_defaults(struct sudoers_parse_tree *parse_tree, struct defaults_list *defs, int what, bool quiet);
 bool check_defaults(struct sudoers_parse_tree *parse_tree, bool quiet);
 

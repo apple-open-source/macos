@@ -32,6 +32,7 @@ set(WTF_PUBLIC_HEADERS
     CommaPrinter.h
     CompactPointerTuple.h
     CompactRefPtrTuple.h
+    CompactUniquePtrTuple.h
     CompilationThread.h
     Compiler.h
     CompletionHandler.h
@@ -57,8 +58,6 @@ set(WTF_PUBLIC_HEADERS
     DisallowCType.h
     Dominators.h
     DoublyLinkedList.h
-    DumbPtrTraits.h
-    DumbValueTraits.h
     EnumClassOperatorOverloads.h
     EnumTraits.h
     Expected.h
@@ -201,6 +200,8 @@ set(WTF_PUBLIC_HEADERS
     Range.h
     RangeSet.h
     RawPointer.h
+    RawPtrTraits.h
+    RawValueTraits.h
     ReadWriteLock.h
     RecursableLambda.h
     RecursiveLockAdapter.h
@@ -240,6 +241,7 @@ set(WTF_PUBLIC_HEADERS
     StackShotProfiler.h
     StackStats.h
     StackTrace.h
+    StdFilesystem.h
     StdIntExtras.h
     StdLibExtras.h
     StdList.h
@@ -259,6 +261,7 @@ set(WTF_PUBLIC_HEADERS
     ThreadGroup.h
     ThreadMessage.h
     ThreadSafeRefCounted.h
+    ThreadSanitizerSupport.h
     ThreadSpecific.h
     Threading.h
     ThreadingPrimitives.h
@@ -323,6 +326,7 @@ set(WTF_PUBLIC_HEADERS
     text/AtomStringTable.h
     text/Base64.h
     text/CString.h
+    text/CodePointIterator.h
     text/ConversionMode.h
     text/ExternalStringImpl.h
     text/IntegerToStringConversion.h
@@ -518,17 +522,14 @@ set(WTF_PRIVATE_INCLUDE_DIRECTORIES
 
 set(WTF_LIBRARIES
     ${CMAKE_DL_LIBS}
-)
-
-if (NOT USE_SYSTEM_MALLOC)
-    list(APPEND WTF_LIBRARIES WebKit::bmalloc)
-endif ()
-
-list(APPEND WTF_LIBRARIES
     ICU::data
     ICU::i18n
     ICU::uc
 )
+
+if (NOT USE_SYSTEM_MALLOC)
+    set(WTF_FRAMEWORKS bmalloc)
+endif ()
 
 set(WTF_INTERFACE_LIBRARIES WTF)
 set(WTF_INTERFACE_INCLUDE_DIRECTORIES ${WTF_FRAMEWORK_HEADERS_DIR})
@@ -542,7 +543,6 @@ WEBKIT_COPY_FILES(WTF_CopyHeaders
     FILES ${WTF_PUBLIC_HEADERS}
 )
 
-WEBKIT_WRAP_SOURCELIST(${WTF_SOURCES})
 WEBKIT_FRAMEWORK(WTF)
 WEBKIT_FRAMEWORK_TARGET(WTF)
 
@@ -565,8 +565,25 @@ if (USE_VERSION_STAMPER)
         VERBATIM)
 endif ()
 
-file(COPY
+set(WTF_UNIFIED_SOURCES_SCRIPTS
     ../Scripts/generate-unified-source-bundles.rb
-    DESTINATION
-    ${WTF_SCRIPTS_DIR}
+)
+
+file(COPY
+     ${WTF_UNIFIED_SOURCES_SCRIPTS}
+     DESTINATION ${WTF_SCRIPTS_DIR}
+)
+
+set(WTF_PREFERENCES
+    ../Scripts/GeneratePreferences.rb
+
+    ../Scripts/Preferences/WebPreferences.yaml
+    ../Scripts/Preferences/WebPreferencesDebug.yaml
+    ../Scripts/Preferences/WebPreferencesExperimental.yaml
+    ../Scripts/Preferences/WebPreferencesInternal.yaml
+)
+
+WEBKIT_COPY_FILES(WTF_CopyPreferences
+    DESTINATION ${WTF_SCRIPTS_DIR}
+    FILES ${WTF_PREFERENCES}
 )

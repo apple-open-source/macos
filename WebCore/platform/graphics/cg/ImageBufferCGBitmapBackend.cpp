@@ -37,17 +37,13 @@
 
 namespace WebCore {
 
-#if PLATFORM(IOS_FAMILY)
-constexpr const CGBitmapInfo DefaultBitmapInfo = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host;
-#else
-constexpr const CGBitmapInfo DefaultBitmapInfo = kCGImageAlphaPremultipliedLast;
-#endif
-
 WTF_MAKE_ISO_ALLOCATED_IMPL(ImageBufferCGBitmapBackend);
 
-std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const FloatSize& size, float resolutionScale, ColorSpace colorSpace, CGColorSpaceRef cgColorSpace, const HostWindow*)
+std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const Parameters& parameters, CGColorSpaceRef cgColorSpace, const HostWindow*)
 {
-    IntSize backendSize = calculateBackendSize(size, resolutionScale);
+    ASSERT(parameters.pixelFormat == PixelFormat::BGRA8);
+
+    IntSize backendSize = calculateBackendSize(parameters.logicalSize, parameters.resolutionScale);
     if (backendSize.isEmpty())
         return nullptr;
 
@@ -62,7 +58,7 @@ std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(c
     size_t numBytes = backendSize.height() * bytesPerRow;
     verifyImageBufferIsBigEnough(data, numBytes);
 
-    auto cgContext = adoptCF(CGBitmapContextCreate(data, backendSize.width(), backendSize.height(), 8, bytesPerRow, cgColorSpace, DefaultBitmapInfo));
+    auto cgContext = adoptCF(CGBitmapContextCreate(data, backendSize.width(), backendSize.height(), 8, bytesPerRow, cgColorSpace, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
     if (!cgContext)
         return nullptr;
 
@@ -74,24 +70,24 @@ std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(c
 
     auto dataProvider = adoptCF(CGDataProviderCreateWithData(0, data, numBytes, releaseImageData));
 
-    return std::unique_ptr<ImageBufferCGBitmapBackend>(new ImageBufferCGBitmapBackend(size, backendSize, resolutionScale, colorSpace, data, WTFMove(dataProvider), WTFMove(context)));
+    return std::unique_ptr<ImageBufferCGBitmapBackend>(new ImageBufferCGBitmapBackend(parameters, data, WTFMove(dataProvider), WTFMove(context)));
 }
 
-std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const FloatSize& size, const GraphicsContext& context)
+std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const Parameters& parameters, const GraphicsContext& context)
 {
-    if (auto cgColorSpace = contextColorSpace(context))
-        return ImageBufferCGBitmapBackend::create(size, 1, ColorSpace::SRGB, cgColorSpace.get(), nullptr);
-    
-    return ImageBufferCGBitmapBackend::create(size, 1, ColorSpace::SRGB, nullptr);
+    if (auto cgColorSpace = context.hasPlatformContext() ? contextColorSpace(context) : nullptr)
+        return ImageBufferCGBitmapBackend::create(parameters, cgColorSpace.get(), nullptr);
+
+    return ImageBufferCGBitmapBackend::create(parameters, nullptr);
 }
 
-std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const FloatSize& size, float resolutionScale, ColorSpace colorSpace, const HostWindow* hostWindow)
+std::unique_ptr<ImageBufferCGBitmapBackend> ImageBufferCGBitmapBackend::create(const Parameters& parameters, const HostWindow* hostWindow)
 {
-    return ImageBufferCGBitmapBackend::create(size, resolutionScale, colorSpace, cachedCGColorSpace(colorSpace), hostWindow);
+    return ImageBufferCGBitmapBackend::create(parameters, cachedCGColorSpace(parameters.colorSpace), hostWindow);
 }
 
-ImageBufferCGBitmapBackend::ImageBufferCGBitmapBackend(const FloatSize& logicalSize, const IntSize& backendSize, float resolutionScale, ColorSpace colorSpace, void* data, RetainPtr<CGDataProviderRef>&& dataProvider, std::unique_ptr<GraphicsContext>&& context)
-    : ImageBufferCGBackend(logicalSize, backendSize, resolutionScale, colorSpace)
+ImageBufferCGBitmapBackend::ImageBufferCGBitmapBackend(const Parameters& parameters, void* data, RetainPtr<CGDataProviderRef>&& dataProvider, std::unique_ptr<GraphicsContext>&& context)
+    : ImageBufferCGBackend(parameters)
     , m_data(data)
     , m_dataProvider(WTFMove(dataProvider))
     , m_context(WTFMove(context))
@@ -107,17 +103,24 @@ GraphicsContext& ImageBufferCGBitmapBackend::context() const
     return *m_context;
 }
 
-NativeImagePtr ImageBufferCGBitmapBackend::copyNativeImage(BackingStoreCopy copyBehavior) const
+IntSize ImageBufferCGBitmapBackend::backendSize() const
+{
+    CGContextRef cgContext = context().platformContext();
+    return { static_cast<int>(CGBitmapContextGetWidth(cgContext)), static_cast<int>(CGBitmapContextGetHeight(cgContext)) };
+}
+
+RefPtr<NativeImage> ImageBufferCGBitmapBackend::copyNativeImage(BackingStoreCopy copyBehavior) const
 {
     switch (copyBehavior) {
     case CopyBackingStore:
-        return adoptCF(CGBitmapContextCreateImage(context().platformContext()));
+        return NativeImage::create(adoptCF(CGBitmapContextCreateImage(context().platformContext())));
 
     case DontCopyBackingStore:
-        return adoptCF(CGImageCreate(
-            m_backendSize.width(), m_backendSize.height(), 8, 32, bytesPerRow(),
-            cachedCGColorSpace(m_colorSpace), DefaultBitmapInfo, m_dataProvider.get(),
-            0, true, kCGRenderingIntentDefault));
+        auto backendSize = this->backendSize();
+        return NativeImage::create(adoptCF(CGImageCreate(
+            backendSize.width(), backendSize.height(), 8, 32, bytesPerRow(),
+            cachedCGColorSpace(colorSpace()), kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host, m_dataProvider.get(),
+            0, true, kCGRenderingIntentDefault)));
     }
 
     ASSERT_NOT_REACHED();

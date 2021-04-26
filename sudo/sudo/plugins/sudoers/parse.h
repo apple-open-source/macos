@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2000, 2004, 2007-2018
+ * Copyright (c) 1996, 1998-2000, 2004, 2007-2020
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -20,6 +20,7 @@
 #ifndef SUDOERS_PARSE_H
 #define SUDOERS_PARSE_H
 
+#include <sys/stat.h>
 #include "sudo_queue.h"
 
 /* Characters that must be quoted in sudoers. */
@@ -41,13 +42,13 @@
  * Initialize all tags to UNSPEC.
  */
 #define TAGS_INIT(t)	do {						       \
-    (t).follow = UNSPEC;						       \
-    (t).log_input = UNSPEC;						       \
-    (t).log_output = UNSPEC;						       \
-    (t).noexec = UNSPEC;						       \
-    (t).nopasswd = UNSPEC;						       \
-    (t).send_mail = UNSPEC;						       \
-    (t).setenv = UNSPEC;						       \
+    (t)->follow = UNSPEC;						       \
+    (t)->log_input = UNSPEC;						       \
+    (t)->log_output = UNSPEC;						       \
+    (t)->noexec = UNSPEC;						       \
+    (t)->nopasswd = UNSPEC;						       \
+    (t)->send_mail = UNSPEC;						       \
+    (t)->setenv = UNSPEC;						       \
 } while (0)
 
 /*
@@ -105,18 +106,9 @@
      (cs1)->runasgrouplist != (cs2)->runasgrouplist)
 
 struct command_digest {
+    TAILQ_ENTRY(command_digest) entries;
     unsigned int digest_type;
     char *digest_str;
-};
-
-/*
- * A command with option args and digest.
- * XXX - merge into struct member
- */
-struct sudo_command {
-    char *cmnd;
-    char *args;
-    struct command_digest *digest;
 };
 
 /*
@@ -140,6 +132,8 @@ struct command_options {
     time_t notbefore;			/* time restriction */
     time_t notafter;			/* time restriction */
     int timeout;			/* command timeout */
+    char *runcwd;			/* working directory */
+    char *runchroot;			/* root directory */
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
 #endif
@@ -156,7 +150,7 @@ struct command_options {
  * the data structure used is a doubly-linked tail queue.  While sudoers
  * is being parsed, a headless tail queue is used where the first entry
  * acts as the head and the prev pointer does double duty as the tail pointer.
- * This makes it possible to trivally append sub-lists.  In addition, the prev
+ * This makes it possible to trivially append sub-lists.  In addition, the prev
  * pointer is always valid (even if it points to itself).  Unlike a circle
  * queue, the next pointer of the last entry is NULL and does not point back
  * to the head.  When the tail queue is finalized, it is converted to a
@@ -164,13 +158,14 @@ struct command_options {
  */
 
 /*
- * Tail queue list head structure.
+ * Tail queue list head structures.
  */
 TAILQ_HEAD(defaults_list, defaults);
 TAILQ_HEAD(userspec_list, userspec);
 TAILQ_HEAD(member_list, member);
 TAILQ_HEAD(privilege_list, privilege);
 TAILQ_HEAD(cmndspec_list, cmndspec);
+TAILQ_HEAD(command_digest_list, command_digest);
 STAILQ_HEAD(comment_list, sudoers_comment);
 
 /*
@@ -181,7 +176,8 @@ struct userspec {
     struct member_list users;		/* list of users */
     struct privilege_list privileges;	/* list of privileges */
     struct comment_list comments;	/* optional comments */
-    int lineno;				/* line number in sudoers */
+    int line;				/* line number in sudoers */
+    int column;				/* column number in sudoers */
     char *file;				/* name of sudoers file */
 };
 
@@ -197,8 +193,18 @@ struct privilege {
 };
 
 /*
+ * A command with option args and digest.
+ * XXX - merge into struct member
+ */
+struct sudo_command {
+    char *cmnd;
+    char *args;
+    struct command_digest_list digests;
+};
+
+/*
  * Structure describing a linked list of Cmnd_Specs.
- * XXX - include struct command_options instad of its contents inline
+ * XXX - include struct command_options instead of its contents inline
  */
 struct cmndspec {
     TAILQ_ENTRY(cmndspec) entries;
@@ -209,6 +215,8 @@ struct cmndspec {
     int timeout;			/* command timeout */
     time_t notbefore;			/* time restriction */
     time_t notafter;			/* time restriction */
+    char *runcwd;			/* working directory */
+    char *runchroot;			/* root directory */
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
 #endif
@@ -245,7 +253,8 @@ struct alias {
     char *name;				/* alias name */
     unsigned short type;		/* {USER,HOST,RUNAS,CMND}ALIAS */
     short used;				/* "used" flag for cycle detection */
-    int lineno;				/* line number of alias entry */
+    int line;				/* line number of alias entry */
+    int column;				/* column number of alias entry */
     char *file;				/* file the alias entry was in */
     struct member_list members;		/* list of alias members */
 };
@@ -262,7 +271,8 @@ struct defaults {
     short type;				/* DEFAULTS{,_USER,_RUNAS,_HOST} */
     char op;				/* true, false, '+', '-' */
     char error;				/* parse error flag */
-    int lineno;				/* line number of Defaults entry */
+    int line;				/* line number of Defaults entry */
+    int column;				/* column number of Defaults entry */
 };
 
 /*
@@ -275,11 +285,20 @@ struct sudoers_parse_tree {
     const char *shost, *lhost;
 };
 
+/*
+ * Info about the command being resolved.
+ */
+struct cmnd_info {
+    struct stat cmnd_stat;
+    char *cmnd_path;
+    int status;
+};
+
 /* alias.c */
 struct rbtree *alloc_aliases(void);
 void free_aliases(struct rbtree *aliases);
 bool no_aliases(struct sudoers_parse_tree *parse_tree);
-const char *alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type, char *file, int lineno, struct member *members);
+bool alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type, char *file, int line, int column, struct member *members);
 const char *alias_type_to_string(int alias_type);
 struct alias *alias_get(struct sudoers_parse_tree *parse_tree, const char *name, int type);
 struct alias *alias_remove(struct sudoers_parse_tree *parse_tree, char *name, int type);
@@ -291,6 +310,7 @@ void alias_put(struct alias *a);
 /* gram.c */
 extern struct sudoers_parse_tree parsed_policy;
 bool init_parser(const char *path, bool quiet, bool strict);
+struct member *new_member_all(char *name);
 void free_member(struct member *m);
 void free_members(struct member_list *members);
 void free_privilege(struct privilege *priv);
@@ -298,7 +318,7 @@ void free_userspec(struct userspec *us);
 void free_userspecs(struct userspec_list *usl);
 void free_default(struct defaults *def, struct member_list **binding);
 void free_defaults(struct defaults_list *defs);
-void init_parse_tree(struct sudoers_parse_tree *parse_tree, const char *shost, const char *lhost);
+void init_parse_tree(struct sudoers_parse_tree *parse_tree, const char *lhost, const char *shost);
 void free_parse_tree(struct sudoers_parse_tree *parse_tree);
 void reparent_parse_tree(struct sudoers_parse_tree *new_tree);
 
@@ -306,10 +326,10 @@ void reparent_parse_tree(struct sudoers_parse_tree *new_tree);
 bool addr_matches(char *n);
 
 /* match_command.c */
-bool command_matches(const char *sudoers_cmnd, const char *sudoers_args, const struct command_digest *digest);
+bool command_matches(const char *sudoers_cmnd, const char *sudoers_args, const char *runchroot, struct cmnd_info *info, const struct command_digest_list *digests);
 
 /* match_digest.c */
-bool digest_matches(int fd, const char *file, const struct command_digest *digest);
+bool digest_matches(int fd, const char *path, const char *runchroot, const struct command_digest_list *digests);
 
 /* match.c */
 struct group;
@@ -319,8 +339,8 @@ bool hostname_matches(const char *shost, const char *lhost, const char *pattern)
 bool netgr_matches(const char *netgr, const char *lhost, const char *shost, const char *user);
 bool usergr_matches(const char *group, const char *user, const struct passwd *pw);
 bool userpw_matches(const char *sudoers_user, const char *user, const struct passwd *pw);
-int cmnd_matches(struct sudoers_parse_tree *parse_tree, const struct member *m);
-int cmndlist_matches(struct sudoers_parse_tree *parse_tree, const struct member_list *list);
+int cmnd_matches(struct sudoers_parse_tree *parse_tree, const struct member *m, const char *runchroot, struct cmnd_info *info);
+int cmndlist_matches(struct sudoers_parse_tree *parse_tree, const struct member_list *list, const char *runchroot, struct cmnd_info *info);
 int host_matches(struct sudoers_parse_tree *parse_tree, const struct passwd *pw, const char *host, const char *shost, const struct member *m);
 int hostlist_matches(struct sudoers_parse_tree *parse_tree, const struct passwd *pw, const struct member_list *list);
 int runaslist_matches(struct sudoers_parse_tree *parse_tree, const struct member_list *user_list, const struct member_list *group_list, struct member **matching_user, struct member **matching_group);
@@ -356,7 +376,7 @@ const char *digest_type_to_name(int digest_type);
 
 /* parse.c */
 struct sudo_nss_list;
-int sudoers_lookup(struct sudo_nss_list *snl, struct passwd *pw, int validated, int pwflag);
+int sudoers_lookup(struct sudo_nss_list *snl, struct passwd *pw, int *cmnd_status, int pwflag);
 int display_privs(struct sudo_nss_list *snl, struct passwd *pw, bool verbose);
 int display_cmnd(struct sudo_nss_list *snl, struct passwd *pw);
 

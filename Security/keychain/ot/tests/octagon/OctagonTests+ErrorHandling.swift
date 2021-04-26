@@ -109,7 +109,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
     }
 
-    func testReceiveUpdateWhileReadyAndLocked() {
+    func testReceiveUpdateWhileReadyAndLocked() throws {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -145,21 +145,23 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
         self.sendContainerChange(context: self.cuttlefishContext)
 
-        sleep(1)
+        try self.waitForPushToArriveAtStateMachine(context: self.cuttlefishContext)
         XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
 
-        let waitForUnlockStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock] as! CKKSCondition
+        let waitForUnlockStateCondition : CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock]!
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "state machine should pause")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         // Check that we haven't been spinning
-        let sameWaitForUnlockStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock] as! CKKSCondition
+        let sameWaitForUnlockStateCondition : CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock]!
         XCTAssert(waitForUnlockStateCondition == sameWaitForUnlockStateCondition, "Conditions should be the same (as the state machine should be halted)")
+
+        let pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagCuttlefishNotification))
 
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the OctagonFlagCuttlefishNotification notification")
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
 
@@ -199,7 +201,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func testReceiveUpdateWhileReadyAndLockedAndAuthkitRetry() {
+    func testReceiveUpdateWhileReadyAndLockedAndAuthkitRetry() throws {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -234,14 +236,14 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "state machine should pause")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        sleep(1)
-
+        try self.waitForPushToArriveAtStateMachine(context: self.cuttlefishContext)
         XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
+        let pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagCuttlefishNotification))
 
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

@@ -145,7 +145,7 @@ pl{
         IL{"Izrael"}
         IM{"Wyspa Man"}
         IN{"Indie"}
-        IO{"Brytyjskie Terytorium Oceanu Indyjskiego"}
+        IO{"Czagos"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Islandia"}

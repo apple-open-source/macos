@@ -68,17 +68,18 @@ private:
 
 #endif
 
-DataTransfer::DataTransfer(StoreMode mode, std::unique_ptr<Pasteboard> pasteboard, Type type)
+DataTransfer::DataTransfer(StoreMode mode, std::unique_ptr<Pasteboard> pasteboard, Type type, String&& effectAllowed)
     : m_storeMode(mode)
     , m_pasteboard(WTFMove(pasteboard))
 #if ENABLE(DRAG_SUPPORT)
     , m_type(type)
     , m_dropEffect("uninitialized"_s)
-    , m_effectAllowed("uninitialized"_s)
+    , m_effectAllowed(WTFMove(effectAllowed))
     , m_shouldUpdateDragImage(false)
 #endif
 {
 #if !ENABLE(DRAG_SUPPORT)
+    UNUSED_PARAM(effectAllowed);
     ASSERT_UNUSED(type, type != Type::DragAndDropData && type != Type::DragAndDropFiles);
 #endif
 }
@@ -88,6 +89,11 @@ Ref<DataTransfer> DataTransfer::createForCopyAndPaste(const Document& document, 
     auto dataTransfer = adoptRef(*new DataTransfer(storeMode, WTFMove(pasteboard)));
     dataTransfer->m_originIdentifier = document.originIdentifierForPasteboard();
     return dataTransfer;
+}
+
+Ref<DataTransfer> DataTransfer::create()
+{
+    return adoptRef(*new DataTransfer(StoreMode::ReadWrite, makeUnique<StaticPasteboard>(), Type::CopyAndPaste, "none"_s));
 }
 
 DataTransfer::~DataTransfer()
@@ -476,7 +482,7 @@ void DataTransfer::setEffectAllowed(const String&)
 {
 }
 
-void DataTransfer::setDragImage(Element*, int, int)
+void DataTransfer::setDragImage(Element&, int, int)
 {
 }
 
@@ -510,14 +516,14 @@ Ref<DataTransfer> DataTransfer::createForUpdatingDropTarget(const Document& docu
     return dataTransfer;
 }
 
-void DataTransfer::setDragImage(Element* element, int x, int y)
+void DataTransfer::setDragImage(Element& element, int x, int y)
 {
     if (!forDrag() || !canWriteData())
         return;
 
     CachedImage* image = nullptr;
-    if (is<HTMLImageElement>(element) && !element->isConnected())
-        image = downcast<HTMLImageElement>(*element).cachedImage();
+    if (is<HTMLImageElement>(element) && !element.isConnected())
+        image = downcast<HTMLImageElement>(element).cachedImage();
 
     m_dragLocation = IntPoint(x, y);
 
@@ -530,7 +536,7 @@ void DataTransfer::setDragImage(Element* element, int x, int y)
         m_dragImageLoader->startLoading(m_dragImage);
     }
 
-    m_dragImageElement = image ? nullptr : element;
+    m_dragImageElement = image ? nullptr : &element;
 
     updateDragImage();
 }

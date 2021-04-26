@@ -94,7 +94,7 @@ private:
     void updateCachedImageIfNeeded(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect);
     bool cacheParametersMatch(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect) const;
 
-    PDFImageCachingPolicy m_pdfImageCachingPolicy { PDFImageCachingDefault };
+    PDFImageCachingPolicy m_pdfImageCachingPolicy { defaultPDFImageCachingPolicy };
 
 #if USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
     RetainPtr<PDFDocument> m_document;
@@ -102,7 +102,7 @@ private:
     RetainPtr<CGPDFDocumentRef> m_document;
 #endif
 
-    std::unique_ptr<ImageBuffer> m_cachedImageBuffer;
+    RefPtr<ImageBuffer> m_cachedImageBuffer;
     FloatRect m_cachedImageRect;
     AffineTransform m_cachedTransform;
     FloatRect m_cachedDestinationRect;

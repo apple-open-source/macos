@@ -106,7 +106,7 @@ void WebFrame::initWithCoreMainFrame(WebPage& page, Frame& coreFrame)
 {
     page.send(Messages::WebPageProxy::DidCreateMainFrame(frameID()));
 
-    m_coreFrame = &coreFrame;
+    m_coreFrame = makeWeakPtr(coreFrame);
     m_coreFrame->tree().setName(String());
     m_coreFrame->init();
 }
@@ -117,7 +117,7 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage* page, const String& frameName, H
     page->send(Messages::WebPageProxy::DidCreateSubframe(frame->frameID()));
 
     auto coreFrame = Frame::create(page->corePage(), ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()));
-    frame->m_coreFrame = coreFrame.ptr();
+    frame->m_coreFrame = makeWeakPtr(coreFrame.get());
 
     coreFrame->tree().setName(frameName);
     if (ownerElement) {
@@ -177,6 +177,11 @@ WebFrame* WebFrame::fromCoreFrame(const Frame& frame)
     return &webFrameLoaderClient->webFrame();
 }
 
+WebCore::Frame* WebFrame::coreFrame() const
+{
+    return m_coreFrame.get();
+}
+
 FrameInfoData WebFrame::info() const
 {
     auto* parent = parentFrame();
@@ -185,7 +190,7 @@ FrameInfoData WebFrame::info() const
         isMainFrame(),
         // FIXME: This should use the full request.
         ResourceRequest(url()),
-        SecurityOriginData::fromFrame(m_coreFrame),
+        SecurityOriginData::fromFrame(m_coreFrame.get()),
         m_frameID,
         parent ? Optional<WebCore::FrameIdentifier> { parent->frameID() } : WTF::nullopt,
     };
@@ -282,10 +287,11 @@ void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyDecision&& po
 
 void WebFrame::startDownload(const WebCore::ResourceRequest& request, const String& suggestedName)
 {
-    ASSERT(m_policyDownloadID.downloadID());
-
-    auto policyDownloadID = m_policyDownloadID;
-    m_policyDownloadID = { };
+    if (!m_policyDownloadID) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    auto policyDownloadID = *std::exchange(m_policyDownloadID, WTF::nullopt);
 
     Optional<NavigatingToAppBoundDomain> isAppBound = NavigatingToAppBoundDomain::No;
     isAppBound = m_isNavigatingToAppBoundDomain;
@@ -294,10 +300,11 @@ void WebFrame::startDownload(const WebCore::ResourceRequest& request, const Stri
 
 void WebFrame::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, const ResourceRequest& request, const ResourceResponse& response)
 {
-    ASSERT(m_policyDownloadID.downloadID());
-
-    auto policyDownloadID = m_policyDownloadID;
-    m_policyDownloadID = { };
+    if (!m_policyDownloadID) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    auto policyDownloadID = *std::exchange(m_policyDownloadID, WTF::nullopt);
 
     SubresourceLoader* mainResourceLoader = documentLoader->mainResourceLoader();
 
@@ -531,13 +538,13 @@ JSGlobalContextRef WebFrame::jsContextForWorld(InjectedBundleScriptWorld* world)
 
 bool WebFrame::handlesPageScaleGesture() const
 {
-    auto* pluginView = WebPage::pluginViewForFrame(m_coreFrame);
+    auto* pluginView = WebPage::pluginViewForFrame(m_coreFrame.get());
     return pluginView && pluginView->handlesPageScaleFactor();
 }
 
 bool WebFrame::requiresUnifiedScaleFactor() const
 {
-    auto* pluginView = WebPage::pluginViewForFrame(m_coreFrame);
+    auto* pluginView = WebPage::pluginViewForFrame(m_coreFrame.get());
     return pluginView && pluginView->requiresUnifiedScaleFactor();
 }
 
@@ -834,7 +841,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
 
 RefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
 {
-    std::unique_ptr<ImageBuffer> snapshot = snapshotSelection(*coreFrame(), WebCore::SnapshotOptionsForceBlackText);
+    auto snapshot = snapshotSelection(*coreFrame(), WebCore::SnapshotOptionsForceBlackText);
     if (!snapshot)
         return nullptr;
 
@@ -855,6 +862,7 @@ RefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
     return sharedSnapshot;
 }
 
+#if ENABLE(APP_BOUND_DOMAINS)
 bool WebFrame::shouldEnableInAppBrowserPrivacyProtections()
 {
     if (page() && page()->needsInAppBrowserPrivacyQuirks())
@@ -876,6 +884,6 @@ Optional<NavigatingToAppBoundDomain> WebFrame::isTopFrameNavigatingToAppBoundDom
 {
     return fromCoreFrame(m_coreFrame->mainFrame())->isNavigatingToAppBoundDomain();
 }
-
+#endif
     
 } // namespace WebKit

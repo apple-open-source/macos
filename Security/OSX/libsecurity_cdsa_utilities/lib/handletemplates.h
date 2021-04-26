@@ -199,7 +199,7 @@ inline Subclass &MappingHandle<_Handle>::findAndLock(_Handle handle,
             CssmError::throwMe(error);	// bad type
         if (it->second->tryLock())		// try to lock it
             return *sub;				// okay, go
-        Thread::yield();				// object lock failed, backoff and retry
+        Thread::threadYield();   		// object lock failed, backoff and retry
     }
 }
 
@@ -222,7 +222,7 @@ inline Subclass &MappingHandle<_Handle>::findAndKill(_Handle handle,
             state().erase(it);			// kill the handle
             return *sub;				// okay, go
         }
-        Thread::yield();				// object lock failed, backoff and retry
+        Thread::threadYield();				// object lock failed, backoff and retry
     }
 }
 
@@ -252,7 +252,7 @@ inline RefPointer<Subclass> MappingHandle<_Handle>::findRefAndLock(_Handle handl
             CssmError::throwMe(error);	// bad type
         if (it->second->tryLock())		// try to lock it
             return sub;				// okay, go
-        Thread::yield();				// object lock failed, backoff and retry
+        Thread::threadYield();				// object lock failed, backoff and retry
     }
 }
 
@@ -271,7 +271,7 @@ inline RefPointer<Subclass> MappingHandle<_Handle>::findRefAndKill(_Handle handl
             state().erase(it);			// kill the handle
             return sub;					// okay, go
         }
-        Thread::yield();				// object lock failed, backoff and retry
+        Thread::threadYield();				// object lock failed, backoff and retry
     }
 }
     

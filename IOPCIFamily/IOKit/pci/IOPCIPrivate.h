@@ -105,7 +105,7 @@ struct IOPCIDeviceExpansionData
 	uint8_t       ltrReg2;
 
     uint8_t       tunnelL1Allow;
-
+    uint8_t       offloadEngineMMIODisable;
 #if ACPI_SUPPORT
 	int8_t        psMethods[kIOPCIDevicePowerStateCount];
 	int8_t        lastPSMethod;
@@ -336,9 +336,9 @@ enum
 #define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
 
 // Entitlements
-#define kIOPCITransportDextEntitlement       "com.apple.developer.driverkit.transport.pci"
-#define kIOPCITransportBridgeDextEntitlement "com.apple.developer.driverkit.transport.pci.bridge"
-
+#define kIOPCITransportDextEntitlement                     "com.apple.developer.driverkit.transport.pci"
+#define kIOPCITransportBridgeDextEntitlement               "com.apple.developer.driverkit.transport.pci.bridge"
+#define kIOPCITransportDextEntitlementOffloadEngineDisable "com.apple.developer.driverkit.transport.pci.offloadEngineDisable"
 extern const    IORegistryPlane * gIOPCIACPIPlane;
 extern const    OSSymbol *        gIOPlatformDeviceASPMEnableKey;
 extern uint32_t                   gIOPCIFlags;

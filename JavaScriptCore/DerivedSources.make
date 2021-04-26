@@ -160,6 +160,8 @@ OBJECT_LUT_HEADERS = \
     IntlDateTimeFormatPrototype.lut.h \
     IntlDisplayNamesConstructor.lut.h \
     IntlDisplayNamesPrototype.lut.h \
+    IntlListFormatConstructor.lut.h \
+    IntlListFormatPrototype.lut.h \
     IntlLocalePrototype.lut.h \
     IntlNumberFormatConstructor.lut.h \
     IntlNumberFormatPrototype.lut.h \
@@ -168,6 +170,10 @@ OBJECT_LUT_HEADERS = \
     IntlPluralRulesPrototype.lut.h \
     IntlRelativeTimeFormatConstructor.lut.h \
     IntlRelativeTimeFormatPrototype.lut.h \
+    IntlSegmentIteratorPrototype.lut.h \
+    IntlSegmenterConstructor.lut.h \
+    IntlSegmenterPrototype.lut.h \
+    IntlSegmentsPrototype.lut.h \
     JSDataViewPrototype.lut.h \
     JSGlobalObject.lut.h \
     JSInternalPromiseConstructor.lut.h \

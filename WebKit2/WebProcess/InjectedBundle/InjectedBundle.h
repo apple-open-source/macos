@@ -27,6 +27,7 @@
 
 #include "APIInjectedBundleBundleClient.h"
 #include "APIObject.h"
+#include "DataReference.h"
 #include "SandboxExtension.h"
 #include <JavaScriptCore/JavaScript.h>
 #include <WebCore/UserContentTypes.h>
@@ -54,7 +55,6 @@ class Data;
 namespace IPC {
 class Decoder;
 class Connection;
-class DataReference;
 }
 
 namespace WebKit {
@@ -95,18 +95,6 @@ public:
     WebConnection* webConnectionToUIProcess() const;
 
     // TestRunner only SPI
-    void overrideBoolPreferenceForTestRunner(WebPageGroupProxy*, const String& preference, bool enabled);
-    void setAllowUniversalAccessFromFileURLs(WebPageGroupProxy*, bool);
-    void setAllowFileAccessFromFileURLs(WebPageGroupProxy*, bool);
-    void setNeedsStorageAccessFromFileURLsQuirk(WebPageGroupProxy*, bool);
-    void setMinimumLogicalFontSize(WebPageGroupProxy*, int size);
-    void setFrameFlatteningEnabled(WebPageGroupProxy*, bool);
-    void setAsyncFrameScrollingEnabled(WebPageGroupProxy*, bool);
-    void setPluginsEnabled(WebPageGroupProxy*, bool);
-    void setJavaScriptCanAccessClipboard(WebPageGroupProxy*, bool);
-    void setPopupBlockingEnabled(WebPageGroupProxy*, bool);
-    void setAuthorAndUserStylesEnabled(WebPageGroupProxy*, bool);
-    void setSpatialNavigationEnabled(WebPageGroupProxy*, bool);
     void addOriginAccessAllowListEntry(const String&, const String&, const String&, bool);
     void removeOriginAccessAllowListEntry(const String&, const String&, const String&, bool);
     void resetOriginAccessAllowLists();
@@ -142,8 +130,6 @@ public:
 
     void setTabKeyCyclesThroughElements(WebPage*, bool enabled);
     void setSerialLoadingEnabled(bool);
-    void setWebAnimationsEnabled(bool);
-    void setWebAnimationsCSSIntegrationEnabled(bool);
     void setAccessibilityIsolatedTreeEnabled(bool);
     void dispatchPendingLoadRequests();
 
@@ -175,4 +161,3 @@ private:
 };
 
 } // namespace WebKit
-

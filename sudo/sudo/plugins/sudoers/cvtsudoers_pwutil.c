@@ -28,13 +28,10 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
@@ -61,6 +58,8 @@ do {							\
 	if ((src)->name) {				\
 		size = strlen((src)->name) + 1;		\
 		total += size;				\
+	} else {                                        \
+		size = 0;				\
 	}                                               \
 } while (0)
 
@@ -68,7 +67,7 @@ do {							\
 do {							\
 	if ((src)->name) {				\
 		memcpy(cp, (src)->name, size);		\
-		(dst)->name = cp;				\
+		(dst)->name = cp;			\
 		cp += size;				\
 	}						\
 } while (0)
@@ -84,11 +83,14 @@ struct cache_item *
 cvtsudoers_make_pwitem(uid_t uid, const char *name)
 {
     char *cp, uidstr[MAX_UID_T_LEN + 2];
-    size_t nsize, psize, csize, gsize, dsize, ssize, total;
+    size_t nsize, psize, gsize, dsize, ssize, total;
+#ifdef HAVE_LOGIN_CAP_H
+    size_t csize;
+#endif
     struct cache_item_pw *pwitem;
     struct passwd pw, *newpw;
     struct sudoers_string *s = NULL;
-    debug_decl(cvtsudoers_make_pwitem, SUDOERS_DEBUG_NSS)
+    debug_decl(cvtsudoers_make_pwitem, SUDOERS_DEBUG_NSS);
 
     /* Look up name or uid in filter list. */
     if (name != NULL) {
@@ -131,7 +133,6 @@ cvtsudoers_make_pwitem(uid_t uid, const char *name)
     pw.pw_dir = "/";
 
     /* Allocate in one big chunk for easy freeing. */
-    nsize = psize = csize = gsize = dsize = ssize = 0;
     total = sizeof(*pwitem);
     FIELD_SIZE(&pw, pw_name, nsize);
     FIELD_SIZE(&pw, pw_passwd, psize);
@@ -191,11 +192,11 @@ struct cache_item *
 cvtsudoers_make_gritem(gid_t gid, const char *name)
 {
     char *cp, gidstr[MAX_UID_T_LEN + 2];
-    size_t nsize, psize, nmem, total, len;
+    size_t nsize, psize, total, len, nmem = 0;
     struct cache_item_gr *gritem;
     struct group gr, *newgr;
     struct sudoers_string *s = NULL;
-    debug_decl(cvtsudoers_make_gritem, SUDOERS_DEBUG_NSS)
+    debug_decl(cvtsudoers_make_gritem, SUDOERS_DEBUG_NSS);
 
     /* Look up name or gid in filter list. */
     if (name != NULL) {
@@ -234,7 +235,6 @@ cvtsudoers_make_gritem(gid_t gid, const char *name)
     gr.gr_gid = gid;
 
     /* Allocate in one big chunk for easy freeing. */
-    nsize = psize = nmem = 0;
     total = sizeof(*gritem);
     FIELD_SIZE(&gr, gr_name, nsize);
     FIELD_SIZE(&gr, gr_passwd, psize);
@@ -307,7 +307,7 @@ cvtsudoers_make_gidlist_item(const struct passwd *pw, char * const *unused1,
     struct gid_list *gidlist;
     GETGROUPS_T *gids = NULL;
     int i, ngids = 0;
-    debug_decl(cvtsudoers_make_gidlist_item, SUDOERS_DEBUG_NSS)
+    debug_decl(cvtsudoers_make_gidlist_item, SUDOERS_DEBUG_NSS);
 
     /*
      * There's only a single gid list.
@@ -404,7 +404,7 @@ cvtsudoers_make_grlist_item(const struct passwd *pw, char * const *unused1)
     struct sudoers_string *s;
     struct group_list *grlist;
     int groupname_len;
-    debug_decl(cvtsudoers_make_grlist_item, SUDOERS_DEBUG_NSS)
+    debug_decl(cvtsudoers_make_grlist_item, SUDOERS_DEBUG_NSS);
 
     /*
      * There's only a single group list.

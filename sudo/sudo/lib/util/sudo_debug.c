@@ -23,14 +23,11 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
@@ -40,14 +37,12 @@
 #include <fcntl.h>
 #include <time.h>
 
-#define DEFAULT_TEXT_DOMAIN	"sudo"
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
-
 #include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_plugin.h"
-#include "sudo_debug.h"
 #include "sudo_conf.h"
+#include "sudo_debug.h"
+#include "sudo_fatal.h"
+#include "sudo_gettext.h"
+#include "sudo_plugin.h"
 #include "sudo_util.h"
 
 /*
@@ -106,6 +101,7 @@ struct sudo_debug_instance {
     const char *const *subsystems;
     const unsigned int *subsystem_ids;
     unsigned int max_subsystem;
+    unsigned int refcnt;
     struct sudo_debug_output_list outputs;
 };
 
@@ -141,6 +137,7 @@ sudo_debug_free_output(struct sudo_debug_output *output)
 /*
  * Create a new output file for the specified debug instance.
  * Returns NULL if the file cannot be opened or memory cannot be allocated.
+ * XXX - check for duplicates
  */
 static struct sudo_debug_output *
 sudo_debug_new_output(struct sudo_debug_instance *instance,
@@ -164,7 +161,6 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
     output->filename = strdup(debug_file->debug_file);
     if (output->filename == NULL)
 	goto oom;
-    output->fd = -1;
 
     /* Init per-subsystems settings to -1 since 0 is a valid priority. */
     for (j = 0; j <= instance->max_subsystem; j++)
@@ -184,7 +180,10 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
 	}
 	ignore_result(fchown(output->fd, (uid_t)-1, 0));
     }
-    (void)fcntl(output->fd, F_SETFD, FD_CLOEXEC);
+    if (fcntl(output->fd, F_SETFD, FD_CLOEXEC) == -1) {
+	sudo_warn_nodebug("%s", output->filename);
+	goto bad;
+    }
     if (sudo_debug_fds_size < output->fd) {
 	/* Bump fds size to the next multiple of 4 * NBBY. */
 	const int old_size = sudo_debug_fds_size / NBBY;
@@ -240,6 +239,7 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
 
     return output;
 oom:
+    // -V:sudo_warn_nodebug:575, 618
     sudo_warn_nodebug(NULL);
 bad:
     if (output != NULL)
@@ -328,6 +328,7 @@ sudo_debug_register_v1(const char *program, const char *const subsystems[],
 	instance->subsystems = subsystems;
 	instance->subsystem_ids = ids;
 	instance->max_subsystem = max_id;
+	instance->refcnt = 1;
 	SLIST_INIT(&instance->outputs);
 	sudo_debug_instances[idx] = instance;
 	if (idx != free_idx)
@@ -340,6 +341,7 @@ sudo_debug_register_v1(const char *program, const char *const subsystems[],
 	    for (i = 0; subsystems[i] != NULL; i++)
 		ids[i] = instance->subsystem_ids[i];
 	}
+	instance->refcnt++;
     }
 
     TAILQ_FOREACH(debug_file, debug_files, entries) {
@@ -364,6 +366,7 @@ sudo_debug_register_v1(const char *program, const char *const subsystems[],
 /*
  * De-register the specified instance from the debug subsystem
  * and free up any associated data structures.
+ * Returns the number of remaining references for the instance or -1 on error.
  */
 int
 sudo_debug_deregister_v1(int idx)
@@ -383,7 +386,10 @@ sudo_debug_deregister_v1(int idx)
 
     instance = sudo_debug_instances[idx];
     if (instance == NULL)
-	return -1;		/* already deregistered */
+	return -1;			/* already deregistered */
+
+    if (--instance->refcnt != 0)
+	return instance->refcnt;	/* ref held by other caller */
 
     /* Free up instance data, note that subsystems[] is owned by caller. */
     sudo_debug_instances[idx] = NULL;
@@ -400,6 +406,45 @@ sudo_debug_deregister_v1(int idx)
 	sudo_debug_last_instance--;
 
     return 0;
+}
+
+/*
+ * Parse the "filename flags,..." debug_flags entry from sudo.conf
+ * and insert a new sudo_debug_file struct into the list.
+ * Returns 0 on success, 1 on parse error or -1 on malloc failure.
+ */
+int
+sudo_debug_parse_flags_v1(struct sudo_conf_debug_file_list *debug_files,
+    const char *entry)
+{
+    struct sudo_debug_file *debug_file;
+    const char *filename, *flags;
+    size_t namelen;
+
+    /* Only process new-style debug flags: filename flags,... */
+    filename = entry;
+    if (*filename != '/' || (flags = strpbrk(filename, " \t")) == NULL)
+	return 1;
+    namelen = (size_t)(flags - filename);
+    while (isblank((unsigned char)*flags))
+	flags++;
+    if (*flags != '\0') {
+	if ((debug_file = calloc(1, sizeof(*debug_file))) == NULL)
+	    goto oom;
+	if ((debug_file->debug_file = strndup(filename, namelen)) == NULL)
+	    goto oom;
+	if ((debug_file->debug_flags = strdup(flags)) == NULL)
+	    goto oom;
+	TAILQ_INSERT_TAIL(debug_files, debug_file, entries);
+    }
+    return 0;
+oom:
+    if (debug_file != NULL) {
+	free(debug_file->debug_file);
+	free(debug_file->debug_flags);
+	free(debug_file);
+    }
+    return -1;
 }
 
 int
@@ -614,6 +659,41 @@ sudo_debug_write2_v1(int fd, const char *func, const char *file, int lineno,
 
     /* Write message in a single syscall */
     ignore_result(writev(fd, iov, iovcnt));
+}
+
+bool
+sudo_debug_needed_v1(int level)
+{
+    unsigned int subsys;
+    int pri;
+    struct sudo_debug_instance *instance;
+    struct sudo_debug_output *output;
+    bool result = false;
+
+    if (sudo_debug_active_instance == -1)
+        goto out;
+
+    /* Extract priority and subsystem from level. */
+    pri = SUDO_DEBUG_PRI(level);
+    subsys = (unsigned int)SUDO_DEBUG_SUBSYS(level);
+
+    if (sudo_debug_active_instance > sudo_debug_last_instance)
+        goto out;
+
+    instance = sudo_debug_instances[sudo_debug_active_instance];
+    if (instance == NULL)
+        goto out;
+
+    if (subsys <= instance->max_subsystem) {
+        SLIST_FOREACH(output, &instance->outputs, entries) {
+            if (output->settings[subsys] >= pri) {
+                result = true;
+                break;
+            }
+        }
+    }
+out:
+    return result;
 }
 
 void

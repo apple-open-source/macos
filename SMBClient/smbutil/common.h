@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,12 +35,16 @@ extern "C" {
 
 extern int verbose;
 
+enum OutputFormat { None = 0, Json = 1 };
+
 int  cmd_lookup(int argc, char *argv[]);
 int  cmd_status(int argc, char *argv[]);
 int  cmd_view(int argc, char *argv[]);
 int  cmd_dfs(int argc, char *argv[]);
 int  cmd_identity(int argc, char *argv[]);
 int  cmd_statshares(int argc, char *argv[]);
+int  cmd_multichannel(int argc, char *argv[]);
+int  cmd_snapshot(int argc, char *argv[]);
 void lookup_usage(void);
 void status_usage(void);
 void view_usage(void);
@@ -48,8 +52,16 @@ void dfs_usage(void);
 void identity_usage(void);
 void ntstatus_to_err(NTSTATUS status);
 void statshares_usage(void);
+void multichannel_usage(void);
+void snapshot_usage(void);
 struct statfs *smb_getfsstat(int *fs_cnt);
 CFArrayRef createShareArrayFromShareDictionary(CFDictionaryRef shareDict);
+char * get_share_name(const char *name);
+/*
+ * Allocate a buffer and then use CFStringGetCString to copy the c-style string
+ * into the buffer. The calling routine needs to free the buffer when done.
+ */
+char *CStringCreateWithCFString(CFStringRef inStr);
 	
 #ifdef __cplusplus
 } // extern "C"

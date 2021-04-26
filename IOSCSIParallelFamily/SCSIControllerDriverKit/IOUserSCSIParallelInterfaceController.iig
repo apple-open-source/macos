@@ -21,3 +21,528 @@
 * @APPLE_LICENSE_HEADER_END@
 */
 
+#ifndef IOUserSCSIParallelInterfaceController_h
+#define IOUserSCSIParallelInterfaceController_h
+
+#include <TargetConditionals.h>
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOService.iig>
+#include <DriverKit/OSAction.iig>
+#include <DriverKit/storage/SCSITask.h>
+#include <DriverKit/storage/SCSICmds_REQUEST_SENSE_Defs.h>
+#include <DriverKit/OSDictionary.iig>
+#include <SCSIControllerDriverKit/IOSCSIParallelControllerCharacteristics.h>
+#else
+#include <IOKit/scsi/SCSITask.h>
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
+#include <DriverKit/IOService.iig>
+#include <DriverKit/OSAction.iig>
+#include "IOSCSIParallelControllerCharacteristics.h"
+#endif
+
+
+#define kMaxSenseBufferSize				256
+#define kIOServicePowerCapabilityPause	0x1000
+
+typedef enum SCSIUserParallelTaskVersion
+{
+	kScsiUserParallelTaskCurrentVersion1 = 1
+} SCSIUserParallelTaskVersion;
+
+typedef enum SCSIUserParallelResponseVersion {
+	kScsiUserParallelTaskResponseCurrentVersion1 = 1
+} SCSIUserParallelResponseVersion;
+
+
+typedef struct SCSIUserParallelTask
+{
+    uint64_t                                version;
+    SCSITargetIdentifier                    fTargetID;
+    uint32_t								fSCSIParallelFeatureRequest[kSCSIParallelFeature_TotalFeatureCount];
+    uint64_t								fSCSIParallelFeatureRequestCount;
+    uint64_t								fControllerTaskIdentifier;
+    uint64_t								fRequestedTransferCount;
+    uint64_t                    			fBufferIOVMAddr;
+    SCSITaskAttribute           			fTaskAttribute;
+    uint64_t                    			fTaskTagIdentifier;
+    SCSILogicalUnitBytes        			fLogicalUnitBytes;
+    SCSICommandDescriptorBlock  			fCommandDescriptorBlock;
+    uint8_t                     			fCommandSize;
+    uint8_t                     			fTransferDirection;
+    uint8_t                                 reserved[10];
+} SCSIUserParallelTask;
+
+typedef struct SCSIUserParallelResponse
+{
+    uint64_t                                version;
+    SCSITargetIdentifier                    fTargetID;
+    uint32_t								fSCSIParallelFeatureResult[kSCSIParallelFeature_TotalFeatureCount];
+    uint64_t                    			fSCSIParallelFeatureRequestResultCount;
+	uint64_t								fControllerTaskIdentifier;
+	SCSITaskStatus							fCompletionStatus;
+	SCSIServiceResponse						fServiceResponse;
+	uint64_t								fBytesTransferred;
+	uint8_t									fSenseLength;
+	uint8_t									fSenseBuffer[kMaxSenseBufferSize];
+	uint8_t									reserved[51];
+} SCSIUserParallelResponse;
+
+typedef enum DMAOutputSegmentType : uint16_t
+{
+	
+	// IODMACommand will use host natural Segment32 output segment function.
+	kDMAOutputSegmentHost32 		= 0,
+	
+	// IODMACommand will use big-endian Segment32 output segment function.
+	kDMAOutputSegmentBig32			= 1,
+	
+	// IODMACommand will use little-endian Segment32 output segment function.
+	kDMAOutputSegmentLittle32		= 2,
+	
+	// IODMACommand will use host natural Segment64 output segment function.
+	kDMAOutputSegmentHost64			= 3,
+	
+	// IODMACommand will use big-endian Segment64 output segment function.
+	kDMAOutputSegmentBig64			= 4,
+	
+	// IODMACommand will use little-endian Segment64 output segment function.
+	kDMAOutputSegmentLittle64		= 5
+	
+} DMAOutputSegmentType;
+
+
+/*!
+ @iig implementation
+ #if KERNEL
+ #include "DriverKitKernelSupport/IOUserSCSIParallelInterfaceController.h"
+ #endif
+ @iig end
+ */
+
+class KERNEL IOUserSCSIParallelInterfaceController : public IOService
+{
+	
+public:
+	
+    /*!
+		@function ParallelTaskCompletion
+		@abstract Type definition for asynchronous completion routines.
+		@discussion Type definition for asynchronous completion routines. Dext class
+		should use this method to complete an async request.
+     	@param action Pointer to the OSAction object of the async request specified
+		in UserProcessParallelTask.
+     	@param response Result of the async request.
+     	@result	void
+     */
+    virtual void
+    ParallelTaskCompletion     ( OSAction *					action TARGET,
+								 SCSIUserParallelResponse	response ) = 0;
+    
+    /*!
+		@function UserTargetPresentForID
+		@abstract Checks if a specific target is present.
+		@discussion For a given target ID, dext class can call this method to check if
+		it is actually present.
+     	@param targetID ID of the target to check
+     	@param result This is set to true by the framework if the target is present and
+		false otherwise.
+     	@result	kIOReturnSuccess on success. See IOReturn.h for error codes.
+     */
+	
+    virtual kern_return_t
+    UserTargetPresentForID ( SCSIDeviceIdentifier		targetID,
+							 bool *						result );
+
+
+    /*!
+        @function UserCreateTargetForID
+        @abstract Create a target.
+        @discussion The dext class should call this method to create a new target for the
+        targetID. The framework ensures that the new target is created before the call returns.
+        Note that this call to the framework runs on the Auxiliary queue.
+        @param targetID ID of the target to be created
+        @param targetDict OSDictionary containing all the target properties.
+        @result    kIOReturnSuccess on success. See IOReturn.h for error codes.
+     */
+
+    virtual kern_return_t
+    UserCreateTargetForID ( SCSIDeviceIdentifier    targetID,
+                            OSDictionary *          targetDict ) QUEUENAME ( AuxiliaryQueue );
+    
+	/*!
+		@function UserReportHBAHighestLogicalUnitNumber
+		@abstract Gets the Highest Logical Unit Number.
+		@discussion	This method is used to query the dext class to determine
+		what the highest Logical Unit Number that the controller can address.
+		@param value pointer to hold the value.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserReportHBAHighestLogicalUnitNumber ( uint64_t *	value ) = 0;
+    
+	/*!
+		@function UserDoesHBASupportSCSIParallelFeature
+		@abstract Queries the dext class to determine if it supports a specific
+		SPI feature.
+		@discussion	Queries the dext class to determine if it supports the
+		specified feature as defined by the SCSI Parallel Interconnect
+		specifications.
+		@param theValue SPI feature to check
+		@param result boolean value to be filled out by the caller.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserDoesHBASupportSCSIParallelFeature ( uint32_t	theValue,
+										    bool *		result ) = 0;
+    
+	/*!
+		@function UserInitializeTargetForID
+		@abstract Called to initialize a target device.
+		@discussion	This method will be called to initialize a target device. The
+		HBA can use this method to probe the target or do anything else necessary
+		before the device object is registered with IOKit for matching.
+		@param targetID target to initialize.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserInitializeTargetForID ( SCSITargetIdentifier	targetID ) = 0;
+    
+	/*!
+		@function UserDoesHBAPerformAutoSense
+		@abstract Queries the dext class to determine if it automatically performs
+		AutoSense and provides AutoSense data for each I/O. If the HBA allocates
+		space for AutoSense in its HBA specific data region on a per task basis, the
+		HBA should respond true.
+		@discussion	Queries the dext class to determine if it automatically performs
+		AutoSense and provides AutoSense data for each I/O. If the HBA allocates
+		space for AutoSense in its HBA specific data region on a per task basis, the
+		HBA should respond true.
+		@param result Caller should set this to true if HBA performs AutoSense.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserDoesHBAPerformAutoSense ( bool *	result ) = 0;
+    
+	/*!
+		@function UserDoesHBASupportMultiPathing
+		@abstract Queries the HBA child class to determine if it supports
+		Multi-Pathing.
+		@discussion Queries the HBA child class to determine if it supports
+		Multi-Pathing.
+		@param result Returns true if requested feature is supported.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+    
+    virtual kern_return_t
+    UserDoesHBASupportMultiPathing ( bool *	result  ) = 0;
+    
+    
+	// The SCSI Task Management Functions as defined in the SCSI Architecture
+	// Model - 2 (SAM-2) specification.  These are used by the client to request
+	// the specified function.
+	
+    virtual kern_return_t
+    UserAbortTaskRequest ( uint64_t			theT,
+						   uint64_t			theL,
+						   uint64_t			theQ,
+						   uint32_t *		response ) = 0;
+    
+    virtual kern_return_t
+    UserAbortTaskSetRequest ( uint64_t		theT,
+							  uint64_t		theL,
+							  uint32_t *	response ) = 0;
+    
+    virtual kern_return_t
+    UserClearACARequest ( uint64_t		theT,
+						  uint64_t		theL,
+						  uint32_t *	response ) = 0;
+    
+    virtual kern_return_t
+    UserClearTaskSetRequest ( uint64_t		theT,
+							  uint64_t		theL,
+							  uint32_t *	response ) = 0;
+    
+    virtual kern_return_t
+    UserLogicalUnitResetRequest ( uint64_t		theT,
+								  uint64_t		theL,
+								  uint32_t *	response ) = 0;
+    
+    virtual kern_return_t
+    UserTargetResetRequest ( uint64_t		theT,
+							 uint32_t *		response ) = 0;
+    
+protected:
+    
+	/*!
+		@function UserReportInitiatorIdentifier
+		@abstract Get the SCSI Device Identifier for the HBA.
+		@discussion This method will be called to determine the SCSI Device
+		Identifier that the Initiator has assigned for this HBA.
+		@param id The caller should set the value of the initiator identifier.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserReportInitiatorIdentifier ( uint64_t *		id ) = 0;
+    
+	/*!
+		@function UserReportHighestSupportedDeviceID
+		@abstract Get the highest supported SCSI Device Identifier.
+		@discussion This method will be called to determine the value of the
+		highest SCSI Device Identifier supported by the HBA. This value will be
+		used to determine the last ID to process.
+		@param id The caller should set this to the highest SCSIDeviceIdentifier.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserReportHighestSupportedDeviceID ( uint64_t *		id ) = 0;
+    
+	/*!
+		@function UserReportMaximumTaskCount
+		@abstract Report Maximum Task Count
+		@discussion This method will be called to retrieve the maximum number of
+		outstanding tasks the HBA can process. This number must be greater than
+		zero or the controller driver will fail to match and load.
+		@param count The caller should set this to the maximum task count.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserReportMaximumTaskCount ( uint32_t *		count ) = 0;
+    
+  	/*!
+		@function UserDoesHBAPerformDeviceManagement
+		@abstract  Determine if HBA will manage devices.
+		@discussion This method is used to determine if the HBA will manage
+		target device creation and destruction.
+		@param result The caller should set this to true if it will manage target
+		device creation.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserDoesHBAPerformDeviceManagement ( bool *		result ) = 0;
+    
+  	/*!
+		@function UserInitializeController
+		@abstract  Called to initialize the controller
+		@discussion It is guaranteed that the UserInitializeController() will only be
+		called once per instantiation.  The InitializeController() methods allows the
+		dext driver to do all the necessary initialization required by the hardware
+		before it is able to accept requests to execute. All necessary allocation of
+		resources should be made during this method call. This is the first method
+		that will be called in the dext.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserInitializeController ( ) = 0;
+	
+	/*!
+		@function UserStartController
+		@abstract Called to start the controller
+		@discussion UserStartController( ) will always be called before any
+		requests are sent to the driver for execution. This method is called after
+		UserInitializeController( ) to start the services provided by the specific HBA
+		dext driver. After this call completes, all services provided by the HBA driver
+		are available to the client.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserStartController ( ) = 0;
+	
+	/*!
+		@function UserProcessParallelTask
+		@abstract Called by framework to process a parallel task.
+		@discussion This method is called to process a parallel task (i.e. put
+		the command on the bus). The framework will send all the information required
+		to process the request in SCSIUserParallelTask. The HBA specific sublcass must
+		implement this method.
+		@param parallelRequest SCSIUserParallelTask object containing all
+		the request information.
+		@param response Service response for the request.
+		@param completion OSAction object that the dext class should use to complete
+		this request.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserProcessParallelTask ( SCSIUserParallelTask		parallelRequest,
+							  uint32_t *				response,
+							  OSAction *				completion TYPE ( ParallelTaskCompletion ) ) = 0;
+    
+	/*!
+		@function UserGetDMASpecification
+		@abstract Get controller specific DMA specification.
+		@discussion This method is used to get controller specific DMA specification
+		from the dext.
+		@param maxTransferSize  Maximum allowed transfer size for the controller.
+		@param alignment Required alignment for the controller.
+		@param numAddressBits Number of bits that the hardware uses on its internal address bus.
+		@param DMAOutputSegmentType Output segment type based on the endianness of the hardware.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserGetDMASpecification ( uint64_t *				maxTransferSize,
+							  uint32_t *				alignment,
+							  uint8_t *					numAddressBits,
+							  DMAOutputSegmentType *	segmentType ) = 0;
+	
+	/*!
+		@function UserMapHBAData
+		@abstract Map any HBA specific task data.
+		@discussion The dext class should override this and memory map and prepare
+		any HBA specific task data for DMA. This method gets called for every
+		SCSIParallelTask right after they get created in the kernel. The dext class should
+		also set a task ID that is unique. This ID is used to uniquely identify the
+		corresponding SCSIParallelTask in the kernel.
+		@param uniqueTaskID  Unique ID for this task.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+    virtual kern_return_t
+    UserMapHBAData ( uint32_t *		uniqueTaskID ) = 0;
+	
+	/*!
+	   @function UserDestroyTargetForID
+	   @abstract Destroy the target.
+	   @discussion The dext class should call this method to remove the target with the
+	   specified targetID.
+	   @param targetID ID of the target to be destroyed
+	   @result    kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+
+	virtual kern_return_t
+	UserDestroyTargetForID ( SCSITargetIdentifier	targetID );
+
+	/*!
+		@function UserSetHBAProperties
+		@abstract Accessor for setting a set of properties for this object.
+		@param properties A dictionary containing key value pairs of properties.
+		A list of valid keys includes:
+			kIOPropertyVendorNameKey,
+			kIOPropertyProductNameKey,
+			kIOPropertyProductRevisionLevelKey,
+			kIOPropertyPortDescriptionKey,
+			kIOPropertyPortSpeedKey,
+			kIOPropertyPortTopologyKey,
+			kIOPropertySCSIParallelSignalingTypeKey,
+			kIOPropertyFibreChannelCableDescriptionKey,
+			kIOPropertyFibreChannelNodeWorldWideNameKey,
+			kIOPropertyFibreChannelPortWorldWideNameKey,
+			kIOPropertyFibreChannelAddressIdentifierKey,
+			kIOPropertyFibreChannelALPAKey, and
+			kIOPropertySASAddressKey.
+		The value should be a pointer to a valid OSString object which represents value for
+		the property. The value must be of the proper type, and/or size for the specified key.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+	virtual kern_return_t
+	UserSetHBAProperties ( OSDictionary *	properties ) ;
+	
+	/*!
+		@function UserRemoveHBAProperties
+		@abstract Accessor for removing the property from this object.
+		@param properties An array containing keys of the properties to be removed.
+		A list of valid keys includes:
+			kIOPropertyVendorNameKey,
+			kIOPropertyProductNameKey,
+			kIOPropertyProductRevisionLevelKey,
+			kIOPropertyPortDescriptionKey,
+			kIOPropertyPortSpeedKey,
+			kIOPropertyPortTopologyKey,
+			kIOPropertySCSIParallelSignalingTypeKey,
+			kIOPropertyFibreChannelCableDescriptionKey,
+			kIOPropertyFibreChannelNodeWorldWideNameKey,
+			kIOPropertyFibreChannelPortWorldWideNameKey,
+			kIOPropertyFibreChannelAddressIdentifierKey,
+			kIOPropertyFibreChannelALPAKey, and
+			kIOPropertySASAddressKey.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+	virtual kern_return_t
+	UserRemoveHBAProperties ( OSArray *	properties );
+	
+	/*!
+		@function UserSetTargetProperties
+		@abstract Accessor for setting a set of properties for a specific target.
+		@param targetID ID of the specific target.
+		@param properties A dictionary containing key value pairs of properties.
+		A list of valid keys includes:
+			kIOPropertySASAddressKey,
+			kIOPropertyFibreChannelNodeWorldWideNameKey,
+			kIOPropertyFibreChannelPortWorldWideNameKey,
+			kIOPropertyFibreChannelAddressIdentifierKey, and
+			kIOPropertyFibreChannelALPAKey.
+		The value should be a pointer to a valid OSString object which represents value for
+		the property. The value must be of the proper type, and/or size for the specified key.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+	virtual kern_return_t
+	UserSetTargetProperties ( SCSIDeviceIdentifier 		targetID,
+							  OSDictionary *			properties );
+	
+	/*!
+		@function UserRemoveTargetProperties
+		@abstract Accessor for removing a property from a specific target.
+		@param targetID ID of the specific target.
+		@param properties An array containing keys of the properties to be removed.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+	virtual kern_return_t
+	UserRemoveTargetProperties ( SCSIDeviceIdentifier		targetID,
+								 OSArray *					properties );
+	
+	/*!
+		@function UserReportHBAConstraints
+		@abstract Called to report the I/O constraints for this controller.
+		A list of valid keys includes:
+			kIOMaximumSegmentCountReadKey, (required)
+			kIOMaximumSegmentCountWriteKey, (required)
+			kIOMaximumSegmentByteCountReadKey, (required)
+			kIOMaximumSegmentByteCountWriteKey, (required)
+			kIOMinimumSegmentAlignmentByteCountKey, (required)
+			kIOMaximumSegmentAddressableBitCountKey, (required)
+			kIOMinimumHBADataAlignmentMaskKey (required)
+			kIOHierarchicalLogicalUnitSupportKey (optional).
+		NB: These keys and their values are described in this header and <DriverKit/IOKitKeys.h>
+		@param constraints. An OSDictionary object used to aggregate the key/value pairs.
+		Subclasses must set the required keys if they override this method. If a subclass does
+		not provide the required keys, the system will panic. Subclasses must call this method from
+		the dext before UserInitializeController() returns.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	
+	virtual kern_return_t
+	UserReportHBAConstraints ( OSDictionary * constraints );
+};
+
+
+class EXTENDS ( IOUserSCSIParallelInterfaceController ) IOUserSCSIParallelInterfaceControllerPrivate
+{
+	
+	// Kernel implementation of asynchronous completion routines of type ParallelTaskCompletion.
+	// SCSIUserParallelResponse version should match the current version in SCSIUserParallelResponseVersion enum and needs to be set by the dext.
+	// If the SCSIUserParallelResponse version does not match, then this function will return without completing the I/O.
+    virtual void
+    UserCompleteParallelTask ( OSAction *				action,
+                               SCSIUserParallelResponse	response )
+							 KERNEL
+                             TYPE(IOUserSCSIParallelInterfaceController::ParallelTaskCompletion);
+    
+	
+};
+
+#endif /* IOUserSCSIParallelInterfaceController_h */

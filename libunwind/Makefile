@@ -16,14 +16,32 @@ ifeq "$(SRCROOT)" ""
 $(error "SRCROOT not set")
 endif
 
-APPLE_XBS_SUPPORT_MK := apple-xbs-support/$(RC_ProjectName).mk
+# Note: APPLE_XBS_SUPPORT_MK is a lazy variable ('=' instead of ':=') that
+# tracks the value of APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName.
+APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName := $(RC_ProjectName)
+APPLE_XBS_SUPPORT_MK = \
+	apple-xbs-support/$(APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName).mk
 
-# If this project name doesn't exist, drop the prefix.  This handles Variant_*
-# versions of projects.
+# Note: APPLE_XBS_SUPPORT_VARIANT_PREFIX is a lazy variable ('=' instead of
+# ':=') that tracks the value of APPLE_XBS_SUPPORT_VARIANT.
+APPLE_XBS_SUPPORT_VARIANT :=
+APPLE_XBS_SUPPORT_VARIANT_PREFIX = \
+	$(if $(APPLE_XBS_SUPPORT_VARIANT),$(APPLE_XBS_SUPPORT_VARIANT)_,)
+
+# Check if there is a .mk file for this project name.
 ifeq "$(shell stat $(APPLE_XBS_SUPPORT_MK) 2>/dev/null)" ""
-APPLE_XBS_SUPPORT_MK_DROP_PREFIX := $(shell printf "%s" "$(APPLE_XBS_SUPPORT_MK)" | sed -e 's,/[^_]*_,/,')
-ifneq "$(shell stat $(APPLE_XBS_SUPPORT_MK_DROP_PREFIX) 2>/dev/null)" ""
-APPLE_XBS_SUPPORT_MK := $(APPLE_XBS_SUPPORT_MK_DROP_PREFIX)
+
+# Not found.  If there's an underscore, try dropping the prefix.
+ifneq "$(words $(subst _, ,$(RC_ProjectName)))" "1"
+APPLE_XBS_SUPPORT_VARIANT := $(word 1,$(subst _, ,$(RC_ProjectName)))
+APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName := \
+	$(subst ^$(APPLE_XBS_SUPPORT_VARIANT_PREFIX),,^$(RC_ProjectName))
+
+ifeq "$(shell stat $(APPLE_XBS_SUPPORT_MK) 2>/dev/null)" ""
+# Still not found... revert to original to avoid bad error messages.
+APPLE_XBS_SUPPORT_COMPUTED_RC_ProjectName := $(RC_ProjectName)
+APPLE_XBS_SUPPORT_VARIANT :=
+endif
 endif
 endif
 

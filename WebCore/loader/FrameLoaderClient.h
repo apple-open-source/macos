@@ -79,7 +79,6 @@ class FormState;
 class Frame;
 class FrameLoader;
 class FrameNetworkingContext;
-class HTMLAppletElement;
 class HTMLFormElement;
 class HTMLFrameOwnerElement;
 class HTMLPlugInElement;
@@ -188,7 +187,7 @@ public:
     virtual void dispatchDidReachLayoutMilestone(OptionSet<LayoutMilestone>) { }
     virtual void dispatchDidReachVisuallyNonEmptyState() { }
 
-    virtual Frame* dispatchCreatePage(const NavigationAction&) = 0;
+    virtual Frame* dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy) = 0;
     virtual void dispatchShow() = 0;
 
     virtual void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, PolicyCheckIdentifier, const String& downloadAttribute, FramePolicyFunction&&) = 0;
@@ -289,8 +288,6 @@ public:
     virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
     virtual void redirectDataToPlugin(Widget&) = 0;
 
-    virtual RefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement&, const URL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues) = 0;
-
     virtual ObjectContentType objectContentType(const URL&, const String& mimeType) = 0;
     virtual String overrideMediaType() const = 0;
 
@@ -379,9 +376,11 @@ public:
 #endif
 
     virtual AllowsContentJavaScript allowsContentJavaScriptFromMostRecentNavigation() const { return AllowsContentJavaScript::Yes; }
-
+    
+#if ENABLE(APP_BOUND_DOMAINS)
     virtual bool shouldEnableInAppBrowserPrivacyProtections() const { return false; }
     virtual void notifyPageOfAppBoundBehavior() { }
+#endif
 };
 
 } // namespace WebCore

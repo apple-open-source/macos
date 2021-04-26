@@ -30,6 +30,7 @@
 
 typedef void *region_t;
 typedef region_t *rgnhdl_t; /* A pointer into hashed_regions array. */
+typedef struct region_trailer region_trailer_t;
 
 #define INITIAL_NUM_REGIONS_SHIFT 6							 // log2(INITIAL_NUM_REGIONS)
 #define INITIAL_NUM_REGIONS (1 << INITIAL_NUM_REGIONS_SHIFT) // Must be a power of 2!
@@ -94,5 +95,28 @@ rack_destroy(rack_t *rack);
 MALLOC_NOEXPORT
 void
 rack_region_insert(rack_t *rack, region_t region);
+
+MALLOC_NOEXPORT
+bool
+rack_region_remove(rack_t *rack, region_t region, region_trailer_t *trailer);
+
+MALLOC_NOEXPORT
+bool
+rack_region_maybe_dispose(rack_t *rack, region_t region, size_t region_size,
+		region_trailer_t *trailer);
+
+MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE
+static void
+rack_region_lock(rack_t *rack)
+{
+	_malloc_lock_lock(&rack->region_lock);
+}
+
+MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE
+static void
+rack_region_unlock(rack_t *rack)
+{
+	_malloc_lock_unlock(&rack->region_lock);
+}
 
 #endif // __MAGAZINE_RACK_H

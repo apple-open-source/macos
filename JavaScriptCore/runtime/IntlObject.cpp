@@ -39,6 +39,9 @@
 #include "IntlDisplayNames.h"
 #include "IntlDisplayNamesConstructor.h"
 #include "IntlDisplayNamesPrototype.h"
+#include "IntlListFormat.h"
+#include "IntlListFormatConstructor.h"
+#include "IntlListFormatPrototype.h"
 #include "IntlLocale.h"
 #include "IntlLocaleConstructor.h"
 #include "IntlLocalePrototype.h"
@@ -49,8 +52,12 @@
 #include "IntlPluralRulesPrototype.h"
 #include "IntlRelativeTimeFormatConstructor.h"
 #include "IntlRelativeTimeFormatPrototype.h"
+#include "IntlSegmenter.h"
+#include "IntlSegmenterConstructor.h"
+#include "IntlSegmenterPrototype.h"
 #include "JSCInlines.h"
 #include "Options.h"
+#include <unicode/ubrk.h>
 #include <unicode/ucol.h>
 #include <unicode/ufieldpositer.h>
 #include <unicode/uloc.h>
@@ -66,7 +73,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(IntlObject);
 
-static EncodedJSValue JSC_HOST_CALL intlObjectFuncGetCanonicalLocales(JSGlobalObject*, CallFrame*);
+static JSC_DECLARE_HOST_FUNCTION(intlObjectFuncGetCanonicalLocales);
 
 static JSValue createCollatorConstructor(VM& vm, JSObject* object)
 {
@@ -79,7 +86,7 @@ static JSValue createDateTimeFormatConstructor(VM& vm, JSObject* object)
 {
     IntlObject* intlObject = jsCast<IntlObject*>(object);
     JSGlobalObject* globalObject = intlObject->globalObject(vm);
-    return IntlDateTimeFormatConstructor::create(vm, IntlDateTimeFormatConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlDateTimeFormatPrototype*>(globalObject->dateTimeFormatStructure()->storedPrototypeObject()));
+    return globalObject->dateTimeFormatConstructor();
 }
 
 static JSValue createDisplayNamesConstructor(VM& vm, JSObject* object)
@@ -87,6 +94,13 @@ static JSValue createDisplayNamesConstructor(VM& vm, JSObject* object)
     IntlObject* intlObject = jsCast<IntlObject*>(object);
     JSGlobalObject* globalObject = intlObject->globalObject(vm);
     return IntlDisplayNamesConstructor::create(vm, IntlDisplayNamesConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlDisplayNamesPrototype*>(globalObject->displayNamesStructure()->storedPrototypeObject()));
+}
+
+static JSValue createListFormatConstructor(VM& vm, JSObject* object)
+{
+    IntlObject* intlObject = jsCast<IntlObject*>(object);
+    JSGlobalObject* globalObject = intlObject->globalObject(vm);
+    return IntlListFormatConstructor::create(vm, IntlListFormatConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlListFormatPrototype*>(globalObject->listFormatStructure()->storedPrototypeObject()));
 }
 
 static JSValue createLocaleConstructor(VM& vm, JSObject* object)
@@ -100,7 +114,7 @@ static JSValue createNumberFormatConstructor(VM& vm, JSObject* object)
 {
     IntlObject* intlObject = jsCast<IntlObject*>(object);
     JSGlobalObject* globalObject = intlObject->globalObject(vm);
-    return IntlNumberFormatConstructor::create(vm, IntlNumberFormatConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlNumberFormatPrototype*>(globalObject->numberFormatStructure()->storedPrototypeObject()));
+    return globalObject->numberFormatConstructor();
 }
 
 static JSValue createPluralRulesConstructor(VM& vm, JSObject* object)
@@ -115,6 +129,13 @@ static JSValue createRelativeTimeFormatConstructor(VM& vm, JSObject* object)
     IntlObject* intlObject = jsCast<IntlObject*>(object);
     JSGlobalObject* globalObject = intlObject->globalObject(vm);
     return IntlRelativeTimeFormatConstructor::create(vm, IntlRelativeTimeFormatConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlRelativeTimeFormatPrototype*>(globalObject->relativeTimeFormatStructure()->storedPrototypeObject()));
+}
+
+static JSValue createSegmenterConstructor(VM& vm, JSObject* object)
+{
+    IntlObject* intlObject = jsCast<IntlObject*>(object);
+    JSGlobalObject* globalObject = intlObject->globalObject(vm);
+    return IntlSegmenterConstructor::create(vm, IntlSegmenterConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<IntlSegmenterPrototype*>(globalObject->segmenterStructure()->storedPrototypeObject()));
 }
 
 }
@@ -132,6 +153,7 @@ namespace JSC {
   NumberFormat          createNumberFormatConstructor                DontEnum|PropertyCallback
   PluralRules           createPluralRulesConstructor                 DontEnum|PropertyCallback
   RelativeTimeFormat    createRelativeTimeFormatConstructor          DontEnum|PropertyCallback
+  Segmenter             createSegmenterConstructor                   DontEnum|PropertyCallback
 @end
 */
 
@@ -167,16 +189,61 @@ void IntlObject::finishCreation(VM& vm, JSGlobalObject*)
     ASSERT(inherits(vm, info()));
     JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 #if HAVE(ICU_U_LOCALE_DISPLAY_NAMES)
-    if (Options::useIntlDisplayNames())
-        putDirectWithoutTransition(vm, vm.propertyNames->DisplayNames, createDisplayNamesConstructor(vm, this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+    putDirectWithoutTransition(vm, vm.propertyNames->DisplayNames, createDisplayNamesConstructor(vm, this), static_cast<unsigned>(PropertyAttribute::DontEnum));
 #else
-    UNUSED_PARAM(createDisplayNamesConstructor);
+    UNUSED_PARAM(&createDisplayNamesConstructor);
+#endif
+#if HAVE(ICU_U_LIST_FORMATTER)
+    putDirectWithoutTransition(vm, vm.propertyNames->ListFormat, createListFormatConstructor(vm, this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+#else
+    UNUSED_PARAM(&createListFormatConstructor);
 #endif
 }
 
 Structure* IntlObject::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
     return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
+}
+
+static Vector<StringView> unicodeExtensionComponents(StringView extension)
+{
+    // UnicodeExtensionSubtags (extension)
+    // https://tc39.github.io/ecma402/#sec-unicodeextensionsubtags
+
+    auto extensionLength = extension.length();
+    if (extensionLength < 3)
+        return { };
+
+    Vector<StringView> subtags;
+    size_t subtagStart = 3; // Skip initial -u-.
+    size_t valueStart = 3;
+    bool isLeading = true;
+    for (size_t index = subtagStart; index < extensionLength; ++index) {
+        if (extension[index] == '-') {
+            if (index - subtagStart == 2) {
+                // Tag is a key, first append prior key's value if there is one.
+                if (subtagStart - valueStart > 1)
+                    subtags.append(extension.substring(valueStart, subtagStart - valueStart - 1));
+                subtags.append(extension.substring(subtagStart, index - subtagStart));
+                valueStart = index + 1;
+                isLeading = false;
+            } else if (isLeading) {
+                // Leading subtags before first key.
+                subtags.append(extension.substring(subtagStart, index - subtagStart));
+                valueStart = index + 1;
+            }
+            subtagStart = index + 1;
+        }
+    }
+    if (extensionLength - subtagStart == 2) {
+        // Trailing an extension key, first append prior key's value if there is one.
+        if (subtagStart - valueStart > 1)
+            subtags.append(extension.substring(valueStart, subtagStart - valueStart - 1));
+        valueStart = subtagStart;
+    }
+    // Append final key's value.
+    subtags.append(extension.substring(valueStart, extensionLength - valueStart));
+    return subtags;
 }
 
 Vector<char, 32> localeIDBufferForLanguageTag(const CString& tag)
@@ -201,6 +268,71 @@ Vector<char, 32> localeIDBufferForLanguageTag(const CString& tag)
     return buffer;
 }
 
+Vector<char, 32> canonicalizeUnicodeExtensionsAfterICULocaleCanonicalization(Vector<char, 32>&& buffer)
+{
+    StringView locale(buffer.data(), buffer.size());
+    ASSERT(locale.is8Bit());
+    size_t extensionIndex = locale.find("-u-");
+    if (extensionIndex == notFound)
+        return WTFMove(buffer);
+
+    // Since ICU's canonicalization is incomplete, we need to perform some of canonicalization here.
+    size_t extensionLength = locale.length() - extensionIndex;
+    size_t end = extensionIndex + 3;
+    while (end < locale.length()) {
+        end = locale.find('-', end);
+        if (end == notFound)
+            break;
+        // Found another singleton.
+        if (end + 2 < locale.length() && locale[end + 2] == '-') {
+            extensionLength = end - extensionIndex;
+            break;
+        }
+        end++;
+    }
+
+    Vector<char, 32> result;
+    result.append(buffer.data(), extensionIndex + 2); // "-u" is included.
+    StringView extension = locale.substring(extensionIndex, extensionLength);
+    ASSERT(extension.is8Bit());
+    auto subtags = unicodeExtensionComponents(extension);
+    for (unsigned index = 0; index < subtags.size();) {
+        auto subtag = subtags[index];
+        ASSERT(subtag.is8Bit());
+        result.append('-');
+        result.append(subtag.characters8(), subtag.length());
+
+        if (subtag.length() != 2) {
+            ++index;
+            continue;
+        }
+        ASSERT(subtag.length() == 2);
+
+        // This is unicode extension key.
+        unsigned valueIndexStart = index + 1;
+        unsigned valueIndexEnd = valueIndexStart;
+        for (; valueIndexEnd < subtags.size(); ++valueIndexEnd) {
+            if (subtags[valueIndexEnd].length() == 2)
+                break;
+        }
+        // [valueIndexStart, valueIndexEnd) is value of this unicode extension. If there is no value, valueIndexStart == valueIndexEnd.
+
+        for (unsigned valueIndex = valueIndexStart; valueIndex < valueIndexEnd; ++valueIndex) {
+            auto value = subtags[valueIndex];
+            if (value != "true"_s) {
+                result.append('-');
+                result.append(value.characters8(), value.length());
+            }
+        }
+        index = valueIndexEnd;
+    }
+
+    unsigned remainingStart = extensionIndex + extensionLength;
+    unsigned remainingLength = buffer.size() - remainingStart;
+    result.append(buffer.data() + remainingStart, remainingLength);
+    return result;
+}
+
 String languageTagForLocaleID(const char* localeID, bool isImmortal)
 {
     Vector<char, 32> buffer;
@@ -208,12 +340,15 @@ String languageTagForLocaleID(const char* localeID, bool isImmortal)
     if (U_FAILURE(status))
         return String();
 
-    // This is used to store into static variables that may be shared across JSC execution threads.
-    // This must be immortal to make concurrent ref/deref safe.
-    if (isImmortal)
-        return StringImpl::createStaticStringImpl(buffer.data(), buffer.size());
+    auto createResult = [&](Vector<char, 32>&& buffer) -> String {
+        // This is used to store into static variables that may be shared across JSC execution threads.
+        // This must be immortal to make concurrent ref/deref safe.
+        if (isImmortal)
+            return StringImpl::createStaticStringImpl(buffer.data(), buffer.size());
+        return String(buffer.data(), buffer.size());
+    };
 
-    return String(buffer.data(), buffer.size());
+    return createResult(canonicalizeUnicodeExtensionsAfterICULocaleCanonicalization(WTFMove(buffer)));
 }
 
 // Ensure we have xx-ZZ whenever we have xx-Yyyy-ZZ.
@@ -341,6 +476,27 @@ const HashSet<String>& intlCollatorAvailableLocales()
     return availableLocales;
 }
 
+const HashSet<String>& intlSegmenterAvailableLocales()
+{
+    static NeverDestroyed<HashSet<String>> cachedAvailableLocales;
+    HashSet<String>& availableLocales = cachedAvailableLocales.get();
+
+    static std::once_flag initializeOnce;
+    std::call_once(initializeOnce, [&] {
+        ASSERT(availableLocales.isEmpty());
+        constexpr bool isImmortal = true;
+        int32_t count = ubrk_countAvailable();
+        for (int32_t i = 0; i < count; ++i) {
+            String locale = languageTagForLocaleID(ubrk_getAvailable(i), isImmortal);
+            if (locale.isEmpty())
+                continue;
+            availableLocales.add(locale);
+            addScriptlessLocaleIfNeeded(availableLocales, locale);
+        }
+    });
+    return availableLocales;
+}
+
 // https://tc39.es/ecma402/#sec-getoption
 TriState intlBooleanOption(JSGlobalObject* globalObject, JSValue options, PropertyName property)
 {
@@ -453,7 +609,6 @@ bool isUnicodeLocaleIdentifierType(StringView string)
     return true;
 }
 
-// https://tc39.es/ecma402/#sec-isstructurallyvalidlanguagetag
 // https://tc39.es/ecma402/#sec-canonicalizeunicodelocaleid
 static String canonicalizeLanguageTag(const CString& tag)
 {
@@ -514,37 +669,34 @@ Vector<String> canonicalizeLocaleList(JSGlobalObject* globalObject, JSValue loca
                 return { };
             }
 
-            Expected<CString, UTF8ConversionError> rawTag;
+            String tag;
             if (kValue.inherits<IntlLocale>(vm))
-                rawTag = jsCast<IntlLocale*>(kValue)->toString().tryGetUtf8();
+                tag = jsCast<IntlLocale*>(kValue)->toString();
             else {
-                JSString* tag = kValue.toString(globalObject);
+                JSString* string = kValue.toString(globalObject);
                 RETURN_IF_EXCEPTION(scope, Vector<String>());
 
-                auto tagValue = tag->value(globalObject);
+                tag = string->value(globalObject);
                 RETURN_IF_EXCEPTION(scope, Vector<String>());
-
-                rawTag = tagValue.tryGetUtf8();
-            }
-            if (!rawTag) {
-                if (rawTag.error() == UTF8ConversionError::OutOfMemory)
-                    throwOutOfMemoryError(globalObject, scope);
-                return { };
             }
 
-            String canonicalizedTag = canonicalizeLanguageTag(rawTag.value());
-            if (canonicalizedTag.isNull()) {
-                String errorMessage = tryMakeString("invalid language tag: ", rawTag->data());
-                if (UNLIKELY(!errorMessage)) {
-                    throwException(globalObject, scope, createOutOfMemoryError(globalObject));
-                    return { };
+            if (isStructurallyValidLanguageTag(tag)) {
+                ASSERT(tag.isAllASCII());
+                String canonicalizedTag = canonicalizeLanguageTag(tag.ascii());
+                if (!canonicalizedTag.isNull()) {
+                    if (seenSet.add(canonicalizedTag).isNewEntry)
+                        seen.append(canonicalizedTag);
+                    continue;
                 }
-                throwException(globalObject, scope, createRangeError(globalObject, errorMessage));
-                return { };
             }
 
-            if (seenSet.add(canonicalizedTag).isNewEntry)
-                seen.append(canonicalizedTag);
+            String errorMessage = tryMakeString("invalid language tag: ", tag);
+            if (UNLIKELY(!errorMessage)) {
+                throwException(globalObject, scope, createOutOfMemoryError(globalObject));
+                return { };
+            }
+            throwException(globalObject, scope, createRangeError(globalObject, errorMessage));
+            return { };
         }
     }
 
@@ -666,45 +818,6 @@ static MatcherResult bestFitMatcher(JSGlobalObject* globalObject, const HashSet<
     return lookupMatcher(globalObject, availableLocales, requestedLocales);
 }
 
-static void unicodeExtensionSubTags(const String& extension, Vector<String>& subtags)
-{
-    // UnicodeExtensionSubtags (extension)
-    // https://tc39.github.io/ecma402/#sec-unicodeextensionsubtags
-
-    auto extensionLength = extension.length();
-    if (extensionLength < 3)
-        return;
-
-    size_t subtagStart = 3; // Skip initial -u-.
-    size_t valueStart = 3;
-    bool isLeading = true;
-    for (size_t index = subtagStart; index < extensionLength; ++index) {
-        if (extension[index] == '-') {
-            if (index - subtagStart == 2) {
-                // Tag is a key, first append prior key's value if there is one.
-                if (subtagStart - valueStart > 1)
-                    subtags.append(extension.substring(valueStart, subtagStart - valueStart - 1));
-                subtags.append(extension.substring(subtagStart, index - subtagStart));
-                valueStart = index + 1;
-                isLeading = false;
-            } else if (isLeading) {
-                // Leading subtags before first key.
-                subtags.append(extension.substring(subtagStart, index - subtagStart));
-                valueStart = index + 1;
-            }
-            subtagStart = index + 1;
-        }
-    }
-    if (extensionLength - subtagStart == 2) {
-        // Trailing an extension key, first append prior key's value if there is one.
-        if (subtagStart - valueStart > 1)
-            subtags.append(extension.substring(valueStart, subtagStart - valueStart - 1));
-        valueStart = subtagStart;
-    }
-    // Append final key's value.
-    subtags.append(extension.substring(valueStart, extensionLength - valueStart));
-}
-
 constexpr ASCIILiteral relevantExtensionKeyString(RelevantExtensionKey key)
 {
     switch (key) {
@@ -728,9 +841,9 @@ ResolvedLocale resolveLocale(JSGlobalObject* globalObject, const HashSet<String>
 
     String foundLocale = matcherResult.locale;
 
-    Vector<String> extensionSubtags;
+    Vector<StringView> extensionSubtags;
     if (!matcherResult.extension.isNull())
-        unicodeExtensionSubTags(matcherResult.extension, extensionSubtags);
+        extensionSubtags = unicodeExtensionComponents(matcherResult.extension);
 
     ResolvedLocale resolved;
     resolved.dataLocale = foundLocale;
@@ -748,9 +861,10 @@ ResolvedLocale resolveLocale(JSGlobalObject* globalObject, const HashSet<String>
             size_t keyPos = extensionSubtags.find(keyString);
             if (keyPos != notFound) {
                 if (keyPos + 1 < extensionSubtags.size() && extensionSubtags[keyPos + 1].length() > 2) {
-                    const String& requestedValue = extensionSubtags[keyPos + 1];
-                    if (keyLocaleData.contains(requestedValue)) {
-                        value = requestedValue;
+                    StringView requestedValue = extensionSubtags[keyPos + 1];
+                    auto dataPos = keyLocaleData.find(requestedValue);
+                    if (dataPos != notFound) {
+                        value = keyLocaleData[dataPos];
                         supportedExtensionAddition = makeString('-', keyString, '-', value);
                     }
                 } else if (keyLocaleData.contains("true"_s)) {
@@ -902,39 +1016,398 @@ bool isUnicodeVariantSubtag(StringView string)
     return length == 4 && isASCIIDigit(string[0]) && string.substring(1).isAllSpecialCharacters<isASCIIAlphanumeric>();
 }
 
+using VariantCode = uint64_t;
+static VariantCode parseVariantCode(StringView string)
+{
+    ASSERT(isUnicodeVariantSubtag(string));
+    ASSERT(string.isAllASCII());
+    ASSERT(string.length() <= 8);
+    ASSERT(string.length() >= 1);
+    struct Code {
+        LChar characters[8] { };
+    };
+    static_assert(std::is_unsigned_v<LChar>);
+    static_assert(sizeof(VariantCode) == sizeof(Code));
+    Code code { };
+    for (unsigned index = 0; index < string.length(); ++index)
+        code.characters[index] = toASCIILower(string[index]);
+    VariantCode result = bitwise_cast<VariantCode>(code);
+    ASSERT(result); // Not possible since some characters exist.
+    ASSERT(result != static_cast<VariantCode>(-1)); // Not possible since all characters are ASCII (not Latin-1).
+    return result;
+}
+
+static unsigned convertToUnicodeSingletonIndex(UChar singleton)
+{
+    ASSERT(isASCIIAlphanumeric(singleton));
+    singleton = toASCIILower(singleton);
+    // 0 - 9 => numeric
+    // 10 - 35 => alpha
+    if (isASCIIDigit(singleton))
+        return singleton - '0';
+    return (singleton - 'a') + 10;
+}
+static constexpr unsigned numberOfUnicodeSingletons = 10 + 26; // Digits + Alphabets.
+
+static bool isUnicodeExtensionAttribute(StringView string)
+{
+    auto length = string.length();
+    return length >= 3 && length <= 8 && string.isAllSpecialCharacters<isASCIIAlphanumeric>();
+}
+
+static bool isUnicodeExtensionKey(StringView string)
+{
+    return string.length() == 2 && isASCIIAlphanumeric(string[0]) && isASCIIAlpha(string[1]);
+}
+
+static bool isUnicodeExtensionTypeComponent(StringView string)
+{
+    auto length = string.length();
+    return length >= 3 && length <= 8 && string.isAllSpecialCharacters<isASCIIAlphanumeric>();
+}
+
+static bool isUnicodePUExtensionValue(StringView string)
+{
+    auto length = string.length();
+    return length >= 1 && length <= 8 && string.isAllSpecialCharacters<isASCIIAlphanumeric>();
+}
+
+static bool isUnicodeOtherExtensionValue(StringView string)
+{
+    auto length = string.length();
+    return length >= 2 && length <= 8 && string.isAllSpecialCharacters<isASCIIAlphanumeric>();
+}
+
+static bool isUnicodeTKey(StringView string)
+{
+    return string.length() == 2 && isASCIIAlpha(string[0]) && isASCIIDigit(string[1]);
+}
+
+static bool isUnicodeTValueComponent(StringView string)
+{
+    auto length = string.length();
+    return length >= 3 && length <= 8 && string.isAllSpecialCharacters<isASCIIAlphanumeric>();
+}
+
+// The IsStructurallyValidLanguageTag abstract operation verifies that the locale argument (which must be a String value)
+//
+//     represents a well-formed "Unicode BCP 47 locale identifier" as specified in Unicode Technical Standard 35 section 3.2,
+//     does not include duplicate variant subtags, and
+//     does not include duplicate singleton subtags.
+//
+//  The abstract operation returns true if locale can be generated from the EBNF grammar in section 3.2 of the Unicode Technical Standard 35,
+//  starting with unicode_locale_id, and does not contain duplicate variant or singleton subtags (other than as a private use subtag).
+//  It returns false otherwise. Terminal value characters in the grammar are interpreted as the Unicode equivalents of the ASCII octet values given.
+//
+// https://unicode.org/reports/tr35/#Unicode_locale_identifier
+class LanguageTagParser {
+public:
+    LanguageTagParser(StringView tag)
+        : m_range(tag.splitAllowingEmptyEntries('-'))
+        , m_cursor(m_range.begin())
+    {
+        ASSERT(m_cursor != m_range.end());
+        m_current = *m_cursor;
+    }
+
+    bool parseUnicodeLocaleId();
+    bool parseUnicodeLanguageId();
+
+    bool isEOS()
+    {
+        return m_cursor == m_range.end();
+    }
+
+    bool next()
+    {
+        if (isEOS())
+            return false;
+
+        ++m_cursor;
+        if (isEOS()) {
+            m_current = StringView();
+            return false;
+        }
+        m_current = *m_cursor;
+        return true;
+    }
+
+private:
+    bool parseExtensionsAndPUExtensions();
+
+    bool parseUnicodeExtensionAfterPrefix();
+    bool parseTransformedExtensionAfterPrefix();
+    bool parseOtherExtensionAfterPrefix();
+    bool parsePUExtensionAfterPrefix();
+
+    StringView::SplitResult m_range;
+    StringView::SplitResult::Iterator m_cursor;
+    StringView m_current;
+};
+
+bool LanguageTagParser::parseUnicodeLocaleId()
+{
+    // unicode_locale_id    = unicode_language_id
+    //                        extensions*
+    //                        pu_extensions? ;
+    ASSERT(!isEOS());
+    if (!parseUnicodeLanguageId())
+        return false;
+    if (isEOS())
+        return true;
+    if (!parseExtensionsAndPUExtensions())
+        return false;
+    return true;
+}
+
+bool LanguageTagParser::parseUnicodeLanguageId()
+{
+    // unicode_language_id  = unicode_language_subtag (sep unicode_script_subtag)? (sep unicode_region_subtag)? (sep unicode_variant_subtag)* ;
+    ASSERT(!isEOS());
+    if (!isUnicodeLanguageSubtag(m_current))
+        return false;
+    if (!next())
+        return true;
+
+    if (isUnicodeScriptSubtag(m_current)) {
+        if (!next())
+            return true;
+    }
+
+    if (isUnicodeRegionSubtag(m_current)) {
+        if (!next())
+            return true;
+    }
+
+    HashSet<VariantCode> variantCodes;
+    while (true) {
+        if (!isUnicodeVariantSubtag(m_current))
+            return true;
+        // https://tc39.es/ecma402/#sec-isstructurallyvalidlanguagetag
+        // does not include duplicate variant subtags
+        if (!variantCodes.add(parseVariantCode(m_current)).isNewEntry)
+            return false;
+        if (!next())
+            return true;
+    }
+}
+
+bool LanguageTagParser::parseUnicodeExtensionAfterPrefix()
+{
+    // ((sep keyword)+ | (sep attribute)+ (sep keyword)*) ;
+    //
+    // keyword = key (sep type)? ;
+    // key = alphanum alpha ;
+    // type = alphanum{3,8} (sep alphanum{3,8})* ;
+    // attribute = alphanum{3,8} ;
+    ASSERT(!isEOS());
+    bool isAttributeOrKeyword = false;
+    if (isUnicodeExtensionAttribute(m_current)) {
+        isAttributeOrKeyword = true;
+        while (true) {
+            if (!isUnicodeExtensionAttribute(m_current))
+                break;
+            if (!next())
+                return true;
+        }
+    }
+
+    if (isUnicodeExtensionKey(m_current)) {
+        isAttributeOrKeyword = true;
+        while (true) {
+            if (!isUnicodeExtensionKey(m_current))
+                break;
+            if (!next())
+                return true;
+            while (true) {
+                if (!isUnicodeExtensionTypeComponent(m_current))
+                    break;
+                if (!next())
+                    return true;
+            }
+        }
+    }
+
+    if (!isAttributeOrKeyword)
+        return false;
+    return true;
+}
+
+bool LanguageTagParser::parseTransformedExtensionAfterPrefix()
+{
+    // ((sep tlang (sep tfield)*) | (sep tfield)+) ;
+    //
+    // tlang = unicode_language_subtag (sep unicode_script_subtag)? (sep unicode_region_subtag)? (sep unicode_variant_subtag)* ;
+    // tfield = tkey tvalue;
+    // tkey = alpha digit ;
+    // tvalue = (sep alphanum{3,8})+ ;
+    ASSERT(!isEOS());
+    bool found = false;
+    if (isUnicodeLanguageSubtag(m_current)) {
+        found = true;
+        if (!parseUnicodeLanguageId())
+            return false;
+        if (isEOS())
+            return true;
+    }
+
+    if (isUnicodeTKey(m_current)) {
+        found = true;
+        while (true) {
+            if (!isUnicodeTKey(m_current))
+                break;
+            if (!next())
+                return false;
+            if (!isUnicodeTValueComponent(m_current))
+                return false;
+            if (!next())
+                return true;
+            while (true) {
+                if (!isUnicodeTValueComponent(m_current))
+                    break;
+                if (!next())
+                    return true;
+            }
+        }
+    }
+
+    return found;
+}
+
+bool LanguageTagParser::parseOtherExtensionAfterPrefix()
+{
+    // (sep alphanum{2,8})+ ;
+    ASSERT(!isEOS());
+    if (!isUnicodeOtherExtensionValue(m_current))
+        return false;
+    if (!next())
+        return true;
+
+    while (true) {
+        if (!isUnicodeOtherExtensionValue(m_current))
+            return true;
+        if (!next())
+            return true;
+    }
+}
+
+bool LanguageTagParser::parsePUExtensionAfterPrefix()
+{
+    // (sep alphanum{1,8})+ ;
+    ASSERT(!isEOS());
+    if (!isUnicodePUExtensionValue(m_current))
+        return false;
+    if (!next())
+        return true;
+
+    while (true) {
+        if (!isUnicodePUExtensionValue(m_current))
+            return true;
+        if (!next())
+            return true;
+    }
+}
+
+bool LanguageTagParser::parseExtensionsAndPUExtensions()
+{
+    // unicode_locale_id    = unicode_language_id
+    //                        extensions*
+    //                        pu_extensions? ;
+    //
+    // extensions = unicode_locale_extensions
+    //            | transformed_extensions
+    //            | other_extensions ;
+    //
+    // pu_extensions = sep [xX] (sep alphanum{1,8})+ ;
+    ASSERT(!isEOS());
+    Bitmap<numberOfUnicodeSingletons> singletonsSet { };
+    while (true) {
+        if (m_current.length() != 1)
+            return true;
+        UChar prefixCode = m_current[0];
+        if (!isASCIIAlphanumeric(prefixCode))
+            return true;
+
+        // https://tc39.es/ecma402/#sec-isstructurallyvalidlanguagetag
+        // does not include duplicate singleton subtags.
+        //
+        // https://unicode.org/reports/tr35/#Unicode_locale_identifier
+        // As is often the case, the complete syntactic constraints are not easily captured by ABNF,
+        // so there is a further condition: There cannot be more than one extension with the same singleton (-a-, …, -t-, -u-, …).
+        // Note that the private use extension (-x-) must come after all other extensions.
+        if (singletonsSet.get(convertToUnicodeSingletonIndex(prefixCode)))
+            return false;
+        singletonsSet.set(convertToUnicodeSingletonIndex(prefixCode), true);
+
+        switch (prefixCode) {
+        case 'u':
+        case 'U': {
+            // unicode_locale_extensions = sep [uU] ((sep keyword)+ | (sep attribute)+ (sep keyword)*) ;
+            if (!next())
+                return false;
+            if (!parseUnicodeExtensionAfterPrefix())
+                return false;
+            if (isEOS())
+                return true;
+            break; // Next extension.
+        }
+        case 't':
+        case 'T': {
+            // transformed_extensions = sep [tT] ((sep tlang (sep tfield)*) | (sep tfield)+) ;
+            if (!next())
+                return false;
+            if (!parseTransformedExtensionAfterPrefix())
+                return false;
+            if (isEOS())
+                return true;
+            break; // Next extension.
+        }
+        case 'x':
+        case 'X': {
+            // pu_extensions = sep [xX] (sep alphanum{1,8})+ ;
+            if (!next())
+                return false;
+            if (!parsePUExtensionAfterPrefix())
+                return false;
+            return true; // If pu_extensions appear, no extensions can follow after that. This must be the end of unicode_locale_id.
+        }
+        default: {
+            // other_extensions = sep [alphanum-[tTuUxX]] (sep alphanum{2,8})+ ;
+            if (!next())
+                return false;
+            if (!parseOtherExtensionAfterPrefix())
+                return false;
+            if (isEOS())
+                return true;
+            break; // Next extension.
+        }
+        }
+    }
+}
+
+// https://tc39.es/ecma402/#sec-isstructurallyvalidlanguagetag
+bool isStructurallyValidLanguageTag(StringView string)
+{
+    LanguageTagParser parser(string);
+    if (!parser.parseUnicodeLocaleId())
+        return false;
+    if (!parser.isEOS())
+        return false;
+    return true;
+}
+
 // unicode_language_id, but intersection of BCP47 and UTS35.
 // unicode_language_id =
 //     | unicode_language_subtag (sep unicode_script_subtag)? (sep unicode_region_subtag)? (sep unicode_variant_subtag)* ;
 // https://github.com/tc39/proposal-intl-displaynames/issues/79
 bool isUnicodeLanguageId(StringView string)
 {
-    Vector<StringView, 4> subtags;
-    for (auto subtag : string.splitAllowingEmptyEntries('-'))
-        subtags.append(subtag);
-
-    ASSERT(subtags.size() >= 1);
-    unsigned cursor = 0;
-    if (!isUnicodeLanguageSubtag(subtags[cursor]))
+    LanguageTagParser parser(string);
+    if (!parser.parseUnicodeLanguageId())
         return false;
-    ++cursor;
-
-    if (cursor == subtags.size())
-        return true;
-    if (isUnicodeScriptSubtag(subtags[cursor]))
-        ++cursor;
-
-    if (cursor == subtags.size())
-        return true;
-    if (isUnicodeRegionSubtag(subtags[cursor]))
-        ++cursor;
-
-    while (true) {
-        if (cursor == subtags.size())
-            return true;
-        if (!isUnicodeVariantSubtag(subtags[cursor]))
-            return false;
-        ++cursor;
-    }
+    if (!parser.isEOS())
+        return false;
+    return true;
 }
 
 bool isWellFormedCurrencyCode(StringView currency)
@@ -942,7 +1415,7 @@ bool isWellFormedCurrencyCode(StringView currency)
     return currency.length() == 3 && currency.isAllSpecialCharacters<isASCIIAlpha>();
 }
 
-EncodedJSValue JSC_HOST_CALL intlObjectFuncGetCanonicalLocales(JSGlobalObject* globalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(intlObjectFuncGetCanonicalLocales, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     // Intl.getCanonicalLocales(locales)
     // https://tc39.github.io/ecma402/#sec-intl.getcanonicallocales

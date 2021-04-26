@@ -59,7 +59,6 @@ public:
     DECLARE_INFO;
 
     WorkerGlobalScope& wrapped() const { return *m_wrapped; }
-    JSC::JSProxy* proxy() const { ASSERT(m_proxy); return m_proxy.get(); }
     ScriptExecutionContext* scriptExecutionContext() const;
 
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
@@ -73,9 +72,8 @@ public:
     static bool shouldInterruptScript(const JSC::JSGlobalObject*);
     static bool shouldInterruptScriptBeforeTimeout(const JSC::JSGlobalObject*);
     static JSC::RuntimeFlags javaScriptRuntimeFlags(const JSC::JSGlobalObject*);
+    static JSC::ScriptExecutionStatus scriptExecutionStatus(JSC::JSGlobalObject*, JSC::JSObject*);
     static void queueMicrotaskToEventLoop(JSC::JSGlobalObject&, Ref<JSC::Microtask>&&);
-
-    void clearDOMGuardedObjects();
 
 protected:
     JSWorkerGlobalScopeBase(JSC::VM&, JSC::Structure*, RefPtr<WorkerGlobalScope>&&);
@@ -85,7 +83,6 @@ protected:
 
 private:
     RefPtr<WorkerGlobalScope> m_wrapped;
-    JSC::WriteBarrier<JSC::JSProxy> m_proxy;
 };
 
 // Returns a JSWorkerGlobalScope or jsNull()

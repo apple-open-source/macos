@@ -675,7 +675,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         unsigned sizeMask = tableSizeMask();
         unsigned h = HashTranslator::hash(key);
         unsigned i = h & sizeMask;
-        unsigned initialIndex = i;
 
 #if DUMP_HASHTABLE_STATS
         ++HashTableStats::numAccesses;
@@ -715,7 +714,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
-            RELEASE_ASSERT(i != initialIndex);
         }
     }
 
@@ -731,7 +729,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         unsigned sizeMask = tableSizeMask();
         unsigned h = HashTranslator::hash(key);
         unsigned i = h & sizeMask;
-        unsigned initialIndex = i;
 
 #if DUMP_HASHTABLE_STATS
         ++HashTableStats::numAccesses;
@@ -778,7 +775,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
-            RELEASE_ASSERT(i != initialIndex);
         }
     }
 
@@ -794,7 +790,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         unsigned sizeMask = tableSizeMask();
         unsigned h = HashTranslator::hash(key);
         unsigned i = h & sizeMask;
-        unsigned initialIndex = i;
 
 #if DUMP_HASHTABLE_STATS
         ++HashTableStats::numAccesses;
@@ -841,7 +836,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
-            RELEASE_ASSERT(i != initialIndex);
         }
     }
 
@@ -862,7 +856,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         unsigned sizeMask = tableSizeMask();
         unsigned h = HashTranslator::hash(key);
         unsigned i = h & sizeMask;
-        unsigned initialIndex = i;
 
 #if DUMP_HASHTABLE_STATS
         ++HashTableStats::numAccesses;
@@ -892,7 +885,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
-            RELEASE_ASSERT(i != initialIndex);
         }
 
         HashTranslator::translate(*entry, std::forward<T>(key), std::forward<Extra>(extra));
@@ -945,7 +937,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         unsigned sizeMask = tableSizeMask();
         unsigned h = HashTranslator::hash(key);
         unsigned i = h & sizeMask;
-        unsigned initialIndex = i;
 
 #if DUMP_HASHTABLE_STATS
         ++HashTableStats::numAccesses;
@@ -992,7 +983,6 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
-            RELEASE_ASSERT(i != initialIndex);
         }
 
         if (deletedEntry) {
@@ -1378,8 +1368,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HashTable);
         if (!m_table)
             return;
 
-        deallocateTable(m_table);
-        m_table = nullptr;
+        deallocateTable(std::exchange(m_table, nullptr));
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>

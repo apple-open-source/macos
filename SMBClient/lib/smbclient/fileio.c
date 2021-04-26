@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #include "smbclient.h"
 #include "smbclient_private.h"
 #include "ntstatus.h"
+#include <sys/msfscc.h>
 
 #include <netsmb/smbio.h>
 #include <netsmb/upi_mbuf.h>
@@ -417,6 +418,55 @@ SMBQueryDir(
     }
     
     return STATUS_SUCCESS;
+}
+
+NTSTATUS
+SMBListSnapshots(
+    SMBHANDLE inConnection,
+    const char *path,
+    void *outBuffer,
+    size_t outBufferSize,
+    size_t *bytesRead)
+{
+    int error;
+    NTSTATUS status;
+    void *hContext;
+    SMBFID fid = 0;
+
+    status = SMBServerContext(inConnection, &hContext);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    status = SMBCreateFile(inConnection, path,
+                           0x100081, /* dwDesiredAccess: Sync/ReadAttr/Read */
+                           0x0003, /* dwShareMode: Share Read/Write */
+                           NULL,   /* lpSecurityAttributes */
+                           0x0001, /* dwCreateDisposition: OPEN_EXISTING */
+                           0x0000, /* dwFlagsAndAttributes */
+                           &fid);
+
+    if (!NT_SUCCESS(status)) {
+        goto done;
+    }
+
+    error = smb2io_ioctl(hContext, fid, FSCTL_SRV_ENUMERATE_SNAPSHOTS,
+                         NULL, 0,
+                         outBuffer, &outBufferSize);
+
+    status = SMBMapError(error);
+    if (!NT_SUCCESS(status)) {
+        goto done;
+    }
+
+    *bytesRead = outBufferSize;
+
+done:
+    if (fid!= 0) {
+        SMBCloseFile(inConnection, fid);
+    }
+
+    return (status);
 }
 
 /* vim: set sw=4 ts=4 tw=79 et: */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -2911,20 +2911,51 @@ fail_change_next_allocation:
 							 NULL);
 
 	case FSIOC_CAS_BSDFLAGS: {
+		struct fsioc_cas_bsdflags *cas = (void *)ap->a_data;
+		struct cnode *cp = VTOC(vp);
+		u_int32_t document_id = 0;
+		bool need_truncate = false;
+		int decmpfs_reset_state = 0;
+		int error;
+
 		if (hfsmp->hfs_flags & HFS_READ_ONLY) {
 			return (EROFS);
 		}
 
-#if 0
-		struct fsioc_cas_bsdflags *cas = (void *)ap->a_data;
-		struct cnode *cp = VTOC(vp);
-		u_int32_t document_id = 0;
-		int decmpfs_reset_state = 0;
-		int error;
-
 		/* Don't allow modification of the journal. */
 		if (hfs_is_journal_file(hfsmp, cp)) {
 			return (EPERM);
+		}
+
+		// Check if we need to set UF_COMPRESSED.
+		// If so, ask decmpfs if we're allowed to (and if so, if we need to truncate
+		// the data fork to 0).
+		if (!(cas->expected_flags & UF_COMPRESSED) && (cas->new_flags & UF_COMPRESSED)) {
+			struct vnode_attr vap;
+			VATTR_INIT(&vap);
+			VATTR_SET(&vap, va_flags, cas->new_flags);
+
+			error = decmpfs_update_attributes(vp, &vap);
+			if (error) {
+				return (error);
+			}
+
+			// Similar to hfs_vnop_setattr(), we call decmpfs_update_attributes()
+			// as it is the ultimate arbiter of whether or not UF_COMPRESSED can be set.
+			// (If the decmpfs xattr is not present or invalid, for example,
+			// UF_COMPRESSED should *not* be set.)
+			// It will also tell us if we need to truncate the data fork to 0.
+			if (!(vap.va_flags & UF_COMPRESSED)) {
+				// The request to update UF_COMPRESSED is denied.
+				// (Note that decmpfs_update_attributes() won't touch va_active
+				// in this case.) Error out.
+				return (EPERM);
+			}
+
+			if (VATTR_IS_ACTIVE(&vap, va_data_size) && (vap.va_data_size == 0)) {
+				// We must also truncate this file's data fork to 0.
+				need_truncate = true;
+			}
 		}
 
 		if ((error = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
@@ -2973,17 +3004,11 @@ fail_change_next_allocation:
 			}
 		}
 
-		bool setting_compression = false;
-
-		if (!(cas->actual_flags & UF_COMPRESSED) && (cas->new_flags & UF_COMPRESSED))
-			setting_compression = true;
-
-		if (setting_compression) {
+		// Attempt to truncate our data fork to 0 length, if necessary.
+		if (need_truncate && (VTOF(vp)->ff_size)) {
 			hfs_lock_truncate(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
-			if (VTOF(vp)->ff_size) {
-				// hfs_truncate will deal with the cnode lock
-				error = hfs_truncate(vp, 0, IO_NDELAY, 0, ap->a_context);
-			}
+			// hfs_truncate will deal with the cnode lock
+			error = hfs_truncate(vp, 0, IO_NDELAY, 0, ap->a_context);
 			hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
 		}
 
@@ -3021,9 +3046,7 @@ fail_change_next_allocation:
 			decmpfs_cnode_set_vnode_state(dp, FILE_TYPE_UNKNOWN, 0);
 		}
 #endif
-		break;
-#endif
-		return ENOTSUP;
+		break; // return 0 below
 	}
 
 	default:
@@ -3459,8 +3482,41 @@ retry:
 		}
 	}
 
+#if NEW_XATTR
+	// check for the alternate xattr vnode
+	if (vp == hfsmp->hfs_attrdata_vp) {
+		HFSPlusExtentDescriptor real_fext;
+		size_t availableBytes;
+		u_int32_t sectorsPerBlock;		// Number of sectors per allocation block
+		u_int32_t sectorSize;
+		uint64_t f_offset;
+
+		if (!hfs_xattr_fext_find(&hfsmp->hfs_xattr_io, hfsmp->blockSize,
+								 ap->a_foffset, &real_fext, &f_offset)) {
+			panic("cannot find xattr fext for %llu", f_offset);
+		}
+
+		sectorSize = hfsmp->hfs_logical_block_size;
+		//	Compute the number of sectors in an allocation block
+		sectorsPerBlock = hfsmp->blockSize / sectorSize;
+
+		*ap->a_bpn = (f_offset / hfsmp->blockSize) * sectorsPerBlock;
+		availableBytes = real_fext.blockCount * hfsmp->blockSize - (f_offset - (real_fext.startBlock * hfsmp->blockSize));
+		if (availableBytes < bytesContAvail) {
+			bytesContAvail = availableBytes;
+		}
+
+		goto got_fext;
+	}
+#endif
+
 	retval = MapFileBlockC(hfsmp, (FCB *)fp, bytesContAvail, ap->a_foffset,
 	                       ap->a_bpn, &bytesContAvail);
+
+#if NEW_XATTR
+got_fext:
+#endif
+
 	if (syslocks) {
 		hfs_systemfile_unlock(hfsmp, lockflags);
 		syslocks = 0;
@@ -4279,7 +4335,8 @@ hfs_vnop_allocate(struct vnop_allocate_args /* {
 	hfs_lock_truncate(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
 
 	if ((retval = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
-		goto Err_Exit;
+		hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
+		return (retval);
 	}
 	
 	fp = VTOF(vp);

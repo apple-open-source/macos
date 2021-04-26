@@ -39,6 +39,7 @@
 
 namespace WebCore {
 class PlatformCALayer;
+class ThreadSafeImageBufferFlusher;
 }
 
 namespace WebKit {
@@ -65,8 +66,7 @@ private:
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
-    void scheduleRenderingUpdate() override;
-    void scheduleImmediateRenderingUpdate() override;
+    void triggerRenderingUpdate() override;
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
 
     void addTransactionCallbackID(CallbackID) override;
@@ -87,7 +87,7 @@ private:
     bool layerTreeStateIsFrozen() const override { return m_isRenderingSuspended; }
 
     void forceRepaint() override;
-    bool forceRepaintAsync(CallbackID) override { return false; }
+    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
 
     void setViewExposedRect(Optional<WebCore::FloatRect>) override;
     Optional<WebCore::FloatRect> viewExposedRect() const override { return m_viewExposedRect; }
@@ -114,6 +114,7 @@ private:
 
     void addCommitHandlers();
     void updateRendering();
+    void startRenderingUpdateTimer();
 
     WebCore::TiledBacking* mainFrameTiledBacking() const;
 
@@ -125,17 +126,17 @@ private:
 
     class BackingStoreFlusher : public ThreadSafeRefCounted<BackingStoreFlusher> {
     public:
-        static Ref<BackingStoreFlusher> create(IPC::Connection*, std::unique_ptr<IPC::Encoder>, Vector<RetainPtr<CGContextRef>>);
+        static Ref<BackingStoreFlusher> create(IPC::Connection*, std::unique_ptr<IPC::Encoder>, Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>>);
 
         void flush();
         bool hasFlushed() const { return m_hasFlushed; }
 
     private:
-        BackingStoreFlusher(IPC::Connection*, std::unique_ptr<IPC::Encoder>, Vector<RetainPtr<CGContextRef>>);
+        BackingStoreFlusher(IPC::Connection*, std::unique_ptr<IPC::Encoder>, Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>>);
 
         RefPtr<IPC::Connection> m_connection;
         std::unique_ptr<IPC::Encoder> m_commitEncoder;
-        Vector<RetainPtr<CGContextRef>> m_contextsToFlush;
+        Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> m_flushers;
 
         std::atomic<bool> m_hasFlushed;
     };

@@ -28,17 +28,10 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <pwd.h>
-#include <grp.h>
 
 #include "sudoers.h"
 
@@ -53,7 +46,7 @@ expand_prompt(const char *old_prompt, const char *auth_user)
     int subst;
     const char *p;
     char *np, *new_prompt, *endp;
-    debug_decl(expand_prompt, SUDOERS_DEBUG_AUTH)
+    debug_decl(expand_prompt, SUDOERS_DEBUG_AUTH);
 
     /* How much space do we need to malloc for the prompt? */
     subst = 0;

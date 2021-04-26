@@ -141,7 +141,7 @@ uint8_t* der_encode_plist_repair(CFPropertyListRef pl, CFErrorRef *error,
     CFTypeID  dataType = CFGetTypeID(pl);
 
     if (CFArrayGetTypeID() == dataType)
-        return der_encode_array((CFArrayRef) pl, error, der, der_end);
+        return der_encode_array_repair((CFArrayRef) pl, error, repair, der, der_end);
     else if (CFBooleanGetTypeID() == dataType)
         return der_encode_boolean((CFBooleanRef) pl, error, der, der_end);
     else if (CFDataGetTypeID() == dataType)
@@ -149,9 +149,9 @@ uint8_t* der_encode_plist_repair(CFPropertyListRef pl, CFErrorRef *error,
     else if (CFDateGetTypeID() == dataType)
         return der_encode_date_repair((CFDateRef) pl, error, repair, der, der_end);
     else if (CFDictionaryGetTypeID() == dataType)
-        return der_encode_dictionary((CFDictionaryRef) pl, error, der, der_end);
+        return der_encode_dictionary_repair((CFDictionaryRef) pl, error, repair, der, der_end);
     else if (CFSetGetTypeID() == dataType)
-        return der_encode_set((CFSetRef) pl, error, der, der_end);
+        return der_encode_set_repair((CFSetRef) pl, error, repair, der, der_end);
     else if (CFStringGetTypeID() == dataType)
         return der_encode_string((CFStringRef) pl, error, der, der_end);
     else if (CFNumberGetTypeID() == dataType)

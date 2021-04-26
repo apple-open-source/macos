@@ -44,13 +44,13 @@ namespace WebKit {
 class RemoteAudioMediaStreamTrackRendererManager;
 class SharedRingBufferStorage;
 
-class RemoteAudioMediaStreamTrackRenderer final : private IPC::MessageReceiver {
+class RemoteAudioMediaStreamTrackRenderer {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit RemoteAudioMediaStreamTrackRenderer(RemoteAudioMediaStreamTrackRendererManager&);
     ~RemoteAudioMediaStreamTrackRenderer();
 
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
 private:
     // IPC::MessageReceiver
@@ -59,9 +59,7 @@ private:
     void clear();
     void setVolume(float);
     void audioSamplesStorageChanged(const SharedMemory::IPCHandle&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames);
-    void audioSamplesAvailable(MediaTime, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame);
-
-    SharedRingBufferStorage& storage();
+    void audioSamplesAvailable(MediaTime, uint64_t numberOfFrames);
 
     RemoteAudioMediaStreamTrackRendererManager& m_manager;
     std::unique_ptr<WebCore::AudioMediaStreamTrackRenderer> m_renderer;

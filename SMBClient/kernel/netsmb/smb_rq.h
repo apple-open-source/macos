@@ -52,6 +52,8 @@
                                     /* Note: we need to remove this in Sarah */
 #define	SMBR_SIGNED         0x0400	/* SMB 2/3 sign this packet */
 #define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
+#define SMBR_ALT_CH_DISCON 0x10000  /* An alternate channel got disconnected. Pass all requests to another channel. */
+#define SMBR_ENQUEUED      0x20000  /* Debugging sanity check */
 
 /* smb_t2rq t2_flags and smb_ntrq nt_flags */
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
@@ -77,11 +79,11 @@ struct smb_session;
 #define MAX_SR_RECONNECT_CNT	5
 
 struct smb_rq {
-	struct smb_rq   *sr_next_rqp;
-	enum smbrq_state	sr_state;
-	struct smb_session		*sr_session;
-	struct smb_share	*sr_share;
-	uint32_t		sr_reconnect_cnt;
+	struct smb_rq      *sr_next_rqp;
+	enum   smbrq_state  sr_state;
+	struct smb_session *sr_session;
+	struct smb_share   *sr_share;
+	uint32_t            sr_reconnect_cnt;
 
     /* SMB 2/3 fields */
     uint32_t        sr_extflags;
@@ -145,6 +147,7 @@ struct smb_rq {
 	uint32_t		sr_flags;
 	int				sr_rpsize;
 	vfs_context_t	sr_context;
+    struct smbiod  *sr_iod;
 	int				sr_timo;
 	struct timespec sr_credit_timesent;	/* Used for crediting */
 	struct timespec sr_timesent;	/* Time request sent, can be reset by Async response */

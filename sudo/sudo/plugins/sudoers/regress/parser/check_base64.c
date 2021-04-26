@@ -18,20 +18,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#if defined(HAVE_STDINT_H)
-# include <stdint.h>
-#elif defined(HAVE_INTTYPES_H)
-# include <inttypes.h>
-#endif
+#include <string.h>
 
 #define SUDO_ERROR_WRAP 0
 
@@ -42,7 +31,7 @@
 extern size_t base64_decode(const char *str, unsigned char *dst, size_t dsize);
 extern size_t base64_encode(const unsigned char *in, size_t in_len, char *out, size_t out_len);
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 static unsigned char bstring1[] = { 0xea, 0xb8, 0xa2, 0x71, 0xef, 0x67, 0xc1, 0xcd, 0x0d, 0xd9, 0xa6, 0xaa, 0xa8, 0x24, 0x77, 0x2a, 0xfc, 0x6f, 0x76, 0x37, 0x1b, 0xed, 0x9e, 0x1a, 0x90, 0x5f, 0xcf, 0xbc, 0x00 };
 

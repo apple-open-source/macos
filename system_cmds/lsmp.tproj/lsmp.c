@@ -19,6 +19,7 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <System/sys/proc.h>
 #include <unistd.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -32,7 +33,7 @@
 #include "json.h"
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-#define TASK_FOR_PID_USAGE_MESG "\nPlease check your boot-args to ensure you have access to task_for_pid()."
+#define TASK_FOR_PID_USAGE_MESG "\nPlease check your boot-args to ensure you have access to task_read_for_pid()."
 #else
 #define TASK_FOR_PID_USAGE_MESG ""
 #endif
@@ -72,7 +73,7 @@ static void print_task_info(my_per_task_info_t *taskinfo, mach_msg_type_number_t
 
 int main(int argc, char *argv[]) {
     kern_return_t ret;
-    task_t aTask;
+    task_read_t aTask;
     my_per_task_info_t *taskinfo = NULL;
     task_array_t tasks;
     char *progname = "lsmp";
@@ -153,10 +154,10 @@ int main(int argc, char *argv[]) {
 		mach_port_deallocate(mach_task_self(), psets[0]);
 		vm_deallocate(mach_task_self(), (vm_address_t)psets, (vm_size_t)psetCount * sizeof(mach_port_t));
 
-		/* convert the processor-set-priv to a list of tasks for the processor set */
-		ret = processor_set_tasks(pset_priv, &tasks, &taskCount);
+		/* convert the processor-set-priv to a list of task read ports for the processor set */
+		ret = processor_set_tasks_with_flavor(pset_priv, TASK_FLAVOR_READ, &tasks, &taskCount);
 		if (ret != KERN_SUCCESS) {
-			fprintf(stderr, "processor_set_tasks() failed: %s\n", mach_error_string(ret));
+			fprintf(stderr, "processor_set_tasks_with_flavor() failed: %s\n", mach_error_string(ret));
 			exit(1);
 		}
 		mach_port_deallocate(mach_task_self(), pset_priv);
@@ -164,7 +165,7 @@ int main(int argc, char *argv[]) {
         /* swap my current instances port to be last to collect all threads and exception port info */
         int myTaskPosition = -1;
         for (int i = 0; i < taskCount; i++) {
-            if (tasks[i] == mach_task_self()){
+            if (mach_task_is_self(tasks[i])){
                 myTaskPosition = i;
                 break;
             }
@@ -181,7 +182,7 @@ int main(int argc, char *argv[]) {
 	{
 		fprintf(stderr, "warning: should run as root for best output (cross-ref to other tasks' ports).\n");
 		/* just the one process */
-		ret = task_for_pid(mach_task_self(), lsmp_config.pid, &aTask);
+		ret = task_read_for_pid(mach_task_self(), lsmp_config.pid, &aTask);
 		if (ret != KERN_SUCCESS) {
 			fprintf(stderr, "task_for_pid() failed: %s %s\n", mach_error_string(ret), TASK_FOR_PID_USAGE_MESG);
 			exit(1);
@@ -200,8 +201,9 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if (psettaskinfo[i].pid == lsmp_config.pid)
+        if (psettaskinfo[i].pid == lsmp_config.pid) {
             taskinfo = &psettaskinfo[i];
+        }
     }
 
     JSON_OBJECT_BEGIN(lsmp_config.json_output);

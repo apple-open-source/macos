@@ -29,7 +29,6 @@
 
 #include "ResourceLoadStatisticsClassifier.h"
 #include "WebResourceLoadStatisticsStore.h"
-#include "WebResourceLoadStatisticsTelemetry.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/FrameIdentifier.h>
 #include <wtf/CompletionHandler.h>
@@ -50,8 +49,6 @@ struct ResourceLoadStatistics;
 }
 
 namespace WebKit {
-
-class ResourceLoadStatisticsPersistentStorage;
 
 class OperatingDate {
 public:
@@ -117,8 +114,6 @@ public:
     void processStatisticsAndDataRecords();
 
     virtual void classifyPrevalentResources() = 0;
-    virtual void syncStorageIfNeeded() = 0;
-    virtual void syncStorageImmediately() = 0;
     virtual void mergeStatistics(Vector<ResourceLoadStatistics>&&) = 0;
 
     virtual void requestStorageAccessUnderOpener(DomainInNeedOfStorageAccess&&, WebCore::PageIdentifier openerID, OpenerDomain&&) = 0;
@@ -157,13 +152,10 @@ public:
     void setPruneEntriesDownTo(size_t pruneTargetCount);
     void resetParametersToDefaultValues();
 
-    virtual void calculateAndSubmitTelemetry(NotifyPagesForTesting = NotifyPagesForTesting::No) const = 0;
-
     void setNotifyPagesWhenDataRecordsWereScanned(bool);
     void setIsRunningTest(bool);
     bool shouldSkip(const RegistrableDomain&) const;
     void setShouldClassifyResourcesBeforeDataRecordsRemoval(bool);
-    void setShouldSubmitTelemetry(bool);
     void setTimeToLiveUserInteraction(Seconds);
     void setMinimumTimeBetweenDataRecordsRemoval(Seconds);
     void setGrandfatheringTime(Seconds);
@@ -176,8 +168,9 @@ public:
     bool isSameSiteStrictEnforcementEnabled() const { return m_sameSiteStrictEnforcementEnabled == WebCore::SameSiteStrictEnforcementEnabled::Yes; };
     void setFirstPartyWebsiteDataRemovalMode(WebCore::FirstPartyWebsiteDataRemovalMode mode) { m_firstPartyWebsiteDataRemovalMode = mode; }
     void setStandaloneApplicationDomain(RegistrableDomain&& domain) { m_standaloneApplicationDomain = WTFMove(domain); }
+#if ENABLE(APP_BOUND_DOMAINS)
     void setAppBoundDomains(HashSet<RegistrableDomain>&&);
-
+#endif
     virtual bool areAllThirdPartyCookiesBlockedUnder(const TopFrameDomain&) = 0;
     virtual void hasStorageAccess(const SubFrameDomain&, const TopFrameDomain&, Optional<WebCore::FrameIdentifier>, WebCore::PageIdentifier, CompletionHandler<void(bool)>&&) = 0;
     virtual void requestStorageAccess(SubFrameDomain&&, TopFrameDomain&&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebCore::StorageAccessScope, CompletionHandler<void(StorageAccessStatus)>&&) = 0;
@@ -208,7 +201,18 @@ public:
     virtual void includeTodayAsOperatingDateIfNecessary() = 0;
     virtual void clearOperatingDates() = 0;
     virtual bool hasStatisticsExpired(WallTime mostRecentUserInteractionTime, OperatingDatesWindow) const = 0;
-    virtual void insertExpiredStatisticForTesting(const RegistrableDomain&, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool) = 0;
+    virtual void insertExpiredStatisticForTesting(const RegistrableDomain&, unsigned numberOfOperatingDaysPassed, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool) = 0;
+    
+    // Private Click Measurement.
+    virtual void insertPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&, PrivateClickMeasurementAttributionType) = 0;
+    virtual void markAllUnattributedPrivateClickMeasurementAsExpiredForTesting() = 0;
+    virtual Optional<Seconds> attributePrivateClickMeasurement(const WebCore::PrivateClickMeasurement::SourceSite&, const WebCore::PrivateClickMeasurement::AttributeOnSite&, WebCore::PrivateClickMeasurement::AttributionTriggerData&&) = 0;
+    virtual Vector<WebCore::PrivateClickMeasurement> allAttributedPrivateClickMeasurement() = 0;
+    virtual void clearPrivateClickMeasurement(Optional<RegistrableDomain>) = 0;
+    virtual void clearExpiredPrivateClickMeasurement() = 0;
+    virtual String privateClickMeasurementToString() = 0;
+    virtual void clearSentAttributions(Vector<WebCore::PrivateClickMeasurement>&&) = 0;
+    virtual void markAttributedPrivateClickMeasurementsAsExpiredForTesting() = 0;
 
 protected:
     static unsigned computeImportance(const WebCore::ResourceLoadStatistics&);
@@ -243,7 +247,6 @@ protected:
         bool shouldNotifyPagesWhenDataRecordsWereScanned { false };
         bool shouldClassifyResourcesBeforeDataRecordsRemoval { true };
         size_t minimumTopFrameRedirectsForSameSiteStrictEnforcement { 10 };
-        bool shouldSubmitTelemetry { true };
         bool isRunningTest { false };
     };
     const Parameters& parameters() const { return m_parameters; }

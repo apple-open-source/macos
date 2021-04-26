@@ -135,13 +135,7 @@ trigger_jobs(void)
 	    _heim_ipc_suspend_timer();
 
 	    dispatch_async(timer_job_q, ^{
-		    if (e->flags & CF_OBJECT) {
-			CFRetain(e->ctx);
-		    }
 		    e->callback(e, e->ctx);
-		    if (e->flags & CF_OBJECT) {
-			CFRelease(e->ctx);
-		    }
 		    dispatch_async(timer_sync_q, ^{
 			    e->flags &= ~RUNNING;
 			    if (e->running)
@@ -222,7 +216,7 @@ heim_ipc_event_create_f(heim_ipc_event_callback_t cb, void *ctx)
  * heim_ipc_event_free().
  *
  * @param cb callback function when the event is triggered
- * @param ctx CFTypeRef context passed to the callback function, retained during execution.
+ * @param ctx CFTypeRef context passed to the callback function, retained until freed.
  *
  * @return a heim ipc event
  */
@@ -230,6 +224,7 @@ heim_ipc_event_create_f(heim_ipc_event_callback_t cb, void *ctx)
 heim_event_t
 heim_ipc_event_cf_create_f(heim_ipc_event_callback_t cb, CFTypeRef ctx)
 {
+    CFRetain(ctx);
     heim_event_t e = heim_ipc_event_create_f(cb, (void*)ctx);
     e->flags |= CF_OBJECT;
     
@@ -279,7 +274,7 @@ heim_ipc_event_set_time(heim_event_t e, time_t t)
 void
 heim_ipc_event_cancel(heim_event_t e)
 {
-    dispatch_async(timer_sync_q, ^{
+    dispatch_sync(timer_sync_q, ^{
 	    if (e->hptr != HEAP_INVALID_PTR) {
 		heap_remove(timer_heap, e->hptr);
 		e->hptr = HEAP_INVALID_PTR;
@@ -327,9 +322,15 @@ heim_ipc_event_free(heim_event_t e)
 			}
 			if (e->final)
 			    e->final(e->ctx);
+			if (e->flags & CF_OBJECT) {
+			    CFRelease(e->ctx);
+			}
 			free(e);
 		    });
 	    } else {
+		if (e->flags & CF_OBJECT) {
+		    CFRelease(e->ctx);
+		}
 		free(e);
 	    }
 	});

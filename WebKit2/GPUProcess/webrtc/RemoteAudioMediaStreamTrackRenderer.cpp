@@ -57,7 +57,7 @@ static RefPtr<Logger>& nullLogger()
 RemoteAudioMediaStreamTrackRenderer::RemoteAudioMediaStreamTrackRenderer(RemoteAudioMediaStreamTrackRendererManager& manager)
     : m_manager(manager)
     , m_renderer(WebCore::AudioMediaStreamTrackRenderer::create())
-    , m_ringBuffer(makeUniqueRef<CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(nullptr)))
+    , m_ringBuffer(makeUniqueRef<CARingBuffer>())
 {
     ASSERT(m_renderer);
 
@@ -73,11 +73,6 @@ RemoteAudioMediaStreamTrackRenderer::RemoteAudioMediaStreamTrackRenderer(RemoteA
 RemoteAudioMediaStreamTrackRenderer::~RemoteAudioMediaStreamTrackRenderer()
 {
     m_renderer->clear();
-}
-
-SharedRingBufferStorage& RemoteAudioMediaStreamTrackRenderer::storage()
-{
-    return static_cast<SharedRingBufferStorage&>(m_ringBuffer->storage());
 }
 
 void RemoteAudioMediaStreamTrackRenderer::start()
@@ -105,28 +100,14 @@ void RemoteAudioMediaStreamTrackRenderer::audioSamplesStorageChanged(const Share
     MESSAGE_CHECK(WebAudioBufferList::isSupportedDescription(description, numberOfFrames));
     m_description = description;
 
-    if (ipcHandle.handle.isNull()) {
-        m_ringBuffer->deallocate();
-        storage().setReadOnly(false);
-        storage().setStorage(nullptr);
-        return;
-    }
-
-    auto memory = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    storage().setStorage(WTFMove(memory));
-    storage().setReadOnly(true);
-
-    m_ringBuffer->allocate(description, numberOfFrames);
-
+    m_ringBuffer = makeUniqueRef<CARingBuffer>(makeUniqueRef<ReadOnlySharedRingBufferStorage>(ipcHandle.handle), description, numberOfFrames);
     m_audioBufferList = makeUnique<WebAudioBufferList>(m_description);
 }
 
-void RemoteAudioMediaStreamTrackRenderer::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame)
+void RemoteAudioMediaStreamTrackRenderer::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames)
 {
     MESSAGE_CHECK(m_audioBufferList);
     MESSAGE_CHECK(WebAudioBufferList::isSupportedDescription(m_description, numberOfFrames));
-
-    m_ringBuffer->setCurrentFrameBounds(startFrame, endFrame);
 
     m_audioBufferList->setSampleCount(numberOfFrames);
     m_ringBuffer->fetch(m_audioBufferList->list(), numberOfFrames, time.timeValue());

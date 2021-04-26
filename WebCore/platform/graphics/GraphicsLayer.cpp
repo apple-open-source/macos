@@ -88,6 +88,11 @@ bool GraphicsLayer::supportsLayerType(Type type)
     return false;
 }
 
+bool GraphicsLayer::supportsRoundedClip()
+{
+    return false;
+}
+
 bool GraphicsLayer::supportsBackgroundColorContent()
 {
 #if USE(TEXTURE_MAPPER)
@@ -380,6 +385,11 @@ void GraphicsLayer::setMaskLayer(RefPtr<GraphicsLayer>&& layer)
     }
     
     m_maskLayer = WTFMove(layer);
+}
+
+void GraphicsLayer::setMasksToBoundsRect(const FloatRoundedRect& roundedRect)
+{
+    m_masksToBoundsRect = roundedRect;
 }
 
 Path GraphicsLayer::shapeLayerPath() const
@@ -721,7 +731,7 @@ static inline const TransformOperations& operationsAt(const KeyframeValueList& v
 
 int GraphicsLayer::validateTransformOperations(const KeyframeValueList& valueList, bool& hasBigRotation)
 {
-    ASSERT(valueList.property() == AnimatedPropertyTransform);
+    ASSERT(animatedPropertyIsTransformOrRelated(valueList.property()));
 
     hasBigRotation = false;
     
@@ -829,12 +839,6 @@ void GraphicsLayer::traverse(GraphicsLayer& layer, const WTF::Function<void (Gra
 
     if (auto* maskLayer = layer.maskLayer())
         traverse(*maskLayer, traversalFunc);
-}
-
-GraphicsLayer::EmbeddedViewID GraphicsLayer::nextEmbeddedViewID()
-{
-    static GraphicsLayer::EmbeddedViewID nextEmbeddedViewID;
-    return ++nextEmbeddedViewID;
 }
 
 void GraphicsLayer::dumpLayer(TextStream& ts, LayerTreeAsTextBehavior behavior) const

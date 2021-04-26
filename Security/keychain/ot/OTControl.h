@@ -262,6 +262,10 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                     contextID:(NSString*)contextID
                         reply:(nonnull void (^)(NSError * _Nullable error))reply;
 
+- (void)resetAccountCDPContents:(NSString* _Nullable)containerName
+                      contextID:(NSString*)contextID
+                          reply:(void (^)(NSError* _Nullable error))reply;
+
 @end
 
 NS_ASSUME_NONNULL_END

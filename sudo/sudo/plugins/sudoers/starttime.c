@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2012-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2012-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -49,12 +49,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -92,7 +87,7 @@ get_starttime(pid_t pid, struct timespec *starttime)
     struct sudo_kinfo_proc *ki_proc = NULL;
     size_t size = sizeof(*ki_proc);
     int mib[6], rc;
-    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
 
     /*
      * Lookup start time for pid via sysctl.
@@ -103,7 +98,7 @@ get_starttime(pid_t pid, struct timespec *starttime)
     mib[3] = (int)pid;
     mib[4] = sizeof(*ki_proc);
     mib[5] = 1;
-    do {
+    for (;;) {
 	struct sudo_kinfo_proc *kp;
 
 	size += size / 10;
@@ -113,7 +108,9 @@ get_starttime(pid_t pid, struct timespec *starttime)
 	}
 	ki_proc = kp;
 	rc = sysctl(mib, sudo_kp_namelen, ki_proc, &size, NULL, 0);
-    } while (rc == -1 && errno == ENOMEM);
+	if (rc != -1 || errno != ENOMEM)
+	    break;
+    }
     if (rc != -1) {
 #if defined(HAVE_KINFO_PROC_FREEBSD)
 	/* FreeBSD and Dragonfly */
@@ -145,7 +142,7 @@ get_starttime(pid_t pid, struct timespec *starttime)
     char path[PATH_MAX];
     ssize_t nread;
     int fd, ret = -1;
-    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
 
     /* Determine the start time from pr_start in /proc/pid/psinfo. */
     (void)snprintf(path, sizeof(path), "/proc/%u/psinfo", (unsigned int)pid);
@@ -178,7 +175,7 @@ get_starttime(pid_t pid, struct timespec *starttime)
     int ret = -1;
     int fd = -1;
     long tps;
-    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
 
     /*
      * Start time is in ticks per second on Linux.
@@ -273,18 +270,18 @@ done:
 int
 get_starttime(pid_t pid, struct timespec *starttime)
 {
-    struct pst_status pstat;
+    struct pst_status pst;
     int rc;
-    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
 
     /*
      * Determine the start time from pst_start in struct pst_status.
      * EOVERFLOW is not a fatal error for the fields we use.
      * See the "EOVERFLOW Error" section of pstat_getvminfo(3).
      */
-    rc = pstat_getproc(&pstat, sizeof(pstat), 0, pid);
+    rc = pstat_getproc(&pst, sizeof(pst), 0, pid);
     if (rc != -1 || errno == EOVERFLOW) {
-	starttime->tv_sec = pstat.pst_start;
+	starttime->tv_sec = pst.pst_start;
 	starttime->tv_nsec = 0;
 
 	sudo_debug_printf(SUDO_DEBUG_INFO,
@@ -302,7 +299,7 @@ get_starttime(pid_t pid, struct timespec *starttime)
 int
 get_starttime(pid_t pid, struct timespec *starttime)
 {
-    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL)
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
 
     sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
 	"process start time not supported by sudo on this system");

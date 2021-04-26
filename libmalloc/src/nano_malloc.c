@@ -37,7 +37,7 @@ static MALLOC_ALWAYS_INLINE unsigned int
 nano_mag_index(const nanozone_t *nanozone)
 {
 	if (os_likely(_os_cpu_number_override == -1)) {
-		return (_os_cpu_number() >> hyper_shift) % nano_common_max_magazines;
+		return (_malloc_cpu_number() >> hyper_shift) % nano_common_max_magazines;
 	}
 	return (_os_cpu_number_override >> hyper_shift) % nano_common_max_magazines;
 }

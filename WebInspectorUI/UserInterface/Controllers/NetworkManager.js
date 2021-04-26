@@ -43,7 +43,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         this._sourceMapURLMap = new Map;
         this._downloadingSourceMaps = new Set;
 
-        this._localResourceOverrides = new Set;
+        this._localResourceOverrides = [];
         this._harImportLocalResourceMap = new Set;
 
         this._pendingLocalResourceOverrideSaves = null;
@@ -52,11 +52,14 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         // FIXME: Provide dedicated UI to toggle Network Interception globally?
         this._interceptionEnabled = true;
 
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
         WI.notifications.addEventListener(WI.Notification.ExtraDomainsActivated, this._extraDomainsActivated, this);
+
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._handleFrameMainResourceDidChange, this);
 
-        if (NetworkManager.supportsLocalResourceOverrides()) {
-            WI.Resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleResourceContentDidChange, this);
+        if (NetworkManager.supportsOverridingResponses()) {
+            WI.Resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleResourceContentChangedForLocalResourceOverride, this);
+            WI.Resource.addEventListener(WI.Resource.Event.RequestDataDidChange, this._handleResourceContentChangedForLocalResourceOverride, this);
             WI.LocalResourceOverride.addEventListener(WI.LocalResourceOverride.Event.DisabledChanged, this._handleResourceOverrideDisabledChanged, this);
 
             WI.Target.registerInitializationPromise((async () => {
@@ -65,6 +68,23 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                 this._restoringLocalResourceOverrides = true;
                 for (let serializedLocalResourceOverride of serializedLocalResourceOverrides) {
                     let localResourceOverride = WI.LocalResourceOverride.fromJSON(serializedLocalResourceOverride);
+
+                    let supported = false;
+                    switch (localResourceOverride.type) {
+                    case WI.LocalResourceOverride.InterceptType.Request:
+                        supported = WI.NetworkManager.supportsOverridingRequests();
+                        break;
+
+                    case WI.LocalResourceOverride.InterceptType.Response:
+                        supported = WI.NetworkManager.supportsOverridingResponses();
+                        break;
+
+                    case WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork:
+                        supported = WI.NetworkManager.supportsOverridingRequestsWithResponses();
+                        break;
+                    }
+                    if (!supported)
+                        continue;
 
                     const key = null;
                     WI.objectStores.localResourceOverrides.associateObject(localResourceOverride, key, serializedLocalResourceOverride);
@@ -95,9 +115,22 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             && InspectorBackend.hasCommand("Network.getSerializedCertificate");
     }
 
-    static supportsLocalResourceOverrides()
+    static supportsOverridingRequests()
     {
-        return InspectorBackend.hasCommand("Network.setInterceptionEnabled");
+        // COMPATIBILITY (iOS 13.4): Network.interceptWithRequest did not exist yet.
+        return InspectorBackend.hasCommand("Network.interceptWithRequest");
+    }
+
+    static supportsOverridingRequestsWithResponses()
+    {
+        // COMPATIBILITY (iOS 13.4): Network.interceptRequestWithResponse did not exist yet.
+        return InspectorBackend.hasCommand("Network.interceptRequestWithResponse");
+    }
+
+    static supportsOverridingResponses()
+    {
+        // COMPATIBILITY (iOS 13.0): Network.interceptWithResponse did not exist yet.
+        return InspectorBackend.hasCommand("Network.interceptWithResponse");
     }
 
     static supportsBootstrapScript()
@@ -159,14 +192,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                     target.NetworkAgent.setInterceptionEnabled(this._interceptionEnabled);
 
                 for (let localResourceOverride of this._localResourceOverrides) {
-                    if (!localResourceOverride.disabled) {
-                        target.NetworkAgent.addInterception.invoke({
-                            url: localResourceOverride.url,
-                            stage: InspectorBackend.Enum.Network.NetworkStage.Response,
-                            caseSensitive: localResourceOverride.isCaseSensitive,
-                            isRegex: localResourceOverride.isRegex,
-                        });
-                    }
+                    if (!localResourceOverride.disabled)
+                        this._addInterception(localResourceOverride, target);
                 }
             }
         }
@@ -184,16 +211,12 @@ WI.NetworkManager = class NetworkManager extends WI.Object
     // Public
 
     get mainFrame() { return this._mainFrame; }
+    get localResourceOverrides() { return this._localResourceOverrides; }
     get bootstrapScript() { return this._bootstrapScript; }
 
     get frames()
     {
         return Array.from(this._frameIdentifierMap.values());
-    }
-
-    get localResourceOverrides()
-    {
-        return Array.from(this._localResourceOverrides);
     }
 
     get interceptionEnabled()
@@ -356,26 +379,14 @@ WI.NetworkManager = class NetworkManager extends WI.Object
     {
         console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
 
-        console.assert(!this._localResourceOverrides.has(localResourceOverride), "Already had an existing local resource override.");
-        this._localResourceOverrides.add(localResourceOverride);
+        console.assert(!this._localResourceOverrides.includes(localResourceOverride));
+        this._localResourceOverrides.push(localResourceOverride);
 
         if (!this._restoringLocalResourceOverrides)
             WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
 
-        if (!localResourceOverride.disabled) {
-            let commandArguments = {
-                url: localResourceOverride.url,
-                caseSensitive: localResourceOverride.isCaseSensitive,
-                isRegex: localResourceOverride.isRegex,
-                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
-            };
-
-            // COMPATIBILITY (iOS 13.0): Network.addInterception did not exist.
-            for (let target of WI.targets) {
-                if (target.hasCommand("Network.addInterception"))
-                    target.NetworkAgent.addInterception.invoke(commandArguments);
-            }
-        }
+        if (!localResourceOverride.disabled)
+            this._addInterception(localResourceOverride);
 
         this.dispatchEventToListeners(WI.NetworkManager.Event.LocalResourceOverrideAdded, {localResourceOverride});
     }
@@ -384,7 +395,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
     {
         console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
 
-        if (!this._localResourceOverrides.delete(localResourceOverride)) {
+        if (!this._localResourceOverrides.remove(localResourceOverride)) {
             console.assert(false, "Attempted to remove a local resource override that was not known.");
             return;
         }
@@ -395,31 +406,29 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (!this._restoringLocalResourceOverrides)
             WI.objectStores.localResourceOverrides.deleteObject(localResourceOverride);
 
-        if (!localResourceOverride.disabled) {
-            let commandArguments = {
-                url: localResourceOverride.url,
-                caseSensitive: localResourceOverride.isCaseSensitive,
-                isRegex: localResourceOverride.isRegex,
-                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
-            };
-
-            // COMPATIBILITY (iOS 13.0): Network.removeInterception did not exist.
-            for (let target of WI.targets) {
-                if (target.hasCommand("Network.removeInterception"))
-                    target.NetworkAgent.removeInterception.invoke(commandArguments);
-            }
-        }
+        if (!localResourceOverride.disabled)
+            this._removeInterception(localResourceOverride);
 
         this.dispatchEventToListeners(WI.NetworkManager.Event.LocalResourceOverrideRemoved, {localResourceOverride});
     }
 
-    localResourceOverrideForURL(url)
+    localResourceOverridesForURL(url)
     {
-        for (let localResourceOverride of this._localResourceOverrides) {
-            if (localResourceOverride.matches(url))
-                return localResourceOverride;
-        }
-        return null;
+        // Order local resource overrides based on how closely they match the given URL. As an example,
+        // a regular expression is likely going to match more URLs than a case-insensitive string.
+        const rankFunctions = [
+            (localResourceOverride) => localResourceOverride.isCaseSensitive && !localResourceOverride.isRegex,  // exact match
+            (localResourceOverride) => !localResourceOverride.isCaseSensitive && !localResourceOverride.isRegex, // case-insensitive
+            (localResourceOverride) => localResourceOverride.isCaseSensitive && localResourceOverride.isRegex,   // case-sensitive regex
+            (localResourceOverride) => !localResourceOverride.isCaseSensitive && localResourceOverride.isRegex,  // case-insensitive regex
+        ];
+        return this._localResourceOverrides
+            .filter((localResourceOverride) => localResourceOverride.matches(url))
+            .sort((a, b) => {
+                let aRank = rankFunctions.findIndex((rankFunction) => rankFunction(a));
+                let bRank = rankFunctions.findIndex((rankFunction) => rankFunction(b));
+                return aRank - bRank;
+            });
     }
 
     canBeOverridden(resource)
@@ -430,15 +439,14 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (resource instanceof WI.SourceMapResource)
             return false;
 
-        if (resource.isLocalResourceOverride)
+        if (resource.localResourceOverride)
             return false;
 
         const schemes = ["http:", "https:", "file:"];
         if (!schemes.some((scheme) => resource.url.startsWith(scheme)))
             return false;
 
-        let existingOverride = this.localResourceOverrideForURL(resource.url);
-        if (existingOverride)
+        if (this.localResourceOverridesForURL(resource.url).length)
             return false;
 
         switch (resource.type) {
@@ -940,41 +948,83 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     requestIntercepted(target, requestId, request)
     {
-        // FIXME: add request interception support to the frontend.
-        this.dispatchEventToListeners(WI.NetworkManager.Event.RequestIntercepted, {target, requestId, request});
+        let url = WI.urlWithoutFragment(request.url);
+        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+            if (localResourceOverride.disabled)
+                continue;
+
+            let localResource = localResourceOverride.localResource;
+            let revision = localResource.currentRevision;
+
+            switch (localResourceOverride.type) {
+            case WI.LocalResourceOverride.InterceptType.Request: {
+                target.NetworkAgent.interceptWithRequest.invoke({
+                    requestId,
+                    url: localResource.url || undefined,
+                    method: localResource.requestMethod ?? undefined,
+                    headers: localResource.requestHeaders,
+                    postData: (WI.HTTPUtilities.RequestMethodsWithBody.has(localResource.requestMethod) && localResource.requestData) ? btoa(localResource.requestData) : undefined,
+                });
+                return;
+            }
+
+            case WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork:
+                console.assert(revision.mimeType === localResource.mimeType);
+                target.NetworkAgent.interceptRequestWithResponse.invoke({
+                    requestId,
+                    content: revision.content,
+                    base64Encoded: !!revision.base64Encoded,
+                    mimeType: revision.mimeType ?? undefined,
+                    status: !isNaN(localResource.statusCode) ? localResource.statusCode : 200,
+                    statusText: !isNaN(localResource.statusCode) ? (localResource.statusText ?? "") : WI.HTTPUtilities.statusTextForStatusCode(200),
+                    headers: localResource.responseHeaders,
+                });
+                return;
+            }
+        }
+
+        // It's possible for a response regex override to overlap a request regex override, in
+        // which case we should silently continue the request if the response regex override was
+        // used instead (e.g. it was added first).
+        target.NetworkAgent.interceptContinue.invoke({
+            requestId,
+            stage: InspectorBackend.Enum.Network.NetworkStage.Request,
+        });
     }
 
     responseIntercepted(target, requestId, response)
     {
         let url = WI.urlWithoutFragment(response.url);
-        let localResourceOverride = this.localResourceOverrideForURL(url);
-        if (!localResourceOverride || localResourceOverride.disabled) {
-            target.NetworkAgent.interceptContinue.invoke({
-                requestId,
-                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
-            });
-            return;
+        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+            if (localResourceOverride.disabled)
+                continue;
+
+            let localResource = localResourceOverride.localResource;
+            let revision = localResource.currentRevision;
+
+            switch (localResourceOverride.type) {
+            case WI.LocalResourceOverride.InterceptType.Response:
+                console.assert(revision.mimeType === localResource.mimeType);
+                target.NetworkAgent.interceptWithResponse.invoke({
+                    requestId,
+                    content: revision.content,
+                    base64Encoded: !!revision.base64Encoded,
+                    mimeType: revision.mimeType ?? undefined,
+                    status: !isNaN(localResource.statusCode) ? localResource.statusCode : undefined,
+                    statusText: !isNaN(localResource.statusCode) ? (localResource.statusText ?? "") : undefined,
+                    headers: localResource.responseHeaders,
+                });
+                return;
+            }
         }
 
-        let localResource = localResourceOverride.localResource;
-        let revision = localResource.currentRevision;
-
-        let content = revision.content;
-        let base64Encoded = revision.base64Encoded;
-        let mimeType = revision.mimeType;
-        let statusCode = localResource.statusCode;
-        let statusText = localResource.statusText;
-        let responseHeaders = localResource.responseHeaders;
-        console.assert(revision.mimeType === localResource.mimeType);
-
-        if (isNaN(statusCode))
-            statusCode = undefined;
-        if (!statusText)
-            statusText = undefined;
-        if (!responseHeaders)
-            responseHeaders = undefined;
-
-        target.NetworkAgent.interceptWithResponse(requestId, content, base64Encoded, mimeType, statusCode, statusText, responseHeaders);
+        // It's possible for a request regex override to overlap a response regex override, in
+        // which case we should silently continue the response if the request regex override was
+        // used instead (e.g. it was added first).
+        target.NetworkAgent.interceptContinue.invoke({
+            requestId,
+            stage: InspectorBackend.Enum.Network.NetworkStage.Response,
+        });
     }
 
     // RuntimeObserver
@@ -1278,6 +1328,47 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         resources.push(resource);
     }
 
+    _commandArgumentsForInterception(localResourceOverride)
+    {
+        console.assert(localResourceOverride instanceof WI.LocalResourceOverride, localResourceOverride);
+
+        return {
+            url: localResourceOverride.url,
+            stage: localResourceOverride.type === WI.LocalResourceOverride.InterceptType.Response ? InspectorBackend.Enum.Network.NetworkStage.Response : InspectorBackend.Enum.Network.NetworkStage.Request,
+            caseSensitive: localResourceOverride.isCaseSensitive,
+            isRegex: localResourceOverride.isRegex,
+        };
+    }
+
+    _addInterception(localResourceOverride, specificTarget)
+    {
+        console.assert(localResourceOverride instanceof WI.LocalResourceOverride, localResourceOverride);
+        console.assert(!localResourceOverride.disabled, localResourceOverride);
+
+        let targets = specificTarget ? [specificTarget] : WI.targets;
+        for (let target of targets) {
+            // COMPATIBILITY (iOS 13.0): Network.addInterception did not exist yet.
+            if (!target.hasCommand("Network.addInterception"))
+                continue;
+
+            target.NetworkAgent.addInterception.invoke(this._commandArgumentsForInterception(localResourceOverride));
+        }
+    }
+
+    _removeInterception(localResourceOverride, specificTarget)
+    {
+        console.assert(localResourceOverride instanceof WI.LocalResourceOverride, localResourceOverride);
+
+        let targets = specificTarget ? [specificTarget] : WI.targets;
+        for (let target of targets) {
+            // COMPATIBILITY (iOS 13.0): Network.removeInterception did not exist yet.
+            if (!target.hasCommand("Network.removeInterception"))
+                continue;
+
+            target.NetworkAgent.removeInterception.invoke(this._commandArgumentsForInterception(localResourceOverride));
+        }
+    }
+
     _dispatchFrameWasAddedEvent(frame)
     {
         this.dispatchEventToListeners(WI.NetworkManager.Event.FrameWasAdded, {frame});
@@ -1376,17 +1467,9 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         }
     }
 
-    _handleResourceContentDidChange(event)
+    _handleResourceContentChangedForLocalResourceOverride(event)
     {
-        let resource = event.target;
-        if (!(resource instanceof WI.Resource))
-            return;
-
-        if (!resource.isLocalResourceOverride)
-            return;
-
-        let localResourceOverride = this.localResourceOverrideForURL(resource.url);
-        console.assert(localResourceOverride);
+        let localResourceOverride = event.target.localResourceOverride;
         if (!localResourceOverride)
             return;
 
@@ -1406,27 +1489,15 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     _handleResourceOverrideDisabledChanged(event)
     {
-        console.assert(WI.NetworkManager.supportsLocalResourceOverrides());
+        console.assert(WI.NetworkManager.supportsOverridingResponses());
 
         let localResourceOverride = event.target;
         WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
 
-        let commandArguments = {
-            url: localResourceOverride.url,
-            caseSensitive: localResourceOverride.isCaseSensitive,
-            isRegex: localResourceOverride.isRegex,
-            stage: InspectorBackend.Enum.Network.NetworkStage.Response,
-        };
-
-        // COMPATIBILITY (iOS 13.0): Network.addInterception / Network.removeInterception did not exist.
-        for (let target of WI.targets) {
-            if (target.hasDomain("Network")) {
-                if (localResourceOverride.disabled)
-                    target.NetworkAgent.removeInterception.invoke(commandArguments);
-                else
-                    target.NetworkAgent.addInterception.invoke(commandArguments);
-            }
-        }
+        if (localResourceOverride.disabled)
+            this._removeInterception(localResourceOverride);
+        else
+            this._addInterception(localResourceOverride);
     }
 
     _handleBootstrapScriptContentDidChange(event)
@@ -1447,6 +1518,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     _extraDomainsActivated(event)
     {
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
+
         let target = WI.assumingMainTarget();
         if (target.hasDomain("Page") && event.data.domains.includes("Page"))
             target.PageAgent.getResourceTree(this._processMainFrameResourceTreePayload.bind(this));
@@ -1471,5 +1544,4 @@ WI.NetworkManager.Event = {
     BootstrapScriptDestroyed: "network-manager-bootstrap-script-destroyed",
     LocalResourceOverrideAdded: "network-manager-local-resource-override-added",
     LocalResourceOverrideRemoved: "network-manager-local-resource-override-removed",
-    RequestIntercepted: "network-manager-request-intercepted"
 };

@@ -96,6 +96,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Convenience function: set the upload version for this record to be the current OS version
 + (void)setOSVersionInRecord:(CKRecord*)record;
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
 
 @end
 

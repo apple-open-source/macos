@@ -348,4 +348,132 @@ bool transformsForValue(const CSSValue& value, const CSSToLengthConversionData& 
     return true;
 }
 
+RefPtr<TranslateTransformOperation> translateForValue(const CSSValue& value, const CSSToLengthConversionData& conversionData)
+{
+    if (!is<CSSValueList>(value))
+        return nullptr;
+
+    auto& valueList = downcast<CSSValueList>(value);
+    if (!valueList.length())
+        return nullptr;
+
+    auto type = TransformOperation::TRANSLATE;
+    Length tx = Length(0, Fixed);
+    Length ty = Length(0, Fixed);
+    Length tz = Length(0, Fixed);
+    for (unsigned i = 0; i < valueList.length(); ++i) {
+        auto* valueItem = valueList.itemWithoutBoundsCheck(i);
+        if (!is<CSSPrimitiveValue>(valueItem))
+            return nullptr;
+        if (!i)
+            tx = convertToFloatLength(downcast<CSSPrimitiveValue>(valueItem), conversionData);
+        else if (i == 1)
+            ty = convertToFloatLength(downcast<CSSPrimitiveValue>(valueItem), conversionData);
+        else if (i == 2) {
+            type = TransformOperation::TRANSLATE_3D;
+            tz = convertToFloatLength(downcast<CSSPrimitiveValue>(valueItem), conversionData);
+        }
+    }
+
+    return TranslateTransformOperation::create(tx, ty, tz, type);
+}
+
+RefPtr<ScaleTransformOperation> scaleForValue(const CSSValue& value)
+{
+    if (!is<CSSValueList>(value))
+        return nullptr;
+
+    auto& valueList = downcast<CSSValueList>(value);
+    if (!valueList.length())
+        return nullptr;
+
+    auto type = TransformOperation::SCALE;
+    double sx = 1.0;
+    double sy = 1.0;
+    double sz = 1.0;
+    for (unsigned i = 0; i < valueList.length(); ++i) {
+        auto* valueItem = valueList.itemWithoutBoundsCheck(i);
+        if (!is<CSSPrimitiveValue>(valueItem))
+            return nullptr;
+        if (!i) {
+            sx = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+            sy = sx;
+        } else if (i == 1)
+            sy = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+        else if (i == 2) {
+            type = TransformOperation::SCALE_3D;
+            sz = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+        }
+    }
+
+    return ScaleTransformOperation::create(sx, sy, sz, type);
+}
+
+RefPtr<RotateTransformOperation> rotateForValue(const CSSValue& value)
+{
+    if (!is<CSSValueList>(value))
+        return nullptr;
+
+    auto& valueList = downcast<CSSValueList>(value);
+    auto numberOfItems = valueList.length();
+
+    // There are three scenarios here since the rotation axis is defined either as:
+    //     - no value: implicit 2d rotation
+    //     - 1 value: an axis identifier (x/y/z)
+    //     - 3 values: three numbers defining an x/y/z vector
+    // The angle is specified as the last value.
+    if (numberOfItems != 1 && numberOfItems != 2 && numberOfItems != 4)
+        return nullptr;
+
+    auto* lastValue = valueList.itemWithoutBoundsCheck(numberOfItems - 1);
+    if (!is<CSSPrimitiveValue>(lastValue))
+        return nullptr;
+    auto angle = downcast<CSSPrimitiveValue>(*lastValue).computeDegrees();
+
+    if (numberOfItems == 1)
+        return RotateTransformOperation::create(angle, TransformOperation::ROTATE);
+
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    auto type = TransformOperation::ROTATE;
+
+    if (numberOfItems == 2) {
+        // An axis identifier was specified.
+        auto* axisIdentifierItem = valueList.itemWithoutBoundsCheck(0);
+        if (!is<CSSPrimitiveValue>(axisIdentifierItem))
+            return nullptr;
+        auto axisIdentifier = downcast<CSSPrimitiveValue>(*axisIdentifierItem).valueID();
+        if (axisIdentifier == CSSValueX) {
+            type = TransformOperation::ROTATE_X;
+            x = 1.0;
+        } else if (axisIdentifier == CSSValueY) {
+            type = TransformOperation::ROTATE_Y;
+            y = 1.0;
+        } else if (axisIdentifier == CSSValueZ) {
+            type = TransformOperation::ROTATE_Z;
+            z = 1.0;
+        } else
+            return nullptr;
+    } else if (numberOfItems == 4) {
+        // The axis was specified using a vector.
+        type = TransformOperation::ROTATE;
+        for (unsigned i = 0; i < 3; ++i) {
+            auto* valueItem = valueList.itemWithoutBoundsCheck(i);
+            if (!is<CSSPrimitiveValue>(valueItem))
+                return nullptr;
+            if (!i)
+                x = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+            else if (i == 1)
+                y = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+            else if (i == 2) {
+                type = TransformOperation::ROTATE_3D;
+                z = downcast<CSSPrimitiveValue>(*valueItem).doubleValue();
+            }
+        }
+    }
+
+    return RotateTransformOperation::create(x, y, z, angle, type);
+}
+
 }

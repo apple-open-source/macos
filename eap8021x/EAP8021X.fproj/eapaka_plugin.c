@@ -323,6 +323,7 @@ STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
 		    EAPSIMAKAAttributeType identity_type,
+		    Boolean use_configured_realm,
 		    Boolean * is_reauth_id_p,
 		    EAPClientStatus * client_status)
 {
@@ -332,8 +333,13 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     if (is_reauth_id_p != NULL) {
 	*is_reauth_id_p = FALSE;
     }
-    realm = copy_static_realm(properties);
+    if (CFDictionaryContainsKey(properties, kEAPClientPropEAPSIMAKAIMSI) ||
+	use_configured_realm) {
+	/* use configured nai realm  */
+	realm = copy_static_realm(properties);
+    }
     if (realm == NULL) {
+	/* use PLMN based nai realm */
 	realm = SIMCopyRealm(properties);
     }
     ret_identity = create_identity(persist, properties, identity_type, realm,
@@ -347,7 +353,8 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
-		    EAPSIMAKAAttributeType identity_type, 
+		    EAPSIMAKAAttributeType identity_type,
+		    Boolean use_configured_realm,
 		    Boolean * is_reauth_id_p,
 		    EAPClientStatus * client_status)
 {
@@ -434,7 +441,7 @@ EAPAKAContextSetLastIdentity(EAPAKAContextRef context, CFDataRef identity_data)
 		/* carrier hotspot case: for MK computation we need "0<IMSI>@<NAI realm>" */
 		CFStringRef real_identity = sim_identity_create(context->persist,
 								context->plugin->properties,
-								kAT_PERMANENT_ID_REQ, NULL, NULL);
+								kAT_PERMANENT_ID_REQ, FALSE, NULL, NULL);
 		context->last_identity = CFStringCreateExternalRepresentation(NULL, real_identity,
 									  kCFStringEncodingUTF8, 0);
 		my_CFRelease(&real_identity);
@@ -610,6 +617,7 @@ eapaka_identity(EAPAKAContextRef context,
 	CFStringRef identity = sim_identity_create(context->persist,
 				       context->plugin->properties,
 				       identity_req_type,
+				       FALSE,
 				       &reauth_id_used,
 				       client_status);
 	if (identity == NULL) {
@@ -1659,7 +1667,7 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 	} else {
 	    Boolean reauth_id_used = FALSE;
 	    ret_identity = sim_identity_create(persist, properties,
-					       identity_type, &reauth_id_used, NULL);
+					       identity_type, TRUE, &reauth_id_used, NULL);
 	    if (reauth_id_used) {
 		/* Mark Fast Re-Auth ID has been used */
 		EAPSIMAKAPersistentStateSetReauthIDUsed(persist, TRUE);
@@ -1712,7 +1720,7 @@ eapaka_copy_identity(EAPClientPluginDataRef plugin)
 	return NULL;
     }
     return (sim_identity_create(context->persist, plugin->properties,
-				kAT_ANY_ID_REQ, NULL, NULL));
+				kAT_ANY_ID_REQ, TRUE, NULL, NULL));
 }
 
 STATIC CFStringRef

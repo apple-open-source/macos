@@ -60,7 +60,6 @@
 #include "WebSWServerConnectionMessages.h"
 #include "WebSWServerToContextConnection.h"
 #include "WebSWServerToContextConnectionMessages.h"
-#include "WebSocketIdentifier.h"
 #include "WebsiteDataStoreParameters.h"
 #include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
@@ -592,6 +591,11 @@ void NetworkConnectionToWebProcess::preconnectTo(Optional<uint64_t> preconnectio
     }
 #endif
     completionHandler(internalError(loadParameters.request.url()));
+}
+
+void NetworkConnectionToWebProcess::isResourceLoadFinished(uint64_t loadIdentifier, CompletionHandler<void(bool)>&& callback)
+{
+    callback(!m_networkResourceLoaders.contains(loadIdentifier));
 }
 
 void NetworkConnectionToWebProcess::didFinishPreconnection(uint64_t preconnectionIdentifier, const ResourceError& error)

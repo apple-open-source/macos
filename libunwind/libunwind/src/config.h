@@ -18,19 +18,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-// Define static_assert() unless already defined by compiler.
-#ifndef __has_feature
-  #define __has_feature(__x) 0
-#endif
-#if !(__has_feature(cxx_static_assert)) && !defined(static_assert)
-  #define static_assert(__b, __m) \
-      extern int compile_time_assert_failed[ ( __b ) ? 1 : -1 ]  \
-                                                  __attribute__( ( unused ) );
-#endif
+#include <__libunwind_config.h>
 
 // Platform specific configuration defines.
 #ifdef __APPLE__
-  #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND
+  #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 1
   #ifndef FOR_DYLD
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   1
   #endif
@@ -40,8 +32,19 @@
   #else
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
   #endif
+#elif defined(_LIBUNWIND_IS_BAREMETAL)
+  #if !defined(_LIBUNWIND_ARM_EHABI)
+    #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
+    #define _LIBUNWIND_SUPPORT_DWARF_INDEX 1
+  #endif
+#elif defined(__BIONIC__) && defined(_LIBUNWIND_ARM_EHABI)
+  // For ARM EHABI, Bionic didn't implement dl_iterate_phdr until API 21. After
+  // API 21, dl_iterate_phdr exists, but dl_unwind_find_exidx is much faster.
+  #define _LIBUNWIND_USE_DL_UNWIND_FIND_EXIDX 1
 #else
-  #if defined(__ARM_DWARF_EH__) || !defined(__arm__)
+  // Assume an ELF system with a dl_iterate_phdr function.
+  #define _LIBUNWIND_USE_DL_ITERATE_PHDR 1
+  #if !defined(_LIBUNWIND_ARM_EHABI)
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
     #define _LIBUNWIND_SUPPORT_DWARF_INDEX 1
   #endif
@@ -99,8 +102,11 @@
 
 #if defined(__i386__) || defined(__x86_64__) ||                                \
     defined(__ppc__) || defined(__ppc64__) || defined(__powerpc64__) ||        \
-    defined(__arm__) || (defined(__arm64__) || defined(__aarch64__)) ||        \
-    defined(__mips__)
+    defined(__arm__) ||                                                        \
+    defined(__aarch64__) ||                                                    \
+    defined(__mips__) ||                                                       \
+    defined(__riscv) ||                                                        \
+    defined(__hexagon__)
 #if !defined(_LIBUNWIND_BUILD_SJLJ_APIS)
 #define _LIBUNWIND_BUILD_ZERO_COST_APIS
 #endif
@@ -134,8 +140,7 @@ extern "C" {
 #else
 #define _LIBUNWIND_ABORT(msg)                                                  \
   do {                                                                         \
-    fprintf(stderr, "libunwind: %s %s:%d - %s\n", __func__, __FILE__,          \
-            __LINE__, msg);                                                    \
+    fprintf(stderr, "libunwind: %s - %s\n", __func__, msg);                    \
     fflush(stderr);                                                            \
     abort();                                                                   \
   } while (0)

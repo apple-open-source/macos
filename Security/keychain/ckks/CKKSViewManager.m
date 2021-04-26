@@ -113,6 +113,7 @@
                        sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
               accountStateTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
 {
     if(self = [super init]) {
@@ -124,7 +125,7 @@
         _accountTracker = accountTracker;
         _lockStateTracker = lockStateTracker;
         [_lockStateTracker addLockStateObserver:self];
-        _reachabilityTracker = [[CKKSReachabilityTracker alloc] init];
+        _reachabilityTracker = reachabilityTracker;
         _itemModificationsBeforePolicyLoaded = NO;
 
         _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:_container
@@ -191,7 +192,7 @@
     __block BOOL success = YES;
     dispatch_once(&onceToken, ^{
         OTManager* manager = [OTManager manager];
-        if (![manager waitForReady:OTCKContainerName context:OTDefaultContext wait:3*NSEC_PER_SEC]) {
+        if (![manager waitForReady:OTCKContainerName context:OTDefaultContext wait:2*NSEC_PER_SEC]) {
             success = NO;
         }
     });
@@ -264,6 +265,33 @@
             [values setValue:@(fuzzyDaysSinceClassASync) forKey:[NSString stringWithFormat:@"%@-daysSinceClassASync", viewName]];
             [values setValue:@(fuzzyDaysSinceClassCSync) forKey:[NSString stringWithFormat:@"%@-daysSinceClassCSync", viewName]];
             [values setValue:@(fuzzyDaysSinceKSR) forKey:[NSString stringWithFormat:@"%@-daysSinceLastKeystateReady", viewName]];
+
+            NSError* ckmeError = nil;
+            NSNumber* syncedItemRecords = [CKKSMirrorEntry counts:view.zoneID error:&ckmeError];
+            if(ckmeError || !syncedItemRecords) {
+                ckkserror_global("manager", "couldn't fetch CKMirror counts for %@: %@", view.zoneID, ckmeError);
+            } else {
+                ckksnotice("metrics", view, "View has %@ item ckrecords", syncedItemRecords);
+                values[[NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsNumberOfSyncItems]] = [CKKSAnalytics fuzzyNumber:syncedItemRecords];
+            }
+
+            NSError* tlkShareCountError = nil;
+            NSNumber* tlkShareCount = [CKKSTLKShareRecord counts:view.zoneID error:&tlkShareCountError];
+            if(tlkShareCountError || !tlkShareCount) {
+                ckkserror_global("manager", "couldn't fetch CKKSTLKShare counts for %@: %@", view.zoneID, tlkShareCountError);
+            } else {
+                ckksnotice("metrics", view, "View has %@ tlkshares", tlkShareCount);
+                values[[NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsNumberOfTLKShares]] = [CKKSAnalytics fuzzyNumber:tlkShareCount];
+            }
+
+            NSError* syncKeyCountError = nil;
+            NSNumber* syncKeyCount = [CKKSKey counts:view.zoneID error:&syncKeyCountError];
+            if(syncKeyCountError || !syncKeyCount) {
+                ckkserror_global("manager", "couldn't fetch CKKSKey counts for %@: %@", view.zoneID, syncKeyCountError);
+            } else {
+                ckksnotice("metrics", view, "View has %@ sync keys", syncKeyCount);
+                values[[NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsNumberOfSyncKeys]] = syncKeyCount;
+            }
 
             BOOL hasTLKs = [view.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateReady] || [view.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock];
             /* only synced recently if between [0...7, ie within 7 days */
@@ -452,6 +480,9 @@ dispatch_once_t globalZoneStateQueueOnce;
             [view scanLocalItems:@"item-added-before-policy"];
         }
     }
+
+    // Retrigger the analytics setup, so that our views will report status
+    [self setupAnalytics];
 
     // The policy is considered loaded once the views have been created
     [self.policyLoaded fulfill];
@@ -1211,7 +1242,7 @@ dispatch_once_t globalZoneStateQueueOnce;
     }];
 
     // If we're signed in, give the views a few seconds to enter what they consider to be a non-transient state (in case this daemon just launched)
-    if([self.accountTracker.ckAccountInfoInitialized wait:5*NSEC_PER_SEC]) {
+    if([self.accountTracker.ckAccountInfoInitialized wait:2*NSEC_PER_SEC]) {
         ckkserror_global("account", "Haven't yet figured out cloudkit account state");
     }
 
@@ -1224,7 +1255,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             OctagonStateMultiStateArrivalWatcher* waitForTransient = [[OctagonStateMultiStateArrivalWatcher alloc] initNamed:@"rpc-watcher"
                                                                                                                  serialQueue:view.queue
                                                                                                                       states:CKKSKeyStateNonTransientStates()];
-            [waitForTransient timeout:5*NSEC_PER_SEC];
+            [waitForTransient timeout:2*NSEC_PER_SEC];
             [view.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
 
             [statusOp addDependency:waitForTransient.result];
@@ -1275,7 +1306,7 @@ dispatch_once_t globalZoneStateQueueOnce;
         ckksnotice("ckks", view, "Beginning fetch for %@", view);
 
         CKKSResultOperation* op = [view processIncomingQueue:classAError after:[view.zoneChangeFetcher requestSuccessfulFetch: CKKSFetchBecauseAPIFetchRequest]];
-        [blockOp addDependency:op];
+        [blockOp addSuccessDependency:op];
     }
 
     [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 5 : NSEC_PER_SEC * 120)]];
@@ -1303,7 +1334,7 @@ dispatch_once_t globalZoneStateQueueOnce;
         ckksnotice("ckks-rpc", view, "Beginning push for %@", view);
 
         CKKSResultOperation* op = [view processOutgoingQueue: [CKOperationGroup CKKSGroupWithName:@"rpc-push"]];
-        [blockOp addDependency:op];
+        [blockOp addSuccessDependency:op];
     }
 
     [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 2 : NSEC_PER_SEC * 120)]];

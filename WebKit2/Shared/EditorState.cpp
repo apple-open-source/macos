@@ -95,7 +95,6 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << caretRectAtStart;
 #endif
 #if PLATFORM(COCOA)
-    encoder << focusedElementRect;
     encoder << selectedTextLength;
     encoder << textAlignment;
     encoder << textColor;
@@ -103,6 +102,7 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << baseWritingDirection;
 #endif
 #if PLATFORM(IOS_FAMILY)
+    encoder << selectionClipRect;
     encoder << caretRectAtEnd;
     encoder << selectionRects;
     encoder << markedTextRects;
@@ -128,9 +128,11 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << selectionEndIsAtParagraphBoundary;
 #endif
 #if PLATFORM(MAC)
+    encoder << selectionBoundingRect;
     encoder << candidateRequestStartPosition;
     encoder << paragraphContextForCandidateRequest;
     encoder << stringForCandidateRequest;
+    encoder << canEnableAutomaticSpellingCorrection;
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     encoder << surroundingContext;
@@ -152,8 +154,6 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
 #endif
 #if PLATFORM(COCOA)
-    if (!decoder.decode(result.focusedElementRect))
-        return false;
     if (!decoder.decode(result.selectedTextLength))
         return false;
     if (!decoder.decode(result.textAlignment))
@@ -166,6 +166,8 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
 #endif
 #if PLATFORM(IOS_FAMILY)
+    if (!decoder.decode(result.selectionClipRect))
+        return false;
     if (!decoder.decode(result.caretRectAtEnd))
         return false;
     if (!decoder.decode(result.selectionRects))
@@ -212,6 +214,9 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
 #endif
 #if PLATFORM(MAC)
+    if (!decoder.decode(result.selectionBoundingRect))
+        return false;
+
     if (!decoder.decode(result.candidateRequestStartPosition))
         return false;
 
@@ -219,6 +224,9 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
 
     if (!decoder.decode(result.stringForCandidateRequest))
+        return false;
+
+    if (!decoder.decode(result.canEnableAutomaticSpellingCorrection))
         return false;
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -280,8 +288,6 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
         ts.dumpProperty("caretRectAtStart", editorState.postLayoutData().caretRectAtStart);
 #endif
 #if PLATFORM(COCOA)
-    if (editorState.postLayoutData().focusedElementRect != IntRect())
-        ts.dumpProperty("focusedElementRect", editorState.postLayoutData().focusedElementRect);
     if (editorState.postLayoutData().selectedTextLength)
         ts.dumpProperty("selectedTextLength", editorState.postLayoutData().selectedTextLength);
     if (editorState.postLayoutData().textAlignment != NoAlignment)
@@ -294,6 +300,8 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
         ts.dumpProperty("baseWritingDirection", static_cast<uint8_t>(editorState.postLayoutData().baseWritingDirection));
 #endif // PLATFORM(COCOA)
 #if PLATFORM(IOS_FAMILY)
+    if (editorState.postLayoutData().selectionClipRect != IntRect())
+        ts.dumpProperty("selectionClipRect", editorState.postLayoutData().selectionClipRect);
     if (editorState.postLayoutData().caretRectAtEnd != IntRect())
         ts.dumpProperty("caretRectAtEnd", editorState.postLayoutData().caretRectAtEnd);
     if (!editorState.postLayoutData().selectionRects.isEmpty())
@@ -326,12 +334,16 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
         ts.dumpProperty("caretColor", editorState.postLayoutData().caretColor);
 #endif
 #if PLATFORM(MAC)
+    if (editorState.postLayoutData().selectionBoundingRect != IntRect())
+        ts.dumpProperty("selectionBoundingRect", editorState.postLayoutData().selectionBoundingRect);
     if (editorState.postLayoutData().candidateRequestStartPosition)
         ts.dumpProperty("candidateRequestStartPosition", editorState.postLayoutData().candidateRequestStartPosition);
     if (editorState.postLayoutData().paragraphContextForCandidateRequest.length())
         ts.dumpProperty("paragraphContextForCandidateRequest", editorState.postLayoutData().paragraphContextForCandidateRequest);
     if (editorState.postLayoutData().stringForCandidateRequest.length())
         ts.dumpProperty("stringForCandidateRequest", editorState.postLayoutData().stringForCandidateRequest);
+    if (editorState.postLayoutData().canEnableAutomaticSpellingCorrection)
+        ts.dumpProperty("canEnableAutomaticSpellingCorrection", editorState.postLayoutData().canEnableAutomaticSpellingCorrection);
 #endif
 
     if (editorState.postLayoutData().canCut)

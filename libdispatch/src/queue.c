@@ -4129,18 +4129,6 @@ _dispatch_workloop_activate_simulator_fallback(dispatch_workloop_t dwl,
 		new_state |= DISPATCH_QUEUE_ROLE_BASE_ANON;
 	});
 }
-
-static const struct dispatch_queue_global_s _dispatch_custom_workloop_root_queue = {
-	DISPATCH_GLOBAL_OBJECT_HEADER(queue_global),
-	.dq_state = DISPATCH_ROOT_QUEUE_STATE_INIT_VALUE,
-	.do_ctxt = NULL,
-	.dq_label = "com.apple.root.workloop-custom",
-	.dq_atomic_flags = DQF_WIDTH(DISPATCH_QUEUE_WIDTH_POOL),
-	.dq_priority = _dispatch_priority_make_fallback(DISPATCH_QOS_DEFAULT) |
-			DISPATCH_PRIORITY_SATURATED_OVERRIDE,
-	.dq_serialnum = DISPATCH_QUEUE_SERIAL_NUMBER_WLF,
-	.dgq_thread_pool_size = 1,
-};
 #endif // TARGET_OS_MAC
 
 static void

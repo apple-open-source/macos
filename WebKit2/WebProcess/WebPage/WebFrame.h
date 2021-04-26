@@ -40,6 +40,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 
 namespace API {
 class Array;
@@ -63,7 +64,7 @@ class WebPage;
 struct FrameInfoData;
 struct WebsitePoliciesData;
 
-class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame> {
+class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame>, public CanMakeWeakPtr<WebFrame> {
 public:
     static Ref<WebFrame> create() { return adoptRef(*new WebFrame); }
     static Ref<WebFrame> createSubframe(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
@@ -77,7 +78,7 @@ public:
     WebPage* page() const;
 
     static WebFrame* fromCoreFrame(const WebCore::Frame&);
-    WebCore::Frame* coreFrame() const { return m_coreFrame; }
+    WebCore::Frame* coreFrame() const;
 
     FrameInfoData info() const;
     WebCore::FrameIdentifier frameID() const { return m_frameID; }
@@ -149,15 +150,15 @@ public:
     void documentLoaderDetached(uint64_t navigationID);
 
     // Simple listener class used by plug-ins to know when frames finish or fail loading.
-    class LoadListener {
+    class LoadListener : public CanMakeWeakPtr<LoadListener> {
     public:
         virtual ~LoadListener() { }
 
         virtual void didFinishLoad(WebFrame*) = 0;
         virtual void didFailLoad(WebFrame*, bool wasCancelled) = 0;
     };
-    void setLoadListener(LoadListener* loadListener) { m_loadListener = loadListener; }
-    LoadListener* loadListener() const { return m_loadListener; }
+    void setLoadListener(LoadListener* loadListener) { m_loadListener = makeWeakPtr(loadListener); }
+    LoadListener* loadListener() const { return m_loadListener.get(); }
     
 #if PLATFORM(COCOA)
     typedef bool (*FrameFilterFunction)(WKBundleFrameRef, WKBundleFrameRef subframe, void* context);
@@ -172,24 +173,27 @@ public:
 #endif
 
     WebFrameLoaderClient* frameLoaderClient() const;
+
+#if ENABLE(APP_BOUND_DOMAINS)
     bool shouldEnableInAppBrowserPrivacyProtections();
     void setIsNavigatingToAppBoundDomain(Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain) { m_isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain; };
     Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain() const { return m_isNavigatingToAppBoundDomain; }
     Optional<NavigatingToAppBoundDomain> isTopFrameNavigatingToAppBoundDomain() const;
+#endif
 
 private:
     WebFrame();
 
-    WebCore::Frame* m_coreFrame { nullptr };
+    WeakPtr<WebCore::Frame> m_coreFrame;
 
     uint64_t m_policyListenerID { 0 };
     Optional<WebCore::PolicyCheckIdentifier> m_policyIdentifier;
     WebCore::FramePolicyFunction m_policyFunction;
     ForNavigationAction m_policyFunctionForNavigationAction { ForNavigationAction::No };
     HashMap<uint64_t, CompletionHandler<void()>> m_willSubmitFormCompletionHandlers;
-    DownloadID m_policyDownloadID { 0 };
+    Optional<DownloadID> m_policyDownloadID;
 
-    LoadListener* m_loadListener { nullptr };
+    WeakPtr<LoadListener> m_loadListener;
     
     WebCore::FrameIdentifier m_frameID;
 

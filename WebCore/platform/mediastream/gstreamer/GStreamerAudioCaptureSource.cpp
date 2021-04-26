@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 Metrological Group B.V.
+ * Copyright (C) 2020 Igalia S.L.
  * Author: Thibault Saunier <tsaunier@igalia.com>
  * Author: Alejandro G. Castro  <alex@igalia.com>
  *
@@ -21,7 +22,7 @@
 
 #include "config.h"
 
-#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)
+#if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
 #include "GStreamerAudioCaptureSource.h"
 
 #include "GStreamerAudioData.h"
@@ -59,6 +60,9 @@ public:
     }
 private:
     CaptureDeviceManager& audioCaptureDeviceManager() final { return GStreamerAudioCaptureDeviceManager::singleton(); }
+    const Vector<CaptureDevice>& speakerDevices() const { return m_speakerDevices; }
+
+    Vector<CaptureDevice> m_speakerDevices;
 };
 
 static GStreamerAudioCaptureSourceFactory& libWebRTCAudioCaptureSourceFactory()
@@ -120,13 +124,13 @@ GstFlowReturn GStreamerAudioCaptureSource::newSampleCallback(GstElement* sink, G
     auto sample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
 
     // FIXME - figure out a way to avoid copying (on write) the data.
-    GstBuffer* buf = gst_sample_get_buffer(sample.get());
-    auto frames(std::unique_ptr<GStreamerAudioData>(new GStreamerAudioData(WTFMove(sample))));
-    auto streamDesc(std::unique_ptr<GStreamerAudioStreamDescription>(new GStreamerAudioStreamDescription(frames->getAudioInfo())));
+    auto* buffer = gst_sample_get_buffer(sample.get());
+    GStreamerAudioData frames(WTFMove(sample));
+    GStreamerAudioStreamDescription description(frames.getAudioInfo());
 
     source->audioSamplesAvailable(
-        MediaTime(GST_TIME_AS_USECONDS(GST_BUFFER_PTS(buf)), G_USEC_PER_SEC),
-        *frames, *streamDesc, gst_buffer_get_size(buf) / frames->getAudioInfo().bpf);
+        MediaTime(GST_TIME_AS_USECONDS(GST_BUFFER_PTS(buffer)), G_USEC_PER_SEC),
+        frames, description, gst_buffer_get_size(buffer) / description.getInfo().bpf);
 
     return GST_FLOW_OK;
 }
@@ -204,4 +208,4 @@ const RealtimeMediaSourceSettings& GStreamerAudioCaptureSource::settings()
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)
+#endif // ENABLE(MEDIA_STREAM) && USE(GSTREAMER)

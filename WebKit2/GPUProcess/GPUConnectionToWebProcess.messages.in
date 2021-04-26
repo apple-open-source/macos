@@ -23,15 +23,22 @@
 #if ENABLE(GPU_PROCESS)
 
 messages -> GPUConnectionToWebProcess WantsDispatchMessage {
-    void CreateRenderingBackend(WebKit::RenderingBackendIdentifier renderingBackendIdentifier)
+    void CreateRenderingBackend(struct WebKit::RemoteRenderingBackendCreationParameters parameters)
     void ReleaseRenderingBackend(WebKit::RenderingBackendIdentifier renderingBackendIdentifier)
-    void ClearNowPlayingInfo();
-    void SetNowPlayingInfo(bool setAsNowPlayingApplication, struct WebCore::NowPlayingInfo nowPlayingInfo);
+#if ENABLE(WEBGL)
+    void CreateGraphicsContextGL(struct WebCore::GraphicsContextGLAttributes attributes, WebKit::GraphicsContextGLIdentifier graphicsContextGLIdentifier)
+    void ReleaseGraphicsContextGL(WebKit::GraphicsContextGLIdentifier graphicsContextGLIdentifier)
+#endif
+    void ClearNowPlayingInfo()
+    void SetNowPlayingInfo(bool setAsNowPlayingApplication, struct WebCore::NowPlayingInfo nowPlayingInfo)
 #if USE(AUDIO_SESSION)
     EnsureAudioSession() -> (struct WebKit::RemoteAudioSessionConfiguration configuration) Synchronous
 #endif
 #if PLATFORM(IOS_FAMILY)
     EnsureMediaSessionHelper()
+#endif
+#if ENABLE(VP9)
+    EnableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder)
 #endif
 }
 

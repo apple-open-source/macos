@@ -33,6 +33,7 @@
 #include "CommonVM.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
+#include "DocumentSVG.h"
 #include "EditorClient.h"
 #include "ElementIterator.h"
 #include "Frame.h"
@@ -48,7 +49,6 @@
 #include "RenderSVGRoot.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
-#include "SVGDocument.h"
 #include "SVGFEImageElement.h"
 #include "SVGForeignObjectElement.h"
 #include "SVGImageClients.h"
@@ -99,7 +99,7 @@ inline RefPtr<SVGSVGElement> SVGImage::rootElement() const
 {
     if (!m_page)
         return nullptr;
-    return SVGDocument::rootElement(*m_page->mainFrame().document());
+    return DocumentSVG::rootElement(*m_page->mainFrame().document());
 }
 
 bool SVGImage::hasSingleSecurityOrigin() const
@@ -209,15 +209,15 @@ ImageDrawResult SVGImage::drawForContainer(GraphicsContext& context, const Float
 }
 
 #if USE(CAIRO)
-// Passes ownership of the native image to the caller so NativeImagePtr needs
+// Passes ownership of the native image to the caller so NativeImage needs
 // to be a smart pointer type.
-NativeImagePtr SVGImage::nativeImageForCurrentFrame(const GraphicsContext*)
+RefPtr<NativeImage> SVGImage::nativeImageForCurrentFrame(const GraphicsContext*)
 {
     if (!m_page)
         return nullptr;
 
     // Cairo does not use the accelerated drawing flag, so it's OK to make an unconditionally unaccelerated buffer.
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(size(), RenderingMode::Unaccelerated);
+    auto buffer = ImageBuffer::create(size(), RenderingMode::Unaccelerated);
     if (!buffer) // failed to allocate image
         return nullptr;
 
@@ -229,7 +229,7 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame(const GraphicsContext*)
 #endif
 
 #if USE(DIRECT2D)
-NativeImagePtr SVGImage::nativeImage(const GraphicsContext* targetContext)
+RefPtr<NativeImage> SVGImage::nativeImage(const GraphicsContext* targetContext)
 {
     ASSERT(targetContext);
     if (!m_page || !targetContext)
@@ -278,7 +278,7 @@ void SVGImage::drawPatternForContainer(GraphicsContext& context, const FloatSize
     FloatRect imageBufferSize = zoomedContainerRect;
     imageBufferSize.scale(imageBufferScale.width(), imageBufferScale.height());
 
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::createCompatibleBuffer(expandedIntSize(imageBufferSize.size()), 1, ColorSpace::SRGB, context);
+    auto buffer = ImageBuffer::createCompatibleBuffer(expandedIntSize(imageBufferSize.size()), 1, ColorSpace::SRGB, context);
     if (!buffer) // Failed to allocate buffer.
         return;
     drawForContainer(buffer->context(), containerSize, containerZoom, initialFragmentURL, imageBufferSize, zoomedContainerRect);

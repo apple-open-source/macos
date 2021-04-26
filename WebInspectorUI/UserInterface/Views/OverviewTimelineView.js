@@ -97,19 +97,21 @@ WI.OverviewTimelineView = class OverviewTimelineView extends WI.TimelineView
         this._timelineRuler.secondsPerPixel = x;
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
-        this._timelineRuler.updateLayout(WI.View.LayoutReason.Resize);
+        this._timelineRuler.needsLayout(WI.View.LayoutReason.Resize);
     }
 
     closed()
     {
         for (let timeline of this._recording.timelines.values())
-            timeline.removeEventListener(null, null, this);
+            timeline.removeEventListener(WI.Timeline.Event.RecordAdded, this._handleTimelineRecordAdded, this);
 
-        this._recording.removeEventListener(null, null, this);
+        this._recording.removeEventListener(WI.TimelineRecording.Event.SourceCodeTimelineAdded, this._sourceCodeTimelineAdded, this);
+        this._recording.removeEventListener(WI.TimelineRecording.Event.MarkerAdded, this._markerAdded, this);
+        this._recording.removeEventListener(WI.TimelineRecording.Event.Reset, this._recordingReset, this);
     }
 
     get navigationItems()

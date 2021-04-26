@@ -427,7 +427,7 @@ static void secd_perform_with_data_in_file(const char* test_prefix, void(^with)(
     });
 
     /* set custom keychain dir, reset db */
-    SetCustomHomeURLString(tmp_dir);
+    SecSetCustomHomeURLString(tmp_dir);
 
     if(do_before_reset)
         do_before_reset();
@@ -495,6 +495,8 @@ static void tests(void)
     diag("This still fails - don't be alarmed");
     CFRelease(update);
     CFRelease(query);
+
+    secd_test_teardown_delete_temp_keychain("secd_34_backup_der_parse");
 #endif
     
 }

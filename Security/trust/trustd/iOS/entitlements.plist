@@ -29,5 +29,7 @@
 	<array>
 		<string>trustd</string>
 	</array>
+	<key>com.apple.private.trustd.FileHelp</key>
+	<true/>
 </dict>
 </plist>

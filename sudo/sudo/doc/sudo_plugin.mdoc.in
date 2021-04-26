@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 2009-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+.\" Copyright (c) 2009-2020 Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd October 20, 2019
+.Dd November 17, 2020
 .Dt SUDO_PLUGIN @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -68,23 +68,25 @@ struct policy_plugin {
     unsigned int type; /* always SUDO_POLICY_PLUGIN */
     unsigned int version; /* always SUDO_API_VERSION */
     int (*open)(unsigned int version, sudo_conv_t conversation,
-                sudo_printf_t plugin_printf, char * const settings[],
-                char * const user_info[], char * const user_env[],
-                char * const plugin_options[]);
+        sudo_printf_t plugin_printf, char * const settings[],
+        char * const user_info[], char * const user_env[],
+        char * const plugin_options[], const char **errstr);
     void (*close)(int exit_status, int error);
     int (*show_version)(int verbose);
     int (*check_policy)(int argc, char * const argv[],
-                        char *env_add[], char **command_info[],
-                        char **argv_out[], char **user_env_out[]);
+        char *env_add[], char **command_info[],
+        char **argv_out[], char **user_env_out[], const char **errstr);
     int (*list)(int argc, char * const argv[], int verbose,
-                const char *list_user);
-    int (*validate)(void);
+        const char *list_user, const char **errstr);
+    int (*validate)(const char **errstr);
     void (*invalidate)(int remove);
-    int (*init_session)(struct passwd *pwd, char **user_env[]);
+    int (*init_session)(struct passwd *pwd, char **user_env[],
+        const char **errstr);
     void (*register_hooks)(int version,
        int (*register_hook)(struct sudo_hook *hook));
     void (*deregister_hooks)(int version,
        int (*deregister_hook)(struct sudo_hook *hook));
+    struct sudo_plugin_event * (*event_alloc)(void);
 };
 .Ed
 .Pp
@@ -107,9 +109,9 @@ built against.
 .It open
 .Bd -literal -compact
 int (*open)(unsigned int version, sudo_conv_t conversation,
-            sudo_printf_t plugin_printf, char * const settings[],
-            char * const user_info[], char * const user_env[],
-            char * const plugin_options[]);
+    sudo_printf_t plugin_printf, char * const settings[],
+    char * const user_info[], char * const user_env[],
+    char * const plugin_options[], const char **errstr);
 .Ed
 .Pp
 Returns 1 on success, 0 on failure, \-1 if a general error occurred,
@@ -136,13 +138,16 @@ major and minor version number of the plugin API supported by
 .It conversation
 A pointer to the
 .Fn conversation
-function that can be used by the plugin to interact with the user (see below).
+function that can be used by the plugin to interact with the user (see
+.Sx Conversation API
+for details).
 Returns 0 on success and \-1 on failure.
 .It plugin_printf
 A pointer to a
 .Fn printf Ns -style
-function that may be used to display informational or error messages
-(see below).
+function that may be used to display informational or error messages (see
+.Sx Conversation API
+for details).
 Returns the number of characters printed on success and \-1 on failure.
 .It settings
 A vector of user-supplied
@@ -170,6 +175,9 @@ field will never include one
 itself but the
 .Em value
 might.
+.Pp
+The following values may be set by
+.Nm sudo :
 .Bl -tag -width 4n
 .It bsdauth_type=string
 Authentication type, if specified by the
@@ -189,6 +197,22 @@ or higher.
 The plugin may optionally pass this, or another value, back in the
 .Em command_info
 list.
+.It cmnd_chroot=string
+The root directory (see
+.Xr chroot 2 )
+to run the command in, as specified by the user via the
+.Fl R
+option.
+The plugin may ignore or restrict the user's ability to specify a new
+root directory.
+Only available starting with API version 1.16.
+.It cmnd_cwd=string
+The working directory to run the command in, as specified by the user via the
+.Fl D
+option.
+The plugin may ignore or restrict the user's ability to specify a new
+working directory.
+Only available starting with API version 1.16.
 .It debug_flags=string
 A debug file path name followed by a space and a comma-separated
 list of debug flags that correspond to the plugin's
@@ -223,9 +247,6 @@ if
 contains a plugin-specific
 .Li Debug
 entry.
-.It debug_level=number
-This setting has been deprecated in favor of
-.Em debug_flags .
 .It ignore_ticket=bool
 Set to true if the user specified the
 .Fl k
@@ -376,8 +397,10 @@ For more information, see the
 .Em check_policy
 section.
 .It timeout=string
-User-specified command timeout.
-Not all plugins support command timeouts and the ability for the
+Command timeout specified by the user via the
+.Fl T
+option.
+Not all plugins support command timeouts and the ability of the
 user to set a timeout may be restricted by policy.
 The format of the timeout string is plugin-specific.
 .El
@@ -404,6 +427,9 @@ field will never include one
 itself but the
 .Em value
 might.
+.Pp
+The following values may be set by
+.Nm sudo :
 .Bl -tag -width 4n
 .It cols=int
 The number of columns the user's terminal supports.
@@ -440,37 +466,91 @@ The process ID of the running
 .Nm sudo
 process.
 Only available starting with API version 1.2.
-.It plugin_options
-Any (non-comment) strings immediately after the plugin path are
-passed as arguments to the plugin.
-These arguments are split on a white space boundary and are passed to
-the plugin in the form of a
-.Dv NULL Ns -terminated
-array of strings.
-If no arguments were
-specified,
-.Em plugin_options
-will be the
-.Dv NULL
-pointer.
-.Pp
-NOTE: the
-.Em plugin_options
-parameter is only available starting with
-API version 1.2.
-A plugin
-.Sy must
-check the API version specified
-by the
-.Nm sudo
-front end before using
-.Em plugin_options .
-Failure to do so may result in a crash.
 .It ppid=int
 The parent process ID of the running
 .Nm sudo
 process.
 Only available starting with API version 1.2.
+.It rlimit_as=soft,hard
+The maximum size to which the process's address space may grow (in bytes),
+if supported by the operating system.
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_core=soft,hard
+The largest size core dump file that may be created (in bytes).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_cpu=soft,hard
+The maximum amount of CPU time that the process may use (in seconds).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_data=soft,hard
+The maximum size of the data segment for the process (in bytes).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_fsize=soft,hard
+The largest size file that the process may create (in bytes).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_locks=soft,hard
+The maximum number of locks that the process may establish,
+if supported by the operating system.
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_memlock=soft,hard
+The maximum size that the process may lock in memory (in bytes),
+if supported by the operating system.
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_nofile=soft,hard
+The maximum number of files that the process may have open.
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_nproc=soft,hard
+The maximum number of processes that the user may run simultaneously.
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_rss=soft,hard
+The maximum size to which the process's resident set size may grow (in bytes).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
+.It rlimit_stack=soft,hard
+The maximum size to which the process's stack may grow (in bytes).
+The soft and hard limits are separated by a comma.
+A value of
+.Dq infinity
+indicates that there is no limit.
+Only available starting with API version 1.16.
 .It sid=int
 The session ID of the running
 .Nm sudo
@@ -482,8 +562,7 @@ Only available starting with API version 1.2.
 The ID of the foreground process group associated with the terminal
 device associated with the
 .Nm sudo
-process or \-1 if there is no
-terminal present.
+process or 0 if there is no terminal present.
 Only available starting with API version 1.2.
 .It tty=string
 The path to the user's terminal device.
@@ -518,6 +597,58 @@ field will never include one
 itself but the
 .Em value
 might.
+.It plugin_options
+Any (non-comment) strings immediately after the plugin path are
+passed as arguments to the plugin.
+These arguments are split on a white space boundary and are passed to
+the plugin in the form of a
+.Dv NULL Ns -terminated
+array of strings.
+If no arguments were
+specified,
+.Em plugin_options
+will be the
+.Dv NULL
+pointer.
+.Pp
+NOTE: the
+.Em plugin_options
+parameter is only available starting with
+API version 1.2.
+A plugin
+.Sy must
+check the API version specified
+by the
+.Nm sudo
+front end before using
+.Em plugin_options .
+Failure to do so may result in a crash.
+.It errstr
+If the
+.Fn open
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
 .El
 .It close
 .Bd -literal -compact
@@ -526,16 +657,29 @@ void (*close)(int exit_status, int error);
 .Pp
 The
 .Fn close
-function is called when the command being run by
+function is called when
 .Nm sudo
-finishes.
+is finished, shortly before it exits.
+Starting with API version 1.15,
+.Fn close
+is called regardless of whether or not a command was actually executed.
+This makes it possible for plugins to perform cleanup even when a
+command was not run.
+It is not possible to tell whether a command was run based solely
+on the arguments passed to the
+.Fn close
+function.
+To determine if a command was actually run,
+the plugin must keep track of whether or not the
+.Fn check_policy
+function returned successfully.
 .Pp
 The function arguments are as follows:
 .Bl -tag -width 4n
 .It exit_status
 The command's exit status, as returned by the
 .Xr wait 2
-system call.
+system call, or zero if no command was run.
 The value of
 .Li exit_status
 is undefined if
@@ -554,7 +698,7 @@ or
 function.
 If the command was successfully executed, the value of
 .Li error
-is 0.
+is zero.
 .El
 .Pp
 If no
@@ -596,9 +740,9 @@ or \-2 if there was a usage error, although the return value is currently
 ignored.
 .It check_policy
 .Bd -literal -compact
-int (*check_policy)(int argc, char * const argv[],
-                    char *env_add[], char **command_info[],
-                    char **argv_out[], char **user_env_out[]);
+int (*check_policy)(int argc, char * const argv[], char *env_add[],
+    char **command_info[], char **argv_out[], char **user_env_out[],
+    const char **errstr);
 .Ed
 .Pp
 The
@@ -740,6 +884,20 @@ or higher.
 Fully qualified path to the command to be executed.
 .It cwd=string
 The current working directory to change to when executing the command.
+If
+.Nm sudo
+is unable to change to the new working directory, the command will
+not be run unless
+.Em cwd_optional
+is also set (see below).
+.It cwd_optional=bool
+If enabled,
+.Nm sudo
+will treat an inability to change to the new working directory as a
+non-fatal error.
+This setting has no effect unless
+.Em cwd
+is also set.
 .It exec_background=bool
 By default,
 .Nm sudo
@@ -888,6 +1046,18 @@ If not specified, the value of
 is used.
 .It runas_gid=gid
 Group-ID to run the command as.
+.It runas_group=string
+The name of the group the command will run as, if it is different
+from the
+.Em runas_user Ns 's
+default group.
+This value is provided for auditing purposes only, the
+.Nm sudo
+front-end uses
+.Em runas_egid
+and
+.Em runas_gid
+when executing the command.
 .It runas_groups=list
 The supplementary group vector to use for the command in the form
 of a comma-separated list of group-IDs.
@@ -896,6 +1066,21 @@ If
 is set, this option is ignored.
 .It runas_uid=uid
 User-ID to run the command as.
+.It runas_user=string
+The name of the user the command will run as, which should correspond to
+.Em runas_euid
+(or
+.Em runas_uid
+if
+.Em runas_euid
+is not set).
+This value is provided for auditing purposes only, the
+.Nm sudo
+front-end uses
+.Em runas_euid
+and
+.Em runas_uid
+when executing the command.
 .It selinux_role=string
 SELinux role to use when executing the command.
 .It selinux_type=string
@@ -993,11 +1178,37 @@ The
 .Dv NULL Ns -terminated
 environment vector to use when executing the command.
 The plugin is responsible for allocating and populating the vector.
+.It errstr
+If the
+.Fn check_policy
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
 .El
 .It list
 .Bd -literal -compact
-int (*list)(int argc, char * const argv[],
-            int verbose, const char *list_user);
+int (*list)(int argc, char * const argv[], int verbose,
+    const char *list_user, const char **errstr);
 .Ed
 .Pp
 List available privileges for the invoking user.
@@ -1016,16 +1227,10 @@ Privileges should be output via the
 or
 .Fn plugin_printf
 function using
-.Dv SUDO_CONV_INFO_MSG ,
+.Dv SUDO_CONV_INFO_MSG .
+.Pp
+The function arguments are as follows:
 .Bl -tag -width 4n
-.It verbose
-Flag indicating whether to list in verbose mode or not.
-.It list_user
-The name of a different user to list privileges for if the policy
-allows it.
-If
-.Dv NULL ,
-the plugin should list the privileges of the invoking user.
 .It argc
 The number of elements in
 .Em argv ,
@@ -1042,10 +1247,44 @@ be passed to the
 system call.
 If the command is permitted by the policy, the fully-qualified path
 to the command should be displayed along with any command line arguments.
+.It verbose
+Flag indicating whether to list in verbose mode or not.
+.It list_user
+The name of a different user to list privileges for if the policy
+allows it.
+If
+.Dv NULL ,
+the plugin should list the privileges of the invoking user.
+.It errstr
+If the
+.Fn list
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
 .El
 .It validate
 .Bd -literal -compact
-int (*validate)(void);
+int (*validate)(const char **errstr);
 .Ed
 .Pp
 The
@@ -1076,6 +1315,36 @@ function with
 .Dv SUDO_CONF_ERROR_MSG
 to present additional
 error information to the user.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It errstr
+If the
+.Fn validate
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
 .It invalidate
 .Bd -literal -compact
 void (*invalidate)(int remove);
@@ -1085,8 +1354,7 @@ The
 .Fn invalidate
 function is called when
 .Nm sudo
-is called with
-the
+is run with the
 .Fl k
 or
 .Fl K
@@ -1108,7 +1376,7 @@ function should be
 if the plugin does not support credential caching.
 .It init_session
 .Bd -literal -compact
-int (*init_session)(struct passwd *pwd, char **user_envp[);
+int (*init_session)(struct passwd *pwd, char **user_env_out[]);
 .Ed
 .Pp
 The
@@ -1137,7 +1405,7 @@ in the password database, otherwise it will be
 .Dv NULL .
 .Pp
 The
-.Em user_env
+.Em user_env_out
 argument points to the environment the command will
 run in, in the form of a
 .Dv NULL Ns -terminated
@@ -1152,12 +1420,12 @@ If the
 .Fn init_session
 function needs to modify the user environment, it should update the
 pointer stored in
-.Em user_env .
+.Em user_env_out .
 The expected use case is to merge the contents of the PAM environment
 (if any) with the contents of
-.Em user_env .
+.Em user_env_out .
 NOTE: the
-.Em user_env
+.Em user_env_out
 parameter is only available
 starting with API version 1.2.
 A plugin
@@ -1166,7 +1434,7 @@ check the API
 version specified by the
 .Nm sudo
 front end before using
-.Em user_env .
+.Em user_env_out .
 Failure to do so may result in a crash.
 .Pp
 Returns 1 on success, 0 on failure and \-1 on error.
@@ -1273,6 +1541,65 @@ front end doesn't support API
 version 1.2 or higher,
 .Li deregister_hooks
 will not be called.
+.It event_alloc
+.Bd -literal -compact
+struct sudo_plugin_event * (*event_alloc)(void);
+.Ed
+.Pp
+The
+.Fn event_alloc
+function is used to allocate a
+.Li struct sudo_plugin_event
+which provides access to the main
+.Nm sudo
+event loop.
+Unlike the other fields, the
+.Fn event_alloc
+pointer is filled in by the
+.Nm sudo
+front end, not by the plugin.
+.Pp
+See the
+.Sx Event API
+section below for more information
+about events.
+.Pp
+NOTE: the
+.Fn event_alloc
+function is only available starting
+with API version 1.15.
+If the
+.Nm sudo
+front end doesn't support API
+version 1.15 or higher,
+.Fn event_alloc
+will not be set.
+.It errstr
+If the
+.Fn init_session
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
 .El
 .Pp
 .Em Policy Plugin Version Macros
@@ -1301,23 +1628,30 @@ struct io_plugin {
     unsigned int type; /* always SUDO_IO_PLUGIN */
     unsigned int version; /* always SUDO_API_VERSION */
     int (*open)(unsigned int version, sudo_conv_t conversation,
-                sudo_printf_t plugin_printf, char * const settings[],
-                char * const user_info[], char * const command_info[],
-                int argc, char * const argv[], char * const user_env[],
-                char * const plugin_options[]);
+        sudo_printf_t plugin_printf, char * const settings[],
+        char * const user_info[], char * const command_info[],
+        int argc, char * const argv[], char * const user_env[],
+        char * const plugin_options[], const char **errstr);
     void (*close)(int exit_status, int error); /* wait status or error */
     int (*show_version)(int verbose);
-    int (*log_ttyin)(const char *buf, unsigned int len);
-    int (*log_ttyout)(const char *buf, unsigned int len);
-    int (*log_stdin)(const char *buf, unsigned int len);
-    int (*log_stdout)(const char *buf, unsigned int len);
-    int (*log_stderr)(const char *buf, unsigned int len);
+    int (*log_ttyin)(const char *buf, unsigned int len,
+        const char **errstr);
+    int (*log_ttyout)(const char *buf, unsigned int len,
+        const char **errstr);
+    int (*log_stdin)(const char *buf, unsigned int len,
+        const char **errstr);
+    int (*log_stdout)(const char *buf, unsigned int len,
+        const char **errstr);
+    int (*log_stderr)(const char *buf, unsigned int len,
+        const char **errstr);
     void (*register_hooks)(int version,
        int (*register_hook)(struct sudo_hook *hook));
     void (*deregister_hooks)(int version,
        int (*deregister_hook)(struct sudo_hook *hook));
-    int (*change_winsize)(unsigned int lines, unsigned int cols);
-    int (*log_suspend)(int signo);
+    int (*change_winsize)(unsigned int lines, unsigned int cols,
+        const char **errstr);
+    int (*log_suspend)(int signo, const char **errstr);
+    struct sudo_plugin_event * (*event_alloc)(void);
 };
 .Ed
 .Pp
@@ -1365,7 +1699,7 @@ If an output logging function rejects the data by returning 0, the
 command will be terminated and the data will not be written to the
 terminal, though it will still be sent to any other I/O logging plugins.
 .Pp
-The io_plugin struct has the following fields:
+The audit_plugin struct has the following fields:
 .Bl -tag -width 4n
 .It type
 The
@@ -1385,10 +1719,10 @@ built against.
 .It open
 .Bd -literal -compact
 int (*open)(unsigned int version, sudo_conv_t conversation,
-            sudo_printf_t plugin_printf, char * const settings[],
-            char * const user_info[], char * const command_info[],
-            int argc, char * const argv[], char * const user_env[],
-            char * const plugin_options[]);
+    sudo_printf_t plugin_printf, char * const settings[],
+    char * const user_info[], char * const command_info[],
+    int argc, char * const argv[], char * const user_env[],
+    char * const plugin_options[]);
 .Ed
 .Pp
 The
@@ -1419,8 +1753,7 @@ or
 .Fn plugin_printf
 function with
 .Dv SUDO_CONF_ERROR_MSG
-to present
-additional error information to the user.
+to present additional error information to the user.
 .Pp
 The function arguments are as follows:
 .Bl -tag -width 4n
@@ -1511,6 +1844,30 @@ might.
 See the
 .Sx Policy plugin API
 section for a list of all possible strings.
+.It command_info
+A vector of information describing the command being run in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em command_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
 .It argc
 The number of elements in
 .Em argv ,
@@ -1572,6 +1929,32 @@ by the
 front end before using
 .Em plugin_options .
 Failure to do so may result in a crash.
+.It errstr
+If the
+.Fn open
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
 .El
 .It close
 .Bd -literal -compact
@@ -1580,16 +1963,16 @@ void (*close)(int exit_status, int error);
 .Pp
 The
 .Fn close
-function is called when the command being run by
+function is called when
 .Nm sudo
-finishes.
+is finished, shortly before it exits.
 .Pp
 The function arguments are as follows:
 .Bl -tag -width 4n
 .It exit_status
 The command's exit status, as returned by the
 .Xr wait 2
-system call.
+system call, or zero if no command was run.
 The value of
 .Li exit_status
 is undefined if
@@ -1603,7 +1986,974 @@ set by the
 system call.
 If the command was successfully executed, the value of
 .Li error
-is 0.
+is zero.
+.El
+.It show_version
+.Bd -literal -compact
+int (*show_version)(int verbose);
+.Ed
+.Pp
+The
+.Fn show_version
+function is called by
+.Nm sudo
+when the user specifies
+the
+.Fl V
+option.
+The plugin may display its version information to the user via the
+.Fn conversation
+or
+.Fn plugin_printf
+function using
+.Dv SUDO_CONV_INFO_MSG .
+.Pp
+Returns 1 on success, 0 on failure, \-1 if a general error occurred,
+or \-2 if there was a usage error, although the return value is currently
+ignored.
+.It log_ttyin
+.Bd -literal -compact
+int (*log_ttyin)(const char *buf, unsigned int len,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_ttyin
+function is called whenever data can be read from
+the user but before it is passed to the running command.
+This allows the plugin to reject data if it chooses to (for instance
+if the input contains banned content).
+Returns 1 if the data should be passed to the command, 0 if the data
+is rejected (which will terminate the running command) or \-1 if an
+error occurred.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It buf
+The buffer containing user input.
+.It len
+The length of
+.Em buf
+in bytes.
+.It errstr
+If the
+.Fn log_ttyin
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It log_ttyout
+.Bd -literal -compact
+int (*log_ttyout)(const char *buf, unsigned int len,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_ttyout
+function is called whenever data can be read from
+the command but before it is written to the user's terminal.
+This allows the plugin to reject data if it chooses to (for instance
+if the output contains banned content).
+Returns 1 if the data should be passed to the user, 0 if the data is rejected
+(which will terminate the running command) or \-1 if an error occurred.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It buf
+The buffer containing command output.
+.It len
+The length of
+.Em buf
+in bytes.
+.It errstr
+If the
+.Fn log_ttyout
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It log_stdin
+.Bd -literal -compact
+int (*log_stdin)(const char *buf, unsigned int len,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_stdin
+function is only used if the standard input does
+not correspond to a tty device.
+It is called whenever data can be read from the standard input but
+before it is passed to the running command.
+This allows the plugin to reject data if it chooses to
+(for instance if the input contains banned content).
+Returns 1 if the data should be passed to the command, 0 if the data is
+rejected (which will terminate the running command) or \-1 if an error occurred.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It buf
+The buffer containing user input.
+.It len
+The length of
+.Em buf
+in bytes.
+.It errstr
+If the
+.Fn log_stdin
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It log_stdout
+.Bd -literal -compact
+int (*log_stdout)(const char *buf, unsigned int len,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_stdout
+function is only used if the standard output does not correspond
+to a tty device.
+It is called whenever data can be read from the command but before
+it is written to the standard output.
+This allows the plugin to reject data if it chooses to
+(for instance if the output contains banned content).
+Returns 1 if the data should be passed to the user, 0 if the data is
+rejected (which will terminate the running command) or \-1 if an error occurred.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It buf
+The buffer containing command output.
+.It len
+The length of
+.Em buf
+in bytes.
+.It errstr
+If the
+.Fn log_stdout
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It log_stderr
+.Bd -literal -compact
+int (*log_stderr)(const char *buf, unsigned int len,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_stderr
+function is only used if the standard error does
+not correspond to a tty device.
+It is called whenever data can be read from the command but before it
+is written to the standard error.
+This allows the plugin to reject data if it chooses to
+(for instance if the output contains banned content).
+Returns 1 if the data should be passed to the user, 0 if the data is
+rejected (which will terminate the running command) or \-1 if an error occurred.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It buf
+The buffer containing command output.
+.It len
+The length of
+.Em buf
+in bytes.
+.It errstr
+If the
+.Fn log_stderr
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It register_hooks
+See the
+.Sx Policy plugin API
+section for a description of
+.Li register_hooks .
+.It deregister_hooks
+See the
+.Sx Policy plugin API
+section for a description of
+.Li deregister_hooks .
+.It change_winsize
+.Bd -literal -compact
+int (*change_winsize)(unsigned int lines, unsigned int cols,
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn change_winsize
+function is called whenever the window size of the terminal changes from
+the initial values specified in the
+.Li user_info
+list.
+Returns \-1 if an error occurred, in which case no further calls to
+.Fn change_winsize
+will be made,
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It lines
+The number of lines (rows) in the re-sized terminal.
+.It cols
+The number of columns in the re-sized terminal.
+.It errstr
+If the
+.Fn change_winsize
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.El
+.It log_suspend
+.Bd -literal -compact
+int (*log_suspend)(int signo, const char **errstr);
+.Ed
+.Pp
+The
+.Fn log_suspend
+function is called whenever a command is suspended or resumed.
+Logging this information makes it possible to skip the period of time when
+the command was suspended during playback of a session.
+Returns \-1 if an error occurred, in which case no further calls to
+.Fn log_suspend
+will be made,
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It signo
+The signal that caused the command to be suspended, or
+.Dv SIGCONT
+if the command was resumed.
+.It errstr
+If the
+.Fn log_suspend
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.Pp
+NOTE: the
+.Fa errstr
+parameter is only available starting with
+API version 1.15.
+A plugin
+.Sy must
+check the API version specified by the
+.Nm sudo
+front end before using
+.Fa errstr .
+Failure to do so may result in a crash.
+.It event_alloc
+.Bd -literal -compact
+struct sudo_plugin_event * (*event_alloc)(void);
+.Ed
+.Pp
+The
+.Fn event_alloc
+function is used to allocate a
+.Li struct sudo_plugin_event
+which provides access to the main
+.Nm sudo
+event loop.
+Unlike the other fields, the
+.Fn event_alloc
+pointer is filled in by the
+.Nm sudo
+front end, not by the plugin.
+.Pp
+See the
+.Sx Event API
+section below for more information
+about events.
+.Pp
+NOTE: the
+.Fn event_alloc
+function is only available starting
+with API version 1.15.
+If the
+.Nm sudo
+front end doesn't support API
+version 1.15 or higher,
+.Fn event_alloc
+will not be set.
+.El
+.Pp
+.Em I/O Plugin Version Macros
+.Pp
+Same as for the
+.Sx Policy plugin API .
+.El
+.Ss Audit plugin API
+.Bd -literal
+/* Audit plugin close function status types. */
+#define SUDO_PLUGIN_NO_STATUS           0
+#define SUDO_PLUGIN_WAIT_STATUS         1
+#define SUDO_PLUGIN_EXEC_ERROR          2
+#define SUDO_PLUGIN_SUDO_ERROR          3
+
+#define SUDO_AUDIT_PLUGIN 3
+struct audit_plugin {
+    unsigned int type; /* always SUDO_AUDIT_PLUGIN */
+    unsigned int version; /* always SUDO_API_VERSION */
+    int (*open)(unsigned int version, sudo_conv_t conversation,
+        sudo_printf_t sudo_printf, char * const settings[],
+        char * const user_info[], int submit_optind,
+        char * const submit_argv[], char * const submit_envp[],
+        char * const plugin_options[], const char **errstr);
+    void (*close)(int status_type, int status);
+    int (*accept)(const char *plugin_name,
+        unsigned int plugin_type, char * const command_info[],
+        char * const run_argv[], char * const run_envp[],
+        const char **errstr);
+    int (*reject)(const char *plugin_name, unsigned int plugin_type,
+        const char *audit_msg, char * const command_info[],
+        const char **errstr);
+    int (*error)(const char *plugin_name, unsigned int plugin_type,
+        const char *audit_msg, char * const command_info[],
+        const char **errstr);
+    int (*show_version)(int verbose);
+    void (*register_hooks)(int version,
+        int (*register_hook)(struct sudo_hook *hook));
+    void (*deregister_hooks)(int version,
+        int (*deregister_hook)(struct sudo_hook *hook));
+    struct sudo_plugin_event * (*event_alloc)(void);
+}
+.Ed
+.Pp
+An audit plugin can be used to log successful and unsuccessful attempts
+to run
+.Nm sudo
+independent of the policy or any I/O plugins.
+Multiple audit plugins may be specified in
+.Xr sudo.conf @mansectform@ .
+.Pp
+The audit_plugin struct has the following fields:
+.Bl -tag -width 4n
+.It type
+The
+.Li type
+field should always be set to
+.Dv SUDO_AUDIT_PLUGIN .
+.It version
+The
+.Li version
+field should be set to
+.Dv SUDO_API_VERSION .
+.Pp
+This allows
+.Nm sudo
+to determine the API version the plugin was
+built against.
+.It open
+.Bd -literal -compact
+int (*open)(unsigned int version, sudo_conv_t conversation,
+    sudo_printf_t sudo_printf, char * const settings[],
+    char * const user_info[], int submit_optind,
+    char * const submit_argv[], char * const submit_envp[],
+    char * const plugin_options[], const char **errstr);
+.Ed
+.Pp
+The audit
+.Fn open
+function is run before any other
+.Nm sudo
+plugin API functions.
+This makes it possible to audit failures in the other plugins.
+It returns 1 on success, 0 on failure, \-1 if a general error occurred,
+or \-2 if there was a usage error.
+In the latter case,
+.Nm sudo
+will print a usage message before it exits.
+If an error occurs, the plugin may optionally call the
+.Fn conversation
+or
+.Fn plugin_printf
+function with
+.Dv SUDO_CONF_ERROR_MSG
+to present additional error information to the user.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It version
+The version passed in by
+.Nm sudo
+allows the plugin to determine the
+major and minor version number of the plugin API supported by
+.Nm sudo .
+.It conversation
+A pointer to the
+.Fn conversation
+function that may be used by the
+.Fn show_version
+function to display version information (see
+.Fn show_version
+below).
+The
+.Fn conversation
+function may also be used to display additional error message to the user.
+The
+.Fn conversation
+function returns 0 on success and \-1 on failure.
+.It plugin_printf
+A pointer to a
+.Fn printf Ns -style
+function that may be used by the
+.Fn show_version
+function to display version information (see
+show_version below).
+The
+.Fn plugin_printf
+function may also be used to display additional error message to the user.
+The
+.Fn plugin_printf
+function returns number of characters printed on success and \-1 on failure.
+.It settings
+A vector of user-supplied
+.Nm sudo
+settings in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+These settings correspond to options the user specified when running
+.Nm sudo .
+As such, they will only be present when the corresponding option has
+been specified on the command line.
+.Pp
+When parsing
+.Em settings ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible settings.
+.It user_info
+A vector of information about the user running the command in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em user_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It submit_optind
+The index into
+.Fa submit_argv
+that corresponds to the first entry that is not a command line option.
+If
+.Fa submit_argv
+only consists of options, which may be the case with the
+.Fl l
+or
+.Fl v
+options,
+.Li submit_argv[submit_optind]
+will evaluate to the NULL pointer.
+.It submit_argv
+The argument vector
+.Nm sudo
+was invoked with, including all command line options.
+The
+.Fa submit_optind
+argument can be used to determine the end of the command line options.
+.It submit_envp
+The invoking user's environment in the form of a
+.Dv NULL Ns -terminated
+vector of
+.Dq name=value
+strings.
+.Pp
+When parsing
+.Em submit_envp ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.It plugin_options
+Any (non-comment) strings immediately after the plugin path are
+treated as arguments to the plugin.
+These arguments are split on a white space boundary and are passed to
+the plugin in the form of a
+.Dv NULL Ns -terminated
+array of strings.
+If no arguments were specified,
+.Em plugin_options
+will be the
+.Dv NULL
+pointer.
+.It errstr
+If the
+.Fn open
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.El
+.It close
+.Bd -literal -compact
+void (*close)(int status_type, int status);
+.Ed
+.Pp
+The
+.Fn close
+function is called when
+.Nm sudo
+is finished, shortly before it exits.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It status_type
+The type of status being passed.
+One of
+.Dv SUDO_PLUGIN_NO_STATUS ,
+.Dv SUDO_PLUGIN_WAIT_STATUS ,
+.Dv SUDO_PLUGIN_EXEC_ERROR
+or
+.Dv SUDO_PLUGIN_SUDO_ERROR .
+.It status
+Depending on the value of
+.Fa status_type ,
+this value is either
+ignored, the command's exit status as returned by the
+.Xr wait 2
+system call, the value of
+.Li errno
+set by the
+.Xr execve 2
+system call, or the value of
+.Li errno
+resulting from an error in the
+.Nm sudo
+front end.
+.El
+.It accept
+.Bd -literal -compact
+int (*accept)(const char *plugin_name, unsigned int plugin_type,
+    char * const command_info[], char * const run_argv[],
+    char * const run_envp[], const char **errstr);
+.Ed
+.Pp
+The
+.Fn accept
+function is called when a command or action is accepted by a policy
+or approval plugin.
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It plugin_name
+The name of the plugin that accepted the command or
+.Dq sudo
+for the
+.Nm sudo
+front-end.
+.It plugin_type
+The type of plugin that accepted the command, currently either
+.Dv SUDO_POLICY_PLUGIN ,
+.Dv SUDO_POLICY_APPROVAL
+or
+.Dv SUDO_FRONT_END .
+The
+.Fn accept
+function is called multiple times--once for each policy or approval
+plugin that succeeds and once for the sudo front-end.
+When called on behalf of the sudo front-end,
+.Fa command_info
+may include information from an I/O logging plugin as well.
+.Pp
+Typically, an audit plugin is interested in either the accept status from
+the
+.Nm sudo
+front-end or from the various policy and approval plugins, but not both.
+It is possible for the policy plugin to accept a command that is
+later rejected by an approval plugin, in which case the audit
+plugin's
+.Fn accept
+and
+.Fn reject
+functions will
+.Em both
+be called.
+.It command_info
+An optional
+vector of information describing the command being run in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em command_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It run_argv
+A
+.Dv NULL Ns -terminated
+argument vector describing a command that will be run in the
+same form as what would be passed to the
+.Xr execve 2
+system call.
+.It run_envp
+The environment the command will be run with in the form of a
+.Dv NULL Ns -terminated
+vector of
+.Dq name=value
+strings.
+.Pp
+When parsing
+.Em run_envp ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.It errstr
+If the
+.Fn accept
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.El
+.It reject
+.Bd -literal -compact
+int (*reject)(const char *plugin_name, unsigned int plugin_type,
+    const char *audit_msg, char * const command_info[],
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn reject
+function is called when a command or action is rejected by a plugin.
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It plugin_name
+The name of the plugin that rejected the command.
+.It plugin_type
+The type of plugin that rejected the command, currently either
+.Dv SUDO_POLICY_PLUGIN ,
+.Dv SUDO_APPROVAL_PLUGIN
+or
+.Dv SUDO_IO_PLUGIN .
+.Pp
+Unlike the
+.Fn accept
+function, the
+.Fn reject
+function is not called on behalf of the
+.Nm sudo
+front-end.
+.It audit_msg
+An optional string describing the reason the command was rejected
+by the plugin.
+If the plugin did not provide a reason,
+.Fa audit_msg
+will be the
+.Dv NULL
+pointer.
+.It command_info
+An optional
+vector of information describing the command being run in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em command_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It errstr
+If the
+.Fn reject
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.El
+.It error
+.Bd -literal -compact
+int (*error)(const char *plugin_name, unsigned int plugin_type,
+    const char *audit_msg, char * const command_info[],
+    const char **errstr);
+.Ed
+.Pp
+The
+.Fn error
+function is called when a plugin or the
+.Nm sudo
+front-end returns an error.
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It plugin_name
+The name of the plugin that generated the error or
+.Dq sudo
+for the
+.Nm sudo
+front-end.
+.It plugin_type
+The type of plugin that generated the error, or
+.Dv SUDO_FRONT_END
+for the
+.Nm sudo
+front-end.
+.It audit_msg
+An optional string describing the plugin error.
+If the plugin did not provide a description,
+.Fa audit_msg
+will be the
+.Dv NULL
+pointer.
+.It command_info
+An optional
+vector of information describing the command being run in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em command_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It errstr
+If the
+.Fn error
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
 .El
 .It show_version
 .Bd -literal -compact
@@ -1629,128 +2979,6 @@ If the user requests detailed version information, the verbose flag will be set.
 Returns 1 on success, 0 on failure, \-1 if a general error occurred,
 or \-2 if there was a usage error, although the return value is currently
 ignored.
-.It log_ttyin
-.Bd -literal -compact
-int (*log_ttyin)(const char *buf, unsigned int len);
-.Ed
-.Pp
-The
-.Fn log_ttyin
-function is called whenever data can be read from
-the user but before it is passed to the running command.
-This allows the plugin to reject data if it chooses to (for instance
-if the input contains banned content).
-Returns 1 if the data should be passed to the command, 0 if the data
-is rejected (which will terminate the running command) or \-1 if an
-error occurred.
-.Pp
-The function arguments are as follows:
-.Bl -tag -width 4n
-.It buf
-The buffer containing user input.
-.It len
-The length of
-.Em buf
-in bytes.
-.El
-.It log_ttyout
-.Bd -literal -compact
-int (*log_ttyout)(const char *buf, unsigned int len);
-.Ed
-.Pp
-The
-.Fn log_ttyout
-function is called whenever data can be read from
-the command but before it is written to the user's terminal.
-This allows the plugin to reject data if it chooses to (for instance
-if the output contains banned content).
-Returns 1 if the data should be passed to the user, 0 if the data is rejected
-(which will terminate the running command) or \-1 if an error occurred.
-.Pp
-The function arguments are as follows:
-.Bl -tag -width 4n
-.It buf
-The buffer containing command output.
-.It len
-The length of
-.Em buf
-in bytes.
-.El
-.It log_stdin
-.Bd -literal -compact
-int (*log_stdin)(const char *buf, unsigned int len);
-.Ed
-.Pp
-The
-.Fn log_stdin
-function is only used if the standard input does
-not correspond to a tty device.
-It is called whenever data can be read from the standard input but
-before it is passed to the running command.
-This allows the plugin to reject data if it chooses to
-(for instance if the input contains banned content).
-Returns 1 if the data should be passed to the command, 0 if the data is
-rejected (which will terminate the running command) or \-1 if an error occurred.
-.Pp
-The function arguments are as follows:
-.Bl -tag -width 4n
-.It buf
-The buffer containing user input.
-.It len
-The length of
-.Em buf
-in bytes.
-.El
-.It log_stdout
-.Bd -literal -compact
-int (*log_stdout)(const char *buf, unsigned int len);
-.Ed
-.Pp
-The
-.Fn log_stdout
-function is only used if the standard output does not correspond
-to a tty device.
-It is called whenever data can be read from the command but before
-it is written to the standard output.
-This allows the plugin to reject data if it chooses to
-(for instance if the output contains banned content).
-Returns 1 if the data should be passed to the user, 0 if the data is
-rejected (which will terminate the running command) or \-1 if an error occurred.
-.Pp
-The function arguments are as follows:
-.Bl -tag -width 4n
-.It buf
-The buffer containing command output.
-.It len
-The length of
-.Em buf
-in bytes.
-.El
-.It log_stderr
-.Bd -literal -compact
-int (*log_stderr)(const char *buf, unsigned int len);
-.Ed
-.Pp
-The
-.Fn log_stderr
-function is only used if the standard error does
-not correspond to a tty device.
-It is called whenever data can be read from the command but before it
-is written to the standard error.
-This allows the plugin to reject data if it chooses to
-(for instance if the output contains banned content).
-Returns 1 if the data should be passed to the user, 0 if the data is
-rejected (which will terminate the running command) or \-1 if an error occurred.
-.Pp
-The function arguments are as follows:
-.Bl -tag -width 4n
-.It buf
-The buffer containing command output.
-.It len
-The length of
-.Em buf
-in bytes.
-.El
 .It register_hooks
 See the
 .Sx Policy plugin API
@@ -1761,44 +2989,403 @@ See the
 .Sx Policy plugin API
 section for a description of
 .Li deregister_hooks .
-.It change_winsize
+.It event_alloc
 .Bd -literal -compact
-int (*change_winsize)(unsigned int lines, unsigned int cols);
+struct sudo_plugin_event * (*event_alloc)(void);
 .Ed
 .Pp
 The
-.Fn change_winsize
-function is called whenever the window size of the terminal changes from
-the initial values specified in the
-.Li user_info
-list.
-Returns \-1 if an error occurred, in which case no further calls to
-.Fn change_winsize
-will be made,
-.It log_suspend
-.Bd -literal -compact
-int (*log_suspend)(int signo);
-.Ed
+.Fn event_alloc
+function is used to allocate a
+.Li struct sudo_plugin_event
+which provides access to the main
+.Nm sudo
+event loop.
+Unlike the other fields, the
+.Fn event_alloc
+pointer is filled in by the
+.Nm sudo
+front end, not by the plugin.
 .Pp
-The
-.Fn log_suspend
-function is called whenever a command is suspended or resumed.
-The
-.Fa signo
-argument is either the signal that caused the command to be suspended or
-.Dv SIGCONT
-if the command was resumed.
-Logging this information makes it possible to skip the period of time when
-the command was suspended during playback of a session.
-Returns \-1 if an error occurred, in which case no further calls to
-.Fn log_suspend
-will be made,
+See the
+.Sx Event API
+section below for more information
+about events.
+.Pp
+NOTE: the
+.Fn event_alloc
+function is only available starting
+with API version 1.17.
+If the
+.Nm sudo
+front end doesn't support API
+version 1.17 or higher,
+.Fn event_alloc
+will not be set.
 .El
+.Ss Approval plugin API
+.Bd -literal
+struct approval_plugin {
+#define SUDO_APPROVAL_PLUGIN 4
+    unsigned int type; /* always SUDO_APPROVAL_PLUGIN */
+    unsigned int version; /* always SUDO_API_VERSION */
+    int (*open)(unsigned int version, sudo_conv_t conversation,
+        sudo_printf_t sudo_printf, char * const settings[],
+        char * const user_info[], int submit_optind,
+        char * const submit_argv[], char * const submit_envp[],
+        char * const plugin_options[], const char **errstr);
+    void (*close)(void);
+    int (*check)(char * const command_info[], char * const run_argv[],
+        char * const run_envp[], const char **errstr);
+    int (*show_version)(int verbose);
+};
+.Ed
 .Pp
-.Em I/O Plugin Version Macros
+An approval plugin can be used to apply extra constraints after a
+command has been accepted by the policy plugin.
+Unlike the other plugin types, it does not remain open until the command
+completes.
+The plugin is opened before a call to
+.Fn check
+or
+.Fn show_version
+and closed shortly thereafter (audit plugin functions must be called
+before the plugin is closed).
+Multiple approval plugins may be specified in
+.Xr sudo.conf @mansectform@ .
 .Pp
-Same as for the
-.Sx Policy plugin API .
+The approval_plugin struct has the following fields:
+.Bl -tag -width 4n
+.It type
+The
+.Li type
+field should always be set to
+.Dv SUDO_APPROVAL_PLUGIN .
+.It version
+The
+.Li version
+field should be set to
+.Dv SUDO_API_VERSION .
+.Pp
+This allows
+.Nm sudo
+to determine the API version the plugin was
+built against.
+.It open
+.Bd -literal -compact
+int (*open)(unsigned int version, sudo_conv_t conversation,
+    sudo_printf_t sudo_printf, char * const settings[],
+    char * const user_info[], int submit_optind,
+    char * const submit_argv[], char * const submit_envp[],
+    char * const plugin_options[], const char **errstr);
+.Ed
+.Pp
+The approval
+.Fn open
+function is run immediately before a call to the plugin's
+.Fn check
+or
+.Fn show_version
+functions.
+It is only called if the version is being requested or if the
+policy plugin's
+.Fn check_policy
+function has returned successfully.
+It returns 1 on success, 0 on failure, \-1 if a general error occurred,
+or \-2 if there was a usage error.
+In the latter case,
+.Nm sudo
+will print a usage message before it exits.
+If an error occurs, the plugin may optionally call the
+.Fn conversation
+or
+.Fn plugin_printf
+function with
+.Dv SUDO_CONF_ERROR_MSG
+to present additional error information to the user.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It version
+The version passed in by
+.Nm sudo
+allows the plugin to determine the
+major and minor version number of the plugin API supported by
+.Nm sudo .
+.It conversation
+A pointer to the
+.Fn conversation
+function that can be used by the plugin to interact with the user (see
+.Sx Conversation API
+for details).
+Returns 0 on success and \-1 on failure.
+.It plugin_printf
+A pointer to a
+.Fn printf Ns -style
+function that may be used to display informational or error messages (see
+.Sx Conversation API
+for details).
+Returns the number of characters printed on success and \-1 on failure.
+.It settings
+A vector of user-supplied
+.Nm sudo
+settings in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+These settings correspond to options the user specified when running
+.Nm sudo .
+As such, they will only be present when the corresponding option has
+been specified on the command line.
+.Pp
+When parsing
+.Em settings ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible settings.
+.It user_info
+A vector of information about the user running the command in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em user_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It submit_optind
+The index into
+.Fa submit_argv
+that corresponds to the first entry that is not a command line option.
+If
+.Fa submit_argv
+only consists of options, which may be the case with the
+.Fl l
+or
+.Fl v
+options,
+.Li submit_argv[submit_optind]
+will evaluate to the NULL pointer.
+.It submit_argv
+The argument vector
+.Nm sudo
+was invoked with, including all command line options.
+The
+.Fa submit_optind
+argument can be used to determine the end of the command line options.
+.It submit_envp
+The invoking user's environment in the form of a
+.Dv NULL Ns -terminated
+vector of
+.Dq name=value
+strings.
+.Pp
+When parsing
+.Em submit_envp ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.It plugin_options
+Any (non-comment) strings immediately after the plugin path are
+treated as arguments to the plugin.
+These arguments are split on a white space boundary and are passed to
+the plugin in the form of a
+.Dv NULL Ns -terminated
+array of strings.
+If no arguments were specified,
+.Em plugin_options
+will be the
+.Dv NULL
+pointer.
+.It errstr
+If the
+.Fn open
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.El
+.It close
+.Bd -literal -compact
+void (*close)(void);
+.Ed
+.Pp
+The
+.Fn close
+function is called after the approval plugin's
+.Fn check
+or
+.Fn show_version
+functions have been called.
+It takes no arguments.
+The
+.Fn close
+function is typically used to perform plugin-specific cleanup,
+such as the freeing of memory objects allocated by the plugin.
+If the plugin does not need to perform any cleanup,
+.Fn close
+may be set to the
+.Dv NULL
+pointer.
+.It check
+.Bd -literal -compact
+int (*check)(char * const command_info[], char * const run_argv[],
+    char * const run_envp[], const char **errstr);
+.Ed
+.Pp
+The approval
+.Fn check
+function is run after the policy plugin
+.Fn check_policy
+function and before any I/O logging plugins.
+If multiple approval plugins are loaded, they must all succeed for
+the command to be allowed.
+It returns 1 on success, 0 on failure, \-1 if a general error occurred,
+or \-2 if there was a usage error.
+In the latter case,
+.Nm sudo
+will print a usage message before it exits.
+If an error occurs, the plugin may optionally call the
+.Fn conversation
+or
+.Fn plugin_printf
+function with
+.Dv SUDO_CONF_ERROR_MSG
+to present additional error information to the user.
+.Pp
+The function arguments are as follows:
+.Bl -tag -width 4n
+.It command_info
+A vector of information describing the command being run in the form of
+.Dq name=value
+strings.
+The vector is terminated by a
+.Dv NULL
+pointer.
+.Pp
+When parsing
+.Em command_info ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.Pp
+See the
+.Sx Policy plugin API
+section for a list of all possible strings.
+.It run_argv
+A
+.Dv NULL Ns -terminated
+argument vector describing a command that will be run in the
+same form as what would be passed to the
+.Xr execve 2
+system call.
+.It run_envp
+The environment the command will be run with in the form of a
+.Dv NULL Ns -terminated
+vector of
+.Dq name=value
+strings.
+.Pp
+When parsing
+.Em run_envp ,
+the plugin should split on the
+.Sy first
+equal sign
+.Pq Ql =
+since the
+.Em name
+field will never include one
+itself but the
+.Em value
+might.
+.It errstr
+If the
+.Fn open
+function returns a value other than 1, the plugin may
+store a message describing the failure or error in
+.Fa errstr .
+The
+.Nm sudo
+front end will then pass this value to any registered audit plugins.
+The string stored in
+.Fa errstr
+must remain valid until the plugin's
+.Fn close
+function is called.
+.El
+.It show_version
+.Bd -literal -compact
+int (*show_version)(int verbose);
+.Ed
+.Pp
+The
+.Fn show_version
+function is called by
+.Nm sudo
+when the user specifies
+the
+.Fl V
+option.
+The plugin may display its version information to the user via the
+.Fn conversation
+or
+.Fn plugin_printf
+function using
+.Dv SUDO_CONV_INFO_MSG .
+If the user requests detailed version information, the verbose flag will be set.
+.Pp
+Returns 1 on success, 0 on failure, \-1 if a general error occurred,
+or \-2 if there was a usage error, although the return value is currently
+ignored.
+.El
 .Ss Signal handlers
 The
 .Nm sudo
@@ -1975,7 +3562,7 @@ The function return value may be one of the following:
 The hook function encountered an error.
 .It Dv SUDO_HOOK_RET_NEXT
 The hook completed without error, go on to the next hook (including
-the native implementation if applicable).
+the system implementation if applicable).
 For example, a
 .Xr getenv 3
 hook might return
@@ -1983,7 +3570,7 @@ hook might return
 if the specified variable was not found in the private copy of the environment.
 .It Dv SUDO_HOOK_RET_STOP
 The hook completed without error, stop processing hooks for this invocation.
-This can be used to replace the native implementation.
+This can be used to replace the system implementation.
 For example, a
 .Li setenv
 hook that operates on a private copy of
@@ -2028,10 +3615,252 @@ return SUDO_HOOK_RET_STOP;
 .Pp
 For getters and setters see the
 .Sx Policy plugin API .
+.Ss Event API
+When
+.Nm sudo
+runs a command, it uses an event loop to service signals and I/O.
+Events may be triggered based on time, a file or socket descriptor
+becoming ready, or due to receipt of a signal.
+Starting with API version 1.15, it is possible for a plugin to
+participate in this event loop by calling the
+.Fn event_alloc
+function.
+.Pp
+.Em Event structure
+.Pp
+Events are described by the following structure:
+.Pp
+.Bd -literal -compact
+typedef void (*sudo_plugin_ev_callback_t)(int fd, int what, void *closure);
+
+struct sudo_plugin_event {
+    int (*set)(struct sudo_plugin_event *pev, int fd, int events,
+        sudo_plugin_ev_callback_t callback, void *closure);
+    int (*add)(struct sudo_plugin_event *pev, struct timespec *timeout);
+    int (*del)(struct sudo_plugin_event *pev);
+    int (*pending)(struct sudo_plugin_event *pev, int events,
+        struct timespec *ts);
+    int (*fd)(struct sudo_plugin_event *pev);
+    void (*setbase)(struct sudo_plugin_event *pev, void *base);
+    void (*loopbreak)(struct sudo_plugin_event *pev);
+    void (*free)(struct sudo_plugin_event *pev);
+};
+.Ed
+.Pp
+The sudo_plugin_event struct contains the following function pointers:
+.Bl -tag -width 4n
+.It Fn set
+.Bd -literal -compact
+int (*set)(struct sudo_plugin_event *pev, int fd, int events,
+    sudo_plugin_ev_callback_t callback, void *closure);
+.Ed
+.Pp
+The
+.Fn set
+function takes the following arguments:
+.Bl -tag -width 4n
+.It struct sudo_plugin_event * Ns Fa pev
+A pointer to the struct sudo_plugin_event itself.
+.It Fa fd
+The file or socket descriptor for I/O-based events or the signal
+number for signal events.
+For time-based events,
+.Fa fd
+must be -1.
+.It Fa events
+The following values determine what will trigger the event callback:
+.Bl -tag -width 4n
+.It SUDO_PLUGIN_EV_TIMEOUT
+callback is run after the specified timeout expires
+.It SUDO_PLUGIN_EV_READ
+callback is run when the file descriptor is readable
+.It SUDO_PLUGIN_EV_WRITE
+callback is run when the file descriptor is writable
+.It SUDO_PLUGIN_EV_PERSIST
+event is persistent and remains enabled until explicitly deleted
+.It SUDO_PLUGIN_EV_SIGNAL
+callback is run when the specified signal is received
+.El
+.Pp
+The
+.Ev SUDO_PLUGIN_EV_PERSIST
+flag may be ORed with any of the event types.
+It is also possible to OR
+.Ev SUDO_PLUGIN_EV_READ
+and
+.Ev SUDO_PLUGIN_EV_WRITE
+together to run the callback when a descriptor is ready to be
+either read from or written to.
+All other event values are mutually exclusive.
+.It sudo_plugin_ev_callback_t Fa callback
+.Bd -literal -compact
+typedef void (*sudo_plugin_ev_callback_t)(int fd, int what,
+    void *closure);
+.Ed
+.Pp
+The function to call when an event is triggered.
+The
+.Fn callback
+function is run with the following arguments:
+.Bl -tag -width 4n
+.It Fa fd
+The file or socket descriptor for I/O-based events or the signal
+number for signal events.
+.It Fa what
+The event type that triggered that callback.
+For events that have multiple event types (for example
+.Ev SUDO_PLUGIN_EV_READ
+and
+.Ev SUDO_PLUGIN_EV_WRITE )
+or have an associated timeout,
+.Fa what
+can be used to determine why the callback was run.
+.It Fa closure
+The generic pointer that was specified in the
+.Fn set
+function.
+.El
+.It closure
+A generic pointer that will be passed to the callback function.
+.El
+.Pp
+The
+.Fn set
+function returns 1 on success, and \-1 if a error occurred.
+.It Fn add
+.Bd -literal -compact
+int (*add)(struct sudo_plugin_event *pev, struct timespec *timeout);
+.Ed
+.Pp
+The
+.Fn add
+function adds the event
+.Fa pev
+to
+.Nm sudo Ns No 's
+event loop.
+The event must have previously been initialized via the
+.Fn set
+function.
+If the
+.Fa timeout
+argument is not NULL, it should specify a (relative) timeout after
+which the event will be triggered if the main event criteria has
+not been met.
+This is often used to implement an I/O timeout where the event
+will fire if a descriptor is not ready within a certain time
+period.
+If the event is already present in the event loop, its
+.Fa timeout
+will be adjusted to match the new value, if any.
+.Pp
+The
+.Fn add
+function returns 1 on success, and \-1 if a error occurred.
+.It Fn del
+.Bd -literal -compact
+int (*del)(struct sudo_plugin_event *pev);
+.Ed
+.Pp
+The
+.Fn del
+function deletes the event
+.Fa pev
+from
+.Nm sudo Ns No 's
+event loop.
+Deleted events can be added back via the
+.Fn add
+function.
+.Pp
+The
+.Fn del
+function returns 1 on success, and \-1 if a error occurred.
+.It Fn pending
+.Bd -literal -compact
+int (*pending)(struct sudo_plugin_event *pev, int events,
+    struct timespec *ts);
+.Ed
+.Pp
+The
+.Fn pending
+function can be used to determine whether one or more events is pending.
+The
+.Fa events
+argument specifies which events to check for.
+See the
+.Fn set
+function for a list of valid event types.
+If
+.Dv SUDO_PLUGIN_EV_TIMEOUT
+is specified in
+.Dv events ,
+the event has an associated timeout and the
+.Fa ts
+pointer is non-NULL, it will be filled in with the remaining time.
+.It Fn fd
+.Bd -literal -compact
+int (*fd)(struct sudo_plugin_event *pev);
+.Ed
+.Pp
+The
+.Fn fd
+function returns the descriptor or signal number associated with
+the event
+.Fa pev .
+.It Fn setbase
+.Bd -literal -compact
+void (*setbase)(struct sudo_plugin_event *pev, void *base);
+.Ed
+.Pp
+The
+.Fn setbase
+function sets the underlying event
+.Fa base
+for
+.Fa pev
+to the specified value.
+This can be used to move an event created via
+.Fn event_alloc
+to a new event loop allocated by sudo's event subsystem.
+If
+.Fa base
+is
+.Dv NULL ,
+.Fa pev Ns 's
+event base is reset to the default value, which corresponds to
+.Nm sudo Ns 's
+main event loop.
+Using this function requires linking the plugin with the sudo_util
+library.
+It is unlikely to be used outside of the
+.Nm sudoers
+plugin.
+.It Fn loopbreak
+.Bd -literal -compact
+void (*loopbreak)(struct sudo_plugin_event *pev);
+.Ed
+.Pp
+The
+.Fn loopbreak
+function causes
+.Nm sudo Ns No 's
+event loop to exit immediately and the running command to be terminated.
+.It Fn free
+.Bd -literal -compact
+void (*free)(struct sudo_plugin_event *pev);
+.Ed
+.Pp
+The
+.Fn free
+function deletes the event
+.Fa pev
+from the event loop and frees the memory associated with it.
+.El
 .Ss Remote command execution
 The
 .Nm sudo
-front end does not have native support for running remote commands.
+front end does not support running remote commands.
 However, starting with
 .Nm sudo
 1.8.8, the
@@ -2103,7 +3932,7 @@ struct sudo_conv_message {
     const char *msg;
 };
 
-#define SUDO_CONV_REPL_MAX      255
+#define SUDO_CONV_REPL_MAX      1023
 
 struct sudo_conv_reply {
     char *reply;
@@ -2131,9 +3960,8 @@ The following type definitions can be used in the declaration of the
 function:
 .Bd -literal
 typedef int (*sudo_conv_t)(int num_msgs,
-             const struct sudo_conv_message msgs[],
-             struct sudo_conv_reply replies[],
-	     struct sudo_conv_callback *callback);
+    const struct sudo_conv_message msgs[],
+    struct sudo_conv_reply replies[], struct sudo_conv_callback *callback);
 
 typedef int (*sudo_printf_t)(int msg_type, const char *fmt, ...);
 .Ed
@@ -2264,9 +4092,6 @@ the trailing NUL character).
 In practical terms, this is the longest password
 .Nm sudo
 will support.
-It is also useful as a maximum value for the
-.Fn memset_s
-function when clearing passwords filled in by the conversation function.
 .Pp
 The
 .Fn printf Ns -style
@@ -2288,6 +4113,49 @@ escape sequences.
 See the sample plugin for an example of the
 .Fn conversation
 function usage.
+.Ss Plugin invocation order
+As of
+.Nm sudo
+1.9.0, the plugin
+.Fn open
+and
+.Fn close
+functions are called in the
+following order:
+.Bl -enum
+.It
+audit open
+.It
+policy open
+.It
+approval open
+.It
+approval close
+.It
+I/O log open
+.It
+command runs
+.It
+command exits
+.It
+I/O log close
+.It
+policy close
+.It
+audit close
+.It
+sudo exits
+.El
+.Pp
+Prior to
+.Nm sudo
+1.9.0, the I/O log
+.Fn close
+function was called
+.Em after
+the policy
+.Fn close
+function.
 .Ss Sudoers group plugin API
 The
 .Nm sudoers
@@ -2311,12 +4179,12 @@ This structure contains pointers to the functions that implement plugin
 initialization, cleanup and group lookup.
 .Bd -literal
 struct sudoers_group_plugin {
-   unsigned int version;
-   int (*init)(int version, sudo_printf_t sudo_printf,
-               char *const argv[]);
-   void (*cleanup)(void);
-   int (*query)(const char *user, const char *group,
-                const struct passwd *pwd);
+    unsigned int version;
+    int (*init)(int version, sudo_printf_t sudo_printf,
+        char *const argv[]);
+    void (*cleanup)(void);
+    int (*query)(const char *user, const char *group,
+        const struct passwd *pwd);
 };
 .Ed
 .Pp
@@ -2336,7 +4204,7 @@ was built against.
 .It init
 .Bd -literal -compact
 int (*init)(int version, sudo_printf_t plugin_printf,
-            char *const argv[]);
+    char *const argv[]);
 .Ed
 .Pp
 The
@@ -2351,8 +4219,7 @@ If an error occurs, the plugin may call the
 .Fn plugin_printf
 function with
 .Dv SUDO_CONF_ERROR_MSG
-to present additional error information
-to the user.
+to present additional error information to the user.
 .Pp
 The function arguments are as follows:
 .Bl -tag -width 4n
@@ -2394,7 +4261,7 @@ The plugin should free any memory it has allocated and close open file handles.
 .It query
 .Bd -literal -compact
 int (*query)(const char *user, const char *group,
-             const struct passwd *pwd);
+    const struct passwd *pwd);
 .Ed
 .Pp
 The
@@ -2603,6 +4470,51 @@ The
 entry was added to the
 .Li command_info
 list.
+.It Version 1.15 (sudo 1.9.0)
+The
+.Em cwd_optional
+entry was added to the
+.Li command_info
+list.
+.Pp
+The
+.Em event_alloc
+field was added to the policy_plugin and io_plugin structs.
+.Pp
+The
+.Fa errstr
+argument was added to the policy and I/O plugin functions
+which the plugin function can use to return an error string.
+This string may be used by the audit plugin to report failure or
+error conditions set by the other plugins.
+.Pp
+The
+.Fn close
+function is now is called regardless of whether or not a command
+was actually executed.
+This makes it possible for plugins to perform cleanup even when a
+command was not run.
+.Pp
+.Dv SUDO_CONV_REPL_MAX
+has increased from 255 to 1023 bytes.
+.Pp
+Support for audit and approval plugins was added.
+.It Version 1.16 (sudo 1.9.3)
+Initial resource limit values were added to the
+.Li user_info
+list.
+.Pp
+The
+.Em cmnd_chroot
+and
+.Em cmnd_cwd
+enties were added to the
+.Li settings
+list.
+.It Version 1.17 (sudo 1.9.4)
+The
+.Em event_alloc
+field was added to the audit_plugin and approval_plugin structs.
 .El
 .Sh SEE ALSO
 .Xr sudo.conf @mansectform@ ,

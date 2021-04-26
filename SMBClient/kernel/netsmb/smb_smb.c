@@ -173,7 +173,8 @@ uint32_t smb_session_maxread(struct smb_session *sessionp)
 	hdrsize += SMB_READANDX_HDRLEN; /* we only use ReadAndX */
 
 	/* Make sure we never use a size bigger than the socket can support */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_RCVSZ, &socksize);
+    struct smbiod *iod = sessionp->session_iod;
+	SMB_TRAN_GETPARAM(iod, SMBTP_RCVSZ, &socksize);
 	maxmsgsize = MIN(maxmsgsize, socksize);
 	maxmsgsize -= hdrsize;
 	/*
@@ -191,7 +192,7 @@ uint32_t smb_session_maxread(struct smb_session *sessionp)
 	 */
 	if (SESSION_CAPS(sessionp) & SMB_CAP_LARGE_READX) {
 		/* Leave the UNIX SERVER check for now, but in the futre we should drop it */
-		if (UNIX_SERVER(sessionp) && (sessionp->session_saddr->sa_family != AF_NETBIOS)  && 
+		if (UNIX_SERVER(sessionp) && (iod->iod_saddr->sa_family != AF_NETBIOS)  &&
 			(maxmsgsize >= MAX_LARGEX_READ_CAP_SIZE)) {
 			/*
 			 * Once we do <rdar://problem/8753536> we should change the 
@@ -207,7 +208,8 @@ uint32_t smb_session_maxread(struct smb_session *sessionp)
 			maxmsgsize = MIN(WINDOWS_LARGEX_READ_CAP_SIZE, socksize);			
 		}
 	}
-	SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", sessionp->session_srvname, 
+
+    SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", sessionp->session_srvname,
 			   maxmsgsize, socksize, sessionp->session_sopt.sv_maxtx);
 	return maxmsgsize;
 }
@@ -221,11 +223,12 @@ smb_session_maxwrite(struct smb_session *sessionp)
 	uint32_t socksize = sessionp->session_sopt.sv_maxtx;
 	uint32_t maxmsgsize = sessionp->session_sopt.sv_maxtx;
 	uint32_t hdrsize = SMB_HDRLEN;
-	
+    struct smbiod *iod = sessionp->session_iod;
+
 	hdrsize += SMB_WRITEANDX_HDRLEN;    /* we only use WriteAndX */
 	
 	/* Make sure we never use a size bigger than the socket can support */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_SNDSZ, &socksize);
+	SMB_TRAN_GETPARAM(iod, SMBTP_SNDSZ, &socksize);
 	maxmsgsize = MIN(maxmsgsize, socksize);
 	maxmsgsize -= hdrsize;
 	/*
@@ -253,7 +256,7 @@ smb_session_maxwrite(struct smb_session *sessionp)
 		return maxmsgsize;
 	} else  if (SESSION_CAPS(sessionp) & SMB_CAP_LARGE_WRITEX) {
 		/* Leave the UNIX SERVER check for now, but in the futre we should drop it */
-		if (UNIX_SERVER(sessionp) && (sessionp->session_saddr->sa_family != AF_NETBIOS) && 
+		if (UNIX_SERVER(sessionp) && (iod->iod_saddr->sa_family != AF_NETBIOS) &&
 			(maxmsgsize >= MAX_LARGEX_WRITE_CAP_SIZE)) {
 			/*
 			 * Once we do <rdar://problem/8753536> we should change the 
@@ -269,7 +272,8 @@ smb_session_maxwrite(struct smb_session *sessionp)
 			maxmsgsize = MIN(WINDOWS_LARGEX_WRITE_CAP_SIZE, socksize);			
 		}
 	}
-	SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", sessionp->session_srvname, 
+
+    SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", sessionp->session_srvname,
 			   maxmsgsize, socksize, sessionp->session_sopt.sv_maxtx);
 	return maxmsgsize;
 }
@@ -293,7 +297,7 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	uint8_t wc = 0, stime[8], sblen;
-	uint16_t dindex, bc;
+	uint16_t dindex = 0, bc;
 	int error;
 	uint32_t maxqsz;
 	uint16_t toklen;
@@ -302,6 +306,8 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 
 	if (smb_smb_nomux(sessionp, __FUNCTION__, context) != 0)
 		return EINVAL;
+    
+    struct smbiod *iod = sessionp->session_iod;   // smb1
 	sessionp->session_hflags = SMB_FLAGS_CASELESS;
 	/* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */ 
 	sessionp->session_hflags2 |= SMB_FLAGS2_ERR_STATUS;
@@ -342,13 +348,14 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 
     if (rqp->sr_extflags & SMB2_RESPONSE) {
         /* Got a SMB 2/3 response, do SMB 2/3 Negotiate */
-        error = smb2_smb_negotiate(sessionp, rqp, inReconnect, user_context, context);
+        error = smb2_smb_negotiate(iod, rqp, inReconnect, user_context, context);
         smb_rq_done(rqp);
         return (error);
     }
 
-    /* SMB 1 does not support File IDs */
+    /* SMB 1 does not support File IDs nor multichannel */
     sessionp->session_misc_flags &= ~SMBV_HAS_FILEIDS;
+    sessionp->session_flags &= ~SMBV_MULTICHANNEL_ON;
 
     /* Now get the response */
 	smb_rq_getreply(rqp, &mdp);
@@ -478,8 +485,8 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 	}
 	/* The server does extend security, find out what mech type they support. */
 	if (sessionp->session_hflags2 & SMB_FLAGS2_EXT_SEC) {
-        if (sessionp->negotiate_token != NULL) {
-            SMB_FREE(sessionp->negotiate_token, M_SMBTEMP);
+        if (iod->negotiate_token != NULL) {
+            SMB_FREE(iod->negotiate_token, M_SMBTEMP);
         }
 		
 		/* 
@@ -491,26 +498,26 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 		toklen = (toklen >= SMB_GUIDLEN) ? toklen - SMB_GUIDLEN : 0;
 		
         if (toklen) {
-            SMB_MALLOC(sessionp->negotiate_token, uint8_t *, toklen, M_SMBTEMP, M_WAITOK);
+            SMB_MALLOC(iod->negotiate_token, uint8_t *, toklen, M_SMBTEMP, M_WAITOK);
         }
         else {
-            sessionp->negotiate_token = NULL;
+            iod->negotiate_token = NULL;
         }
-		if (sessionp->negotiate_token) {
-			sessionp->negotiate_tokenlen = toklen;
-			error = md_get_mem(mdp, (void *)sessionp->negotiate_token, sessionp->negotiate_tokenlen, MB_MSYSTEM);
+		if (iod->negotiate_token) {
+			iod->negotiate_tokenlen = toklen;
+			error = md_get_mem(mdp, (void *)iod->negotiate_token, iod->negotiate_tokenlen, MB_MSYSTEM);
 			/* If we get an error pretend we have no blob and force NTLMSSP */
 			if (error) {
-                if (sessionp->negotiate_token != NULL) {
-                    SMB_FREE(sessionp->negotiate_token, M_SMBTEMP);
+                if (iod->negotiate_token != NULL) {
+                    SMB_FREE(iod->negotiate_token, M_SMBTEMP);
                 }
 			}
 		}
 		/* If no token then say we have no length */
-		if (sessionp->negotiate_token == NULL) {
-			sessionp->negotiate_tokenlen = 0;
+		if (iod->negotiate_token == NULL) {
+			iod->negotiate_tokenlen = 0;
 		}
-		error = smb_gss_negotiate(sessionp, user_context);
+		error = smb_gss_negotiate(sessionp->session_iod, user_context);
 		if (error)
 			goto bad;
 	}
@@ -522,10 +529,11 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 
 	sessionp->session_rxmax = smb_session_maxread(sessionp);
 	sessionp->session_wxmax = smb_session_maxwrite(sessionp);
+
 	/* Make sure the  socket buffer supports this size */
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_RCVSZ, &maxqsz);
+	SMB_TRAN_GETPARAM(iod, SMBTP_RCVSZ, &maxqsz);
 	sessionp->session_txmax = MIN(sp->sv_maxtx, maxqsz);
-	SMB_TRAN_GETPARAM(sessionp, SMBTP_SNDSZ, &maxqsz);
+	SMB_TRAN_GETPARAM(iod, SMBTP_SNDSZ, &maxqsz);
 	sessionp->session_txmax = MIN(sessionp->session_txmax, maxqsz);
 	/*
 	 * SMB currently returns this buffer size in the SetupAndX message as a uint16_t
@@ -830,8 +838,9 @@ make_ntlmv2_blob(struct smb_session *sessionp, char *dom, u_int64_t client_nonce
 #define kSTATE_NTLMv1 1
 
 int
-smb_smb_ssnsetup(struct smb_session *sessionp, int inReconnect, vfs_context_t context)
+smb_smb_ssnsetup(struct smbiod *iod, int inReconnect, vfs_context_t context)
 {
+    struct smb_session *sessionp = iod->iod_session;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -840,7 +849,7 @@ smb_smb_ssnsetup(struct smb_session *sessionp, int inReconnect, vfs_context_t co
 	size_t plen = 0, uniplen = 0;
 	int error = 0;
 	uint32_t caps;
-	uint16_t action;
+	uint16_t action = 0;
 	uint16_t bc;  
 	uint16_t maxtx = sessionp->session_txmax;
 	uint8_t lm[24] = {0};
@@ -875,11 +884,11 @@ smb_smb_ssnsetup(struct smb_session *sessionp, int inReconnect, vfs_context_t co
 	}
 
 	if ((SESSION_CAPS(sessionp) & SMB_CAP_EXT_SECURITY)) {
-		error = smb_gss_ssnsetup(sessionp, context);
+		error = smb_gss_ssnsetup(iod, context);
 
         if (!(inReconnect) && (sessionp->session_flags & SMBV_SMB2)) {
             /* Not in reconnect, its now safe to start up crediting */
-            smb2_rq_credit_start(sessionp, 0);
+            smb2_rq_credit_start(iod, 0);
         }
 
         goto ssn_exit;
@@ -888,7 +897,10 @@ smb_smb_ssnsetup(struct smb_session *sessionp, int inReconnect, vfs_context_t co
 	caps = smb_session_caps(sessionp);
     
 again:
-	sessionp->session_smbuid = SMB_UID_UNKNOWN;
+    /*
+     * SMB v1 only
+     */
+    sessionp->session_smbuid = SMB_UID_UNKNOWN;
 
 	/*
 	 * Domain name must be upper-case, as that's what's used
@@ -1484,7 +1496,7 @@ int
 smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 {
 	struct smb_session *sessionp = SS_TO_SESSION(share);
-	int error;
+	int error = 0;
 	size_t srvnamelen;
 	char *serverName;
 	
@@ -1506,15 +1518,18 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
          * If so, see if we can Tree Connect with that address instead
          */
         if (error) {
-            if (sessionp->session_saddr->sa_family == AF_INET) {
+
+            struct smbiod *iod = sessionp->session_iod;
+
+            if (iod->iod_saddr->sa_family == AF_INET) {
                 /* IPv4 */
-                struct sockaddr_in *in = (struct sockaddr_in *)sessionp->session_saddr;
+                struct sockaddr_in *in = (struct sockaddr_in *)iod->iod_saddr;
                 (void)inet_ntop(AF_INET, &in->sin_addr.s_addr, sessionp->ipv4v6DotName, sizeof(sessionp->ipv4v6DotName));
                 SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
             }
-            else if (sessionp->session_saddr->sa_family == AF_INET6) {
+            else if (iod->iod_saddr->sa_family == AF_INET6) {
                 /* IPv6 - returns with no brackets */
-                struct sockaddr_in *in = (struct sockaddr_in *)sessionp->session_saddr;
+                struct sockaddr_in *in = (struct sockaddr_in *)iod->iod_saddr;
                 (void)inet_ntop(AF_INET6, &in->sin_addr.s_addr, sessionp->ipv4v6DotName, sizeof(sessionp->ipv4v6DotName));
                 SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
             }
@@ -1536,7 +1551,8 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 		if (error)
 			sessionp->ipv4v6DotName[0] = 0;	/* We failed don't use it again */
 	}
-	return error;
+
+    return error;
 }
 
 int 

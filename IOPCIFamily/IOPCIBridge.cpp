@@ -49,6 +49,11 @@
 #include <libkern/OSKextLib.h>
 #include <libkern/version.h>
 
+#define TARGET_OS_HAS_THUNDERBOLT __has_include(<IOKit/thunderbolt/IOThunderboltPort.h>)
+#if TARGET_OS_HAS_THUNDERBOLT
+#include <IOKit/thunderbolt/IOThunderboltPort.h>
+#endif
+
 extern "C"
 {
 #include <machine/machine_routines.h>
@@ -2292,6 +2297,16 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
         OSSafeReleaseNULL(entitlementSubArray);
         OSSafeReleaseNULL(entitlementArray);
 
+#if TARGET_OS_HAS_THUNDERBOLT
+        if (kPCIHeaderType0 == nub->reserved->headerType)
+        {
+            // the tunnel VID/DID property is set by the thunderbolt stack on the new tunnel bridge.
+            // Only add the properties for non-bridges until rdar://74079249 (Thunderbolt Model ID & Vendor ID properties needed on tunnelled  IOPCIDevices)
+            nub->setProperty(kIOPCITunnelRootDeviceVendorIDKey, nub->getProperty(kIOThunderboltTunnelEndpointDeviceVIDProperty, gIODTPlane));
+            nub->setProperty(kIOPCITunnelRootDeviceModelIDKey, nub->getProperty(kIOThunderboltTunnelEndpointDeviceMIDProperty, gIODTPlane));
+        }
+#endif
+
         checkProperties( nub );
 
         if (shadow && (kIOPCIClassBridge == (nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24)))
@@ -3271,6 +3286,11 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
 {
     IOReturn ret;
 
+    uint8_t intsPending = 0;
+
+    intsPending = fIntsPending;
+    OSBitAndAtomic8(~intsPending, &fIntsPending);
+
     if (kIOPCIDeviceOffState == fPowerState)
     {
         DLOG("%s device power state is off\n", __PRETTY_FUNCTION__);
@@ -3297,7 +3317,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
         uint16_t slotStatus = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x1a );
 
         // hot plug interrupt occurred
-        if (0 != (kNeedMask & slotStatus))
+        if ((0 != (kNeedMask & slotStatus)) || (0 != (intsPending & kIntsHP)))
         {
             fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, kNeedMask );
 
@@ -3397,7 +3417,6 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
     if ((root = fAERRoot))
     {
         enum { kNeedMask = ((1 << 2) | (1 << 0)) };
-        uint8_t intsPending = 0;
 
         uint32_t status = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x30);
         if (0 != (kNeedMask & status))

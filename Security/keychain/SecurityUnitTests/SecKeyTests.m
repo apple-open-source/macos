@@ -22,6 +22,7 @@
  */
 
 #import <XCTest/XCTest.h>
+#import <Security/SecKeyPriv.h>
 
 @interface SecKeyTests : XCTestCase
 @end
@@ -56,6 +57,43 @@
     NSData *failedDecrypted = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM, (CFDataRef)strippedCiphertext, (void *)&error));
     XCTAssertNil(failedDecrypted, @"Decryption of malformed data did not fail");
     XCTAssertEqual(error.code, errSecParam, @"Unexpected error code provided");
+}
+
+static CFIndex SecTestKeyGetAlgorithmID(SecKeyRef key) {
+    return kSecECDSAAlgorithmID;
+}
+
+static CFTypeRef SecTestKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm, CFArrayRef allAlgorithms, SecKeyOperationMode mode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+    if (!CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
+        return kCFNull;
+    }
+
+    NSArray *algs = (__bridge NSArray *)allAlgorithms;
+    XCTAssertEqualObjects(algs[0], (__bridge id)kSecKeyAlgorithmECDSASignatureDigestX962SHA256);
+    return CFRetain(in1);
+}
+
+
+static SecKeyDescriptor SecTestKeyDescriptor = {
+    .version = kSecKeyDescriptorVersion,
+    .name = "SecTestKey",
+    .getAlgorithmID = SecTestKeyGetAlgorithmID,
+    .copyOperationResult = SecTestKeyCopyOperationResult,
+};
+
+- (void)testLegacyAPIBridging {
+    NSData *message = [NSMutableData dataWithLength:256 / 8];
+    NSError *error;
+    id privKey = CFBridgingRelease(SecKeyCreate(kCFAllocatorDefault, &SecTestKeyDescriptor, 0, 0, 0));
+    CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256}, (void *)&error));
+    XCTAssertNotNil(privKey, @"key generation failed: %@", error);
+    NSMutableData *signature = [NSMutableData dataWithLength:256];
+    size_t sigLength = signature.length;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    OSStatus status = SecKeyRawSign((__bridge SecKeyRef)privKey, kSecPaddingPKCS1, message.bytes, message.length, signature.mutableBytes, &sigLength);
+#pragma clang diagnostic pop
+    XCTAssertEqual(status, errSecSuccess, @"Encryption failed");
 }
 
 @end

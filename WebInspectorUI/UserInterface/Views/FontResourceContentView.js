@@ -65,32 +65,32 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
 
         this._updatePreviewElement();
 
-        if (WI.NetworkManager.supportsLocalResourceOverrides()) {
+        if (WI.NetworkManager.supportsOverridingResponses()) {
             let dropZoneView = new WI.DropZoneView(this);
             dropZoneView.targetElement = this._previewContainer;
             this.addSubview(dropZoneView);
 
-            if (this.showingLocalResourceOverride)
+            if (this.resource.localResourceOverride)
                 this.resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleLocalResourceContentDidChange, this);
         }
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         // Add the style element since it is removed when hidden.
         if (this._styleElement)
             document.head.appendChild(this._styleElement);
     }
 
-    hidden()
+    detached()
     {
         // Remove the style element so it will not stick around when this content view is destroyed.
         if (this._styleElement)
             this._styleElement.remove();
 
-        super.hidden();
+        super.detached();
     }
 
     closed()
@@ -116,14 +116,23 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
 
     dropZoneShouldAppearForDragEvent(dropZone, event)
     {
+        let existingOverrides = WI.networkManager.localResourceOverridesForURL(this.resource.url);
+        if (existingOverrides.length > 1)
+            return false;
+
+        // Request overrides cannot be created/updated from a file as files don't have network info.
+        let localResourceOverride = this.resource.localResourceOverride || existingOverrides[0];
+        if (localResourceOverride?.type === WI.LocalResourceOverride.InterceptType.Request)
+            return false;
+
         return event.dataTransfer.types.includes("Files");
     }
 
     dropZoneHandleDragEnter(dropZone, event)
     {
-        if (this.showingLocalResourceOverride)
+        if (this.resource.localResourceOverride)
             dropZone.text = WI.UIString("Update Font");
-        else if (WI.networkManager.localResourceOverrideForURL(this.resource.url))
+        else if (WI.networkManager.localResourceOverridesForURL(this.resource.url).length)
             dropZone.text = WI.UIString("Update Local Override");
         else
             dropZone.text = WI.UIString("Create Local Override");
@@ -138,18 +147,17 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
         }
 
         WI.FileUtilities.readData(files, async ({dataURL, mimeType, base64Encoded, content}) => {
-            let localResourceOverride = WI.networkManager.localResourceOverrideForURL(this.resource.url);
-            if (!localResourceOverride && !this.showingLocalResourceOverride) {
-                localResourceOverride = await this.resource.createLocalResourceOverride();
+            let localResourceOverride = this.resource.localResourceOverride || WI.networkManager.localResourceOverridesForURL(this.resource.url)[0];
+            if (!localResourceOverride) {
+                localResourceOverride = await this.resource.createLocalResourceOverride(WI.LocalResourceOverride.InterceptType.Response);
                 WI.networkManager.addLocalResourceOverride(localResourceOverride);
             }
-
             console.assert(localResourceOverride);
 
             let revision = localResourceOverride.localResource.editableRevision;
             revision.updateRevisionContent(content, {base64Encoded, mimeType});
 
-            if (!this.showingLocalResourceOverride)
+            if (!this.resource.localResourceOverride)
                 WI.showLocalResourceOverride(localResourceOverride);
         });
     }
@@ -175,7 +183,7 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
         this._styleElement.textContent = `@font-face { font-family: "${uniqueFontName}"; src: url(${this._fontObjectURL}) ${format}; }`;
 
         // The style element will be added when shown later if we are not visible now.
-        if (this.visible)
+        if (this.isAttached)
             document.head.appendChild(this._styleElement);
 
         this._previewElement = document.createElement("div");

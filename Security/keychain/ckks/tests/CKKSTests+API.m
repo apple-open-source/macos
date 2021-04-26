@@ -1502,6 +1502,90 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testRPCFetchAndProcessClassAChangesWhileLocked {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered 'ready'");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"account-should-exist" key:self.keychainZoneKeys.classA];
+    [self.keychainZone addToZone:ckr];
+
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcFetchAndProcessClassAChanges:nil reply:^(NSError * _Nullable error) {
+        XCTAssertNotNil(error, "Should have received an error attempting to fetch and process");
+        NSError* underlying = error.userInfo[NSUnderlyingErrorKey];
+        XCTAssertNotNil(underlying, "Should have received an underlying error");
+        XCTAssertEqualObjects(underlying.domain, @"securityd", "Underlying error should be 'securityd' domain");
+        XCTAssertEqual(underlying.code, errSecInteractionNotAllowed, "Underlying error should be 'device locked'");
+        [callbackOccurs fulfill];
+    }];
+
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+    [self releaseCloudKitFetchHold];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testRPCPushWithFailingWrite {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter ready");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+
+    self.keychainView.holdOutgoingQueueOperation = [CKKSResultOperation named:@"outgoing-queue-hold" withBlock:^{}];
+
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcPushOutgoingChanges:nil reply:^(NSError * _Nullable error) {
+        // done! we should have an underlying error of "atomic write failed"
+        XCTAssertNotNil(error, "Should have received an error due to the failed push");
+        NSError* underlying = error.userInfo[NSUnderlyingErrorKey];
+        XCTAssertNotNil(underlying, "Should have received an underlying error");
+        XCTAssertEqualObjects(underlying.domain, CKErrorDomain, "Underlying error should be CKErrorDomain");
+        XCTAssertEqual(underlying.code, CKErrorPartialFailure, "Underlying error should be 'CKErrorPartialFailure'");
+        [callbackOccurs fulfill];
+    }];
+
+    [self.operationQueue addOperation:self.keychainView.holdOutgoingQueueOperation];
+
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testRPCPushWhileInWaitForTLK {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcPushOutgoingChanges:nil reply:^(NSError * _Nullable error) {
+        // done! we should have an underlying error of "fetch isn't working"
+        XCTAssertNotNil(error, "Should have received an error attempting to push a broken zone");
+        NSError* underlying = error.userInfo[NSUnderlyingErrorKey];
+        XCTAssertNotNil(underlying, "Should have received an underlying error");
+        XCTAssertEqualObjects(underlying.domain, CKKSResultDescriptionErrorDomain, "Underlying error should be CKKSResultDescriptionErrorDomain");
+        XCTAssertEqual(underlying.code, CKKSResultDescriptionPendingKeyReady, "Underlying error should be 'pending key ready'");
+        [callbackOccurs fulfill];
+    }];
+
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testRPCTLKMissingWhenMissing {
     // Bring CKKS up in waitfortlk
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];

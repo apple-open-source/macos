@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RemoteCaptureSampleManager.h"
 
+#include "Logging.h"
 #include "RemoteCaptureSampleManagerMessages.h"
 #include "SharedRingBufferStorage.h"
 #include <WebCore/WebAudioBufferList.h>
@@ -33,7 +34,6 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 namespace WebKit {
-using namespace PAL;
 using namespace WebCore;
 
 RemoteCaptureSampleManager::RemoteCaptureSampleManager()
@@ -99,7 +99,7 @@ void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourc
     iterator->value->setStorage(ipcHandle.handle, description, numberOfFrames);
 }
 
-void RemoteCaptureSampleManager::audioSamplesAvailable(WebCore::RealtimeMediaSourceIdentifier identifier, MediaTime time, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame)
+void RemoteCaptureSampleManager::audioSamplesAvailable(WebCore::RealtimeMediaSourceIdentifier identifier, MediaTime time, uint64_t numberOfFrames)
 {
     ASSERT(!WTF::isMainRunLoop());
 
@@ -108,40 +108,23 @@ void RemoteCaptureSampleManager::audioSamplesAvailable(WebCore::RealtimeMediaSou
         RELEASE_LOG_ERROR(WebRTC, "Unable to find source %llu for audioSamplesAvailable", identifier.toUInt64());
         return;
     }
-    iterator->value->audioSamplesAvailable(time, numberOfFrames, startFrame, endFrame);
+    iterator->value->audioSamplesAvailable(time, numberOfFrames);
 }
 
 RemoteCaptureSampleManager::RemoteAudio::RemoteAudio(Ref<RemoteRealtimeMediaSource>&& source)
     : m_source(WTFMove(source))
-    , m_ringBuffer(makeUnique<CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(nullptr)))
+    , m_ringBuffer(makeUnique<CARingBuffer>())
 {
 }
 
 void RemoteCaptureSampleManager::RemoteAudio::setStorage(const SharedMemory::Handle& handle, const WebCore::CAAudioStreamDescription& description, uint64_t numberOfFrames)
 {
     m_description = description;
-
-    RefPtr<SharedMemory> memory;
-    if (!handle.isNull()) {
-        memory = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
-        RELEASE_LOG_ERROR_IF(!memory, WebRTC, "Unable to create shared memory for audio source %llu", m_source->identifier().toUInt64());
-    }
-
-    auto& storage = static_cast<SharedRingBufferStorage&>(m_ringBuffer->storage());
-    if (!memory) {
-        m_ringBuffer->deallocate();
-        storage.setReadOnly(false);
-        storage.setStorage(nullptr);
-        return;
-    }
-
-    storage.setStorage(memory.releaseNonNull());
-    storage.setReadOnly(true);
-    m_ringBuffer->allocate(description, numberOfFrames);
+    m_ringBuffer = makeUnique<CARingBuffer>(makeUniqueRef<ReadOnlySharedRingBufferStorage>(handle), description, numberOfFrames);
     m_buffer = makeUnique<WebAudioBufferList>(description, numberOfFrames);
 }
 
-void RemoteCaptureSampleManager::RemoteAudio::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames, uint64_t startFrame, uint64_t endFrame)
+void RemoteCaptureSampleManager::RemoteAudio::audioSamplesAvailable(MediaTime time, uint64_t numberOfFrames)
 {
     if (!m_buffer) {
         RELEASE_LOG_ERROR(WebRTC, "buffer for audio source %llu is null", m_source->identifier().toUInt64());
@@ -155,7 +138,6 @@ void RemoteCaptureSampleManager::RemoteAudio::audioSamplesAvailable(MediaTime ti
 
     m_buffer->setSampleCount(numberOfFrames);
 
-    m_ringBuffer->setCurrentFrameBounds(startFrame, endFrame);
     m_ringBuffer->fetch(m_buffer->list(), numberOfFrames, time.timeValue());
 
     m_source->remoteAudioSamplesAvailable(time, *m_buffer, m_description, numberOfFrames);

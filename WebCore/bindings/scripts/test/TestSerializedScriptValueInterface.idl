@@ -27,12 +27,13 @@
 // changes in its output.
 [
     Conditional=Condition1|Condition2,
+    Exposed=TestGlobalObject
 ] interface TestSerializedScriptValueInterface {
     attribute SerializedScriptValue value;
     readonly attribute SerializedScriptValue readonlyValue;
     [CachedAttribute] attribute SerializedScriptValue cachedValue;
     readonly attribute sequence<MessagePort> ports;
     [CachedAttribute] readonly attribute SerializedScriptValue cachedReadonlyValue;
-    void function(SerializedScriptValue value);
+    undefined function(SerializedScriptValue value);
     SerializedScriptValue functionReturning();
 };

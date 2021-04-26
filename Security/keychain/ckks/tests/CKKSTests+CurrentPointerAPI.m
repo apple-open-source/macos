@@ -153,6 +153,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     // Set the 'current' pointer.
@@ -237,6 +238,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     // Ensure that setting the current pointer sends a notification
@@ -804,6 +806,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     // Set the 'current' pointer.
@@ -953,6 +956,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     // Set the 'current' pointer.
@@ -1008,6 +1012,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     // Set the 'current' pointer.
@@ -1169,6 +1174,7 @@
         deletedRecordTypeCounts:nil
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     XCTestExpectation* newSetCurrentExpectation = [self expectationWithDescription: @"callback occurs"];

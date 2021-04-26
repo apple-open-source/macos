@@ -23,53 +23,60 @@
  */
 
 #import <XCTest/XCTest.h>
+#include <sys/stat.h>
+#include <utilities/SecFileLocations.h>
+#include <utilities/debugging.h>
+#include "ipc/securityd_client.h"
 #include "trust/trustd/trustd_spi.h"
 
+#import "../TrustEvaluationTestHelpers.h"
 #import "TrustDaemonTestCase.h"
+
+@implementation TrustDaemonInitializationTestCase
+
+/* make a new directory for each test case */
+static int testNumber = 0;
+- (void) setUp {
+    NSURL *tmpDirURL = setUpTmpDir();
+    tmpDirURL = [tmpDirURL URLByAppendingPathComponent:[NSString stringWithFormat:@"case-%d", testNumber]];
+
+    NSError *error = nil;
+    BOOL ok = [[NSFileManager defaultManager] createDirectoryAtURL:tmpDirURL
+                                       withIntermediateDirectories:YES
+                                                        attributes:NULL
+                                                             error:&error];
+    if (ok && tmpDirURL) {
+        SecSetCustomHomeURL((__bridge CFURLRef)tmpDirURL);
+    }
+    testNumber++;
+    gTrustd = &trustd_spi; // Signal that we're running as (uninitialized) trustd
+
+    /* Because each test case gets a new "home" directory but we only create the data vault hierarchy once per
+     * launch, we need to initialize those directories for each test case. */
+    WithPathInProtectedDirectory(CFSTR("trustd"), ^(const char *path) {
+        mode_t permissions = 0755; // Non-system trustd's create directory with expansive permissions
+        int ret = mkpath_np(path, permissions);
+        chmod(path, permissions);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+        }
+    });
+}
+@end
 
 @implementation TrustDaemonTestCase
 
-static int current_dir = -1;
-static char *home_var = NULL;
-
 /* Build in trustd functionality to the tests */
 + (void) setUp {
-    /* Set up TMP directory for trustd's files */
-    int ok = 0;
-    NSError* error = nil;
-    NSString* pid = [NSString stringWithFormat: @"tst-%d", [[NSProcessInfo processInfo] processIdentifier]];
-    NSURL* tmpDirURL = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:pid];
-    ok = (bool)tmpDirURL;
+    NSURL *tmpDirURL = setUpTmpDir();
+    trustd_init((__bridge CFURLRef) tmpDirURL);
 
-    if (current_dir == -1 && home_var == NULL) {
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:tmpDirURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-
-        NSURL* libraryURL = [tmpDirURL URLByAppendingPathComponent:@"Library"];
-        NSURL* preferencesURL = [tmpDirURL URLByAppendingPathComponent:@"Preferences"];
-
-        ok =  (ok && (current_dir = open(".", O_RDONLY) >= 0)
-               && (chdir([tmpDirURL fileSystemRepresentation]) >= 0)
-               && (setenv("HOME", [tmpDirURL fileSystemRepresentation], 1) >= 0)
-               && (bool)(home_var = getenv("HOME")));
-
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:libraryURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-
-        ok = ok && [[NSFileManager defaultManager] createDirectoryAtURL:preferencesURL
-                                            withIntermediateDirectories:NO
-                                                             attributes:NULL
-                                                                  error:&error];
-    }
-
-    if (ok > 0) {
-        /* Be trustd */
-        trustd_init((__bridge CFURLRef) tmpDirURL);
-    }
+    // "Disable" evaluation analytics (by making the sampling rate as low as possible)
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
+    [defaults setInteger:UINT32_MAX forKey:@"TrustEvaluationEventAnalyticsRate"];
+    [defaults setInteger:UINT32_MAX forKey:@"PinningEventAnalyticsRate"];
+    [defaults setInteger:UINT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
+    [defaults setInteger:UINT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
 }
 
 @end

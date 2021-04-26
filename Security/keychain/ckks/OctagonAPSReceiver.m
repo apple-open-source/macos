@@ -23,6 +23,8 @@
 
 #if OCTAGON
 
+#import <objc/runtime.h>
+
 #import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSCondition.h"

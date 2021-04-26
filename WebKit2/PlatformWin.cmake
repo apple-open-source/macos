@@ -9,8 +9,12 @@ include(Headers.cmake)
 add_definitions(-DBUILDING_WEBKIT)
 
 list(APPEND WebKit_SOURCES
+    GPUProcess/media/win/RemoteMediaPlayerProxyWin.cpp
+
+    GPUProcess/win/GPUProcessMainWin.cpp
+    GPUProcess/win/GPUProcessWin.cpp
+
     NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
-    NetworkProcess/Classifier/WebResourceLoadStatisticsTelemetry.cpp
 
     NetworkProcess/WebStorage/StorageManager.cpp
 
@@ -34,7 +38,9 @@ list(APPEND WebKit_SOURCES
     Shared/win/NativeWebMouseEventWin.cpp
     Shared/win/NativeWebTouchEventWin.cpp
     Shared/win/NativeWebWheelEventWin.cpp
+    Shared/win/WebCoreArgumentCodersWin.cpp
     Shared/win/WebEventFactory.cpp
+    Shared/win/WebPreferencesDefaultValuesWin.cpp
 
     UIProcess/BackingStore.cpp
     UIProcess/DefaultUndoController.cpp
@@ -65,6 +71,8 @@ list(APPEND WebKit_SOURCES
     UIProcess/win/WebPopupMenuProxyWin.cpp
     UIProcess/win/WebProcessPoolWin.cpp
     UIProcess/win/WebView.cpp
+
+    WebProcess/GPU/media/win/VideoLayerRemoteWin.cpp
 
     WebProcess/InjectedBundle/win/InjectedBundleWin.cpp
 
@@ -165,7 +173,7 @@ if (${WTF_PLATFORM_WIN_CAIRO})
     )
 
     list(APPEND WebKit_PRIVATE_LIBRARIES
-        $<TARGET_OBJECTS:WebCore>
+        MediaFoundation
         OpenSSL::SSL
         mfuuid.lib
         strmiids.lib
@@ -185,8 +193,6 @@ if (ENABLE_REMOTE_INSPECTOR)
     )
 endif ()
 
-WEBKIT_WRAP_SOURCELIST(${WebKit_SOURCES})
-
 # Windows specific
 list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     Shared/API/c/win/WKBaseWin.h
@@ -204,8 +210,3 @@ if (${WTF_PLATFORM_WIN_CAIRO})
         UIProcess/API/C/curl/WKWebsiteDataStoreRefCurl.h
     )
 endif ()
-
-list(APPEND WebKit_PRIVATE_DEFINITIONS
-    STATICALLY_LINKED_WITH_PAL
-    STATICALLY_LINKED_WITH_WebCore
-)

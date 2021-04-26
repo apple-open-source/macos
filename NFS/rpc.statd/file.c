@@ -941,20 +941,20 @@ loop:
 		return (0);
 
 	TAILQ_FOREACH_SAFE(hsp, &hosts, hs_list, nhsp) {
-		if (!hsp->hs_flag)
-			continue;
-		printf("%c %c  %c   %s\n", ((hsp->hs_flag == HS_OLD) ? '-' : ((hsp->hs_flag == HS_NEW) ? '+' : ' ')),
-		       (hsp->hs_monitor ? 'M' : ' '), (hsp->hs_notify ? 'N' : ' '), hsp->hs_name);
-		if (hsp->hs_flag == HS_OLD) {
-			TAILQ_REMOVE(&hosts, hsp, hs_list);
-			free(hsp);
-		}
+        if (hsp->hs_flag) {
+            printf("%c %c  %c   %s\n", ((hsp->hs_flag == HS_OLD) ? '-' : ((hsp->hs_flag == HS_NEW) ? '+' : ' ')),
+                   (hsp->hs_monitor ? 'M' : ' '), (hsp->hs_notify ? 'N' : ' '), hsp->hs_name);
+            if (hsp->hs_flag == HS_OLD) {
+                TAILQ_REMOVE(&hosts, hsp, hs_list);
+                free(hsp);
+                continue;
+            }
+        }
+        hsp->hs_flag = HS_OLD;
 	}
 	prev_state = state;
 	prev_reccnt = reccnt;
 	prev_status_file_len = status_file_len;
-	TAILQ_FOREACH(hsp, &hosts, hs_list)
-		hsp->hs_flag = HS_OLD;
 	sleep(2);
 	goto loop;
 }

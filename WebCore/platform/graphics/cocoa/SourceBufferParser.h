@@ -30,7 +30,10 @@
 #include "MediaPlayerEnums.h"
 #include "SourceBufferPrivateClient.h"
 #include <JavaScriptCore/Uint8Array.h>
+#include <pal/spi/cocoa/MediaToolboxSPI.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Variant.h>
 
 namespace WTF {
 class Logger;
@@ -45,7 +48,7 @@ class WEBCORE_EXPORT SourceBufferParser : public ThreadSafeRefCounted<SourceBuff
 public:
     static MediaPlayerEnums::SupportsType isContentTypeSupported(const ContentType&);
 
-    static RefPtr<SourceBufferParser> create(const ContentType&);
+    static RefPtr<SourceBufferParser> create(const ContentType&, bool webMParserEnabled);
     virtual ~SourceBufferParser() = default;
 
     enum class Type : uint8_t {
@@ -57,12 +60,35 @@ public:
         None,
         Discontinuity,
     };
-    virtual void appendData(Vector<unsigned char>&&, AppendFlags = AppendFlags::None) = 0;
+
+    class Segment {
+    public:
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+        Segment(RetainPtr<MTPluginByteSourceRef>&&);
+#endif
+        Segment(Vector<uint8_t>&&);
+        Segment(Segment&&) = default;
+        Vector<uint8_t> takeVector();
+
+        size_t size() const;
+        size_t read(size_t position, size_t, uint8_t* destination) const;
+
+    private:
+        Variant<
+#if HAVE(MT_PLUGIN_FORMAT_READER)
+            RetainPtr<MTPluginByteSourceRef>,
+#endif
+            Vector<uint8_t>
+        > m_segment;
+    };
+
+    virtual void appendData(Segment&&, CompletionHandler<void()>&& = [] { }, AppendFlags = AppendFlags::None) = 0;
     virtual void flushPendingMediaData() = 0;
     virtual void setShouldProvideMediaDataForTrackID(bool, uint64_t) = 0;
     virtual bool shouldProvideMediadataForTrackID(uint64_t) = 0;
     virtual void resetParserState() = 0;
     virtual void invalidate() = 0;
+    virtual void setMinimumAudioSampleDuration(float);
 #if !RELEASE_LOG_DISABLED
     virtual void setLogger(const WTF::Logger&, const void* logIdentifier) = 0;
 #endif

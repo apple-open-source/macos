@@ -41,7 +41,9 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
         this._toggleDrawerButton = new WI.ToggleButtonNavigationItem("toggle-drawer", WI.UIString("Hide Console"), WI.UIString("Show Console"), "Images/HideConsoleDrawer.svg", "Images/ShowConsoleDrawer.svg");
 
         this._toggleDrawerButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
-        this._toggleDrawerButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { WI.toggleSplitConsole(); });
+        this._toggleDrawerButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, function(event) {
+            WI.toggleSplitConsole();
+        }, this._toggleDrawerButton);
         this.navigationBar.insertNavigationItem(this._toggleDrawerButton, 0);
 
         this.collapsed = true;
@@ -71,10 +73,10 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
 
         this.element.classList.toggle("hidden", this._collapsed);
 
-        if (this._collapsed)
-            this.hidden();
-        else
-            this.shown();
+        // Manually call `attached`/`detached` because we never expect to actually remove this node
+        // from the DOM, meaning that the `WI.ContentViewContainer` would not show/hide entries in
+        // the back/forward list, which is what adds/removes subviews from the DOM.
+        this._didMoveToParent(this._collapsed ? null : WI.View.rootView());
 
         this.dispatchEventToListeners(WI.ConsoleDrawer.Event.CollapsedStateChanged);
     }
@@ -84,14 +86,14 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
         return this.element.offsetHeight;
     }
 
-    shown()
+    // Protected
+
+    attached()
     {
-        super.shown();
+        super.attached();
 
         this._restoreDrawerHeight();
     }
-
-    // Protected
 
     sizeDidChange()
     {

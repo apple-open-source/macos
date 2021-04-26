@@ -35,6 +35,8 @@
 #ifndef _NETSMB_SMB_TRANTCP_H_
 #define	_NETSMB_SMB_TRANTCP_H_
 
+#include "netbios.h"
+
 #ifdef _KERNEL
 
 #ifdef NB_DEBUG
@@ -57,29 +59,31 @@ enum nbstate {
 #define	NBF_CONNECTED	0x0002
 #define	NBF_RECVLOCK	0x0004      /* unused */
 #define	NBF_UPCALLED	0x0010      /* unused */
-#define	NBF_NETBIOS		0x0020	
+#define	NBF_NETBIOS		0x0020
+#define NBF_BOUND_IF    0x0040
 
 
 /*
  * socket specific data
  */
 struct nbpcb {
-	struct smb_session *	nbp_session;
-	socket_t	nbp_tso;	/* transport socket */
-	struct sockaddr_nb *nbp_laddr;	/* local address */
-	struct sockaddr_nb *nbp_paddr;	/* peer address */
+	struct smbiod      *nbp_iod;
+	socket_t            nbp_tso;    /* transport socket */
+	struct sockaddr_nb *nbp_laddr;  /* local address */
+	struct sockaddr_nb *nbp_paddr;  /* peer address */
 
-	int		nbp_flags;
-	enum nbstate	nbp_state;
-	struct timespec	nbp_timo;
-	uint32_t		nbp_sndbuf;
-	uint32_t		nbp_rcvbuf;
-	uint32_t		nbp_rcvchunk;
-	void *		nbp_selectid;
-	void		(* nbp_upcall)(void *);
-	lck_mtx_t	nbp_lock;
-	uint32_t	nbp_qos;
-
+	int                 nbp_flags;
+	enum nbstate        nbp_state;
+	struct timespec     nbp_timo;
+	uint32_t            nbp_sndbuf;
+	uint32_t            nbp_rcvbuf;
+	uint32_t            nbp_rcvchunk;
+	void               *nbp_selectid;
+	void              (*nbp_upcall)(void *);
+	lck_mtx_t           nbp_lock;
+	uint32_t            nbp_qos;
+    struct sockaddr_storage nbp_sock_addr;
+    uint32_t            nbp_if_idx;
 /*	LIST_ENTRY(nbpcb) nbp_link;*/
 };
 

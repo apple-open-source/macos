@@ -669,7 +669,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     if (hostname_opt && hostname_opt_len) {
 	my_log(LOG_INFO, "DHCP %s [%s]: %s <%.*s>", 
 	       dhcp_msgtype_names(msgtype), if_name(request->if_p), idstr,
-	       hostname_opt_len, hostname_opt);
+	       hostname_opt_len, (char *)hostname_opt);
     }
     else {
 	my_log(LOG_INFO, "DHCP %s [%s]: %s", 

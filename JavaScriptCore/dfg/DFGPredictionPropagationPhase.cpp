@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -875,6 +875,8 @@ private:
         case TryGetById:
         case GetByValWithThis:
         case GetByOffset:
+        case GetPrivateName:
+        case GetPrivateNameById:
         case MultiGetByOffset:
         case GetDirectPname:
         case Call:
@@ -1210,11 +1212,12 @@ private:
             setPrediction(SpecInt32Only);
             break;
         }
-        case HasGenericProperty:
-        case HasStructureProperty:
         case HasOwnStructureProperty:
         case InStructureProperty:
-        case HasIndexedProperty: {
+        case HasIndexedProperty:
+        case HasEnumerableIndexedProperty:
+        case HasEnumerableStructureProperty:
+        case HasEnumerableProperty: {
             setPrediction(SpecBoolean);
             break;
         }
@@ -1315,6 +1318,7 @@ private:
         case CheckTierUpInLoop:
         case CheckTierUpAtReturn:
         case CheckTierUpAndOSREnter:
+        case AssertInBounds:
         case CheckInBounds:
         case ValueToInt32:
         case DoubleRep:
@@ -1378,6 +1382,8 @@ private:
         case PutByValWithThis:
         case PutByIdWithThis:
         case PutByVal:
+        case PutPrivateName:
+        case PutPrivateNameById:
         case PutClosureVar:
         case PutInternalField:
         case PutToArguments:
@@ -1419,7 +1425,7 @@ private:
         case Phantom:
         case Check:
         case CheckArray:
-        case CheckNeutered:
+        case CheckDetached:
         case CheckVarargs:
         case PutGlobalVariable:
         case CheckTraps:
@@ -1430,7 +1436,6 @@ private:
         case NotifyWrite:
         case ConstantStoragePointer:
         case MovHint:
-        case ZombieHint:
         case ExitOK:
         case VarargsLength:
         case LoadVarargs:

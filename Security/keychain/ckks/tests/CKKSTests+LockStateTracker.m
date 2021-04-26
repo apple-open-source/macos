@@ -4,50 +4,29 @@
 #import <OCMock/OCMock.h>
 
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/tests/CKKSMockLockStateProvider.h"
 #import "tests/secdmockaks/mockaks.h"
 
 @interface CKKSTests_LockStateTracker : XCTestCase
-@property bool aksLockState;
-@property (nullable) id mockLockStateTracker;
+
+@property CKKSMockLockStateProvider* lockStateProvider;
 @property CKKSLockStateTracker* lockStateTracker;
 @end
 
 @implementation CKKSTests_LockStateTracker
 
-@synthesize aksLockState = _aksLockState;
-
 - (void)setUp {
     [super setUp];
 
-    self.aksLockState = false; // Lie and say AKS is always unlocked
-    self.mockLockStateTracker = OCMClassMock([CKKSLockStateTracker class]);
-    OCMStub([self.mockLockStateTracker queryAKSLocked]).andCall(self, @selector(aksLockState));
-
-    self.lockStateTracker = [[CKKSLockStateTracker alloc] init];
-
+    self.lockStateProvider = [[CKKSMockLockStateProvider alloc] initWithCurrentLockStatus:NO];
+    self.lockStateTracker = [[CKKSLockStateTracker alloc] initWithProvider:self.lockStateProvider];
 
     [SecMockAKS reset];
 }
 
 - (void)tearDown {
-    [self.mockLockStateTracker stopMocking];
+    self.lockStateProvider = nil;
     self.lockStateTracker = nil;
-}
-
-- (bool)aksLockState
-{
-    return _aksLockState;
-}
-
-- (void)setAksLockState:(bool)aksLockState
-{
-
-    if(aksLockState) {
-        [SecMockAKS lockClassA];
-    } else {
-        [SecMockAKS unlockAllClasses];
-    }
-    _aksLockState = aksLockState;
 }
 
 - (void)testLockedBehindOurBack {
@@ -66,7 +45,7 @@
     XCTAssertFalse([self.lockStateTracker isLockedError:fileError], "file errors are not lock errors");
     XCTAssertFalse([self.lockStateTracker isLocked], "should be unlocked after lock failure");
 
-    self.aksLockState = true;
+    self.lockStateProvider.aksCurrentlyLocked = true;
     XCTAssertFalse([self.lockStateTracker isLocked], "should be reporting unlocked since we 'missed' the notification");
 
     XCTAssertFalse([self.lockStateTracker isLockedError:fileError], "file errors are not lock errors");
@@ -75,7 +54,7 @@
     XCTAssertTrue([self.lockStateTracker isLockedError:lockError], "errSecInteractionNotAllowed is a lock errors");
     XCTAssertTrue([self.lockStateTracker isLocked], "should be locked after lock failure");
 
-    self.aksLockState = false;
+    self.lockStateProvider.aksCurrentlyLocked = false;
     [self.lockStateTracker recheck];
 
     XCTAssertFalse([self.lockStateTracker isLocked], "should be unlocked");
@@ -83,7 +62,7 @@
 
 - (void)testWaitForUnlock {
 
-    self.aksLockState = true;
+    self.lockStateProvider.aksCurrentlyLocked = true;
     [self.lockStateTracker recheck];
 
     XCTestExpectation* expectation = [self expectationWithDescription: @"unlock occurs"];
@@ -96,7 +75,7 @@
 
     [queue addOperation:unlockEvent];
 
-    self.aksLockState = false;
+    self.lockStateProvider.aksCurrentlyLocked = false;
     [self.lockStateTracker recheck];
 
     [self waitForExpectations:@[expectation] timeout:5];

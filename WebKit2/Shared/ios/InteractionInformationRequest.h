@@ -43,6 +43,7 @@ struct InteractionInformationRequest {
     bool includeLinkIndicator { false };
     bool includeCaretContext { false };
     bool includeHasDoubleClickHandler { true };
+    bool includeImageData { false };
 
     bool linkIndicatorShouldHaveLegacyMargins { false };
 

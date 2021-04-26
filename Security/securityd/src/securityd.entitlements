@@ -12,5 +12,7 @@
 	<true/>
 	<key>com.apple.private.securityd.stash-agent-client</key>
 	<true/>
+	<key>com.apple.system-task-ports.token.control</key>
+	<true/>
 </dict>
 </plist>

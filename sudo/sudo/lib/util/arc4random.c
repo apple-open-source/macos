@@ -34,8 +34,6 @@
 
 #ifndef HAVE_ARC4RANDOM
 
-#include <sys/types.h>
-#include <sys/time.h>
 #ifdef HAVE_SYS_RANDOM_H
 # include <sys/random.h>
 #endif
@@ -105,7 +103,7 @@ _rs_stir(void)
 		_rs_init(rnd, sizeof(rnd));
 	} else
 		_rs_rekey(rnd, sizeof(rnd));
-	memset_s(rnd, sizeof(rnd), 0, sizeof(rnd)); /* discard source seed */
+	explicit_bzero(rnd, sizeof(rnd)); /* discard source seed */
 
 	/* invalidate rs_buf */
 	rs_have = 0;
@@ -144,11 +142,10 @@ _rs_rekey(unsigned char *dat, size_t datlen)
 	}
 	/* immediately reinit for backtracking resistance */
 	_rs_init(rs_buf, KEYSZ + IVSZ);
-	memset(rs_buf, 0, KEYSZ + IVSZ);
+	memset(rs_buf, 0, KEYSZ + IVSZ); // -V512
 	rs_have = sizeof(rs_buf) - KEYSZ - IVSZ;
 }
 
-#ifdef notdef
 static inline void
 _rs_random_buf(void *_buf, size_t n)
 {
@@ -171,7 +168,6 @@ _rs_random_buf(void *_buf, size_t n)
 			_rs_rekey(NULL, 0);
 	}
 }
-#endif
 
 static inline void
 _rs_random_u32(uint32_t *val)
@@ -198,7 +194,6 @@ sudo_arc4random(void)
 	return val;
 }
 
-#ifdef notdef
 void
 sudo_arc4random_buf(void *buf, size_t n)
 {
@@ -206,6 +201,5 @@ sudo_arc4random_buf(void *buf, size_t n)
 	_rs_random_buf(buf, n);
 	_ARC4_UNLOCK();
 }
-#endif
 
 #endif /* HAVE_ARC4RANDOM */

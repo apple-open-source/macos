@@ -28,67 +28,41 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
-#include "InlineLineBuilder.h"
-#include "LayoutState.h"
-
 namespace WebCore {
 namespace Layout {
 
-bool InlineFormattingContext::Quirks::lineDescentNeedsCollapsing(const LineBuilder::RunList& runList) const
+InlineLayoutUnit InlineFormattingContext::Quirks::initialLineHeight() const
 {
-    // Collapse line descent in limited and full quirk mode when there's no baseline aligned content or
-    // the baseline aligned content has no descent.
-    auto& layoutState = this->layoutState();
-    if (!layoutState.inQuirksMode() && !layoutState.inLimitedQuirksMode())
-        return false;
-
-    for (auto& run : runList) {
-        auto& layoutBox = run.layoutBox();
-        if (run.isContainerEnd() || layoutBox.style().verticalAlign() != VerticalAlign::Baseline)
-            continue;
-
-        if (run.isLineBreak())
-            return false;
-        if (run.isText())
-            return false;
-        if (run.isContainerStart()) {
-            auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
-            if (boxGeometry.horizontalBorder() || (boxGeometry.horizontalPadding() && boxGeometry.horizontalPadding().value()))
-                return false;
-            continue;
-        }
-        if (run.isBox()) {
-            if (layoutBox.isInlineBlockBox() && layoutBox.establishesInlineFormattingContext()) {
-                auto& formattingState = layoutState.establishedInlineFormattingState(downcast<ContainerBox>(layoutBox));
-                auto inlineBlockBaseline = formattingState.displayInlineContent()->lineBoxes.last().baseline();
-                if (inlineBlockBaseline.descent())
-                    return false;
-            }
-            continue;
-        }
-        ASSERT_NOT_REACHED();
-    }
-    return true;
+    // Negative lineHeight value means the line-height is not set
+    auto& root = formattingContext().root();
+    if (layoutState().inNoQuirksMode() || !root.style().lineHeight().isNegative())
+        return root.style().computedLineHeight();
+    return root.style().fontMetrics().floatHeight();
 }
 
-LineBuilder::Constraints::HeightAndBaseline InlineFormattingContext::Quirks::lineHeightConstraints(const ContainerBox& formattingRoot) const
+bool InlineFormattingContext::Quirks::inlineLevelBoxAffectsLineBox(const LineBox::InlineLevelBox& inlineLevelBox, const LineBox& lineBox) const
 {
-    // computedLineHeight takes font-size into account when line-height is not set.
-    // Strut is the imaginary box that we put on every line. It sets the initial vertical constraints for each new line.
-    InlineLayoutUnit strutHeight = formattingRoot.style().computedLineHeight();
-    auto strutBaselineOffset = LineBuilder::halfLeadingMetrics(formattingRoot.style().fontMetrics(), strutHeight).ascent();
-    if (layoutState().inNoQuirksMode())
-        return { strutHeight, strutBaselineOffset, { } };
-
-    auto lineHeight = formattingRoot.style().lineHeight();
-    if (lineHeight.isPercentOrCalculated()) {
-        auto initialBaselineOffset = LineBuilder::halfLeadingMetrics(formattingRoot.style().fontMetrics(), 0_lu).ascent();
-        return { initialBaselineOffset, initialBaselineOffset, LineBoxBuilder::Baseline { strutBaselineOffset, strutHeight - strutBaselineOffset } };
+    if (inlineLevelBox.isInlineBox())
+        return inlineLevelBox.hasContent();
+    if (inlineLevelBox.isLineBreakBox()) {
+        // <br> in non-standard mode stretches the line box only when the line is empty.
+        // e.g. <div><span><br></span></div> will stretch but <div>this will not stretch to 200px<span style="font-size: 200px;"><br></span></div>
+        return layoutState().inNoQuirksMode() ? true : lineBox.isConsideredEmpty();
     }
-    // FIXME: The only reason why we use intValue() here is to match current inline tree (integral)behavior.
-    InlineLayoutUnit initialLineHeight = lineHeight.intValue();
-    auto initialBaselineOffset = LineBuilder::halfLeadingMetrics(formattingRoot.style().fontMetrics(), initialLineHeight).ascent();
-    return { initialLineHeight, initialBaselineOffset, LineBoxBuilder::Baseline { strutBaselineOffset, strutHeight - strutBaselineOffset } };
+    if (inlineLevelBox.isAtomicInlineLevelBox()) {
+        if (inlineLevelBox.layoutBounds().height())
+            return true;
+        // While in practice when the negative vertical margin makes the layout bounds empty (e.g: height: 100px; margin-top: -100px;), and this inline
+        // level box contributes 0px to the line box height, it still needs to be taken into account while computing line box geometries.
+        auto& boxGeometry = formattingContext().geometryForBox(inlineLevelBox.layoutBox());
+        return boxGeometry.marginBefore() || boxGeometry.marginAfter();
+    }
+    return false;
+}
+
+bool InlineFormattingContext::Quirks::hasSoftWrapOpportunityAtImage() const
+{
+    return !formattingContext().root().isTableCell();
 }
 
 }

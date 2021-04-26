@@ -38,6 +38,10 @@ extern NSString* const CKKSAnalyticsLastUnlock;
 extern NSString* const CKKSAnalyticsLastKeystateReady;
 extern NSString* const CKKSAnalyticsLastInCircle;
 
+extern NSString* const CKKSAnalyticsNumberOfSyncItems;
+extern NSString* const CKKSAnalyticsNumberOfTLKShares;
+extern NSString* const CKKSAnalyticsNumberOfSyncKeys;
+
 extern NSString* const OctagonAnalyticsStateMachineState;
 extern NSString* const OctagonAnalyticIcloudAccountState;
 extern NSString* const OctagonAnalyticCDPBitStatus;
@@ -57,6 +61,10 @@ extern NSString* const OctagonAnalyticsCDPStateRun;
 extern NSString* const OctagonAnalyticsHaveMachineID;
 extern NSString* const OctagonAnalyticsMIDOnMemoizedList;
 extern NSString* const OctagonAnalyticsPeersWithMID;
+extern NSString* const OctagonAnalyticsEgoMIDMatchesCurrentMID;
+
+extern NSString* const OctagonAnalyticsTotalPeers;
+extern NSString* const OctagonAnalyticsTotalViablePeers;
 
 extern NSString* const CKKSAnalyticsLastCKKSPush;
 extern NSString* const CKKSAnalyticsLastOctagonPush;

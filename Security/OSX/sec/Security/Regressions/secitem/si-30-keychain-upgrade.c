@@ -101,6 +101,9 @@ static void tests(void)
         "populate keychain");
     free(keychain_name);
 
+    is(sqlite3_close_v2(db), SQLITE_OK,
+       "Should be able to close db");;
+
     SecKeychainDbReset(NULL);
 
     int v_eighty = 80;
@@ -131,7 +134,7 @@ static void tests(void)
 
 int si_30_keychain_upgrade(int argc, char *const *argv)
 {
-	plan_tests(8);
+	plan_tests(9);
 
 	tests();
 

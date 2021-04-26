@@ -117,6 +117,13 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
         client->isPictureInPictureSupportedChanged(isPictureInPictureSupported());
 }
 
+void PlaybackSessionModelMediaElement::mediaEngineChanged()
+{
+    bool wirelessVideoPlaybackDisabled = this->wirelessVideoPlaybackDisabled();
+    for (auto client : m_clients)
+        client->wirelessVideoPlaybackDisabledChanged(wirelessVideoPlaybackDisabled);
+}
+
 void PlaybackSessionModelMediaElement::handleEvent(WebCore::ScriptExecutionContext&, WebCore::Event& event)
 {
     updateForEventName(event.type());
@@ -325,9 +332,9 @@ void PlaybackSessionModelMediaElement::togglePictureInPicture()
 
     auto& element = downcast<HTMLVideoElement>(*m_mediaElement);
     if (element.fullscreenMode() == MediaPlayerEnums::VideoFullscreenModePictureInPicture)
-        element.setFullscreenMode(MediaPlayerEnums::VideoFullscreenModeNone);
+        element.setPresentationMode(HTMLVideoElement::VideoPresentationMode::Inline);
     else
-        element.setFullscreenMode(MediaPlayerEnums::VideoFullscreenModePictureInPicture);
+        element.setPresentationMode(HTMLVideoElement::VideoPresentationMode::PictureInPicture);
 #endif
 }
 

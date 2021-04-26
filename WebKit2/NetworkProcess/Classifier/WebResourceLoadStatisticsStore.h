@@ -37,6 +37,7 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PageIdentifier.h>
+#include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ResourceLoadObserver.h>
 #include <wtf/CompletionHandler.h>
@@ -63,17 +64,22 @@ namespace WebKit {
 
 class NetworkSession;
 class ResourceLoadStatisticsStore;
-class ResourceLoadStatisticsPersistentStorage;
 class WebFrameProxy;
 class WebProcessProxy;
+enum class PrivateClickMeasurementAttributionType : bool;
 enum class ShouldGrandfatherStatistics : bool;
 enum class ShouldIncludeLocalhost : bool { No, Yes };
 enum class EnableResourceLoadStatisticsDebugMode : bool { No, Yes };
+
+using TopFrameDomain = WebCore::RegistrableDomain;
+using SubResourceDomain = WebCore::RegistrableDomain;
+
 struct RegistrableDomainsToBlockCookiesFor {
     Vector<WebCore::RegistrableDomain> domainsToBlockAndDeleteCookiesFor;
     Vector<WebCore::RegistrableDomain> domainsToBlockButKeepCookiesFor;
     Vector<WebCore::RegistrableDomain> domainsWithUserInteractionAsFirstParty;
-    RegistrableDomainsToBlockCookiesFor isolatedCopy() const { return { domainsToBlockAndDeleteCookiesFor.isolatedCopy(), domainsToBlockButKeepCookiesFor.isolatedCopy(), domainsWithUserInteractionAsFirstParty.isolatedCopy() }; }
+    HashMap<TopFrameDomain, SubResourceDomain> domainsWithStorageAccess;
+    RegistrableDomainsToBlockCookiesFor isolatedCopy() const { return { domainsToBlockAndDeleteCookiesFor.isolatedCopy(), domainsToBlockButKeepCookiesFor.isolatedCopy(), domainsWithUserInteractionAsFirstParty.isolatedCopy(), domainsWithStorageAccess }; }
 };
 struct RegistrableDomainsToDeleteOrRestrictWebsiteDataFor {
     Vector<WebCore::RegistrableDomain> domainsToDeleteAllCookiesFor;
@@ -208,7 +214,6 @@ struct ThirdPartyData {
     void populateMemoryStoreFromDisk(CompletionHandler<void()>&&);
     void setNotifyPagesWhenDataRecordsWereScanned(bool);
     void setShouldClassifyResourcesBeforeDataRecordsRemoval(bool, CompletionHandler<void()>&&);
-    void setShouldSubmitTelemetry(bool);
 
     void grantStorageAccess(const SubFrameDomain&, const TopFrameDomain&, WebCore::FrameIdentifier, WebCore::PageIdentifier, StorageAccessPromptWasShown, StorageAccessScope, CompletionHandler<void(RequestStorageAccessResult)>&&);
 
@@ -251,7 +256,6 @@ struct ThirdPartyData {
     void scheduleCookieBlockingUpdateForDomains(const Vector<RegistrableDomain>&, CompletionHandler<void()>&&);
     void scheduleStatisticsAndDataRecordsProcessing(CompletionHandler<void()>&&);
     void statisticsDatabaseHasAllTables(CompletionHandler<void(bool)>&&);
-    void submitTelemetry(CompletionHandler<void()>&&);
     void scheduleClearInMemoryAndPersistent(ShouldGrandfatherStatistics, CompletionHandler<void()>&&);
     void scheduleClearInMemoryAndPersistent(WallTime modifiedSince, ShouldGrandfatherStatistics, CompletionHandler<void()>&&);
     void clearInMemoryEphemeral(CompletionHandler<void()>&&);
@@ -281,7 +285,9 @@ struct ThirdPartyData {
     void setSameSiteStrictEnforcementEnabled(WebCore::SameSiteStrictEnforcementEnabled);
     void setFirstPartyWebsiteDataRemovalMode(WebCore::FirstPartyWebsiteDataRemovalMode, CompletionHandler<void()>&&);
     void setStandaloneApplicationDomain(const RegistrableDomain&, CompletionHandler<void()>&&);
+#if ENABLE(APP_BOUND_DOMAINS)
     void setAppBoundDomains(HashSet<RegistrableDomain>&&, CompletionHandler<void()>&&);
+#endif
     void didCreateNetworkProcess();
 
     void notifyResourceLoadStatisticsProcessed();
@@ -290,7 +296,6 @@ struct ThirdPartyData {
     void invalidateAndCancel();
 
     void sendDiagnosticMessageWithValue(const String& message, const String& description, unsigned value, unsigned sigDigits, WebCore::ShouldSample) const;
-    void notifyPageStatisticsTelemetryFinished(unsigned numberOfPrevalentResources, unsigned numberOfPrevalentResourcesWithUserInteraction, unsigned numberOfPrevalentResourcesWithoutUserInteraction, unsigned topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, unsigned medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, unsigned top3NumberOfPrevalentResourcesWithUI, unsigned top3MedianSubFrameWithoutUI, unsigned top3MedianSubResourceWithoutUI, unsigned top3MedianUniqueRedirectsWithoutUI, unsigned top3MedianDataRecordsRemovedWithoutUI) const;
 
     void resourceLoadStatisticsUpdated(Vector<WebCore::ResourceLoadStatistics>&&, CompletionHandler<void()>&&);
     void requestStorageAccessUnderOpener(DomainInNeedOfStorageAccess&&, WebCore::PageIdentifier openerID, OpenerDomain&&);
@@ -299,8 +304,19 @@ struct ThirdPartyData {
     static void resume();
     
     bool isEphemeral() const { return m_isEphemeral == WebCore::ResourceLoadStatistics::IsEphemeral::Yes; };
-    void insertExpiredStatisticForTesting(const RegistrableDomain&, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
-    void flushAndDestroyPersistentStore(CompletionHandler<void()>&&);
+    void insertExpiredStatisticForTesting(const RegistrableDomain&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
+
+    // Private Click Measurement.
+    void insertPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&, PrivateClickMeasurementAttributionType);
+    void markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
+    void attributePrivateClickMeasurement(const WebCore::PrivateClickMeasurement::SourceSite&, const WebCore::PrivateClickMeasurement::AttributeOnSite&, WebCore::PrivateClickMeasurement::AttributionTriggerData&&, CompletionHandler<void(Optional<Seconds>)>&&);
+    void allAttributedPrivateClickMeasurement(CompletionHandler<void(Vector<WebCore::PrivateClickMeasurement>&&)>&&);
+    void clearPrivateClickMeasurement();
+    void clearPrivateClickMeasurementForRegistrableDomain(const WebCore::RegistrableDomain&);
+    void clearExpiredPrivateClickMeasurement();
+    void privateClickMeasurementToString(CompletionHandler<void(String)>&&);
+    void clearSentAttributions(Vector<WebCore::PrivateClickMeasurement>&&);
+    void markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&);
 
 private:
     explicit WebResourceLoadStatisticsStore(NetworkSession&, const String&, ShouldIncludeLocalhost, WebCore::ResourceLoadStatistics::IsEphemeral);
@@ -326,7 +342,6 @@ private:
     WeakPtr<NetworkSession> m_networkSession;
     Ref<WTF::WorkQueue> m_statisticsQueue;
     std::unique_ptr<ResourceLoadStatisticsStore> m_statisticsStore;
-    std::unique_ptr<ResourceLoadStatisticsPersistentStorage> m_persistentStorage;
 
     RunLoop::Timer<WebResourceLoadStatisticsStore> m_dailyTasksTimer;
 
@@ -334,6 +349,7 @@ private:
     HashSet<RegistrableDomain> m_domainsWithEphemeralUserInteraction;
 
     HashSet<RegistrableDomain> m_domainsWithUserInteractionQuirk;
+    HashMap<TopFrameDomain, SubResourceDomain> m_domainsWithCrossPageStorageAccessQuirk;
 
     bool m_hasScheduledProcessStats { false };
 

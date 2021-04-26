@@ -42,6 +42,10 @@ messages -> WebProcessProxy LegacyReceiver {
     GetGPUProcessConnection() -> (struct WebKit::GPUProcessConnectionInfo connectionInfo) Synchronous
 #endif
 
+#if ENABLE(WEB_AUTHN)
+    GetWebAuthnProcessConnection() -> (struct WebKit::WebAuthnProcessConnectionInfo connectionInfo) Synchronous
+#endif
+
     SetIsHoldingLockedFiles(bool isHoldingLockedFiles)
 
     DidExceedActiveMemoryLimit()
@@ -72,10 +76,6 @@ messages -> WebProcessProxy LegacyReceiver {
     StopDisplayLink(WebKit::DisplayLinkObserverID observerID, uint32_t displayID)
 #endif
 
-    # Plug-in messages.
-    void AddPlugInAutoStartOriginHash(String pageOrigin, uint32_t hash)
-    void PlugInDidReceiveUserInteraction(uint32_t hash)
-
 #if PLATFORM(GTK) || PLATFORM(WPE)
     SendMessageToWebContext(struct WebKit::UserMessage userMessage)
     SendMessageToWebContextWithReply(struct WebKit::UserMessage userMessage) -> (struct WebKit::UserMessage replyMessage) Async
@@ -83,4 +83,13 @@ messages -> WebProcessProxy LegacyReceiver {
 
     DidCreateSleepDisabler(WebCore::SleepDisablerIdentifier identifier, String reason, bool display)
     DidDestroySleepDisabler(WebCore::SleepDisablerIdentifier identifier)
+
+    CreateSpeechRecognitionServer(WebCore::PageIdentifier identifier)
+    DestroySpeechRecognitionServer(WebCore::PageIdentifier identifier)
+
+    SystemBeep()
+    
+#if PLATFORM(MAC)
+    IsAXAuthenticated(audit_token_t auditToken) -> (bool authenticated) Synchronous
+#endif
 }

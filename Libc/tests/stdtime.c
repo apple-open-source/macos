@@ -26,18 +26,18 @@ T_DECL(strptime_PR_5879606, "alloca(strlen(input)) in strptime(\"%Z\")")
     time_t t = time(NULL);
     size_t s = 100000000;
     char *buf;
+    char tz[100] = { 0 };
 
 	localtime_r(&t, &tm);
 	T_LOG("%s", asctime(&tm));
 	T_ASSERT_NOTNULL(strptime("GMT", "%Z", &tm), "strptime GMT");
 	T_LOG("%s", asctime(&tm));
 
-	localtime_r(&t, &tm);
-	T_ASSERT_NOTNULL(strptime("PST", "%Z", &tm), "strptime PST");
-	T_LOG("%s", asctime(&tm));
+	strftime(tz, sizeof(tz), "%Z", &tm);
+	T_LOG("The current time zone name is: %s\n", tz);
 
 	localtime_r(&t, &tm);
-	T_ASSERT_NOTNULL(strptime("PDT", "%Z", &tm), "strptime PDT");
+	T_ASSERT_NOTNULL(strptime(tz, "%Z", &tm), "strptime local TZ name");
 	T_LOG("%s", asctime(&tm));
 
 	T_QUIET; T_ASSERT_NOTNULL((buf = malloc(s)), NULL);

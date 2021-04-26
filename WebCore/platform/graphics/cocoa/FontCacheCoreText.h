@@ -50,11 +50,19 @@ struct SynthesisPair {
     bool needsSyntheticOblique;
 };
 
+struct VariationDefaults {
+    String axisName;
+    float defaultValue;
+    float minimumValue;
+    float maximumValue;
+};
+
+typedef HashMap<FontTag, VariationDefaults, FourCharacterTagHash, FourCharacterTagHashTraits> VariationDefaultsMap;
+
 RetainPtr<CTFontRef> preparePlatformFont(CTFontRef, const FontDescription&, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities, bool applyWeightWidthSlopeVariations = true);
-SynthesisPair computeNecessarySynthesis(CTFontRef, const FontDescription&, bool isPlatformFont = false);
-RetainPtr<CTFontRef> platformFontWithFamilySpecialCase(const AtomString& family, const FontDescription&, float size, AllowUserInstalledFonts);
+enum class ShouldComputePhysicalTraits : bool { No, Yes };
+SynthesisPair computeNecessarySynthesis(CTFontRef, const FontDescription&, ShouldComputePhysicalTraits = ShouldComputePhysicalTraits::No, bool isPlatformFont = false);
 RetainPtr<CTFontRef> platformFontWithFamily(const AtomString& family, FontSelectionRequest, TextRenderingMode, float size);
-bool requiresCustomFallbackFont(UChar32 character);
 FontSelectionCapabilities capabilitiesForFontDescriptor(CTFontDescriptorRef);
 void addAttributesForInstalledFonts(CFMutableDictionaryRef attributes, AllowUserInstalledFonts);
 RetainPtr<CTFontRef> createFontForInstalledFonts(CTFontDescriptorRef, CGFloat size, AllowUserInstalledFonts);
@@ -62,4 +70,5 @@ RetainPtr<CTFontRef> createFontForInstalledFonts(CTFontRef, AllowUserInstalledFo
 void addAttributesForWebFonts(CFMutableDictionaryRef attributes, AllowUserInstalledFonts);
 RetainPtr<CFSetRef> installedFontMandatoryAttributes(AllowUserInstalledFonts);
 
+VariationDefaultsMap defaultVariationValues(CTFontRef);
 }

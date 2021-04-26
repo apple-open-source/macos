@@ -27,11 +27,15 @@
 
 #if USE(LIBWEBRTC) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)
 
+#include "Connection.h"
+#include "DataReference.h"
 #include "MessageReceiver.h"
 #include "RTCDecoderIdentifier.h"
 #include "RTCEncoderIdentifier.h"
 #include <WebCore/ImageTransferSessionVT.h>
+#include <WebCore/PixelBufferConformerCV.h>
 #include <map>
+#include <webrtc/api/video/video_codec_type.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -40,7 +44,6 @@ using CVPixelBufferPoolRef = struct __CVPixelBufferPool*;
 
 namespace IPC {
 class Connection;
-class DataReference;
 class Decoder;
 }
 
@@ -49,39 +52,42 @@ class RemoteVideoSample;
 }
 
 namespace webrtc {
-class WebKitRTPFragmentationHeader;
+class VideoFrame;
 struct WebKitEncodedFrameInfo;
 }
 
 namespace WebKit {
 
-class LibWebRTCCodecs : private IPC::MessageReceiver {
+class LibWebRTCCodecs : public IPC::Connection::ThreadMessageReceiverRefCounted {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    LibWebRTCCodecs() = default;
+    LibWebRTCCodecs();
+    ~LibWebRTCCodecs();
 
     static void setCallbacks(bool useGPUProcess);
 
+    enum class Type { H264, H265, VP9 };
     struct Decoder {
         WTF_MAKE_FAST_ALLOCATED;
     public:
         RTCDecoderIdentifier identifier;
+        Type type;
         void* decodedImageCallback { nullptr };
         Lock decodedImageCallbackLock;
         bool hasError { false };
         RefPtr<IPC::Connection> connection;
     };
 
-    enum class Type { H264, H265 };
     Decoder* createDecoder(Type);
     int32_t releaseDecoder(Decoder&);
-    int32_t decodeFrame(Decoder&, uint32_t timeStamp, const uint8_t*, size_t);
+    int32_t decodeFrame(Decoder&, uint32_t timeStamp, const uint8_t*, size_t, uint16_t width, uint16_t height);
     void registerDecodeFrameCallback(Decoder&, void* decodedImageCallback);
 
     struct Encoder {
         WTF_MAKE_FAST_ALLOCATED;
     public:
         RTCEncoderIdentifier identifier;
+        webrtc::VideoCodecType codecType { webrtc::kVideoCodecGeneric };
         void* encodedImageCallback { nullptr };
         Lock encodedImageCallbackLock;
         RefPtr<IPC::Connection> connection;
@@ -90,18 +96,27 @@ public:
     Encoder* createEncoder(Type, const std::map<std::string, std::string>&);
     int32_t releaseEncoder(Encoder&);
     int32_t initializeEncoder(Encoder&, uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate);
-    int32_t encodeFrame(Encoder&, const WebCore::RemoteVideoSample&, bool shouldEncodeAsKeyFrame);
+    int32_t encodeFrame(Encoder&, const webrtc::VideoFrame&, bool shouldEncodeAsKeyFrame);
     void registerEncodeFrameCallback(Encoder&, void* encodedImageCallback);
     void setEncodeRates(Encoder&, uint32_t bitRate, uint32_t frameRate);
     
-    CVPixelBufferPoolRef pixelBufferPool(size_t width, size_t height);
+    CVPixelBufferPoolRef pixelBufferPool(size_t width, size_t height, OSType);
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
+
+    void setVP9VTBSupport(bool supportVP9VTB) { m_supportVP9VTB = supportVP9VTB; }
+    bool supportVP9VTB() const { return m_supportVP9VTB; }
 
 private:
     void failedDecoding(RTCDecoderIdentifier);
     void completedDecoding(RTCDecoderIdentifier, uint32_t timeStamp, WebCore::RemoteVideoSample&&);
-    void completedEncoding(RTCEncoderIdentifier, IPC::DataReference&&, const webrtc::WebKitEncodedFrameInfo&, webrtc::WebKitRTPFragmentationHeader&&);
+    void completedEncoding(RTCEncoderIdentifier, IPC::DataReference&&, const webrtc::WebKitEncodedFrameInfo&);
+    RetainPtr<CVPixelBufferRef> convertToBGRA(CVPixelBufferRef);
+
+    void setConnection(IPC::Connection&);
+
+    // IPC::Connection::ThreadMessageReceiver
+    void dispatchToThread(Function<void()>&&) final;
 
 private:
     HashMap<RTCDecoderIdentifier, std::unique_ptr<Decoder>> m_decoders;
@@ -109,10 +124,14 @@ private:
 
     HashMap<RTCEncoderIdentifier, std::unique_ptr<Encoder>> m_encoders;
 
+    RefPtr<IPC::Connection> m_connection;
+    Ref<WorkQueue> m_queue;
     std::unique_ptr<WebCore::ImageTransferSessionVT> m_imageTransferSession;
+    std::unique_ptr<WebCore::PixelBufferConformerCV> m_pixelBufferConformer;
     RetainPtr<CVPixelBufferPoolRef> m_pixelBufferPool;
     size_t m_pixelBufferPoolWidth { 0 };
     size_t m_pixelBufferPoolHeight { 0 };
+    bool m_supportVP9VTB { false };
 };
 
 } // namespace WebKit

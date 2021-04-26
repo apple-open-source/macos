@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 
 @protocol CKKSLockStateNotification <NSObject>
 - (void)lockStateChangeNotification:(bool)unlocked;
@@ -31,13 +32,20 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol CKKSLockStateProviderProtocol
+- (BOOL)queryAKSLocked;
+@end
+
 @interface CKKSLockStateTracker : NSObject
 @property (nullable) NSOperation* unlockDependency;
 @property (readonly) bool isLocked;
 
 @property (readonly,nullable) NSDate* lastUnlockTime;
 
-- (instancetype)init;
+@property id<CKKSLockStateProviderProtocol> lockStateProvider;
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithProvider:(id<CKKSLockStateProviderProtocol>)provider;
 
 // Force a recheck of the keybag lock state
 - (void)recheck;
@@ -45,13 +53,14 @@ NS_ASSUME_NONNULL_BEGIN
 // Check if this error code is related to keybag is locked and we should retry later
 - (bool)isLockedError:(NSError*)error;
 
--(void)addLockStateObserver:(id<CKKSLockStateNotification>)object;
-
-// Ask AKS if the user's keybag is locked
-+ (bool)queryAKSLocked;
+- (void)addLockStateObserver:(id<CKKSLockStateNotification>)object;
 
 // Call this to get a CKKSLockStateTracker to use. This tracker will likely be tracking real AKS.
 + (CKKSLockStateTracker*)globalTracker;
+@end
+
+@interface CKKSActualLockStateProvider : NSObject <CKKSLockStateProviderProtocol>
+- (instancetype)init;
 @end
 
 NS_ASSUME_NONNULL_END

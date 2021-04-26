@@ -18,7 +18,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STDBOOL_H
@@ -26,14 +25,7 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <grp.h>
-#include <pwd.h>
+#include <string.h>
 
 #define SUDO_ERROR_WRAP 0
 
@@ -45,7 +37,7 @@
 #include "sudo_util.h"
 #include <gram.h>
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 /*
  * TODO: test realloc

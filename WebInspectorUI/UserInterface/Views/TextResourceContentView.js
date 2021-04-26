@@ -78,7 +78,7 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
 
         items.push(this._prettyPrintButtonNavigationItem);
 
-        if (!this.showingLocalResourceOverride)
+        if (!this.resource.localResourceOverride)
             items.push(this._showTypesButtonNavigationItem, this._codeCoverageButtonNavigationItem);
 
         return items;
@@ -98,7 +98,7 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
     get supplementalRepresentedObjects()
     {
         let objects = WI.debuggerManager.probeSets.filter(function(probeSet) {
-            return this._resource.contentIdentifier === probeSet.breakpoint.contentIdentifier;
+            return !(probeSet.breakpoint instanceof WI.JavaScriptBreakpoint) || this._resource.contentIdentifier === probeSet.breakpoint.contentIdentifier;
         }, this);
 
         // If the SourceCodeTextEditor has an executionLineNumber, we can assume
@@ -114,29 +114,15 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
         this._textEditor.revealPosition(position, textRangeToSelect, forceUnformatted);
     }
 
-    shown()
-    {
-        super.shown();
-
-        this._textEditor.shown();
-    }
-
-    hidden()
-    {
-        super.hidden();
-
-        this._textEditor.hidden();
-    }
-
     closed()
     {
         super.closed();
 
-        this.resource.removeEventListener(null, null, this);
-        WI.debuggerManager.removeEventListener(null, null, this);
-        WI.networkManager.removeEventListener(null, null, this);
-        WI.settings.showJavaScriptTypeInformation.removeEventListener(null, null, this);
-        WI.settings.enableControlFlowProfiler.removeEventListener(null, null, this);
+        this.resource.removeEventListener(WI.SourceCode.Event.ContentDidChange, this._sourceCodeContentDidChange, this);
+        WI.settings.showJavaScriptTypeInformation.removeEventListener(WI.Setting.Event.Changed, this._showJavaScriptTypeInformationSettingChanged, this);
+        WI.settings.enableControlFlowProfiler.removeEventListener(WI.Setting.Event.Changed, this._enableControlFlowProfilerSettingChanged, this);
+        WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.ProbeSetAdded, this._probeSetsChanged, this);
+        WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.ProbeSetRemoved, this._probeSetsChanged, this);
     }
 
     contentAvailable(content, base64Encoded)
@@ -149,9 +135,13 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
         return WI.UIString("Click to create a Local Override from this content");
     }
 
-    requestLocalResourceOverrideInitialContent(callback)
+    requestLocalResourceOverrideInitialContent()
     {
-        callback({initialContent: this._textEditor.string});
+        return Promise.resolve({
+            mimeType: this.resource.mimeType,
+            base64Encoded: this.resource.base64Encoded,
+            content: this._textEditor.string,
+        });
     }
 
     get supportsSave()
@@ -319,7 +309,7 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
     _probeSetsChanged(event)
     {
         var breakpoint = event.data.probeSet.breakpoint;
-        if (breakpoint.sourceCodeLocation.sourceCode === this.resource)
+        if (!(breakpoint instanceof WI.JavaScriptBreakpoint) || breakpoint.sourceCodeLocation.sourceCode === this.resource)
             this.dispatchEventToListeners(WI.ContentView.Event.SupplementalRepresentedObjectsDidChange);
     }
 
@@ -336,7 +326,7 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
         if (this.resource.urlComponents.scheme === "file")
             return true;
 
-        if (this.showingLocalResourceOverride)
+        if (this.resource.localResourceOverride)
             return true;
 
         return false;

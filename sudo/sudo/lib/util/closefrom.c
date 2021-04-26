@@ -26,12 +26,10 @@
 
 #ifndef HAVE_CLOSEFROM
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <unistd.h>
 #ifdef HAVE_PSTAT_GETPROC
 # include <sys/pstat.h>
 #else
@@ -42,8 +40,8 @@
 #include "sudo_util.h"
 #include "pathnames.h"
 
-#ifndef _POSIX_OPEN_MAX
-# define _POSIX_OPEN_MAX	20
+#ifndef OPEN_MAX
+# define OPEN_MAX	256
 #endif
 
 /*
@@ -56,13 +54,19 @@ closefrom_fallback(int lowfd)
     long fd, maxfd;
 
     /*
-     * Fall back on sysconf(_SC_OPEN_MAX).  We avoid checking
-     * resource limits since it is possible to open a file descriptor
-     * and then drop the rlimit such that it is below the open fd.
+     * Fall back on sysconf(_SC_OPEN_MAX).  This is equivalent to
+     * checking the RLIMIT_NOFILE soft limit.  It is possible for
+     * there to be open file descriptors past this limit but there's
+     * not much we can do about that since the hard limit may be
+     * RLIM_INFINITY (LLONG_MAX or ULLONG_MAX on modern systems).
      */
     maxfd = sysconf(_SC_OPEN_MAX);
-    if (maxfd < 0)
-	maxfd = _POSIX_OPEN_MAX;
+    if (maxfd < OPEN_MAX)
+	maxfd = OPEN_MAX;
+
+    /* Make sure we didn't get RLIM_INFINITY as the upper limit. */
+    if (maxfd > INT_MAX)
+	maxfd = INT_MAX;
 
     for (fd = lowfd; fd < maxfd; fd++) {
 #ifdef __APPLE__
@@ -82,7 +86,7 @@ void
 sudo_closefrom(int lowfd)
 {
 #if defined(HAVE_PSTAT_GETPROC)
-    struct pst_status pstat;
+    struct pst_status pst;
 #elif defined(HAVE_DIRFD)
     const char *path;
     DIR *dirp;
@@ -98,11 +102,11 @@ sudo_closefrom(int lowfd)
      * EOVERFLOW is not a fatal error for the fields we use.
      * See the "EOVERFLOW Error" section of pstat_getvminfo(3).
      */                             
-    if (pstat_getproc(&pstat, sizeof(pstat), 0, getpid()) != -1 ||
+    if (pstat_getproc(&pst, sizeof(pst), 0, getpid()) != -1 ||
 	errno == EOVERFLOW) {
 	int fd;
 
-	for (fd = lowfd; fd <= pstat.pst_highestfd; fd++)
+	for (fd = lowfd; fd <= pst.pst_highestfd; fd++)
 	    (void) close(fd);
 	return;
     }

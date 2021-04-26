@@ -24,9 +24,12 @@
 #if ENABLE(GPU_PROCESS)
 
 messages -> RemoteMediaPlayerProxy NotRefCounted {
-    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering, float videoContentScale) -> (Optional<WebKit::LayerHostingContextID> inlineLayerHostingContextId, Optional<WebKit::LayerHostingContextID> fullscreenLayerHostingContextId) Async
+    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering, float videoContentScale) -> (Optional<WebKit::LayerHostingContextID> inlineLayerHostingContextId) Async
 
     Load(URL url, Optional<WebKit::SandboxExtension::Handle> sandboxExtension, WebCore::ContentType contentType, String keySystem) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration) Async
+#if ENABLE(MEDIA_SOURCE)
+    LoadMediaSource(URL url, WebCore::ContentType contentType, bool webMParserEnabled, WebKit::RemoteMediaSourceIdentifier mediaSourceIdentifier) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration) Async
+#endif
     CancelLoad()
 
     PrepareToPlay()
@@ -43,6 +46,7 @@ messages -> RemoteMediaPlayerProxy NotRefCounted {
     SetPreload(enum:uint8_t WebCore::MediaPlayerEnums::Preload preload)
     SetPrivateBrowsingMode(bool privateMode)
     SetPreservesPitch(bool preservesPitch)
+    SetPitchCorrectionAlgorithm(WebCore::MediaPlayer::PitchCorrectionAlgorithm algorithm)
 
     PrepareForRendering()
     SetVisible(bool visible)
@@ -62,20 +66,8 @@ messages -> RemoteMediaPlayerProxy NotRefCounted {
 
     SetBufferingPolicy(WebCore::MediaPlayer::BufferingPolicy policy)
 
-    AudioTrackSetEnabled(WebKit::TrackPrivateRemoteIdentifier trackID, bool enabled)
-    VideoTrackSetSelected(WebKit::TrackPrivateRemoteIdentifier trackID, bool enabled)
-    TextTrackSetMode(WebKit::TrackPrivateRemoteIdentifier trackID, enum:uint8_t WebCore::InbandTextTrackPrivate::Mode mode)
-
 #if PLATFORM(COCOA)
     SetVideoInlineSizeFenced(WebCore::IntSize size, MachSendRight machSendRight)
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-    SetVideoFullscreenFrameFenced(WebCore::FloatRect rect, MachSendRight machSendRight)
-#endif
-#endif
-
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-    EnterFullscreen() -> () Async
-    ExitFullscreen() -> () Async
 #endif
 
     # Paint
@@ -112,7 +104,6 @@ messages -> RemoteMediaPlayerProxy NotRefCounted {
 
     NotifyTrackModeChanged()
     TracksChanged()
-    SyncTextTrackBounds()
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     SetWirelessPlaybackTarget(WebCore::MediaPlaybackTargetContext target)
@@ -120,10 +111,16 @@ messages -> RemoteMediaPlayerProxy NotRefCounted {
 
     PerformTaskAtMediaTime(MediaTime mediaTime, WallTime messageTime) -> (Optional<MediaTime> mediaTime) Async
     WouldTaintOrigin(struct WebCore::SecurityOriginData origin) -> (Optional<bool> wouldTaint) Synchronous
+    SetShouldUpdatePlaybackMetrics(bool should)
 
 #if PLATFORM(IOS_FAMILY)
     ErrorLog() -> (String errorLog) Synchronous
     AccessLog() -> (String accessLog) Synchronous
+#endif
+
+#if ENABLE(WEB_AUDIO)
+    CreateAudioSourceProvider()
+    SetShouldEnableAudioSourceProvider(bool shouldEnable)
 #endif
 }
 

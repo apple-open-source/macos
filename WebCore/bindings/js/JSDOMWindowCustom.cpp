@@ -63,8 +63,58 @@
 namespace WebCore {
 using namespace JSC;
 
-EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionShowModalDialog(JSGlobalObject*, CallFrame*);
-EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionOpenDatabase(JSGlobalObject*, CallFrame*);
+static JSC_DECLARE_HOST_FUNCTION(jsDOMWindowInstanceFunction_openDatabase);
+static JSC_DECLARE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_blurNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_blurNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_closeNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_closeNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_focusNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_focusNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_postMessageNonCaching);
+static JSC_DECLARE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_postMessageNonCaching);
+#if ENABLE(USER_MESSAGE_HANDLERS)
+static JSC_DECLARE_CUSTOM_GETTER(jsDOMWindow_webkit);
+#endif
+
+JSC_DEFINE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_blurNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsRemoteDOMWindowInstanceFunction_blur, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_blurNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsDOMWindowInstanceFunction_blur, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_closeNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsRemoteDOMWindowInstanceFunction_close, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_closeNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsDOMWindowInstanceFunction_close, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_focusNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsRemoteDOMWindowInstanceFunction_focus, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_focusNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsDOMWindowInstanceFunction_focus, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsRemoteDOMWindowInstanceFunction_postMessageNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsRemoteDOMWindowInstanceFunction_postMessage, 0>(globalObject, propertyName);
+}
+
+JSC_DEFINE_CUSTOM_GETTER(jsDOMWindowInstanceFunction_postMessageNonCaching, (JSGlobalObject* globalObject, EncodedJSValue, PropertyName propertyName))
+{
+    return nonCachingStaticFunctionGetterImpl<jsDOMWindowInstanceFunction_postMessage, 2>(globalObject, propertyName);
+}
 
 void JSDOMWindow::visitAdditionalChildren(SlotVisitor& visitor)
 {
@@ -80,7 +130,7 @@ void JSDOMWindow::visitAdditionalChildren(SlotVisitor& visitor)
 }
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
-static EncodedJSValue jsDOMWindowWebKit(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsDOMWindow_webkit, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = lexicalGlobalObject->vm();
     JSDOMWindow* castedThis = toJSDOMWindow(vm, JSValue::decode(thisValue));
@@ -103,19 +153,19 @@ bool jsDOMWindowGetOwnPropertySlotRestrictedAccess(JSDOMGlobalObject* thisObject
     // These are the functions we allow access to cross-origin (DoNotCheckSecurity in IDL).
     // Always provide the original function, on a fresh uncached function object.
     if (propertyName == builtinNames.blurPublicName()) {
-        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? nonCachingStaticFunctionGetter<jsRemoteDOMWindowInstanceFunctionBlur, 0> : nonCachingStaticFunctionGetter<jsDOMWindowInstanceFunctionBlur, 0>);
+        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? jsRemoteDOMWindowInstanceFunction_blurNonCaching : jsDOMWindowInstanceFunction_blurNonCaching);
         return true;
     }
     if (propertyName == builtinNames.closePublicName()) {
-        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? nonCachingStaticFunctionGetter<jsRemoteDOMWindowInstanceFunctionClose, 0> : nonCachingStaticFunctionGetter<jsDOMWindowInstanceFunctionClose, 0>);
+        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? jsRemoteDOMWindowInstanceFunction_closeNonCaching : jsDOMWindowInstanceFunction_closeNonCaching);
         return true;
     }
     if (propertyName == builtinNames.focusPublicName()) {
-        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? nonCachingStaticFunctionGetter<jsRemoteDOMWindowInstanceFunctionFocus, 0> : nonCachingStaticFunctionGetter<jsDOMWindowInstanceFunctionFocus, 0>);
+        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? jsRemoteDOMWindowInstanceFunction_focusNonCaching : jsDOMWindowInstanceFunction_focusNonCaching);
         return true;
     }
     if (propertyName == builtinNames.postMessagePublicName()) {
-        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? nonCachingStaticFunctionGetter<jsRemoteDOMWindowInstanceFunctionPostMessage, 0> : nonCachingStaticFunctionGetter<jsDOMWindowInstanceFunctionPostMessage, 2>);
+        slot.setCustom(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum), windowType == DOMWindowType::Remote ? jsRemoteDOMWindowInstanceFunction_postMessageNonCaching : jsDOMWindowInstanceFunction_postMessageNonCaching);
         return true;
     }
 
@@ -205,7 +255,7 @@ bool JSDOMWindow::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGl
         // Detect when we're getting the property 'showModalDialog', this is disabled, and has its original value.
         bool isShowModalDialogAndShouldHide = propertyName == static_cast<JSVMClientData*>(lexicalGlobalObject->vm().clientData)->builtinNames().showModalDialogPublicName()
             && (!frame || !DOMWindow::canShowModalDialog(*frame))
-            && slot.isValue() && isHostFunction(slot.getValue(lexicalGlobalObject, propertyName), jsDOMWindowInstanceFunctionShowModalDialog);
+            && slot.isValue() && isHostFunction(slot.getValue(lexicalGlobalObject, propertyName), jsDOMWindowInstanceFunction_showModalDialog);
         // Unless we're in the showModalDialog special case, we're done.
         if (!isShowModalDialogAndShouldHide)
             return true;
@@ -216,7 +266,7 @@ bool JSDOMWindow::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGl
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
     if (propertyName == static_cast<JSVMClientData*>(lexicalGlobalObject->vm().clientData)->builtinNames().webkitPublicName() && thisObject->wrapped().shouldHaveWebKitNamespaceForWorld(thisObject->world())) {
-        slot.setCacheableCustom(thisObject, JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly, jsDOMWindowWebKit);
+        slot.setCacheableCustom(thisObject, JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly, jsDOMWindow_webkit);
         return true;
     }
 #endif
@@ -238,14 +288,6 @@ bool JSDOMWindow::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* le
     // Indexed getters take precendence over regular properties, so caching would be invalid.
     slot.disableCaching();
 
-    String errorMessage;
-    Optional<bool> cachedIsCrossOriginAccess;
-    auto isCrossOriginAccess = [&] {
-        if (!cachedIsCrossOriginAccess)
-            cachedIsCrossOriginAccess = !BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, window, errorMessage);
-        return *cachedIsCrossOriginAccess;
-    };
-
     // (1) First, indexed properties.
     // These are also allowed cross-origin, so come before the access check.
     if (frame && index < frame->tree().scopedChildCount()) {
@@ -254,7 +296,8 @@ bool JSDOMWindow::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* le
     }
 
     // Hand off all cross-domain/frameless access to jsDOMWindowGetOwnPropertySlotRestrictedAccess.
-    if (isCrossOriginAccess())
+    String errorMessage;
+    if (!BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, window, errorMessage))
         return jsDOMWindowGetOwnPropertySlotRestrictedAccess<DOMWindowType::Local>(thisObject, window, *lexicalGlobalObject, Identifier::from(vm, index), slot, errorMessage);
 
     // (2) Regular own properties.
@@ -267,8 +310,6 @@ void JSDOMWindow::doPutPropertySecurityCheck(JSObject* cell, JSGlobalObject* lex
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     auto* thisObject = jsCast<JSDOMWindow*>(cell);
-    if (!thisObject->wrapped().frame())
-        return;
 
     String errorMessage;
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, thisObject->wrapped(), errorMessage)) {
@@ -286,8 +327,6 @@ bool JSDOMWindow::put(JSCell* cell, JSGlobalObject* lexicalGlobalObject, Propert
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     auto* thisObject = jsCast<JSDOMWindow*>(cell);
-    if (!thisObject->wrapped().frame())
-        return false;
 
     String errorMessage;
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, thisObject->wrapped(), errorMessage)) {
@@ -307,9 +346,15 @@ bool JSDOMWindow::put(JSCell* cell, JSGlobalObject* lexicalGlobalObject, Propert
 
 bool JSDOMWindow::putByIndex(JSCell* cell, JSGlobalObject* lexicalGlobalObject, unsigned index, JSValue value, bool shouldThrow)
 {
+    VM& vm = lexicalGlobalObject->vm();
     auto* thisObject = jsCast<JSDOMWindow*>(cell);
-    if (!thisObject->wrapped().frame() || !BindingSecurity::shouldAllowAccessToDOMWindow(lexicalGlobalObject, thisObject->wrapped()))
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    String errorMessage;
+    if (!BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, thisObject->wrapped(), errorMessage)) {
+        throwSecurityError(*lexicalGlobalObject, scope, errorMessage);
         return false;
+    }
     
     return Base::putByIndex(thisObject, lexicalGlobalObject, index, value, shouldThrow);
 }
@@ -404,14 +449,14 @@ static void addScopedChildrenIndexes(JSGlobalObject& lexicalGlobalObject, DOMWin
 }
 
 // https://html.spec.whatwg.org/#windowproxy-ownpropertykeys
-void JSDOMWindow::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, EnumerationMode mode)
+void JSDOMWindow::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
 {
     JSDOMWindow* thisObject = jsCast<JSDOMWindow*>(object);
 
     addScopedChildrenIndexes(*lexicalGlobalObject, thisObject->wrapped(), propertyNames);
 
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(lexicalGlobalObject, thisObject->wrapped(), DoNotReportSecurityError)) {
-        if (mode.includeDontEnumProperties())
+        if (mode == DontEnumPropertiesMode::Include)
             addCrossOriginOwnPropertyNames<CrossOriginObject::Window>(*lexicalGlobalObject, propertyNames);
         return;
     }
@@ -445,20 +490,9 @@ JSValue JSDOMWindow::getPrototype(JSObject* object, JSGlobalObject* lexicalGloba
     return Base::getPrototype(object, lexicalGlobalObject);
 }
 
-bool JSDOMWindow::preventExtensions(JSObject*, JSGlobalObject* lexicalGlobalObject)
+bool JSDOMWindow::preventExtensions(JSObject*, JSGlobalObject*)
 {
-    auto scope = DECLARE_THROW_SCOPE(lexicalGlobalObject->vm());
-
-    throwTypeError(lexicalGlobalObject, scope, "Cannot prevent extensions on this object"_s);
     return false;
-}
-
-String JSDOMWindow::toStringName(const JSObject* object, JSGlobalObject* lexicalGlobalObject)
-{
-    auto* thisObject = jsCast<const JSDOMWindow*>(object);
-    if (!BindingSecurity::shouldAllowAccessToDOMWindow(lexicalGlobalObject, thisObject->wrapped(), DoNotReportSecurityError))
-        return "Object"_s;
-    return "Window"_s;
 }
 
 // Custom Attributes
@@ -596,7 +630,7 @@ JSValue JSDOMWindow::frames(JSC::JSGlobalObject&) const
     return globalThis();
 }
 
-static inline JSC::EncodedJSValue jsDOMWindowInstanceFunctionOpenDatabaseBody(JSC::JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame, typename IDLOperation<JSDOMWindow>::ClassParameter castedThis)
+static inline JSC::EncodedJSValue jsDOMWindowInstanceFunction_openDatabaseBody(JSC::JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame, typename IDLOperation<JSDOMWindow>::ClassParameter castedThis)
 {
     auto& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -633,9 +667,9 @@ template<> inline JSDOMWindow* IDLOperation<JSDOMWindow>::cast(JSGlobalObject& l
     return toJSDOMWindow(lexicalGlobalObject.vm(), callFrame.thisValue().toThis(&lexicalGlobalObject, JSC::ECMAMode::sloppy()));
 }
 
-EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionOpenDatabase(JSGlobalObject* globalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(jsDOMWindowInstanceFunction_openDatabase, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
-    return IDLOperation<JSDOMWindow>::call<jsDOMWindowInstanceFunctionOpenDatabaseBody>(*globalObject, *callFrame, "openDatabase");
+    return IDLOperation<JSDOMWindow>::call<jsDOMWindowInstanceFunction_openDatabaseBody>(*globalObject, *callFrame, "openDatabase");
 }
 
 JSValue JSDOMWindow::openDatabase(JSC::JSGlobalObject& lexicalGlobalObject) const
@@ -643,9 +677,9 @@ JSValue JSDOMWindow::openDatabase(JSC::JSGlobalObject& lexicalGlobalObject) cons
     VM& vm = lexicalGlobalObject.vm();
     StringImpl* name = PropertyName(static_cast<JSVMClientData*>(vm.clientData)->builtinNames().openDatabasePublicName()).publicName();
     if (RuntimeEnabledFeatures::sharedFeatures().webSQLEnabled())
-        return JSFunction::create(vm, &lexicalGlobalObject, 4, name, jsDOMWindowInstanceFunctionOpenDatabase, NoIntrinsic);
+        return JSFunction::create(vm, &lexicalGlobalObject, 4, name, jsDOMWindowInstanceFunction_openDatabase, NoIntrinsic);
 
-    return InternalFunction::createFunctionThatMasqueradesAsUndefined(vm, &lexicalGlobalObject, 4, name, jsDOMWindowInstanceFunctionOpenDatabase);
+    return InternalFunction::createFunctionThatMasqueradesAsUndefined(vm, &lexicalGlobalObject, 4, name, jsDOMWindowInstanceFunction_openDatabase);
 }
 
 void JSDOMWindow::setOpenDatabase(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSValue value)

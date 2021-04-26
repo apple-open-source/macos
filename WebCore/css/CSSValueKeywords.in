@@ -259,6 +259,7 @@ windowtext
 -apple-system-purple
 -apple-system-red
 -apple-system-yellow
+-apple-system-app-highlight-background
 #endif
 #if defined(WTF_PLATFORM_MAC) && WTF_PLATFORM_MAC
 -apple-system-alternate-selected-text
@@ -852,7 +853,6 @@ searchfield-decoration
 searchfield-results-decoration
 searchfield-results-button
 searchfield-cancel-button
-snapshotted-plugin-overlay
 textfield
 relevancy-level-indicator
 continuous-capacity-level-indicator
@@ -1139,8 +1139,8 @@ elements
 // -webkit-scroll-snap-type
 mandatory
 proximity
-x
-y
+// x
+// y
 #endif
 
 break
@@ -1340,10 +1340,6 @@ dense
 // -webkit-column-fill
 balance
 
-// -webkit-aspect-ratio
-from-dimensions
-from-intrinsic
-
 #if defined(ENABLE_CSS_TRAILING_WORD) && ENABLE_CSS_TRAILING_WORD
 // -apple-trailing-word
 -webkit-partially-balanced
@@ -1393,6 +1389,9 @@ pinch-zoom
 // auto
 smooth
 
+// overscroll-behavior
+// contain
+
 // hanging-punctuation
 allow-end
 first
@@ -1414,6 +1413,12 @@ prefers
 // prefers-reduced-motion
 reduce
 no-preference
+
+// prefers-contrast
+forced
+more
+less
+// no-preference
 
 #if defined(ENABLE_DARK_MODE_CSS) && ENABLE_DARK_MODE_CSS
 // prefers-color-scheme
@@ -1451,3 +1456,16 @@ from-font
 // dynamic-range
 standard
 high
+
+// @supports selector()
+// https://drafts.csswg.org/css-conditional-4/#typedef-supports-selector-fn
+selector
+
+// math-style
+// normal
+compact
+
+// rotate
+x
+y
+z

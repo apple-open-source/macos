@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,7 +63,7 @@ Seconds totalFTLB3CompileTime;
 void ctiPatchCallByReturnAddress(ReturnAddressPtr returnAddress, FunctionPtr<CFunctionPtrTag> newCalleeFunction)
 {
     MacroAssembler::repatchCall(
-        CodeLocationCall<NoPtrTag>(MacroAssemblerCodePtr<NoPtrTag>(returnAddress)),
+        CodeLocationCall<ReturnAddressPtrTag>(MacroAssemblerCodePtr<ReturnAddressPtrTag>(returnAddress)),
         newCalleeFunction.retagged<OperationPtrTag>());
 }
 
@@ -304,7 +304,7 @@ void JIT::privateCompileMainPass()
         DEFINE_SLOW_OP(new_array_buffer)
         DEFINE_SLOW_OP(spread)
         DEFINE_SLOW_OP(get_enumerable_length)
-        DEFINE_SLOW_OP(has_generic_property)
+        DEFINE_SLOW_OP(has_enumerable_property)
         DEFINE_SLOW_OP(get_property_enumerator)
         DEFINE_SLOW_OP(to_index_string)
         DEFINE_SLOW_OP(create_direct_arguments)
@@ -426,6 +426,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_put_by_id)
         DEFINE_OP(op_put_by_val_direct)
         DEFINE_OP(op_put_by_val)
+        DEFINE_OP(op_put_private_name)
         DEFINE_OP(op_put_getter_by_id)
         DEFINE_OP(op_put_setter_by_id)
         DEFINE_OP(op_put_getter_setter_by_id)
@@ -462,10 +463,10 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_get_from_arguments)
         DEFINE_OP(op_put_to_arguments)
 
-        DEFINE_OP(op_has_structure_property)
+        DEFINE_OP(op_has_enumerable_indexed_property)
+        DEFINE_OP(op_has_enumerable_structure_property)
         DEFINE_OP(op_has_own_structure_property)
         DEFINE_OP(op_in_structure_property)
-        DEFINE_OP(op_has_indexed_property)
         DEFINE_OP(op_get_direct_pname)
         DEFINE_OP(op_enumerator_structure_pname)
         DEFINE_OP(op_enumerator_generic_pname)
@@ -587,10 +588,11 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_put_by_id)
         case op_put_by_val_direct:
         DEFINE_SLOWCASE_OP(op_put_by_val)
+        DEFINE_SLOWCASE_OP(op_put_private_name)
         DEFINE_SLOWCASE_OP(op_del_by_val)
         DEFINE_SLOWCASE_OP(op_del_by_id)
         DEFINE_SLOWCASE_OP(op_sub)
-        DEFINE_SLOWCASE_OP(op_has_indexed_property)
+        DEFINE_SLOWCASE_OP(op_has_enumerable_indexed_property)
         DEFINE_SLOWCASE_OP(op_get_from_scope)
         DEFINE_SLOWCASE_OP(op_put_to_scope)
 
@@ -623,7 +625,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_SLOW_OP(nstricteq)
         DEFINE_SLOWCASE_SLOW_OP(get_direct_pname)
         DEFINE_SLOWCASE_SLOW_OP(get_prototype_of)
-        DEFINE_SLOWCASE_SLOW_OP(has_structure_property)
+        DEFINE_SLOWCASE_SLOW_OP(has_enumerable_structure_property)
         DEFINE_SLOWCASE_SLOW_OP(has_own_structure_property)
         DEFINE_SLOWCASE_SLOW_OP(in_structure_property)
         DEFINE_SLOWCASE_SLOW_OP(resolve_scope)
@@ -754,12 +756,14 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
                     continue;
                 int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
 #if USE(JSVALUE64)
-                load64(Address(callFrameRegister, offset), regT0);
+                JSValueRegs resultRegs = JSValueRegs(regT0);
+                load64(Address(callFrameRegister, offset), resultRegs.payloadGPR());
 #elif USE(JSVALUE32_64)
-                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0);
-                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1);
+                JSValueRegs resultRegs = JSValueRegs(regT1, regT0);
+                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), resultRegs.payloadGPR());
+                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), resultRegs.tagGPR());
 #endif
-                emitValueProfilingSite(m_codeBlock->valueProfileForArgument(argument));
+                emitValueProfilingSite(m_codeBlock->valueProfileForArgument(argument), resultRegs);
             }
         }
     }
@@ -800,7 +804,7 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
             addPtr(TrustedImm32(maxFrameExtentForSlowPathCall), stackPointerRegister);
         branchTest32(Zero, returnValueGPR).linkTo(beginLabel, this);
         move(returnValueGPR, GPRInfo::argumentGPR0);
-        emitNakedCall(m_vm->getCTIStub(arityFixupGenerator).retaggedCode<NoPtrTag>());
+        emitNakedNearCall(m_vm->getCTIStub(arityFixupGenerator).retaggedCode<NoPtrTag>());
 
 #if ASSERT_ENABLED
         m_bytecodeIndex = BytecodeIndex(); // Reset this, in order to guard its use with ASSERTs.
@@ -880,7 +884,12 @@ CompilationResult JIT::link()
         handler.nativeCode = patchBuffer.locationOf<ExceptionHandlerPtrTag>(m_labels[handler.target]);
     }
 
-    for (auto& record : m_calls) {
+
+    for (auto& record : m_nearCalls) {
+        if (record.callee)
+            patchBuffer.link(record.from, record.callee);
+    }
+    for (auto& record : m_farCalls) {
         if (record.callee)
             patchBuffer.link(record.from, record.callee);
     }
@@ -902,7 +911,12 @@ CompilationResult JIT::link()
             auto notIndexJump = CodeLocationJump<JSInternalPtrTag>();
             if (Jump(patchableNotIndexJump).isSet())
                 notIndexJump = CodeLocationJump<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(patchableNotIndexJump));
-            auto badTypeJump = CodeLocationJump<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.badTypeJump));
+
+            PatchableJump patchableBadTypeJump = byValCompilationInfo.badTypeJump;
+            auto badTypeJump = CodeLocationJump<JSInternalPtrTag>();
+            if (Jump(patchableBadTypeJump).isSet())
+                badTypeJump = CodeLocationJump<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.badTypeJump));
+
             auto doneTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.doneTarget));
             auto nextHotPathTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.nextHotPathTarget));
             auto slowPathTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.slowPathTarget));
@@ -989,7 +1003,7 @@ void JIT::privateCompileExceptionHandlers()
         // operationLookupExceptionHandlerFromCallerFrame is passed one argument, the VM*.
         move(TrustedImmPtr(&vm()), GPRInfo::argumentGPR0);
         prepareCallOperation(vm());
-        m_calls.append(CallRecord(call(OperationPtrTag), BytecodeIndex(), FunctionPtr<OperationPtrTag>(operationLookupExceptionHandlerFromCallerFrame)));
+        m_farCalls.append(FarCallRecord(call(OperationPtrTag), BytecodeIndex(), FunctionPtr<OperationPtrTag>(operationLookupExceptionHandlerFromCallerFrame)));
         jumpToExceptionHandler(vm());
     }
 
@@ -1002,7 +1016,7 @@ void JIT::privateCompileExceptionHandlers()
         // operationLookupExceptionHandler is passed one argument, the VM*.
         move(TrustedImmPtr(&vm()), GPRInfo::argumentGPR0);
         prepareCallOperation(vm());
-        m_calls.append(CallRecord(call(OperationPtrTag), BytecodeIndex(), FunctionPtr<OperationPtrTag>(operationLookupExceptionHandler)));
+        m_farCalls.append(FarCallRecord(call(OperationPtrTag), BytecodeIndex(), FunctionPtr<OperationPtrTag>(operationLookupExceptionHandler)));
         jumpToExceptionHandler(vm());
     }
 }

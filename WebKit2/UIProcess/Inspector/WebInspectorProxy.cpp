@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
 #include "WebInspectorInterruptDispatcherMessages.h"
 #include "WebInspectorMessages.h"
 #include "WebInspectorProxyMessages.h"
+#include "WebInspectorUIExtensionControllerProxy.h"
 #include "WebInspectorUIMessages.h"
 #include "WebPageGroup.h"
 #include "WebPageInspectorController.h"
@@ -68,6 +69,7 @@ const unsigned WebInspectorProxy::initialWindowHeight = 650;
 
 WebInspectorProxy::WebInspectorProxy(WebPageProxy& inspectedPage)
     : m_inspectedPage(&inspectedPage)
+    , m_inspectorClient(makeUnique<API::InspectorClient>())
 #if PLATFORM(MAC)
     , m_closeFrontendAfterInactivityTimer(RunLoop::main(), this, &WebInspectorProxy::closeFrontendAfterInactivityTimerFired)
 #endif
@@ -77,6 +79,16 @@ WebInspectorProxy::WebInspectorProxy(WebPageProxy& inspectedPage)
 
 WebInspectorProxy::~WebInspectorProxy()
 {
+}
+
+void WebInspectorProxy::setInspectorClient(std::unique_ptr<API::InspectorClient>&& inspectorClient)
+{
+    if (!inspectorClient) {
+        m_inspectorClient = makeUnique<API::InspectorClient>();
+        return;
+    }
+
+    m_inspectorClient = WTFMove(inspectorClient);
 }
 
 unsigned WebInspectorProxy::inspectionLevel() const
@@ -131,7 +143,6 @@ void WebInspectorProxy::connect()
 
     createFrontendPage();
 
-    m_inspectedPage->launchInitialProcessIfNecessary();
     m_inspectedPage->send(Messages::WebInspectorInterruptDispatcher::NotifyNeedDebuggerBreak(), 0);
     m_inspectedPage->send(Messages::WebInspector::Show());
 }
@@ -408,8 +419,15 @@ void WebInspectorProxy::createFrontendPage()
 
     trackInspectorPage(m_inspectorPage, m_inspectedPage);
 
+    // Make sure the inspected page has a running WebProcess so we can inspect it.
+    m_inspectedPage->launchInitialProcessIfNecessary();
+
     m_inspectorPage->process().addMessageReceiver(Messages::WebInspectorProxy::messageReceiverName(), m_inspectedPage->identifier(), *this);
     m_inspectorPage->process().assumeReadAccessToBaseURL(*m_inspectorPage, WebInspectorProxy::inspectorBaseURL());
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_extensionController = makeUnique<WebInspectorUIExtensionControllerProxy>(*m_inspectorPage);
+#endif
 }
 
 void WebInspectorProxy::openLocalInspectorFrontend(bool canAttach, bool underTest)
@@ -466,7 +484,7 @@ void WebInspectorProxy::openLocalInspectorFrontend(bool canAttach, bool underTes
     }
 
     // Notify WebKit client when a local inspector attaches so that it may install delegates prior to the _WKInspector loading its frontend.
-    m_inspectedPage->inspectorClient().didAttachLocalInspector(*m_inspectedPage, *this);
+    m_inspectedPage->uiClient().didAttachLocalInspector(*m_inspectedPage, *this);
 
     // Bail out if the client closed the inspector from the delegate method.
     if (!m_inspectorPage)
@@ -508,6 +526,15 @@ void WebInspectorProxy::closeFrontendPageAndWindow()
     if (!m_inspectorPage)
         return;
 
+    // Guard against calls to close() made by the client while already closing.
+    if (m_closing)
+        return;
+    
+    SetForScope<bool> reentrancyProtector(m_closing, true);
+    
+    // Notify WebKit client when a local inspector closes so it can clear _WKInspectorDelegate and perform other cleanup.
+    m_inspectedPage->uiClient().willCloseLocalInspector(*m_inspectedPage, *this);
+
     m_isVisible = false;
     m_isProfilingPage = false;
     m_showMessageSent = false;
@@ -526,6 +553,10 @@ void WebInspectorProxy::closeFrontendPageAndWindow()
     if (m_isAttached)
         platformDetach();
 
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_extensionController = nullptr;
+#endif
+    
     // Null out m_inspectorPage after platformDetach(), so the views can be cleaned up correctly.
     m_inspectorPage = nullptr;
 
@@ -551,6 +582,11 @@ void WebInspectorProxy::frontendLoaded()
 
     if (auto* automationSession = m_inspectedPage->process().processPool().automationSession())
         automationSession->inspectorFrontendLoaded(*m_inspectedPage);
+    
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    if (m_extensionController)
+        m_extensionController->inspectorFrontendLoaded();
+#endif
 }
 
 void WebInspectorProxy::bringToFront()
@@ -594,6 +630,11 @@ void WebInspectorProxy::setForcedAppearance(InspectorFrontendClient::Appearance 
     platformSetForcedAppearance(appearance);
 }
 
+void WebInspectorProxy::openURLExternally(const String& url)
+{
+    m_inspectorClient->openURLExternally(*this, url);
+}
+
 void WebInspectorProxy::inspectedURLChanged(const String& urlString)
 {
     platformInspectedURLChanged(urlString);
@@ -629,9 +670,9 @@ void WebInspectorProxy::timelineRecordingChanged(bool active)
 void WebInspectorProxy::setDeveloperPreferenceOverride(WebCore::InspectorClient::DeveloperPreference developerPreference, Optional<bool> overrideValue)
 {
     switch (developerPreference) {
-    case InspectorClient::DeveloperPreference::AdClickAttributionDebugModeEnabled:
+    case InspectorClient::DeveloperPreference::PrivateClickMeasurementDebugModeEnabled:
         if (m_inspectedPage)
-            m_inspectedPage->websiteDataStore().setAdClickAttributionDebugMode(overrideValue && overrideValue.value());
+            m_inspectedPage->websiteDataStore().setPrivateClickMeasurementDebugMode(overrideValue && overrideValue.value());
         return;
 
     case InspectorClient::DeveloperPreference::ITPDebugModeEnabled:
@@ -698,6 +739,14 @@ void WebInspectorProxy::append(const String& filename, const String& content)
 bool WebInspectorProxy::shouldOpenAttached()
 {
     return inspectorPagePreferences().inspectorStartsAttached() && canAttach();
+}
+
+void WebInspectorProxy::evaluateInFrontendForTesting(const String& expression)
+{
+    if (!m_inspectorPage)
+        return;
+
+    m_inspectorPage->send(Messages::WebInspectorUI::EvaluateInFrontendForTesting(expression));
 }
 
 // Unsupported configurations can use the stubs provided here.

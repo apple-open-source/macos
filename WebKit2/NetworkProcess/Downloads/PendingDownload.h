@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "DownloadID.h"
 #include "MessageSender.h"
 #include "NetworkLoadClient.h"
 #include "SandboxExtension.h"
@@ -41,7 +42,6 @@ class ResourceResponse;
 namespace WebKit {
 
 class Download;
-class DownloadID;
 class NetworkLoad;
 class NetworkLoadParameters;
 class NetworkSession;
@@ -53,7 +53,7 @@ public:
     PendingDownload(IPC::Connection*, std::unique_ptr<NetworkLoad>&&, ResponseCompletionHandler&&, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     void continueWillSendRequest(WebCore::ResourceRequest&&);
-    void cancel();
+    void cancel(CompletionHandler<void(const IPC::DataReference&)>&&);
 
 #if PLATFORM(COCOA)
     void publishProgress(const URL&, SandboxExtension::Handle&&);

@@ -262,6 +262,8 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 		| kSecCSStrictValidateStructure
 		| kSecCSRestrictSidebandData
 		| kSecCSEnforceRevocationChecks
+		| kSecCSAllowNetworkAccess
+		| kSecCSNoNetworkAccess
 	);
 	SecPointer<SecCode> code = SecCode::required(codeRef);
 	code->checkValidity(flags);
@@ -335,7 +337,7 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 		| kSecCSRequirementInformation
 		| kSecCSDynamicInformation
 		| kSecCSContentInformation
-        | kSecCSSkipResourceDirectory
+		| kSecCSSkipResourceDirectory
 		| kSecCSCalculateCMSDigest);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);

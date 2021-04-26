@@ -32,15 +32,22 @@
 #include "LengthPoint.h"
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
+#include "RotateTransformOperation.h"
+#include "ScaleTransformOperation.h"
 #include "ShapeValue.h"
 #include "StyleContentAlignmentData.h"
 #include "StyleSelfAlignmentData.h"
 #include "TouchAction.h"
+#include "TranslateTransformOperation.h"
 #include "WillChangeData.h"
 #include <memory>
 #include <wtf/DataRef.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
+
+#if ENABLE(CSS_SCROLL_SNAP)
+#include "StyleScrollSnapPoints.h"
+#endif
 
 namespace WebCore {
 
@@ -57,8 +64,6 @@ class StyleMarqueeData;
 class StyleMultiColData;
 class StyleReflection;
 class StyleResolver;
-class StyleScrollSnapArea;
-class StyleScrollSnapPort;
 class StyleTransformData;
 
 struct LengthSize;
@@ -101,8 +106,8 @@ public:
 
     float opacity;
 
-    float aspectRatioDenominator;
-    float aspectRatioNumerator;
+    double aspectRatioWidth;
+    double aspectRatioHeight;
 
     float perspective;
     Length perspectiveOriginX;
@@ -126,10 +131,15 @@ public:
     DataRef<StyleGridData> grid;
     DataRef<StyleGridItemData> gridItem;
 
+    LengthBox scrollMargin { 0, 0, 0, 0 };
+    LengthBox scrollPadding { 0, 0, 0, 0 };
 #if ENABLE(CSS_SCROLL_SNAP)
-    DataRef<StyleScrollSnapPort> scrollSnapPort;
-    DataRef<StyleScrollSnapArea> scrollSnapArea;
+    ScrollSnapType scrollSnapType;
+    ScrollSnapAlign scrollSnapAlign;
 #endif
+
+    unsigned overscrollBehaviorX : 2; // OverscrollBehavior
+    unsigned overscrollBehaviorY : 2; // OverscrollBehavior
 
     std::unique_ptr<ContentData> content;
     std::unique_ptr<CounterDirectiveMap> counterDirectives;
@@ -177,6 +187,10 @@ public:
     DataRef<StyleCustomPropertyData> customProperties;
     std::unique_ptr<HashSet<String>> customPaintWatchedProperties;
 
+    RefPtr<RotateTransformOperation> rotate;
+    RefPtr<ScaleTransformOperation> scale;
+    RefPtr<TranslateTransformOperation> translate;
+
     OptionSet<TouchAction> touchActions;
 
     unsigned pageSizeType : 2; // PageSizeType
@@ -194,7 +208,7 @@ public:
 
     unsigned textDecorationStyle : 3; // TextDecorationStyle
 
-    unsigned aspectRatioType : 2;
+    unsigned aspectRatioType : 3;
 
 #if ENABLE(CSS_COMPOSITING)
     unsigned effectiveBlendMode: 5; // EBlendMode

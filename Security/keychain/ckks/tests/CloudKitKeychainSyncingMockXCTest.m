@@ -40,6 +40,7 @@
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSKey.h"
+#import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
@@ -714,8 +715,9 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 - (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)expectedRecordTypeCounts
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*)expectedDeletedRecordTypeCounts
                        zoneID:(CKRecordZoneID*)zoneID
-          checkModifiedRecord:(BOOL (^)(CKRecord*))checkRecord
-         runAfterModification:(void (^) (void))afterModification
+          checkModifiedRecord:(BOOL (^ _Nullable)(CKRecord*))checkRecord
+        inspectOperationGroup:(void (^ _Nullable)(CKOperationGroup * _Nullable))inspectOperationGroup
+         runAfterModification:(void (^ _Nullable) (void))afterModification
 {
 
     void (^newAfterModification)(void) = afterModification;
@@ -786,6 +788,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
          deletedRecordTypeCounts:expectedDeletedRecordTypeCounts
                           zoneID:zoneID
              checkModifiedRecord:checkRecord
+           inspectOperationGroup:inspectOperationGroup
             runAfterModification:newAfterModification];
 }
 
@@ -950,7 +953,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
         CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord: record];
 
         NSError* error = nil;
-        NSDictionary* dict = [CKKSItemEncrypter decryptItemToDictionary:ckme.item error:&error];
+        NSDictionary* dict = [CKKSItemEncrypter decryptItemToDictionary:ckme.item keyCache:nil error:&error];
         XCTAssertNil(error, "No error decrypting item");
         XCTAssertEqualObjects(account, dict[(id)kSecAttrAccount], "Account matches");
         XCTAssertEqualObjects([password dataUsingEncoding:NSUTF8StringEncoding], dict[(id)kSecValueData], "Password matches");
@@ -1045,6 +1048,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
                                                dataDictionary:dictionary
                                              updatingCKKSItem:nil
                                                     parentkey:key
+                                                     keyCache:nil
                                                         error:&error];
     XCTAssertNil(error, "encrypted item with class c key");
     XCTAssertNotNil(cipheritem, "Have an encrypted item");
@@ -1076,7 +1080,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
     NSError* error = nil;
 
-    NSDictionary* ret = [CKKSItemEncrypter decryptItemToDictionary: item error:&error];
+    NSDictionary* ret = [CKKSItemEncrypter decryptItemToDictionary: item keyCache:nil error:&error];
     XCTAssertNil(error);
     XCTAssertNotNil(ret);
     return ret;

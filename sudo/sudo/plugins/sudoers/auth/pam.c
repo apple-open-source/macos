@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1999-2005, 2007-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 1999-2005, 2007-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,12 +32,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <errno.h>
@@ -48,7 +43,7 @@
 # include <security/pam_appl.h>
 #endif
 
-#ifdef __hpux__
+#ifdef __hpux
 # include <nl_types.h>
 #endif
 
@@ -103,9 +98,9 @@ static struct conv_filter *conv_filter;
 static void
 conv_filter_init(void)
 {
-    debug_decl(conv_filter_init, SUDOERS_DEBUG_AUTH)
+    debug_decl(conv_filter_init, SUDOERS_DEBUG_AUTH);
 
-#ifdef __hpux__
+#ifdef __hpux
     /*
      * HP-UX displays last login information as part of either account
      * management (in trusted mode) or session management (regular mode).
@@ -119,10 +114,10 @@ conv_filter_init(void)
 
 	/*
 	 * Messages from PAM account management when trusted mode is enabled:
-	 *  1 Last   successful login for %s: %s  
-	 *  2 Last   successful login for %s: %s on %s 
-	 *  3 Last unsuccessful login for %s: %s      
-	 *  4 Last unsuccessful login for %s: %s on %s 
+	 *  1 Last   successful login for %s: %s
+	 *  2 Last   successful login for %s: %s on %s
+	 *  3 Last unsuccessful login for %s: %s
+	 *  4 Last unsuccessful login for %s: %s on %s
 	 */
 	if ((catd = catopen("pam_comsec", NL_CAT_LOCALE)) != -1) {
 	    maxfilters += 4;
@@ -170,7 +165,7 @@ conv_filter_init(void)
 	    conv_filter[nfilt].msglen = 0;
 	}
     }
-#endif /* __hpux__ */
+#endif /* __hpux */
     debug_return;
 }
 
@@ -195,10 +190,10 @@ static int
 sudo_pam_init2(struct passwd *pw, sudo_auth *auth, bool quiet)
 {
     static int pam_status = PAM_SUCCESS;
-    const char *tty = user_ttypath;
+    const char *ttypath = user_ttypath;
     const char *errstr, *pam_service;
     int rc;
-    debug_decl(sudo_pam_init, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_init, SUDOERS_DEBUG_AUTH);
 
     /* Stash pointer to last pam status. */
     auth->data = &pam_status;
@@ -229,37 +224,40 @@ sudo_pam_init2(struct passwd *pw, sudo_auth *auth, bool quiet)
 
     /*
      * Set PAM_RUSER to the invoking user (the "from" user).
-     * We set PAM_RHOST to avoid a bug in Solaris 7 and below.
+     * Solaris 7 and below require PAM_RHOST to be set if PAM_RUSER is.
+     * Note: PAM_RHOST may cause a DNS lookup on Linux in libaudit.
      */
-    rc = pam_set_item(pamh, PAM_RUSER, user_name);
-    if (rc != PAM_SUCCESS) {
-	errstr = sudo_pam_strerror(pamh, rc);
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "pam_set_item(pamh, PAM_RUSER, %s): %s", user_name, errstr);
+    if (def_pam_ruser) {
+	rc = pam_set_item(pamh, PAM_RUSER, user_name);
+	if (rc != PAM_SUCCESS) {
+	    errstr = sudo_pam_strerror(pamh, rc);
+	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+		"pam_set_item(pamh, PAM_RUSER, %s): %s", user_name, errstr);
+	}
     }
-#ifdef __sun__
-    rc = pam_set_item(pamh, PAM_RHOST, user_host);
-    if (rc != PAM_SUCCESS) {
-	errstr = sudo_pam_strerror(pamh, rc);
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "pam_set_item(pamh, PAM_RHOST, %s): %s", user_host, errstr);
+    if (def_pam_rhost) {
+	rc = pam_set_item(pamh, PAM_RHOST, user_host);
+	if (rc != PAM_SUCCESS) {
+	    errstr = sudo_pam_strerror(pamh, rc);
+	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+		"pam_set_item(pamh, PAM_RHOST, %s): %s", user_host, errstr);
+	}
     }
-#endif
 
 #if defined(__LINUX_PAM__) || defined(__sun__)
     /*
      * Some PAM modules assume PAM_TTY is set and will misbehave (or crash)
      * if it is not.  Known offenders include pam_lastlog and pam_time.
      */
-    if (tty == NULL)
-	tty = "";
+    if (ttypath == NULL)
+	ttypath = "";
 #endif
-    if (tty != NULL) {
-	rc = pam_set_item(pamh, PAM_TTY, tty);
+    if (ttypath != NULL) { // -V547
+	rc = pam_set_item(pamh, PAM_TTY, ttypath);
 	if (rc != PAM_SUCCESS) {
 	    errstr = sudo_pam_strerror(pamh, rc);
 	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"pam_set_item(pamh, PAM_TTY, %s): %s", tty, errstr);
+		"pam_set_item(pamh, PAM_TTY, %s): %s", ttypath, errstr);
 	}
     }
 
@@ -290,16 +288,36 @@ sudo_pam_init_quiet(struct passwd *pw, sudo_auth *auth)
 int
 sudo_pam_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
+	const char *envccname;
     const char *s;
     int *pam_status = (int *) auth->data;
-    debug_decl(sudo_pam_verify, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_verify, SUDOERS_DEBUG_AUTH);
 
     def_prompt = prompt;	/* for converse */
     getpass_error = false;	/* set by converse if user presses ^C */
     conv_callback = callback;	/* passed to conversation function */
 
+	/* Set KRB5CCNAME from the user environment if not set to propagate this
+	 * information to PAM modules that may use it to authentication. */
+	envccname = sudo_getenv("KRB5CCNAME");
+	if (envccname == NULL && user_ccname != NULL) {
+		if (sudo_setenv("KRB5CCNAME", user_ccname, true) != 0) {
+			sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+			"unable to set KRB5CCNAME");
+			debug_return_int(AUTH_FAILURE);
+		}
+	}
+
     /* PAM_SILENT prevents the authentication service from generating output. */
     *pam_status = pam_authenticate(pamh, PAM_SILENT);
+
+	/* Restore KRB5CCNAME to its original value. */
+	if (envccname == NULL && sudo_unsetenv("KRB5CCNAME") != 0) {
+		sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+		"unable to restore KRB5CCNAME");
+		debug_return_int(AUTH_FAILURE);
+	}
+
     if (getpass_error) {
 	/* error or ^C from tgetpass() */
 	debug_return_int(AUTH_INTR);
@@ -327,7 +345,7 @@ sudo_pam_approval(struct passwd *pw, sudo_auth *auth, bool exempt)
     const char *s;
     int rc, status = AUTH_SUCCESS;
     int *pam_status = (int *) auth->data;
-    debug_decl(sudo_pam_approval, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_approval, SUDOERS_DEBUG_AUTH);
 
     if (def_pam_acct_mgmt) {
 	rc = pam_acct_mgmt(pamh, PAM_SILENT);
@@ -391,13 +409,13 @@ sudo_pam_approval(struct passwd *pw, sudo_auth *auth, bool exempt)
 }
 
 int
-sudo_pam_cleanup(struct passwd *pw, sudo_auth *auth)
+sudo_pam_cleanup(struct passwd *pw, sudo_auth *auth, bool force)
 {
     int *pam_status = (int *) auth->data;
-    debug_decl(sudo_pam_cleanup, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_cleanup, SUDOERS_DEBUG_AUTH);
 
     /* If successful, we can't close the session until sudo_pam_end_session() */
-    if (*pam_status != PAM_SUCCESS || auth->end_session == NULL) {
+    if (force || *pam_status != PAM_SUCCESS || auth->end_session == NULL) {
 	*pam_status = pam_end(pamh, *pam_status | PAM_DATA_SILENT);
 	pamh = NULL;
     }
@@ -410,7 +428,7 @@ sudo_pam_begin_session(struct passwd *pw, char **user_envp[], sudo_auth *auth)
     int rc, status = AUTH_SUCCESS;
     int *pam_status = (int *) auth->data;
     const char *errstr;
-    debug_decl(sudo_pam_begin_session, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_begin_session, SUDOERS_DEBUG_AUTH);
 
     /*
      * If there is no valid user we cannot open a PAM session.
@@ -455,6 +473,7 @@ sudo_pam_begin_session(struct passwd *pw, char **user_envp[], sudo_auth *auth)
 	    errstr = sudo_pam_strerror(pamh, rc);
 	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 		"pam_setcred: %s", errstr);
+	    def_pam_setcred = false;
 	}
     }
 
@@ -522,7 +541,7 @@ sudo_pam_end_session(struct passwd *pw, sudo_auth *auth)
 {
     int rc, status = AUTH_SUCCESS;
     const char *errstr;
-    debug_decl(sudo_pam_end_session, SUDOERS_DEBUG_AUTH)
+    debug_decl(sudo_pam_end_session, SUDOERS_DEBUG_AUTH);
 
     if (pamh != NULL) {
 	/*
@@ -595,7 +614,7 @@ static bool
 use_pam_prompt(const char *pam_prompt)
 {
     size_t user_len;
-    debug_decl(use_pam_prompt, SUDOERS_DEBUG_AUTH)
+    debug_decl(use_pam_prompt, SUDOERS_DEBUG_AUTH);
 
     /* Always use sudo prompt if passprompt_override is set. */
     if (def_passprompt_override)
@@ -656,7 +675,7 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
     char *pass;
     int n, type;
     int ret = PAM_SUCCESS;
-    debug_decl(converse, SUDOERS_DEBUG_AUTH)
+    debug_decl(converse, SUDOERS_DEBUG_AUTH);
 
     if (num_msg <= 0 || num_msg > PAM_MAX_NUM_MSG) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
@@ -682,7 +701,7 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 	switch (pm->msg_style) {
 	    case PAM_PROMPT_ECHO_ON:
 		type = SUDO_CONV_PROMPT_ECHO_ON;
-		/* FALLTHROUGH */
+		FALLTHROUGH;
 	    case PAM_PROMPT_ECHO_OFF:
 		/* Error out if the last password read was interrupted. */
 		if (getpass_error)
@@ -703,7 +722,7 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 			"password longer than %d", PAM_MAX_RESP_SIZE);
 		    ret = PAM_CONV_ERR;
-		    memset_s(pass, SUDO_CONV_REPL_MAX, 0, strlen(pass));
+		    explicit_bzero(pass, strlen(pass));
 		    goto done;
 		}
 		reply[n].resp = pass;	/* auth_getpass() malloc's a copy */
@@ -733,8 +752,7 @@ done:
 	    struct pam_response *pr = &reply[n];
 
 	    if (pr->resp != NULL) {
-		memset_s(pr->resp, SUDO_CONV_REPL_MAX, 0, strlen(pr->resp));
-		free(pr->resp);
+		freezero(pr->resp, strlen(pr->resp));
 		pr->resp = NULL;
 	    }
 	}

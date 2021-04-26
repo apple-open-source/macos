@@ -133,6 +133,13 @@ public:
     {
     }
 
+    TransformAnimationValue(double keyTime, TransformOperation* value, TimingFunction* timingFunction = nullptr)
+        : AnimationValue(keyTime, timingFunction)
+    {
+        if (value)
+            m_value.operations().append(value);
+    }
+
     std::unique_ptr<AnimationValue> clone() const override
     {
         return makeUnique<TransformAnimationValue>(*this);
@@ -458,9 +465,9 @@ public:
     virtual void setContentsRectClipsDescendants(bool b) { m_contentsRectClipsDescendants = b; }
 
     // Set a rounded rect that is used to clip this layer and its descendants (implies setting masksToBounds).
-    // Returns false if the platform can't support this rounded clip, and we should fall back to painting a mask.
+    // Consult supportsRoundedClip() to know whether non-zero radii are supported.
     FloatRoundedRect maskToBoundsRect() const { return m_masksToBoundsRect; };
-    virtual bool setMasksToBoundsRect(const FloatRoundedRect& roundedRect) { m_masksToBoundsRect = roundedRect; return false; }
+    virtual void setMasksToBoundsRect(const FloatRoundedRect&);
 
     Path shapeLayerPath() const;
     virtual void setShapeLayerPath(const Path&);
@@ -474,13 +481,11 @@ public:
     // Transitions are identified by a special animation name that cannot clash with a keyframe identifier.
     static String animationNameForTransition(AnimatedPropertyID);
 
-    // Return true if the animation is handled by the compositing system. If this returns
-    // false, the animation will be run by CSSAnimationController.
-    // These methods handle both transitions and keyframe animations.
+    // Return true if the animation is handled by the compositing system.
     virtual bool addAnimation(const KeyframeValueList&, const FloatSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
     virtual void pauseAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
     virtual void removeAnimation(const String& /*animationName*/) { }
-
+    virtual void transformRelatedPropertyDidChange() { }
     WEBCORE_EXPORT virtual void suspendAnimations(MonotonicTime);
     WEBCORE_EXPORT virtual void resumeAnimations();
 
@@ -499,21 +504,11 @@ public:
         Media,
         Canvas,
         BackgroundColor,
-        Plugin,
-        EmbeddedView
+        Plugin
     };
-
-    enum class ContentsLayerEmbeddedViewType : uint8_t {
-        None = 0,
-        EditableImage,
-    };
-
-    using EmbeddedViewID = uint64_t;
-    static EmbeddedViewID nextEmbeddedViewID();
 
     // Pass an invalid color to remove the contents layer.
     virtual void setContentsToSolidColor(const Color&) { }
-    virtual void setContentsToEmbeddedView(GraphicsLayer::ContentsLayerEmbeddedViewType, EmbeddedViewID) { }
     virtual void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) { }
     virtual bool usesContentsLayer() const { return false; }
 
@@ -612,6 +607,7 @@ public:
     void resetTrackedRepaints();
     void addRepaintRect(const FloatRect&);
 
+    static bool supportsRoundedClip();
     static bool supportsBackgroundColorContent();
     static bool supportsLayerType(Type);
     static bool supportsContentsTiling();

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "APIInspectorConfiguration.h"
 #include "WKPage.h"
 #include "WebEvent.h"
 #include "WebHitTestResultData.h"
@@ -60,10 +61,6 @@ class WebFrameProxy;
 class WebOpenPanelResultListenerProxy;
 class WebPageProxy;
 struct NavigationActionData;
-
-#if ENABLE(MEDIA_SESSION)
-class WebMediaSessionMetadata;
-#endif
 }
 
 namespace API {
@@ -161,10 +158,6 @@ public:
     virtual void mediaCaptureStateDidChange(WebCore::MediaProducer::MediaStateFlags) { }
     virtual void handleAutoplayEvent(WebKit::WebPageProxy&, WebCore::AutoplayEvent, OptionSet<WebCore::AutoplayEventFlags>) { }
 
-#if ENABLE(MEDIA_SESSION)
-    virtual void mediaSessionMetadataDidChange(WebKit::WebPageProxy&, WebKit::WebMediaSessionMetadata*) { }
-#endif
-
 #if PLATFORM(IOS_FAMILY)
 #if HAVE(APP_LINKS)
     virtual bool shouldIncludeAppLinkActionsForElement(_WKActivatedElementInfo *) { return true; }
@@ -201,6 +194,15 @@ public:
 #if ENABLE(WEB_AUTHN)
     virtual void runWebAuthenticationPanel(WebKit::WebPageProxy&, WebAuthenticationPanel&, WebKit::WebFrameProxy&, WebKit::FrameInfoData&&, CompletionHandler<void(WebKit::WebAuthenticationPanelResult)>&& completionHandler) { completionHandler(WebKit::WebAuthenticationPanelResult::Unavailable); }
 #endif
+
+    virtual void didAttachLocalInspector(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&) { }
+    virtual void willCloseLocalInspector(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&) { }
+    virtual Ref<API::InspectorConfiguration> configurationForLocalInspector(WebKit::WebPageProxy&, WebKit::WebInspectorProxy&)
+    {
+        return API::InspectorConfiguration::create();
+    }
+
+    virtual void decidePolicyForSpeechRecognitionPermissionRequest(WebKit::WebPageProxy& page, API::SecurityOrigin& origin, CompletionHandler<void(bool)>&& completionHandler) { page.requestSpeechRecognitionPermissionByDefaultAction(origin.securityOrigin(), WTFMove(completionHandler)); }
 };
 
 } // namespace API

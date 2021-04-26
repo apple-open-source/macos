@@ -29,22 +29,17 @@
 #include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <ctype.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include "sudoers.h"
 #include "interfaces.h"
-#include "gram.h"
 #include "sudo_lbuf.h"
 #include "sudo_ldap.h"
 #include "sudo_digest.h"
+#include <gram.h>
 
 /*
  * Returns true if the string pointed to by valp begins with an
@@ -56,7 +51,7 @@ sudo_ldap_is_negated(char **valp)
 {
     char *val = *valp;
     bool ret = false;
-    debug_decl(sudo_ldap_is_negated, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_is_negated, SUDOERS_DEBUG_LDAP);
 
     while (*val == '!') {
 	ret = !ret;
@@ -78,7 +73,7 @@ sudo_ldap_parse_option(char *optstr, char **varp, char **valp)
     char *cp, *val = NULL;
     char *var = optstr;
     int op;
-    debug_decl(sudo_ldap_parse_option, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_parse_option, SUDOERS_DEBUG_LDAP);
 
     /* check for equals sign past first char */
     cp = strchr(var, '=');
@@ -130,7 +125,7 @@ array_to_member_list(void *a, sudo_ldap_iter_t iter)
     struct member_list *members;
     struct member *m;
     char *val;
-    debug_decl(bv_to_member_list, SUDOERS_DEBUG_LDAP)
+    debug_decl(bv_to_member_list, SUDOERS_DEBUG_LDAP);
 
     if ((members = calloc(1, sizeof(*members))) == NULL)
 	return NULL;
@@ -148,34 +143,25 @@ array_to_member_list(void *a, sudo_ldap_iter_t iter)
 	    break;
 	case '+':
 	    m->type = NETGROUP;
-	    m->name = strdup(val);
-	    if (m->name == NULL) {
-		free(m);
-		goto bad;
-	    }
 	    break;
 	case '%':
 	    m->type = USERGROUP;
-	    m->name = strdup(val);
-	    if (m->name == NULL) {
-		free(m);
-		goto bad;
-	    }
 	    break;
 	case 'A':
 	    if (strcmp(val, "ALL") == 0) {
 		m->type = ALL;
 		break;
 	    }
-	    /* FALLTHROUGH */
+	    FALLTHROUGH;
 	default:
 	    m->type = WORD;
-	    m->name = strdup(val);
-	    if (m->name == NULL) {
+	    break;
+	}
+	if (m->type != ALL && m->type != MYSELF) {
+	    if ((m->name = strdup(val)) == NULL) {
 		free(m);
 		goto bad;
 	    }
-	    break;
 	}
 	if (m->negated)
 	    TAILQ_INSERT_TAIL(&negated_members, m, entries);
@@ -199,7 +185,7 @@ is_address(char *host)
     union sudo_in_addr_un addr;
     bool ret = false;
     char *slash;
-    debug_decl(is_address, SUDOERS_DEBUG_LDAP)
+    debug_decl(is_address, SUDOERS_DEBUG_LDAP);
 
     /* Check for mask, not currently parsed. */
     if ((slash = strchr(host, '/')) != NULL)
@@ -222,14 +208,11 @@ static struct member *
 host_to_member(char *host)
 {
     struct member *m;
-    debug_decl(host_to_member, SUDOERS_DEBUG_LDAP)
+    debug_decl(host_to_member, SUDOERS_DEBUG_LDAP);
 
     if ((m = calloc(1, sizeof(*m))) == NULL)
 	goto oom;
     m->negated = sudo_ldap_is_negated(&host);
-    m->name = strdup(host);
-    if (m->name == NULL)
-	goto oom;
     switch (*host) {
     case '+':
 	m->type = NETGROUP;
@@ -239,7 +222,7 @@ host_to_member(char *host)
 	    m->type = ALL;
 	    break;
 	}
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     default:
 	if (is_address(host)) {
 	    m->type = NTWKADDR;
@@ -247,6 +230,10 @@ host_to_member(char *host)
 	    m->type = WORD;
 	}
 	break;
+    }
+    if (m->type != ALL) {
+	if ((m->name = strdup(host)) == NULL)
+	    goto oom;
     }
 
     debug_return_ptr(m);
@@ -260,7 +247,7 @@ sudo_ldap_add_default(const char *var, const char *val, int op,
     char *source, struct defaults_list *defs)
 {
     struct defaults *def;
-    debug_decl(sudo_ldap_add_default, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_add_default, SUDOERS_DEBUG_LDAP);
 
     if ((def = calloc(1, sizeof(*def))) == NULL)
 	goto oom;
@@ -289,6 +276,110 @@ oom:
 }
 
 /*
+ * If a digest prefix is present, add it to struct command_digest_list
+ * and update cmnd to point to the command after the digest.
+ * Returns 1 if a digest was parsed, 0 if not and -1 on error.
+ */
+static int
+sudo_ldap_extract_digest(char **cmnd, struct command_digest_list *digests)
+{
+    char *ep, *cp = *cmnd;
+    struct command_digest *digest;
+    int digest_type = SUDO_DIGEST_INVALID;
+    debug_decl(sudo_ldap_extract_digest, SUDOERS_DEBUG_LDAP);
+
+    /*
+     * Check for and extract a digest prefix, e.g.
+     * sha224:d06a2617c98d377c250edd470fd5e576327748d82915d6e33b5f8db1 /bin/ls
+     */
+    if (cp[0] == 's' && cp[1] == 'h' && cp[2] == 'a') {
+	switch (cp[3]) {
+	case '2':
+	    if (cp[4] == '2' && cp[5] == '4')
+		digest_type = SUDO_DIGEST_SHA224;
+	    else if (cp[4] == '5' && cp[5] == '6')
+		digest_type = SUDO_DIGEST_SHA256;
+	    break;
+	case '3':
+	    if (cp[4] == '8' && cp[5] == '4')
+		digest_type = SUDO_DIGEST_SHA384;
+	    break;
+	case '5':
+	    if (cp[4] == '1' && cp[5] == '2')
+		digest_type = SUDO_DIGEST_SHA512;
+	    break;
+	}
+	if (digest_type != SUDO_DIGEST_INVALID) {
+	    cp += 6;
+	    while (isblank((unsigned char)*cp))
+		cp++;
+	    if (*cp == ':') {
+		cp++;
+		while (isblank((unsigned char)*cp))
+		    cp++;
+		ep = cp;
+		while (*ep != '\0' && !isblank((unsigned char)*ep) && *ep != ',')
+		    ep++;
+		if (isblank((unsigned char)*ep) || *ep == ',') {
+		    if ((digest = malloc(sizeof(*digest))) == NULL) {
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
+			debug_return_int(-1);
+		    }
+		    digest->digest_type = digest_type;
+		    digest->digest_str = strndup(cp, (size_t)(ep - cp));
+		    if (digest->digest_str == NULL) {
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
+			free(digest);
+			debug_return_int(-1);
+		    }
+		    while (isblank((unsigned char)*ep))
+			ep++;
+		    *cmnd = ep;
+		    sudo_debug_printf(SUDO_DEBUG_INFO,
+			"%s digest %s for %s",
+			digest_type_to_name(digest_type),
+			digest->digest_str, cp);
+		    TAILQ_INSERT_TAIL(digests, digest, entries);
+		    debug_return_int(1);
+		}
+	    }
+	}
+    }
+    debug_return_int(0);
+}
+
+/*
+ * If a digest list is present, fill in struct command_digest_list
+ * and update cmnd to point to the command after the digest.
+ * Returns false on error, else true.
+ */
+static bool
+sudo_ldap_extract_digests(char **cmnd, struct command_digest_list *digests)
+{
+    char *cp = *cmnd;
+    int rc;
+    debug_decl(sudo_ldap_extract_digests, SUDOERS_DEBUG_LDAP);
+
+    for (;;) {
+	rc = sudo_ldap_extract_digest(&cp, digests);
+	if (rc != 1)
+	    break;
+
+	/* Check for additional digestspecs, separated by a comma. */
+	if (*cp != ',')
+	    break;
+	do {
+	    cp++;
+	} while (isblank((unsigned char)*cp));
+    }
+    *cmnd = cp;
+
+    debug_return_bool(rc != -1);
+}
+
+/*
  * Convert an LDAP sudoRole to a sudoers privilege.
  * Pass in struct berval ** for LDAP or char *** for SSSD.
  */
@@ -304,7 +395,7 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
     struct privilege *priv;
     struct member *m;
     char *cmnd;
-    debug_decl(sudo_ldap_role_to_priv, SUDOERS_DEBUG_LDAP)
+    debug_decl(sudo_ldap_role_to_priv, SUDOERS_DEBUG_LDAP);
 
     if ((priv = calloc(1, sizeof(*priv))) == NULL)
 	goto oom;
@@ -318,9 +409,8 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
 
     if (hosts == NULL) {
 	/* The host has already matched, use ALL as wildcard. */
-	if ((m = calloc(1, sizeof(*m))) == NULL)
+	if ((m = new_member_all(NULL)) == NULL)
 	    goto oom;
-	m->type = ALL;
 	TAILQ_INSERT_TAIL(&priv->hostlist, m, entries);
     } else {
 	char *host;
@@ -358,6 +448,7 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
 		goto oom;
 	    }
 	    m->name = (char *)c;
+	    TAILQ_INIT(&c->digests);
 	}
 
 	/* Negated commands have precedence so insert them at the end. */
@@ -367,7 +458,7 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
 	    TAILQ_INSERT_TAIL(&priv->cmndlist, cmndspec, entries);
 
 	/* Initialize cmndspec */
-	TAGS_INIT(cmndspec->tags);
+	TAGS_INIT(&cmndspec->tags);
 	cmndspec->notbefore = UNSPEC;
 	cmndspec->notafter = UNSPEC;
 	cmndspec->timeout = UNSPEC;
@@ -424,6 +515,12 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
 		    op = sudo_ldap_parse_option(opt, &var, &val);
 		    if (strcmp(var, "command_timeout") == 0 && val != NULL) {
 			cmndspec->timeout = parse_timeout(val);
+		    } else if (strcmp(var, "runchroot") == 0 && val != NULL) {
+			if ((cmndspec->runchroot = strdup(val)) == NULL)
+			    break;
+		    } else if (strcmp(var, "runcwd") == 0 && val != NULL) {
+			if ((cmndspec->runcwd = strdup(val)) == NULL)
+			    break;
 #ifdef HAVE_SELINUX
 		    } else if (strcmp(var, "role") == 0 && val != NULL) {
 			if ((cmndspec->role = strdup(val)) == NULL)
@@ -481,17 +578,13 @@ sudo_ldap_role_to_priv(const char *cn, void *hosts, void *runasusers,
 	    if (cmndspec->tags.setenv == UNSPEC)
 		cmndspec->tags.setenv = IMPLIED;
 	} else {
-	    struct command_digest digest;
 	    char *args;
 
 	    m->type = COMMAND;
 
-	    /* Fill in command with optional digest. */
-	    if (sudo_ldap_extract_digest(&cmnd, &digest) != NULL) {
-		if ((c->digest = malloc(sizeof(*c->digest))) == NULL)
-		    goto oom;
-		*c->digest = digest;
-	    }
+	    /* Fill in command with optional digests. */
+	    if (!sudo_ldap_extract_digests(&cmnd, &c->digests))
+		goto oom;
 	    if ((args = strpbrk(cmnd, " \t")) != NULL) {
 		*args++ = '\0';
 		if ((c->args = strdup(args)) == NULL)
@@ -512,73 +605,6 @@ oom:
 	TAILQ_CONCAT(&priv->hostlist, &negated_hosts, entries);
 	TAILQ_CONCAT(&priv->cmndlist, &negated_cmnds, entries);
 	free_privilege(priv);
-    }
-    debug_return_ptr(NULL);
-}
-
-/*
- * If a digest prefix is present, fills in struct command_digest
- * and returns a pointer to it, updating cmnd to point to the
- * command after the digest.
- */
-struct command_digest *
-sudo_ldap_extract_digest(char **cmnd, struct command_digest *digest)
-{
-    char *ep, *cp = *cmnd;
-    int digest_type = SUDO_DIGEST_INVALID;
-    debug_decl(sudo_ldap_check_command, SUDOERS_DEBUG_LDAP)
-
-    /*
-     * Check for and extract a digest prefix, e.g.
-     * sha224:d06a2617c98d377c250edd470fd5e576327748d82915d6e33b5f8db1 /bin/ls
-     */
-    if (cp[0] == 's' && cp[1] == 'h' && cp[2] == 'a') {
-	switch (cp[3]) {
-	case '2':
-	    if (cp[4] == '2' && cp[5] == '4')
-		digest_type = SUDO_DIGEST_SHA224;
-	    else if (cp[4] == '5' && cp[5] == '6')
-		digest_type = SUDO_DIGEST_SHA256;
-	    break;
-	case '3':
-	    if (cp[4] == '8' && cp[5] == '4')
-		digest_type = SUDO_DIGEST_SHA384;
-	    break;
-	case '5':
-	    if (cp[4] == '1' && cp[5] == '2')
-		digest_type = SUDO_DIGEST_SHA512;
-	    break;
-	}
-	if (digest_type != SUDO_DIGEST_INVALID) {
-	    cp += 6;
-	    while (isblank((unsigned char)*cp))
-		cp++;
-	    if (*cp == ':') {
-		cp++;
-		while (isblank((unsigned char)*cp))
-		    cp++;
-		ep = cp;
-		while (*ep != '\0' && !isblank((unsigned char)*ep))
-		    ep++;
-		if (*ep != '\0') {
-		    digest->digest_type = digest_type;
-		    digest->digest_str = strndup(cp, (size_t)(ep - cp));
-		    if (digest->digest_str == NULL) {
-			sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-			debug_return_ptr(NULL);
-		    }
-		    cp = ep + 1;
-		    while (isblank((unsigned char)*cp))
-			cp++;
-		    *cmnd = cp;
-		    sudo_debug_printf(SUDO_DEBUG_INFO,
-			"%s digest %s for %s",
-			digest_type_to_name(digest_type),
-			digest->digest_str, cp);
-		    debug_return_ptr(digest);
-		}
-	    }
-	}
     }
     debug_return_ptr(NULL);
 }

@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NativeWebWheelEvent_h
-#define NativeWebWheelEvent_h
+#pragma once
 
-#include "WebEvent.h"
+#include "WebWheelEvent.h"
 
 #if USE(APPKIT)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS NSView;
+OBJC_CLASS NSEvent;
 #endif
 
 #if PLATFORM(GTK)
@@ -89,5 +89,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // NativeWebWheelEvent_h

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -240,7 +240,8 @@
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).h",
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE)_xdr.c",
 			);
-			script = "/usr/bin/rpcgen -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH}\n/usr/bin/rpcgen -c -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}";
+			runOncePerArchitecture = 0;
+			script = "/usr/bin/rpcgen -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH}\n/usr/bin/rpcgen -c -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}\n";
 		};
 /* End PBXBuildRule section */
 
@@ -3097,6 +3098,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -3134,7 +3136,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = network_cmds;
-				SDKROOT = iphoneos;
+				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -4141,6 +4143,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPRESSION = lossless;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_TESTABILITY = YES;
@@ -4167,6 +4170,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -4247,7 +4251,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = network_cmds;
-				SDKROOT = iphoneos;
+				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -4257,7 +4261,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = network_cmds;
-				SDKROOT = iphoneos;
+				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -4633,8 +4637,8 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "All-EmbeddedOther";
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "appletvos watchos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -4646,8 +4650,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "All-EmbeddedOther";
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "appletvos watchos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				ZERO_LINK = NO;
 			};
@@ -4657,8 +4661,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "All-EmbeddedOther";
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "appletvos watchos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = "Ignore Me";

@@ -43,7 +43,7 @@ class Global final : public ThreadSafeRefCounted<Global> {
 public:
     union Value {
         uint64_t m_primitive;
-        WriteBarrierBase<Unknown> m_anyref;
+        WriteBarrierBase<Unknown> m_externref;
         Value* m_pointer;
     };
 
@@ -54,7 +54,7 @@ public:
 
     Wasm::Type type() const { return m_type; }
     Wasm::GlobalInformation::Mutability mutability() const { return m_mutability; }
-    JSValue get() const;
+    JSValue get(JSGlobalObject*) const;
     uint64_t getPrimitive() const { return m_value.m_primitive; }
     void set(JSGlobalObject*, JSValue);
     void visitAggregate(SlotVisitor&);

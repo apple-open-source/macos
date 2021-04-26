@@ -120,6 +120,9 @@ struct bits {
 	{ RTF_IFREF,	'i' },
 	{ RTF_PROXY,	'Y' },
 	{ RTF_ROUTER,	'r' },
+#ifdef RTF_GLOBAL
+	{ RTF_GLOBAL,	'g' },
+#endif /* RTF_GLOBAL */
 	{ 0 }
 };
 

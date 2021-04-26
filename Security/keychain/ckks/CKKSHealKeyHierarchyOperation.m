@@ -422,7 +422,7 @@
                 [self.operationQueue addOperation: self.cloudkitModifyOperationFinished];
             };
 
-            [ckks.database addOperation: modifyRecordsOp];
+            [self.deps.ckdatabase addOperation:modifyRecordsOp];
             return true;
         }
 

@@ -3,7 +3,7 @@
  *
  * This is an implementation of the getaddrinfo family of functions for
  * systems that lack it, so that code can use getaddrinfo always.  It provides
- * IPv4 support only; for IPv6 support, a native getaddrinfo implemenation is
+ * IPv4 support only; for IPv6 support, a system getaddrinfo implementation is
  * required.
  *
  * The canonical version of this file is maintained in the rra-c-util package,
@@ -66,10 +66,10 @@ struct addrinfo {
 #define EAI_OVERFLOW    10      /* An argument buffer overflowed */
 
 /* Function prototypes. */
-__dso_public int sudo_getaddrinfo(const char *nodename, const char *servname,
+sudo_dso_public int sudo_getaddrinfo(const char *nodename, const char *servname,
                 const struct addrinfo *hints, struct addrinfo **res);
-__dso_public void sudo_freeaddrinfo(struct addrinfo *ai);
-__dso_public const char *sudo_gai_strerror(int ecode);
+sudo_dso_public void sudo_freeaddrinfo(struct addrinfo *ai);
+sudo_dso_public const char *sudo_gai_strerror(int ecode);
 
 /* Map sudo_* to RFC 3493 names. */
 #undef getaddrinfo

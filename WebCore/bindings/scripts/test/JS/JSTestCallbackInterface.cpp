@@ -138,7 +138,7 @@ JSTestCallbackInterface::~JSTestCallbackInterface()
 #endif
 }
 
-using JSTestCallbackInterfaceConstructor = JSDOMConstructorNotConstructable<JSTestCallbackInterface>;
+using JSTestCallbackInterfaceDOMConstructor = JSDOMConstructorNotConstructable<JSTestCallbackInterface>;
 
 /* Hash table for constructor */
 
@@ -151,13 +151,13 @@ static const HashTableValue JSTestCallbackInterfaceConstructorTableValues[] =
 static_assert(TestCallbackInterface::CONSTANT1 == 1, "CONSTANT1 in TestCallbackInterface does not match value from IDL");
 static_assert(TestCallbackInterface::CONSTANT2 == 2, "CONSTANT2 in TestCallbackInterface does not match value from IDL");
 
-template<> JSValue JSTestCallbackInterfaceConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestCallbackInterfaceDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(vm);
     return globalObject.functionPrototype();
 }
 
-template<> void JSTestCallbackInterfaceConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestCallbackInterfaceDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(globalObject);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestCallbackInterface"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
@@ -165,14 +165,14 @@ template<> void JSTestCallbackInterfaceConstructor::initializeProperties(VM& vm,
     reifyStaticProperties(vm, nullptr, JSTestCallbackInterfaceConstructorTableValues, *this);
 }
 
-template<> const ClassInfo JSTestCallbackInterfaceConstructor::s_info = { "TestCallbackInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestCallbackInterfaceConstructor) };
+template<> const ClassInfo JSTestCallbackInterfaceDOMConstructor::s_info = { "TestCallbackInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestCallbackInterfaceDOMConstructor) };
 
 JSValue JSTestCallbackInterface::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestCallbackInterfaceConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestCallbackInterfaceDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackWithNoParam()
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackWithNoParam()
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -198,7 +198,7 @@ CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::ca
     return { };
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackWithArrayParam(typename IDLFloat32Array::ParameterType arrayParam)
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackWithArrayParam(typename IDLFloat32Array::ParameterType arrayParam)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -225,7 +225,7 @@ CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::ca
     return { };
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackWithSerializedScriptValueParam(typename IDLSerializedScriptValue<SerializedScriptValue>::ParameterType srzParam, typename IDLDOMString::ParameterType strParam)
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackWithSerializedScriptValueParam(typename IDLSerializedScriptValue<SerializedScriptValue>::ParameterType srzParam, typename IDLDOMString::ParameterType strParam)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -253,7 +253,7 @@ CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::ca
     return { };
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackWithStringList(typename IDLInterface<DOMStringList>::ParameterType listParam)
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackWithStringList(typename IDLInterface<DOMStringList>::ParameterType listParam)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -280,7 +280,7 @@ CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::ca
     return { };
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackWithBoolean(typename IDLBoolean::ParameterType boolParam)
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackWithBoolean(typename IDLBoolean::ParameterType boolParam)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -307,7 +307,7 @@ CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::ca
     return { };
 }
 
-CallbackResult<typename IDLVoid::ImplementationType> JSTestCallbackInterface::callbackRequiresThisToPass(typename IDLLong::ParameterType longParam, typename IDLInterface<TestNode>::ParameterType testNodeParam)
+CallbackResult<typename IDLUndefined::ImplementationType> JSTestCallbackInterface::callbackRequiresThisToPass(typename IDLLong::ParameterType longParam, typename IDLInterface<TestNode>::ParameterType testNodeParam)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -361,7 +361,7 @@ CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterfac
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
     RETURN_IF_EXCEPTION(throwScope, CallbackResultType::ExceptionThrown);
-    return returnValue;
+    return { WTFMove(returnValue) };
 }
 
 CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterface::callbackThatRethrowsExceptions(typename IDLEnumeration<TestCallbackInterface::Enum>::ParameterType enumParam)
@@ -392,7 +392,7 @@ CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterfac
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
     RETURN_IF_EXCEPTION(throwScope, CallbackResultType::ExceptionThrown);
-    return returnValue;
+    return { WTFMove(returnValue) };
 }
 
 CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterface::callbackThatSkipsInvokeCheck(typename IDLDictionary<TestCallbackInterface::Dictionary>::ParameterType dictionaryParam)
@@ -419,7 +419,7 @@ CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterfac
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
     RETURN_IF_EXCEPTION(throwScope, CallbackResultType::ExceptionThrown);
-    return returnValue;
+    return { WTFMove(returnValue) };
 }
 
 CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterface::callbackWithThisObject(typename IDLInterface<TestNode>::ParameterType thisObject, typename IDLInterface<TestObj>::ParameterType testObjParam)
@@ -449,7 +449,7 @@ CallbackResult<typename IDLDOMString::ImplementationType> JSTestCallbackInterfac
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
     RETURN_IF_EXCEPTION(throwScope, CallbackResultType::ExceptionThrown);
-    return returnValue;
+    return { WTFMove(returnValue) };
 }
 
 JSC::JSValue toJS(TestCallbackInterface& impl)

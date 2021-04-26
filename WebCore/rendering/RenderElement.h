@@ -30,6 +30,7 @@ namespace WebCore {
 class ControlStates;
 class KeyframeList;
 class RenderBlock;
+class RenderStyle;
 class RenderTreeBuilder;
 
 class RenderElement : public RenderObject {
@@ -154,10 +155,14 @@ public:
 
     bool checkForRepaintDuringLayout() const;
 
-    // anchorRect() is conceptually similar to absoluteBoundingBoxRect(), but is intended for scrolling to an anchor.
-    // For inline renderers, this gets the logical top left of the first leaf child and the logical bottom right of the
-    // last leaf child, converts them to absolute coordinates, and makes a box out of them.
+    // absoluteAnchorRect() is conceptually similar to absoluteBoundingBoxRect(), but is intended for scrolling to an
+    // anchor. For inline renderers, this gets the logical top left of the first leaf child and the logical bottom
+    // right of the last leaf child, converts them to absolute coordinates, and makes a box out of them.
     LayoutRect absoluteAnchorRect(bool* insideFixed = nullptr) const;
+
+    // absoluteAnchorRectWithScrollMargin() is similar to absoluteAnchorRect, but it also takes into account any
+    // CSS scroll-margin that is set in the style of this RenderElement.
+    virtual LayoutRect absoluteAnchorRectWithScrollMargin(bool* insideFixed = nullptr) const;
 
     bool hasFilter() const { return style().hasFilter(); }
     bool hasBackdropFilter() const
@@ -226,15 +231,13 @@ public:
     RenderObject* attachRendererInternal(RenderPtr<RenderObject> child, RenderObject* beforeChild);
     RenderPtr<RenderObject> detachRendererInternal(RenderObject&);
 
-    virtual bool startTransition(double /* timeOffset */, CSSPropertyID, const RenderStyle* /* fromStyle */, const RenderStyle* /* toStyle */) { return false; }
-    virtual void transitionPaused(double /* timeOffset */, CSSPropertyID) { }
-    virtual void transitionFinished(CSSPropertyID) { }
-
     virtual bool startAnimation(double /* timeOffset */, const Animation&, const KeyframeList&) { return false; }
     virtual void animationPaused(double /* timeOffset */, const String& /* name */) { }
     virtual void animationFinished(const String& /* name */) { }
+    virtual void transformRelatedPropertyDidChange() { }
 
     virtual void suspendAnimations(MonotonicTime = MonotonicTime()) { }
+    std::unique_ptr<RenderStyle> animatedStyle();
 
 protected:
     enum BaseTypeFlag {
@@ -325,7 +328,7 @@ private:
     bool canDestroyDecodedData() final { return !isVisibleInViewport(); }
     VisibleInViewportState imageFrameAvailable(CachedImage&, ImageAnimatingState, const IntRect* changeRect) final;
     void didRemoveCachedImageClient(CachedImage&) final;
-    void scheduleTimedRenderingUpdate() final;
+    void scheduleRenderingUpdateForImage(CachedImage&) final;
 
     bool getLeadingCorner(FloatPoint& output, bool& insideFixed) const;
     bool getTrailingCorner(FloatPoint& output, bool& insideFixed) const;

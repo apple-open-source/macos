@@ -975,6 +975,25 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)resetAccountCDPContentsWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context reply:(nonnull void (^)(NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(error);
+            }
+            ++i;
+        }] resetAccountCDPContentsWithContainer:container context:context reply:reply];
+    } while (retry);
+}
+
+
 
 
 @end

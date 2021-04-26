@@ -38,6 +38,7 @@
 #import "heimcred.h"
 #import "aks.h"
 #import "mock_aks.h"
+#import "acquirecred.h"
 
 @interface GSSCredHoldTests : XCTestCase
 @property (nullable) struct peer * peer;
@@ -66,12 +67,17 @@
     HeimCredGlobalCTX.sessionExists = sessionExistsMock;
     HeimCredGlobalCTX.saveToDiskIfNeeded = saveToDiskIfNeededMock;
     HeimCredGlobalCTX.getValueFromPreferences = getValueFromPreferencesMock;
+    HeimCredGlobalCTX.expireFunction = expire_func;
+    HeimCredGlobalCTX.renewFunction = renew_func;
+    HeimCredGlobalCTX.finalFunction = final_func;
     HeimCredGlobalCTX.notifyCaches = NULL;
     HeimCredGlobalCTX.gssCredHelperClientClass = nil;
 
+    CFRELEASE_NULL(HeimCredCTX.mechanisms);
     HeimCredCTX.mechanisms = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.mechanisms != NULL, "out of memory");
 
+    CFRELEASE_NULL(HeimCredCTX.schemas);
     HeimCredCTX.schemas = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(HeimCredCTX.schemas != NULL, "out of memory");
 
@@ -91,8 +97,9 @@
 #else
     archivePath = @"/var/tmp/heim-credential-store.archive";
 #endif
-    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     _HeimCredInitCommon();
+    CFRELEASE_NULL(HeimCredCTX.sessions);
+    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     //always start clean
     NSError *error;
@@ -139,6 +146,7 @@
     int64_t error = [GSSCredTestUtil hold:self.peer uuid:uuid];
     XCTAssertEqual(error, 0, "hold should not error");
 
+    CFRELEASE_NULL(attributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     XCTAssertTrue(worked, "Cache should still exist after hold");
 
@@ -148,8 +156,12 @@
     error = [GSSCredTestUtil unhold:self.peer uuid:uuid];
     XCTAssertEqual(error, 0, "hold when it should delete should not error");
 
+    CFRELEASE_NULL(attributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     XCTAssertFalse(worked, "Cache should be deleted after retain count is zero");
+
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(uuid);
 }
 
 - (void)testSaveLoadHoldingCredential {
@@ -170,6 +182,7 @@
     int64_t error = [GSSCredTestUtil hold:self.peer uuid:uuid];
     XCTAssertEqual(error, 0, "hold should not error");
 
+    CFRELEASE_NULL(attributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     XCTAssertTrue(worked, "Cache should still exist after hold");
 
@@ -182,6 +195,7 @@
 
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
 
+    CFRELEASE_NULL(attributes);
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
     XCTAssertTrue(worked, "Cache should still exist after hold");
 
@@ -189,6 +203,8 @@
 
     XCTAssertEqual([count intValue], 2, "The retain count should match after save/load");
 
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(attributes);
 }
 
 - (void)testUpdatingRetainStatusShouldFail {
@@ -207,6 +223,7 @@
     uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
     XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Updating the retain status should not be allowed.");
 
+    CFRELEASE_NULL(uuid);
 }
 
 // mocks

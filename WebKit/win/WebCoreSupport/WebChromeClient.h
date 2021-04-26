@@ -94,6 +94,11 @@ public:
 
     WebCore::KeyboardUIMode keyboardUIMode() final;
 
+    bool hoverSupportedByPrimaryPointingDevice() const final { return true; }
+    bool hoverSupportedByAnyAvailablePointingDevice() const final { return true; }
+    Optional<WebCore::PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const final { return WebCore::PointerCharacteristics::Fine; }
+    OptionSet<WebCore::PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const final { return WebCore::PointerCharacteristics::Fine; }
+
     void invalidateRootView(const WebCore::IntRect&) final;
     void invalidateContentsAndRootView(const WebCore::IntRect&) final;
     void invalidateContentsForSlowScroll(const WebCore::IntRect&) final;
@@ -133,7 +138,7 @@ public:
     void setNeedsOneShotDrawingSynchronization() final { }
     // Sets a flag to specify that the view needs to be updated, so we need
     // to do an eager layout before the drawing.
-    void scheduleRenderingUpdate() final;
+    void triggerRenderingUpdate() final;
 
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
     WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const final;
@@ -144,7 +149,7 @@ public:
 #if ENABLE(VIDEO)
     bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) final;
     void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool) final;
-    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&) final;
+    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WTF::CompletionHandler<void(bool)>&& = [](bool) { }) final;
 #endif
 
 #if ENABLE(NOTIFICATIONS)

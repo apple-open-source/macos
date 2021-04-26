@@ -38,13 +38,17 @@
 namespace WebCore {
 namespace Layout {
 
+InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, InlineLayoutUnit contentLogicalLeft)
+{
+    return TextUtil::width(inlineTextItem, inlineTextItem.start(), inlineTextItem.end(), contentLogicalLeft);
+}
+
 InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
 {
-    // Fast path for collapsed whitespace.
-    if (inlineTextItem.isCollapsible()) {
-        auto font = inlineTextItem.style().fontCascade();
-        return font.spaceWidth() + font.wordSpacing();
-    }
+    RELEASE_ASSERT(from >= inlineTextItem.start());
+    RELEASE_ASSERT(to <= inlineTextItem.end());
+    if (inlineTextItem.isWhitespace() && !InlineTextItem::shouldPreserveSpacesAndTabs(inlineTextItem))
+        return inlineTextItem.style().fontCascade().spaceWidth();
     return TextUtil::width(inlineTextItem.inlineTextBox(), from, to, contentLogicalLeft);
 }
 
@@ -78,7 +82,7 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, unsigned fr
     if (measureWithEndSpace)
         width -= (font.spaceWidth() + font.wordSpacing());
 
-    return std::max<InlineLayoutUnit>(0 , InlineLayoutUnit(width));
+    return width;
 }
 
 InlineLayoutUnit TextUtil::fixedPitchWidth(const StringView& text, const RenderStyle& style, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
@@ -97,13 +101,16 @@ InlineLayoutUnit TextUtil::fixedPitchWidth(const StringView& text, const RenderS
         if (i > from && (character == ' ' || character == '\t' || character == '\n'))
             width += font.wordSpacing();
     }
-    return std::max<InlineLayoutUnit>(0, InlineLayoutUnit(width));
+    return width;
 }
 
-TextUtil::SplitData TextUtil::split(const InlineTextBox& inlineTextBox, unsigned startPosition, unsigned length, InlineLayoutUnit textWidth, InlineLayoutUnit availableWidth, InlineLayoutUnit contentLogicalLeft)
+TextUtil::SplitData TextUtil::split(const InlineTextItem& inlineTextItem, InlineLayoutUnit textWidth, InlineLayoutUnit availableWidth, InlineLayoutUnit contentLogicalLeft)
 {
-    ASSERT(length);
     ASSERT(availableWidth >= 0);
+    auto startPosition = inlineTextItem.start();
+    auto length = inlineTextItem.length();
+    ASSERT(length);
+
     auto left = startPosition;
     // Pathological case of (extremely)long string and narrow lines.
     // Adjust the range so that we can pick a reasonable midpoint.
@@ -114,7 +121,7 @@ TextUtil::SplitData TextUtil::split(const InlineTextBox& inlineTextBox, unsigned
     InlineLayoutUnit leftSideWidth = 0;
     while (left < right) {
         auto middle = (left + right) / 2;
-        auto width = TextUtil::width(inlineTextBox, startPosition, middle + 1, contentLogicalLeft);
+        auto width = TextUtil::width(inlineTextItem, startPosition, middle + 1, contentLogicalLeft);
         if (width < availableWidth) {
             left = middle + 1;
             leftSideWidth = width;
@@ -149,6 +156,12 @@ unsigned TextUtil::findNextBreakablePosition(LazyLineBreakIterator& lineBreakIte
     if (breakNBSP)
         return nextBreakablePositionWithoutShortcut(lineBreakIterator, startPosition);
     return nextBreakablePositionIgnoringNBSPWithoutShortcut(lineBreakIterator, startPosition);
+}
+
+bool TextUtil::shouldPreserveSpacesAndTabs(const Box& layoutBox)
+{
+    auto whitespace = layoutBox.style().whiteSpace();
+    return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces;
 }
 
 }

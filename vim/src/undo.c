@@ -849,7 +849,7 @@ u_get_undo_file_name(char_u *buf_ffname, int reading)
 	{
 	    // Use same directory as the ffname,
 	    // "dir/name" -> "dir/.name.un~"
-	    undo_file_name = vim_strnsave(ffname, (int)(STRLEN(ffname) + 5));
+	    undo_file_name = vim_strnsave(ffname, STRLEN(ffname) + 5);
 	    if (undo_file_name == NULL)
 		break;
 	    p = gettail(undo_file_name);
@@ -3520,7 +3520,8 @@ u_undoline(void)
 	do_outofmem_msg((long_u)0);
 	return;
     }
-    ml_replace_len(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr.ul_line, curbuf->b_u_line_ptr.ul_len, TRUE, FALSE);
+    ml_replace_len(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr.ul_line,
+				     curbuf->b_u_line_ptr.ul_len, TRUE, FALSE);
     changed_bytes(curbuf->b_u_line_lnum, 0);
     curbuf->b_u_line_ptr = oldp;
 

@@ -28,6 +28,7 @@
 #import "WKBrowsingContextController.h"
 #import "WKBrowsingContextGroup.h"
 #import "WKProcessGroup.h"
+#import <WebCore/InspectorOverlay.h>
 #import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
@@ -41,7 +42,6 @@ class PageConfiguration;
 
 namespace WebCore {
 class FloatRect;
-struct Highlight;
 }
 
 namespace WebKit {
@@ -51,6 +51,7 @@ class WebFrameProxy;
 class WebPageProxy;
 class WebProcessProxy;
 class WebProcessPool;
+enum class ViewStabilityFlag : uint8_t;
 }
 
 @interface WKContentView : WKApplicationStateTrackingView {
@@ -81,8 +82,7 @@ class WebProcessPool;
     unobscuredSafeAreaInsets:(UIEdgeInsets)unobscuredSafeAreaInsets
     inputViewBounds:(CGRect)inputViewBounds
     scale:(CGFloat)scale minimumScale:(CGFloat)minimumScale
-    inStableState:(BOOL)isStableState
-    isChangingObscuredInsetsInteractively:(BOOL)isChangingObscuredInsetsInteractively
+    viewStability:(OptionSet<WebKit::ViewStabilityFlag>)viewStability
     enclosedInScrollableAncestorView:(BOOL)enclosedInScrollableAncestorView
     sendEvenIfUnchanged:(BOOL)sendEvenIfUnchanged;
 
@@ -108,7 +108,7 @@ class WebProcessPool;
 #endif
 - (void)_setAcceleratedCompositingRootView:(UIView *)rootView;
 
-- (void)_showInspectorHighlight:(const WebCore::Highlight&)highlight;
+- (void)_showInspectorHighlight:(const WebCore::InspectorOverlay::Highlight&)highlight;
 - (void)_hideInspectorHighlight;
 
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction;
@@ -117,7 +117,7 @@ class WebProcessPool;
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
 
 - (BOOL)_scrollToRect:(CGRect)targetRect withOrigin:(CGPoint)origin minimumScrollDistance:(CGFloat)minimumScrollDistance;
-- (void)_zoomToFocusRect:(CGRect)rectToFocus selectionRect:(CGRect)selectionRect insideFixed:(BOOL)insideFixed fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
+- (void)_zoomToFocusRect:(CGRect)rectToFocus selectionRect:(CGRect)selectionRect fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
 - (BOOL)_zoomToRect:(CGRect)targetRect withOrigin:(CGPoint)origin fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale minimumScrollDistance:(CGFloat)minimumScrollDistance;
 - (void)_zoomOutWithOrigin:(CGPoint)origin;
 - (void)_zoomToInitialScaleWithOrigin:(CGPoint)origin;

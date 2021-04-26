@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -43,6 +43,7 @@ OBJC_CLASS AVPlayerItemVideoOutput;
 OBJC_CLASS AVPlayerLayer;
 OBJC_CLASS AVURLAsset;
 OBJC_CLASS NSArray;
+OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS WebCoreAVFLoaderDelegate;
 OBJC_CLASS WebCoreAVFMovieObserver;
 OBJC_CLASS WebCoreAVFPullDelegate;
@@ -63,7 +64,6 @@ class MediaSelectionGroupAVFObjC;
 class PixelBufferConformerCV;
 class SharedBuffer;
 class VideoLayerManagerObjC;
-class VideoTextureCopierCV;
 class VideoTrackPrivateAVFObjC;
 class WebCoreAVFResourceLoader;
 
@@ -131,14 +131,13 @@ private:
 
     // engine support
     class Factory;
+    static bool isAvailable();
     static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types);
     static MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters&);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
     static HashSet<RefPtr<SecurityOrigin>> originsInMediaCache(const String&);
     static void clearMediaCache(const String&, WallTime modifiedSince);
     static void clearMediaCacheForOrigins(const String&, const HashSet<RefPtr<SecurityOrigin>>&);
-
-    static bool isAvailable();
 
     void setBufferingPolicy(MediaPlayer::BufferingPolicy) final;
 
@@ -187,6 +186,7 @@ private:
     void createAVPlayerItem() final;
     virtual void createAVPlayerLayer();
     void createAVAssetForURL(const URL&) final;
+    void createAVAssetForURL(const URL&, RetainPtr<NSMutableDictionary>);
     MediaPlayerPrivateAVFoundation::ItemStatus playerItemStatus() const final;
     MediaPlayerPrivateAVFoundation::AssetStatus assetStatus() const final;
     long assetErrorCode() const final;
@@ -194,10 +194,11 @@ private:
     double seekableTimeRangesLastModifiedTime() const final;
     double liveUpdateInterval() const final;
 
-    void checkPlayability() final;
+    void checkPlayability();
     void setRateDouble(double) final;
     double rate() const final;
     void setPreservesPitch(bool) final;
+    void setPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm) final;
     void seekToTime(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance) final;
     unsigned long long totalBytes() const final;
     std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const final;
@@ -250,10 +251,10 @@ private:
     bool updateLastPixelBuffer();
     bool videoOutputHasAvailableFrame();
     void paintWithVideoOutput(GraphicsContext&, const FloatRect&);
-    NativeImagePtr nativeImageForCurrentTime() final;
+    RefPtr<NativeImage> nativeImageForCurrentTime() final;
     void waitForVideoOutputMediaDataWillChange();
 
-    bool copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL*, PlatformGLObject, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY) final;
+    bool copyVideoTextureToPlatformTexture(GraphicsContextGL*, PlatformGLObject, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY) final;
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void keyAdded() final;
@@ -318,6 +319,7 @@ private:
     void setShouldObserveTimeControlStatus(bool);
 
     void setPreferredDynamicRangeMode(DynamicRangeMode) final;
+    void audioOutputDeviceChanged() final;
 
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
@@ -330,6 +332,7 @@ private:
     mutable String m_languageOfPrimaryAudioTrack;
     bool m_videoFrameHasDrawn { false };
     bool m_haveCheckedPlayability { false };
+    bool m_createAssetPending { false };
 
 #if ENABLE(WEB_AUDIO) && USE(MEDIATOOLBOX)
     RefPtr<AudioSourceProviderAVFObjC> m_provider;
@@ -339,9 +342,8 @@ private:
     RetainPtr<AVPlayerItemVideoOutput> m_videoOutput;
     RetainPtr<WebCoreAVFPullDelegate> m_videoOutputDelegate;
     RetainPtr<CVPixelBufferRef> m_lastPixelBuffer;
-    RetainPtr<CGImageRef> m_lastImage;
+    RefPtr<NativeImage> m_lastImage;
     std::unique_ptr<ImageRotationSessionVT> m_imageRotationSession;
-    std::unique_ptr<VideoTextureCopierCV> m_videoTextureCopier;
     std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
 
     friend class WebCoreAVFResourceLoader;

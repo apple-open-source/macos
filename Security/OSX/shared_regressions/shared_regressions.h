@@ -8,16 +8,9 @@
  */
 #include <regressions/test/testmore.h>
 
-ONE_TEST(si_21_sectrust_asr)
-ONE_TEST(si_22_sectrust_iap)
-ONE_TEST(si_24_sectrust_itms)
-ONE_TEST(si_24_sectrust_diginotar)
-ONE_TEST(si_24_sectrust_digicert_malaysia)
-ONE_TEST(si_24_sectrust_passbook)
 ONE_TEST(si_25_cms_skid)
-ONE_TEST(si_26_sectrust_copyproperties)
+ONE_TEST(si_26_cms_apple_signed_samples)
 ONE_TEST(si_29_cms_chain_mode)
-ONE_TEST(si_32_sectrust_pinning_required)
 ONE_TEST(si_34_cms_timestamp)
 ONE_TEST(si_35_cms_expiration_time)
 ONE_TEST(si_44_seckey_gen)
@@ -36,9 +29,6 @@ ONE_TEST(si_64_ossl_cms)
 ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)
 ONE_TEST(si_68_secmatchissuer)
-ONE_TEST(si_70_sectrust_unified)
-ONE_TEST(si_71_mobile_store_policy)
-ONE_TEST(si_83_seccertificate_sighashalg)
 ONE_TEST(si_89_cms_hash_agility)
 ONE_TEST(rk_01_recoverykey)
 

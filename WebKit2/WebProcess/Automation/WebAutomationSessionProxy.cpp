@@ -65,9 +65,9 @@
 #include <WebCore/HTMLDataListElement.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+
+using namespace WebCore;
 
 template <typename T>
 static JSObjectRef toJSArray(JSContextRef context, const Vector<T>& data, JSValueRef (*converter)(JSContextRef, const T&), JSValueRef* exception)
@@ -564,31 +564,6 @@ void WebAutomationSessionProxy::resolveParentFrame(WebCore::PageIdentifier pageI
     completionHandler(WTF::nullopt, parentFrame->frameID());
 }
 
-void WebAutomationSessionProxy::focusFrame(WebCore::PageIdentifier pageID, Optional<WebCore::FrameIdentifier> frameID)
-{
-    WebPage* page = WebProcess::singleton().webPage(pageID);
-    if (!page)
-        return;
-
-    auto* frame = frameID ? WebProcess::singleton().webFrame(*frameID) : &page->mainWebFrame();
-    if (!frame)
-        return;
-
-    WebCore::Frame* coreFrame = frame->coreFrame();
-    if (!coreFrame)
-        return;
-
-    WebCore::Document* coreDocument = coreFrame->document();
-    if (!coreDocument)
-        return;
-
-    WebCore::DOMWindow* coreDOMWindow = coreDocument->domWindow();
-    if (!coreDOMWindow)
-        return;
-
-    coreDOMWindow->focus(true);
-}
-
 static WebCore::Element* containerElementForElement(WebCore::Element& element)
 {
     // §13. Element State.
@@ -738,7 +713,7 @@ void WebAutomationSessionProxy::computeElementLayout(WebCore::PageIdentifier pag
     // Check the case where a non-descendant element hit tests before the target element. For example, a child <option>
     // of a <select> does not obscure the <select>, but two sibling <div> that overlap at the IVCP will obscure each other.
     // Node::isDescendantOf() is not self-inclusive, so that is explicitly checked here.
-    isObscured = elementList[0] != containerElement && !elementList[0]->isDescendantOf(containerElement);
+    isObscured = elementList[0] != containerElement && !elementList[0]->isDescendantOrShadowDescendantOf(containerElement);
 
     switch (coordinateSystem) {
     case CoordinateSystem::Page:

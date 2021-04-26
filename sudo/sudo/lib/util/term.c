@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2011-2015, 2017 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2011-2015, 2017-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,16 +23,10 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 #include <signal.h>
 #include <termios.h>
@@ -92,13 +86,13 @@
 # define PENDIN		0
 #endif
 
-static struct termios term, oterm;
+static struct termios oterm;
 static int changed;
 
 /* tgetpass() needs to know the erase and kill chars for cbreak mode. */
-__dso_public int sudo_term_eof;
-__dso_public int sudo_term_erase;
-__dso_public int sudo_term_kill;
+sudo_dso_public int sudo_term_eof;
+sudo_dso_public int sudo_term_erase;
+sudo_dso_public int sudo_term_kill;
 
 static volatile sig_atomic_t got_sigttou;
 
@@ -147,7 +141,7 @@ tcsetattr_nobg(int fd, int flags, struct termios *tp)
 bool
 sudo_term_restore_v1(int fd, bool flush)
 {
-    debug_decl(sudo_term_restore, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_term_restore, SUDO_DEBUG_UTIL);
 
     if (changed) {
 	const int flags = flush ? (TCSASOFT|TCSAFLUSH) : (TCSASOFT|TCSADRAIN);
@@ -165,7 +159,8 @@ sudo_term_restore_v1(int fd, bool flush)
 bool
 sudo_term_noecho_v1(int fd)
 {
-    debug_decl(sudo_term_noecho, SUDO_DEBUG_UTIL)
+    struct termios term;
+    debug_decl(sudo_term_noecho, SUDO_DEBUG_UTIL);
 
     if (!changed && tcgetattr(fd, &oterm) != 0)
 	debug_return_bool(false);
@@ -182,24 +177,20 @@ sudo_term_noecho_v1(int fd)
 }
 
 /*
- * Set terminal to raw mode.
+ * Set terminal to raw mode with optional terminal signals.
  * Returns true on success or false on failure.
  */
 bool
 sudo_term_raw_v1(int fd, int isig)
 {
     struct termios term;
-    debug_decl(sudo_term_raw, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_term_raw, SUDO_DEBUG_UTIL);
 
     if (!changed && tcgetattr(fd, &oterm) != 0)
 	debug_return_bool(false);
     (void) memcpy(&term, &oterm, sizeof(term));
-    /* Set terminal to raw mode */
-    term.c_cc[VMIN] = 1;
-    term.c_cc[VTIME] = 0;
-    CLR(term.c_iflag, ICRNL | IGNCR | INLCR | IUCLC | IXON);
-    CLR(term.c_oflag, OPOST);
-    CLR(term.c_lflag, ECHO | ICANON | ISIG | IEXTEN);
+    /* Set terminal to raw mode but optionally enable terminal signals. */
+    cfmakeraw(&term);
     if (isig)
 	SET(term.c_lflag, ISIG);
     if (tcsetattr_nobg(fd, TCSASOFT|TCSADRAIN, &term) == 0) {
@@ -216,7 +207,8 @@ sudo_term_raw_v1(int fd, int isig)
 bool
 sudo_term_cbreak_v1(int fd)
 {
-    debug_decl(sudo_term_cbreak, SUDO_DEBUG_UTIL)
+    struct termios term;
+    debug_decl(sudo_term_cbreak, SUDO_DEBUG_UTIL);
 
     if (!changed && tcgetattr(fd, &oterm) != 0)
 	debug_return_bool(false);
@@ -260,7 +252,7 @@ sudo_term_copy_v1(int src, int dst)
     struct winsize wsize;
     speed_t speed;
     int i;
-    debug_decl(sudo_term_copy, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_term_copy, SUDO_DEBUG_UTIL);
 
     if (tcgetattr(src, &tt_src) != 0 || tcgetattr(dst, &tt_dst) != 0)
 	debug_return_bool(false);

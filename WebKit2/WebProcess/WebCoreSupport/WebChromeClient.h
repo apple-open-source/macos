@@ -37,7 +37,6 @@ enum class StorageAccessWasGranted : bool;
 
 namespace WebKit {
 
-class RemoteRenderingBackend;
 class WebFrame;
 class WebPage;
 
@@ -112,6 +111,11 @@ private:
 
     WebCore::KeyboardUIMode keyboardUIMode() final;
 
+    bool hoverSupportedByPrimaryPointingDevice() const final;
+    bool hoverSupportedByAnyAvailablePointingDevice() const final;
+    Optional<WebCore::PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const final;
+    OptionSet<WebCore::PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const final;
+
     // HostWindow member function finals.
     void invalidateRootView(const WebCore::IntRect&) final;
     void invalidateContentsAndRootView(const WebCore::IntRect&) final;
@@ -152,6 +156,10 @@ private:
     bool canShowDataListSuggestionLabels() const final;
 #endif
 
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    std::unique_ptr<WebCore::DateTimeChooser> createDateTimeChooser(WebCore::DateTimeChooserClient&) final;
+#endif
+
 #if ENABLE(IOS_TOUCH_EVENTS)
     void didPreventDefaultForEvent() final;
 #endif
@@ -180,10 +188,6 @@ private:
 
     Seconds eventThrottlingDelay() final;
 
-    void associateEditableImageWithAttachment(WebCore::GraphicsLayer::EmbeddedViewID, const String& attachmentID) final;
-    void didCreateEditableImage(WebCore::GraphicsLayer::EmbeddedViewID) final;
-    void didDestroyEditableImage(WebCore::GraphicsLayer::EmbeddedViewID) final;
-
     bool shouldUseMouseEventForSelection(const WebCore::PlatformMouseEvent&) final;
 
     bool showDataDetectorsUIForElement(const WebCore::Element&, const WebCore::Event&) final;
@@ -195,6 +199,7 @@ private:
 
     void runOpenPanel(WebCore::Frame&, WebCore::FileChooser&) final;
     void showShareSheet(WebCore::ShareDataWithParsedURL&, WTF::CompletionHandler<void(bool)>&&) final;
+    void showContactPicker(const WebCore::ContactsRequestData&, WTF::CompletionHandler<void(Optional<Vector<WebCore::ContactInfo>>&&)>&&) final;
     void loadIconForFiles(const Vector<String>&, WebCore::FileIconLoader&) final;
 
     void setCursor(const WebCore::Cursor&) final;
@@ -220,7 +225,7 @@ private:
     void attachRootGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) final;
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) final;
     void setNeedsOneShotDrawingSynchronization() final;
-    void scheduleRenderingUpdate() final;
+    void triggerRenderingUpdate() final;
 
     void contentRuleListNotification(const URL&, const WebCore::ContentRuleListResults&) final;
 
@@ -237,9 +242,12 @@ private:
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) const final;
 
 #if ENABLE(GPU_PROCESS)
-    RemoteRenderingBackend& ensureRemoteRenderingBackend() const;
-    std::unique_ptr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::ShouldAccelerate, WebCore::ShouldUseDisplayList, WebCore::RenderingPurpose, float resolutionScale, WebCore::ColorSpace) const final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, WebCore::ColorSpace, WebCore::PixelFormat) const final;
+#if ENABLE(WEBGL)
+    RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&, WebCore::PlatformDisplayID hostWindowDisplayID) const final;
 #endif
+#endif
+
 
     CompositingTriggerFlags allowedCompositingTriggers() const final
     {
@@ -269,9 +277,10 @@ private:
     bool supportsVideoFullscreenStandby() final;
     void setMockVideoPresentationModeEnabled(bool) final;
     void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool standby) final;
-    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&) final;
+    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WTF::CompletionHandler<void(bool)>&& = [](bool) { }) final;
     void setUpPlaybackControlsManager(WebCore::HTMLMediaElement&) final;
     void clearPlaybackControlsManager() final;
+    void playbackControlsMediaEngineChanged() final;
 #endif
 
 #if ENABLE(MEDIA_USAGE)
@@ -333,16 +342,8 @@ private:
 
     bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) const final;
 
-    MonotonicTime timestampForPaintFrequencyTracking() const final;
-
     void isPlayingMediaDidChange(WebCore::MediaProducer::MediaStateFlags, uint64_t) final;
     void handleAutoplayEvent(WebCore::AutoplayEvent, OptionSet<WebCore::AutoplayEventFlags>) final;
-
-#if ENABLE(MEDIA_SESSION)
-    void hasMediaSessionWithActiveMediaElementsDidChange(bool) final;
-    void mediaSessionMetadataDidChange(const WebCore::MediaSessionMetadata&) final;
-    void focusedContentMediaElementDidChange(uint64_t) final;
-#endif
 
 #if ENABLE(WEB_CRYPTO)
     bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const final;
@@ -404,11 +405,13 @@ private:
     void setMockWebAuthenticationConfiguration(const WebCore::MockWebAuthenticationConfiguration&) final;
 #endif
 
+#if PLATFORM(MAC)
+    void changeUniversalAccessZoomFocus(const WebCore::IntRect&, const WebCore::IntRect&) final;
+#endif
+
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };
-#if ENABLE(GPU_PROCESS)
-    mutable std::unique_ptr<RemoteRenderingBackend> m_remoteRenderingBackend;
-#endif
+
     WebPage& m_page;
 };
 

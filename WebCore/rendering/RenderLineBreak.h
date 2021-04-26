@@ -48,14 +48,12 @@ public:
     void dirtyLineBoxes(bool fullLayout);
 
     IntRect linesBoundingBox() const;
-    IntRect boundingBoxForRenderTreeDump() const;
 
     void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const final;
     void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed = nullptr) const final;
 #if PLATFORM(IOS_FAMILY)
     void collectSelectionRects(Vector<SelectionRect>&, unsigned startOffset = 0, unsigned endOffset = std::numeric_limits<unsigned>::max()) final;
 #endif
-    void ensureLineBoxes();
 
 private:
     void node() const = delete;
@@ -67,8 +65,6 @@ private:
     int caretMinOffset() const final;
     int caretMaxOffset() const final;
     bool canBeSelectionLeaf() const final;
-    LayoutRect localCaretRect(InlineBox*, unsigned caretOffset, LayoutUnit* extraWidthToEndOfLine) final;
-    void setSelectionState(HighlightState) final;
 
     LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode) const final;
     int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode) const final;

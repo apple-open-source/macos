@@ -43,17 +43,21 @@ NS_ASSUME_NONNULL_BEGIN
                       zoneID:(CKRecordZoneID*)zoneID
              encodedCKRecord:(NSData* _Nullable)encodedrecord;
 
-+ (instancetype)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
-+ (instancetype)forKeyClass:(CKKSKeyClass*)keyclass
-                withKeyUUID:(NSString*)keyUUID
-                     zoneID:(CKRecordZoneID*)zoneID
-                      error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)forKeyClass:(CKKSKeyClass*)keyclass
+                          withKeyUUID:(NSString*)keyUUID
+                               zoneID:(CKRecordZoneID*)zoneID
+                                error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSCurrentKeyPointer*>*)all:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                            resync:(BOOL)resync
+                       flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                             error:(NSError**)error;
 @end
 
 @interface CKKSCurrentKeySet : NSObject

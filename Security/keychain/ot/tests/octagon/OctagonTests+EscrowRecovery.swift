@@ -1474,6 +1474,83 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
     }
+
+    func testRestoreUsingRecoveryKey() throws {
+        OctagonRecoveryKeySetIsEnabled(true)
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
+
+        //joining via recovery key just as if SBD kicked off a join during _recoverWithRequest()
+        let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
+
+        self.manager.join(withRecoveryKey: OTCKContainerName, contextID: OTDefaultContext, recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+      
+        var peerIDBeforeRestore: String?
+        
+        var dumpExpectation = self.expectation(description: "dump callback occurs")
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+            XCTAssertNil(error, "Should be no error dumping data")
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let egoPeerID = egoSelf!["peerID"] as? String
+            XCTAssertNotNil(egoPeerID, "egoPeerID should not be nil")
+            peerIDBeforeRestore = egoPeerID
+            dumpExpectation.fulfill()
+        }
+        self.wait(for: [dumpExpectation], timeout: 10)
+        
+        XCTAssertNotNil(peerIDBeforeRestore, "peerIDBeforeRestore should not be nil")
+
+        let newOTCliqueContext = OTConfigurationContext()
+        newOTCliqueContext.context = OTDefaultContext
+        newOTCliqueContext.dsid = self.otcliqueContext.dsid
+        newOTCliqueContext.altDSID = self.otcliqueContext.altDSID
+        newOTCliqueContext.otControl = self.otcliqueContext.otControl
+        newOTCliqueContext.sbd = OTMockSecureBackup(bottleID: "", entropy: Data())
+
+        let newClique: OTClique
+        do {
+            newClique = try OTClique.performEscrowRecovery(withContextData: newOTCliqueContext, escrowArguments: ["SecureBackupRecoveryKey": recoveryKey])
+            XCTAssertNotNil(newClique, "newClique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored recovering: \(error)")
+            throw error
+        }
+        
+        //ensure the ego peer id hasn't changed
+        dumpExpectation = self.expectation(description: "dump callback occurs")
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+            XCTAssertNil(error, "Should be no error dumping data")
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let egoPeerID = egoSelf!["peerID"] as? String
+            XCTAssertNotNil(egoPeerID, "egoPeerID should not be nil")
+            XCTAssertTrue(egoPeerID == peerIDBeforeRestore, "peerIDs should be the same")
+
+            dumpExpectation.fulfill()
+        }
+        self.wait(for: [dumpExpectation], timeout: 10)
+        
+    }
 }
 
 #endif

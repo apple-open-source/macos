@@ -2,7 +2,7 @@
  * Replacement for a missing getaddrinfo.
  *
  * This is an implementation of getaddrinfo for systems that don't have one so
- * that networking code can use a consistant interface without #ifdef.  It is
+ * that networking code can use a consistent interface without #ifdef.  It is
  * a fairly minimal implementation, with the following limitations:
  *
  *   - IPv4 support only.  IPv6 is not supported.
@@ -14,7 +14,7 @@
  *
  * The last four issues could probably be easily remedied, but haven't been
  * needed to date.  Adding IPv6 support isn't worth it; systems with IPv6
- * support should already support getaddrinfo natively.
+ * support should already have getaddrinfo.
  *
  * The canonical version of this file is maintained in the rra-c-util package,
  * which can be found at <http://www.eyrie.org/~eagle/software/rra-c-util/>.
@@ -37,14 +37,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <limits.h>
 #include <netdb.h>
 #include <errno.h>
@@ -95,7 +89,7 @@ int test_getaddrinfo(const char *, const char *, const struct addrinfo *,
 #endif
 
 /*
- * If the native platform doesn't support AI_NUMERICSERV or AI_NUMERICHOST,
+ * If the platform doesn't support AI_NUMERICSERV or AI_NUMERICHOST,
  * pick some other values for them.
  */
 #ifdef TESTING

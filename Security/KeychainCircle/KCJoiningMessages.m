@@ -260,7 +260,8 @@
 @end
 
 
-NSData* extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString** uuidString, NSData** octagon, NSError** error) {
+NSData* _Nullable extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString** uuidString, NSData** octagon, NSError** error)
+{
     NSData* result = nil;
     const uint8_t *der = [initialMessage bytes];
     const uint8_t *der_end = der + [initialMessage length];

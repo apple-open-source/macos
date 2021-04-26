@@ -163,6 +163,90 @@
                                              encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
 }
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
+{
+    if(resync) {
+        NSError* ciperror = nil;
+        CKKSCurrentItemPointer* localcip  = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName state:SecCKKSProcessedStateLocal  zoneID:record.recordID.zoneID error:&ciperror];
+        CKKSCurrentItemPointer* remotecip = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName state:SecCKKSProcessedStateRemote zoneID:record.recordID.zoneID error:&ciperror];
+        if(ciperror) {
+            ckkserror("ckksresync", record.recordID.zoneID, "error loading cip: %@", ciperror);
+        }
+        if(!(localcip || remotecip)) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: No current item pointer matching resynced CloudKit record: %@", record);
+        } else if(! ([localcip matchesCKRecord:record] || [remotecip matchesCKRecord:record]) ) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: Local current item pointer doesn't match resynced CloudKit record(s): %@ %@ %@", localcip, remotecip, record);
+        } else {
+            ckksnotice("ckksresync", record.recordID.zoneID, "Already know about this current item pointer, skipping update: %@", record);
+            return YES;
+        }
+    }
+
+    NSError* localerror = nil;
+    CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initWithCKRecord:record];
+    cip.state = SecCKKSProcessedStateRemote;
+
+    bool saved = [cip saveToDatabase:&localerror];
+    if(!saved || localerror) {
+        ckkserror("currentitem", record.recordID.zoneID, "Couldn't save current item pointer to database: %@: %@ %@", cip, localerror, record);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+    return YES;
+}
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+    ckksinfo("currentitem", recordID.zoneID, "CloudKit notification: deleted current item pointer(%@): %@", SecCKRecordCurrentItemType, recordID);
+
+    CKKSCurrentItemPointer* remote = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName] state:SecCKKSProcessedStateRemote zoneID:recordID.zoneID error:&localerror];
+    if(localerror) {
+        if(error) {
+            *error = localerror;
+        }
+
+        ckkserror("currentitem", recordID.zoneID, "Failed to find remote CKKSCurrentItemPointer to delete %@: %@", recordID, localerror);
+        return NO;
+    }
+
+    [remote deleteFromDatabase:&localerror];
+    if(localerror) {
+        if(error) {
+            *error = localerror;
+        }
+        ckkserror("currentitem", recordID.zoneID, "Failed to delete remote CKKSCurrentItemPointer %@: %@", recordID, localerror);
+        return NO;
+    }
+
+    CKKSCurrentItemPointer* local = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName] state:SecCKKSProcessedStateLocal zoneID:recordID.zoneID error:&localerror];
+    if(localerror) {
+        if(error) {
+            *error = localerror;
+        }
+        ckkserror("currentitem", recordID.zoneID, "Failed to find local CKKSCurrentItemPointer %@: %@", recordID, localerror);
+        return NO;
+    }
+    [local deleteFromDatabase:&localerror];
+    if(localerror) {
+        if(error) {
+            *error = localerror;
+        }
+        ckkserror("currentitem", recordID.zoneID, "Failed to delete local CKKSCurrentItemPointer %@: %@", recordID, localerror);
+        return NO;
+    }
+
+    ckksinfo("currentitem", recordID.zoneID, "CKKSCurrentItemPointer was deleted: %@ error: %@", recordID, localerror);
+
+    if(error && localerror) {
+        *error = localerror;
+    }
+
+    return (localerror == nil);
+}
+
 @end
 
 #endif // OCTAGON

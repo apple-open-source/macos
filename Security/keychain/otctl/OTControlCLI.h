@@ -60,6 +60,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (long)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                    contextID:(NSString *)contextID;
 
+- (long)resetAccountCDPContentsWithContainerName:(NSString *)containerName
+                                       contextID:(NSString *)contextID;
+
 @end
 
 NS_ASSUME_NONNULL_END

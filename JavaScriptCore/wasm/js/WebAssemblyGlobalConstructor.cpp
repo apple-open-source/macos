@@ -38,15 +38,24 @@ namespace JSC {
 
 const ClassInfo WebAssemblyGlobalConstructor::s_info = { "Function", &Base::s_info, &constructorGlobalWebAssemblyGlobal, nullptr, CREATE_METHOD_TABLE(WebAssemblyGlobalConstructor) };
 
+static JSC_DECLARE_HOST_FUNCTION(constructJSWebAssemblyGlobal);
+static JSC_DECLARE_HOST_FUNCTION(callJSWebAssemblyGlobal);
+
 /* Source for WebAssemblyGlobalConstructor.lut.h
  @begin constructorGlobalWebAssemblyGlobal
  @end
  */
 
-static EncodedJSValue JSC_HOST_CALL constructJSWebAssemblyGlobal(JSGlobalObject* globalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
+
+    JSObject* newTarget = asObject(callFrame->newTarget());
+    Structure* webAssemblyGlobalStructure = newTarget == callFrame->jsCallee()
+        ? globalObject->webAssemblyGlobalStructure()
+        : InternalFunction::createSubclassStructure(globalObject, newTarget, getFunctionRealm(vm, newTarget)->webAssemblyGlobalStructure());
+    RETURN_IF_EXCEPTION(throwScope, { });
 
     JSObject* globalDescriptor;
     {
@@ -99,7 +108,10 @@ static EncodedJSValue JSC_HOST_CALL constructJSWebAssemblyGlobal(JSGlobalObject*
             break;
         }
         case Wasm::Type::I64: {
-            return JSValue::encode(throwException(globalObject, throwScope, createTypeError(globalObject, "WebAssembly.Global does not accept i64 initial value"_s)));
+            int64_t value = argument.toBigInt64(globalObject);
+            RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+            initialValue = static_cast<uint64_t>(value);
+            break;
         }
         case Wasm::Type::F32: {
             float value = argument.toFloat(globalObject);
@@ -119,10 +131,10 @@ static EncodedJSValue JSC_HOST_CALL constructJSWebAssemblyGlobal(JSGlobalObject*
     }
 
     Ref<Wasm::Global> wasmGlobal = Wasm::Global::create(type, mutability, initialValue);
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(JSWebAssemblyGlobal::tryCreate(globalObject, vm, globalObject->webAssemblyGlobalStructure(), WTFMove(wasmGlobal))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(JSWebAssemblyGlobal::tryCreate(globalObject, vm, webAssemblyGlobalStructure, WTFMove(wasmGlobal))));
 }
 
-static EncodedJSValue JSC_HOST_CALL callJSWebAssemblyGlobal(JSGlobalObject* globalObject, CallFrame*)
+JSC_DEFINE_HOST_FUNCTION(callJSWebAssemblyGlobal, (JSGlobalObject* globalObject, CallFrame*))
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -143,9 +155,8 @@ Structure* WebAssemblyGlobalConstructor::createStructure(VM& vm, JSGlobalObject*
 
 void WebAssemblyGlobalConstructor::finishCreation(VM& vm, WebAssemblyGlobalPrototype* prototype)
 {
-    Base::finishCreation(vm, "Global"_s, NameAdditionMode::WithoutStructureTransition);
+    Base::finishCreation(vm, 1, "Global"_s, PropertyAdditionMode::WithoutStructureTransition);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, prototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
 }
 
 WebAssemblyGlobalConstructor::WebAssemblyGlobalConstructor(VM& vm, Structure* structure)

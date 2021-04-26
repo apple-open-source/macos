@@ -23,14 +23,15 @@
 #if ENABLE(GPU_PROCESS)
 
 messages -> GPUProcess {
-    # Initializes the GPU process.
     InitializeGPUProcess(struct WebKit::GPUProcessCreationParameters processCreationParameters)
 
-    # Creates a connection for communication with a WebProcess
     CreateGPUConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID) -> (Optional<IPC::Attachment> connectionIdentifier) Async
 
     ProcessDidTransitionToForeground()
     ProcessDidTransitionToBackground()
+
+    PrepareToSuspend(bool isSuspensionImminent) -> () Async
+    ProcessDidResume()
 
     AddSession(PAL::SessionID sessionID, struct WebKit::GPUProcessSessionParameters parameters)
     RemoveSession(PAL::SessionID sessionID)

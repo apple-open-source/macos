@@ -38,12 +38,14 @@
 #include "ProcessThrottlerClient.h"
 #include "ResponsivenessTimer.h"
 #include "ServiceWorkerInitializationData.h"
+#include "SpeechRecognitionServer.h"
 #include "UserContentControllerIdentifier.h"
 #include "VisibleWebPageCounter.h"
 #include "WebConnectionToWebProcess.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebProcessProxyMessagesReplies.h"
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/MediaProducer.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RegistrableDomain.h>
@@ -102,6 +104,10 @@ struct WebPageCreationParameters;
 struct WebPreferencesStore;
 struct WebsiteData;
 
+#if ENABLE(MEDIA_STREAM)
+class SpeechRecognitionRemoteRealtimeMediaSourceManager;
+#endif
+
 enum ForegroundWebProcessCounterType { };
 typedef RefCounter<ForegroundWebProcessCounterType> ForegroundWebProcessCounter;
 typedef ForegroundWebProcessCounter::Token ForegroundWebProcessToken;
@@ -147,7 +153,7 @@ public:
     void setIsInProcessCache(bool);
     bool isInProcessCache() const { return m_isInProcessCache; }
 
-    void enableServiceWorkers(const Optional<UserContentControllerIdentifier>&);
+    void enableServiceWorkers(const UserContentControllerIdentifier&);
     void disableServiceWorkers();
 
     WebsiteDataStore& websiteDataStore() const { ASSERT(m_websiteDataStore); return *m_websiteDataStore; }
@@ -211,13 +217,18 @@ public:
 
     static bool fullKeyboardAccessEnabled();
 
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) && PLATFORM(IOS)
+    static void notifyHasMouseDeviceChanged();
+#endif
+
+    static void notifyHasStylusDeviceChanged(bool hasStylusDevice);
+
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     static void notifyPageStatisticsAndDataRecordsProcessed();
-    static void notifyPageStatisticsTelemetryFinished(API::Object* messageBody);
 
     static void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
     static void notifyWebsiteDataScanForRegistrableDomainsFinished();
@@ -294,26 +305,9 @@ public:
     // Will potentially cause the WebProcessProxy object to be freed.
     void shutDown();
 
-    class ScopePreventingShutdown {
-    public:
-        explicit ScopePreventingShutdown(WebProcessProxy& process)
-            : m_process(process)
-        {
-            ++(m_process->m_shutdownPreventingScopeCount);
-        }
-
-        ~ScopePreventingShutdown()
-        {
-            ASSERT(m_process->m_shutdownPreventingScopeCount);
-            if (!--(m_process->m_shutdownPreventingScopeCount))
-                m_process->maybeShutDown();
-        }
-
-    private:
-        Ref<WebProcessProxy> m_process;
-    };
-
-    ScopePreventingShutdown makeScopePreventingShutdown() { return ScopePreventingShutdown { *this }; }
+    enum ShutdownPreventingScopeType { };
+    using ShutdownPreventingScopeCounter = RefCounter<ShutdownPreventingScopeType>;
+    ShutdownPreventingScopeCounter::Token shutdownPreventingScope() { return m_shutdownPreventingScopeCounter.count(); }
 
     void didStartProvisionalLoadForMainFrame(const URL&);
 
@@ -374,7 +368,7 @@ public:
     UserMediaCaptureManagerProxy* userMediaCaptureManagerProxy() { return m_userMediaCaptureManagerProxy.get(); }
 #endif
 
-#if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(IOS_FAMILY)
+#if ENABLE(ATTACHMENT_ELEMENT)
     bool hasIssuedAttachmentElementRelatedSandboxExtensions() const { return m_hasIssuedAttachmentElementRelatedSandboxExtensions; }
     void setHasIssuedAttachmentElementRelatedSandboxExtensions() { m_hasIssuedAttachmentElementRelatedSandboxExtensions = true; }
 #endif
@@ -402,6 +396,21 @@ public:
     AudioSessionRoutingArbitratorProxy& audioSessionRoutingArbitrator() { return m_routingArbitrator.get(); }
 #endif
 
+#if ENABLE(IPC_TESTING_API)
+    void setIgnoreInvalidMessageForTesting();
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    static void muteCaptureInPagesExcept(WebCore::PageIdentifier);
+    SpeechRecognitionRemoteRealtimeMediaSourceManager& ensureSpeechRecognitionRemoteRealtimeMediaSourceManager();
+#endif
+    void pageMutedStateChanged(WebCore::PageIdentifier, WebCore::MediaProducer::MutedStateFlags);
+    void pageIsBecomingInvisible(WebCore::PageIdentifier);
+
+#if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
+    static bool shouldEnableRemoteInspector();
+#endif
+
 protected:
     WebProcessProxy(WebProcessPool&, WebsiteDataStore*, IsPrewarmed);
 
@@ -427,6 +436,11 @@ protected:
     void validateFreezerStatus();
 
 private:
+    static HashMap<WebCore::ProcessIdentifier, WebProcessProxy*>& allProcesses();
+
+    void platformInitialize();
+    void platformDestroy();
+
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(WebCore::FrameIdentifier);
@@ -445,13 +459,15 @@ private:
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnectionDelayedReply&&);
 #endif
-    void addPlugInAutoStartOriginHash(String&& pageOrigin, uint32_t hash);
-    void plugInDidReceiveUserInteraction(uint32_t hash);
     
     void getNetworkProcessConnection(Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply&&);
 
 #if ENABLE(GPU_PROCESS)
     void getGPUProcessConnection(Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
+#endif
+
+#if ENABLE(WEB_AUTHN)
+    void getWebAuthnProcessConnection(Messages::WebProcessProxy::GetWebAuthnProcessConnectionDelayedReply&&);
 #endif
 
     bool platformIsBeingDebugged() const;
@@ -502,6 +518,15 @@ private:
 
     void didCreateSleepDisabler(WebCore::SleepDisablerIdentifier, const String& reason, bool display);
     void didDestroySleepDisabler(WebCore::SleepDisablerIdentifier);
+
+    void createSpeechRecognitionServer(SpeechRecognitionServerIdentifier);
+    void destroySpeechRecognitionServer(SpeechRecognitionServerIdentifier);
+
+    void systemBeep();
+    
+#if PLATFORM(MAC)
+    void isAXAuthenticated(audit_token_t, CompletionHandler<void(bool)>&&);
+#endif
 
     enum class IsWeak { No, Yes };
     template<typename T> class WeakOrStrongPtr {
@@ -586,10 +611,10 @@ private:
 #endif
 
     unsigned m_suspendedPageCount { 0 };
-    unsigned m_shutdownPreventingScopeCount { 0 };
+
     bool m_hasCommittedAnyProvisionalLoads { false };
     bool m_isPrewarmed;
-#if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(IOS_FAMILY)
+#if ENABLE(ATTACHMENT_ELEMENT)
     bool m_hasIssuedAttachmentElementRelatedSandboxExtensions { false };
 #endif
 #if PLATFORM(COCOA)
@@ -625,6 +650,18 @@ private:
         WebProcessWithAudibleMediaToken token;
     };
     Optional<AudibleMediaActivity> m_audibleMediaActivity;
+
+    ShutdownPreventingScopeCounter m_shutdownPreventingScopeCounter;
+
+#if ENABLE(IPC_TESTING_API)
+    bool m_ignoreInvalidMessageForTesting { false };
+#endif
+
+    using SpeechRecognitionServerMap = HashMap<SpeechRecognitionServerIdentifier, std::unique_ptr<SpeechRecognitionServer>>;
+    SpeechRecognitionServerMap m_speechRecognitionServerMap;
+#if ENABLE(MEDIA_STREAM)
+    std::unique_ptr<SpeechRecognitionRemoteRealtimeMediaSourceManager> m_speechRecognitionRemoteRealtimeMediaSourceManager;
+#endif
 };
 
 } // namespace WebKit

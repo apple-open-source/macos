@@ -59,15 +59,15 @@ using PlatformDisplayID = uint32_t;
 struct WheelEventHandlingResult {
     OptionSet<WheelEventProcessingSteps> steps;
     bool wasHandled { false };
-    bool needsMainThreadProcessing() const { return steps.containsAny({ WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForDOMEventDispatch }); }
+    bool needsMainThreadProcessing() const { return steps.containsAny({ WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch, WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch }); }
 
-    static WheelEventHandlingResult handled()
+    static WheelEventHandlingResult handled(OptionSet<WheelEventProcessingSteps> steps = { })
     {
-        return { { }, true };
+        return { steps, true };
     }
-    static WheelEventHandlingResult unhandled()
+    static WheelEventHandlingResult unhandled(OptionSet<WheelEventProcessingSteps> steps = { })
     {
-        return { { }, false };
+        return { steps, false };
     }
     static WheelEventHandlingResult result(bool handled)
     {
@@ -75,8 +75,11 @@ struct WheelEventHandlingResult {
     }
 };
 
+enum class EventTargeting : uint8_t { NodeOnly, Propagate };
+
 class ScrollingTree : public ThreadSafeRefCounted<ScrollingTree> {
-friend class ScrollingTreeLatchingController;
+    WTF_MAKE_FAST_ALLOCATED;
+    friend class ScrollingTreeLatchingController;
 public:
     WEBCORE_EXPORT ScrollingTree();
     WEBCORE_EXPORT virtual ~ScrollingTree();
@@ -87,10 +90,16 @@ public:
 
     // This implies that we'll do hit-testing in the scrolling tree.
     bool asyncFrameOrOverflowScrollingEnabled() const { return m_asyncFrameOrOverflowScrollingEnabled; }
-    void setAsyncFrameOrOverflowScrollingEnabled(bool);
+    void setAsyncFrameOrOverflowScrollingEnabled(bool value) { m_asyncFrameOrOverflowScrollingEnabled = value; }
+
+    bool wheelEventGesturesBecomeNonBlocking() const { return m_wheelEventGesturesBecomeNonBlocking; }
+    void setWheelEventGesturesBecomeNonBlocking(bool value) { m_wheelEventGesturesBecomeNonBlocking = value; }
+
+    bool scrollingPerformanceTestingEnabled() const { return m_scrollingPerformanceTestingEnabled; }
+    void setScrollingPerformanceTestingEnabled(bool value) { m_scrollingPerformanceTestingEnabled = value; }
 
     WEBCORE_EXPORT OptionSet<WheelEventProcessingSteps> determineWheelEventProcessing(const PlatformWheelEvent&);
-    WEBCORE_EXPORT virtual WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&);
+    WEBCORE_EXPORT virtual WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps> = { });
 
     bool isRubberBandInProgressForNode(ScrollingNodeID);
     void setRubberBandingInProgressForNode(ScrollingNodeID, bool);
@@ -140,6 +149,8 @@ public:
 
     WEBCORE_EXPORT TrackingType eventTrackingTypeForPoint(const AtomString& eventName, IntPoint);
 
+    virtual WheelEventTestMonitor* wheelEventTestMonitor() { return nullptr; }
+
 #if PLATFORM(MAC)
     virtual void handleWheelEventPhase(ScrollingNodeID, PlatformWheelEventPhase) = 0;
     virtual void setActiveScrollSnapIndices(ScrollingNodeID, unsigned /*horizontalIndex*/, unsigned /*verticalIndex*/) { }
@@ -169,9 +180,6 @@ public:
     WEBCORE_EXPORT ScrollPinningBehavior scrollPinningBehavior();
 
     WEBCORE_EXPORT bool willWheelEventStartSwipeGesture(const PlatformWheelEvent&);
-
-    WEBCORE_EXPORT void setScrollingPerformanceLoggingEnabled(bool flag);
-    bool scrollingPerformanceLoggingEnabled();
 
     ScrollingTreeFrameScrollingNode* rootNode() const { return m_rootNode.get(); }
     Optional<ScrollingNodeID> latchedNodeID() const;
@@ -203,6 +211,9 @@ public:
     virtual void lockLayersForHitTesting() { }
     virtual void unlockLayersForHitTesting() { }
 
+    virtual void willSendEventToMainThread(const PlatformWheelEvent&) { }
+    virtual void waitForEventToBeProcessedByMainThread(const PlatformWheelEvent&) { };
+
     Lock& treeMutex() { return m_treeMutex; }
 
     void windowScreenDidChange(PlatformDisplayID, Optional<unsigned> nominalFramesPerSecond);
@@ -211,11 +222,35 @@ public:
     bool hasProcessedWheelEventsRecently();
     WEBCORE_EXPORT void willProcessWheelEvent();
 
+    struct ScrollUpdate {
+        ScrollingNodeID nodeID { 0 };
+        FloatPoint scrollPosition;
+        Optional<FloatPoint> layoutViewportOrigin;
+        ScrollingLayerPositionAction updateLayerPositionAction { ScrollingLayerPositionAction::Sync };
+        
+        bool canMerge(const ScrollUpdate& other) const
+        {
+            return nodeID == other.nodeID && updateLayerPositionAction == other.updateLayerPositionAction;
+        }
+        
+        void merge(ScrollUpdate&& other)
+        {
+            scrollPosition = other.scrollPosition;
+            layoutViewportOrigin = other.layoutViewportOrigin;
+        }
+    };
+
+    void addPendingScrollUpdate(ScrollUpdate&&);
+    Vector<ScrollUpdate> takePendingScrollUpdates();
+
 protected:
-    WheelEventHandlingResult handleWheelEventWithNode(const PlatformWheelEvent&, ScrollingTreeNode*);
+    WheelEventHandlingResult handleWheelEventWithNode(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>, ScrollingTreeNode*, EventTargeting = EventTargeting::Propagate);
 
     FloatPoint mainFrameScrollPosition() const;
     void setMainFrameScrollPosition(FloatPoint);
+
+    void setGestureState(Optional<WheelScrollGestureState>);
+    Optional<WheelScrollGestureState> gestureState();
 
     Optional<unsigned> nominalFramesPerSecond();
 
@@ -257,6 +292,7 @@ private:
         FloatPoint mainFrameScrollPosition;
         PlatformDisplayID displayID { 0 };
         Optional<unsigned> nominalFramesPerSecond;
+        Optional<WheelScrollGestureState> gestureState;
         HashSet<ScrollingNodeID> nodesWithActiveRubberBanding;
         HashSet<ScrollingNodeID> nodesWithActiveScrollSnap;
         HashSet<ScrollingNodeID> nodesWithActiveUserScrolls;
@@ -279,6 +315,9 @@ private:
     Lock m_swipeStateMutex;
     SwipeState m_swipeState;
 
+    Lock m_pendingScrollUpdatesLock;
+    Vector<ScrollUpdate> m_pendingScrollUpdates;
+
     Lock m_lastWheelEventTimeMutex;
     MonotonicTime m_lastWheelEventTime;
 
@@ -289,8 +328,9 @@ private:
     unsigned m_fixedOrStickyNodeCount { 0 };
     bool m_isHandlingProgrammaticScroll { false };
     bool m_isMonitoringWheelEvents { false };
-    bool m_scrollingPerformanceLoggingEnabled { false };
+    bool m_scrollingPerformanceTestingEnabled { false };
     bool m_asyncFrameOrOverflowScrollingEnabled { false };
+    bool m_wheelEventGesturesBecomeNonBlocking { false };
     bool m_needsApplyLayerPositionsAfterCommit { false };
     bool m_inCommitTreeState { false };
 };

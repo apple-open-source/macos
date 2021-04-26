@@ -32,6 +32,7 @@
 #endif
 #include "ContentData.h"
 #include "CursorList.h"
+#include "DocumentTimeline.h"
 #include "ElementChildIterator.h"
 #include "EventHandler.h"
 #include "FocusController.h"
@@ -42,6 +43,8 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "LayoutIntegrationLineIterator.h"
+#include "LayoutIntegrationRunIterator.h"
 #include "LengthFunctions.h"
 #include "Logging.h"
 #include "Page.h"
@@ -66,6 +69,7 @@
 #include "RenderListMarker.h"
 #endif
 #include "RenderFragmentContainer.h"
+#include "RenderStyle.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
@@ -597,15 +601,22 @@ RenderBlock* RenderElement::containingBlockForFixedPosition() const
 
 RenderBlock* RenderElement::containingBlockForAbsolutePosition() const
 {
-    // A relatively positioned RenderInline forwards its absolute positioned descendants to
-    // its nearest non-anonymous containing block (to avoid having a positioned objects list in all RenderInlines).
-    auto* renderer = isRenderInline() ? const_cast<RenderElement*>(downcast<RenderElement>(this)) : parent();
-    while (renderer && !renderer->canContainAbsolutelyPositionedObjects())
-        renderer = renderer->parent();
+    auto nearestNonAnonymousContainingBlockIncludingSelf = [&] (auto* renderer) {
+        while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
+            renderer = renderer->containingBlock();
+        return downcast<RenderBlock>(renderer);
+    };
+
+    if (is<RenderInline>(*this) && style().position() == PositionType::Relative) {
+        // A relatively positioned RenderInline forwards its absolute positioned descendants to
+        // its nearest non-anonymous containing block (to avoid having positioned objects list in RenderInlines).
+        return nearestNonAnonymousContainingBlockIncludingSelf(parent());
+    }
+    auto* ancestor = parent();
+    while (ancestor && !ancestor->canContainAbsolutelyPositionedObjects())
+        ancestor = ancestor->parent();
     // Make sure we only return non-anonymous RenderBlock as containing block.
-    while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
-        renderer = renderer->containingBlock();
-    return downcast<RenderBlock>(renderer);
+    return nearestNonAnonymousContainingBlockIncludingSelf(ancestor);
 }
 
 static void addLayers(RenderElement& renderer, RenderLayer* parentLayer, RenderElement*& newObject, RenderLayer*& beforeChild)
@@ -910,7 +921,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         // to mark the new containing blocks for layout. The change that can
         // directly affect the containing block of this object is a change to
         // the position style.
-        if (needsLayout() && oldStyle->position() != m_style.position())
+        if (needsLayout() && oldStyle && oldStyle->position() != m_style.position())
             markContainingBlocksForLayout();
 
         if (diff == StyleDifference::Layout)
@@ -1232,7 +1243,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* rep
     // two rectangles (but typically only one).
     const RenderStyle& outlineStyle = outlineStyleForRepaint();
     LayoutUnit outlineWidth { outlineStyle.outlineSize() };
-    LayoutBoxExtent insetShadowExtent = style().getBoxShadowInsetExtent();
+    auto insetShadowExtent = style().boxShadowInsetExtent();
     LayoutUnit width = absoluteValue(newOutlineBox.width() - oldOutlineBox.width());
     if (width) {
         LayoutUnit shadowLeft;
@@ -1401,10 +1412,10 @@ void RenderElement::didRemoveCachedImageClient(CachedImage& cachedImage)
         view().removeRendererWithPausedImageAnimations(*this, cachedImage);
 }
 
-void RenderElement::scheduleTimedRenderingUpdate()
+void RenderElement::scheduleRenderingUpdateForImage(CachedImage&)
 {
     if (auto* page = document().page())
-        page->scheduleTimedRenderingUpdate();
+        page->scheduleRenderingUpdate(RenderingUpdateStep::Images);
 }
 
 bool RenderElement::repaintForPausedImageAnimationsIfNeeded(const IntRect& visibleRect, CachedImage& cachedImage)
@@ -1567,13 +1578,15 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
             return true;
         }
 
-        if (p->node() && p->node() == element() && is<RenderText>(*o) && !downcast<RenderText>(*o).firstTextBox()) {
+        if (p->node() && p->node() == element() && is<RenderText>(*o) && !LayoutIntegration::firstTextRunFor(downcast<RenderText>(*o))) {
             // do nothing - skip unrendered whitespace that is a child or next sibling of the anchor
         } else if (is<RenderText>(*o) || o->isReplaced()) {
             point = FloatPoint();
-            if (is<RenderText>(*o) && downcast<RenderText>(*o).firstTextBox())
-                point.move(downcast<RenderText>(*o).linesBoundingBox().x(), downcast<RenderText>(*o).topOfFirstText());
-            else if (is<RenderBox>(*o))
+            if (is<RenderText>(*o)) {
+                auto& textRenderer = downcast<RenderText>(*o);
+                if (auto run = LayoutIntegration::firstTextRunFor(textRenderer))
+                    point.move(textRenderer.linesBoundingBox().x(), run.line()->top());
+            } else if (is<RenderBox>(*o))
                 point.moveBy(downcast<RenderBox>(*o).location());
             point = o->container()->localToAbsolute(point, UseTransforms, &insideFixed);
             return true;
@@ -1655,6 +1668,11 @@ LayoutRect RenderElement::absoluteAnchorRect(bool* insideFixed) const
     return enclosingLayoutRect(FloatRect(upperLeft, lowerRight.expandedTo(upperLeft) - upperLeft));
 }
 
+LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
+{
+    return absoluteAnchorRect(insideFixed);
+}
+
 const RenderElement* RenderElement::enclosingRendererWithTextDecoration(OptionSet<TextDecoration> textDecoration, bool firstLine) const
 {
     const RenderElement* current = this;
@@ -1695,7 +1713,7 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
     float y2 = rect.maxY();
     float thickness;
     float length;
-    if (side == BSTop || side == BSBottom) {
+    if (side == BoxSide::Top || side == BoxSide::Bottom) {
         thickness = y2 - y1;
         length = x2 - x1;
     } else {
@@ -1741,13 +1759,13 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
             graphicsContext.setShouldAntialias(antialias);
 
             switch (side) {
-            case BSTop:
-            case BSBottom:
+            case BoxSide::Top:
+            case BoxSide::Bottom:
                 drawBorderRect(snapRectToDevicePixels(LayoutRect(x1, y1, length, thirdOfThickness), deviceScaleFactor));
                 drawBorderRect(snapRectToDevicePixels(LayoutRect(x1, y2 - thirdOfThickness, length, thirdOfThickness), deviceScaleFactor));
                 break;
-            case BSLeft:
-            case BSRight:
+            case BoxSide::Left:
+            case BoxSide::Right:
                 drawBorderRect(snapRectToDevicePixels(LayoutRect(x1, y1, thirdOfThickness, length), deviceScaleFactor));
                 drawBorderRect(snapRectToDevicePixels(LayoutRect(x2 - thirdOfThickness, y1, thirdOfThickness, length), deviceScaleFactor));
                 break;
@@ -1769,28 +1787,28 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
 
             FloatRect paintBorderRect;
             switch (side) {
-            case BSTop:
+            case BoxSide::Top:
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1 + mitreOffset1, y1, (x2 - mitreOffset3) - (x1 + mitreOffset1), thirdOfThickness), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
 
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1 + mitreOffset2, y2 - thirdOfThickness, (x2 - mitreOffset4) - (x1 + mitreOffset2), thirdOfThickness), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
                 break;
-            case BSLeft:
+            case BoxSide::Left:
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1, y1 + mitreOffset1, thirdOfThickness, (y2 - mitreOffset3) - (y1 + mitreOffset1)), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
 
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x2 - thirdOfThickness, y1 + mitreOffset2, thirdOfThickness, (y2 - mitreOffset4) - (y1 + mitreOffset2)), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
                 break;
-            case BSBottom:
+            case BoxSide::Bottom:
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1 + mitreOffset2, y1, (x2 - mitreOffset4) - (x1 + mitreOffset2), thirdOfThickness), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
 
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1 + mitreOffset1, y2 - thirdOfThickness, (x2 - mitreOffset3) - (x1 + mitreOffset1), thirdOfThickness), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
                 break;
-            case BSRight:
+            case BoxSide::Right:
                 paintBorderRect = snapRectToDevicePixels(LayoutRect(x1, y1 + mitreOffset2, thirdOfThickness, (y2 - mitreOffset4) - (y1 + mitreOffset2)), deviceScaleFactor);
                 drawLineFor(paintBorderRect, side, BorderStyle::Solid, FloatSize(adjacent1BigThird, adjacent2BigThird));
 
@@ -1826,16 +1844,16 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
         float offset3 = 0;
         float offset4 = 0;
 
-        if (((side == BSTop || side == BSLeft) && adjacentWidth1 < 0) || ((side == BSBottom || side == BSRight) && adjacentWidth1 > 0))
+        if (((side == BoxSide::Top || side == BoxSide::Left) && adjacentWidth1 < 0) || ((side == BoxSide::Bottom || side == BoxSide::Right) && adjacentWidth1 > 0))
             offset1 = floorToDevicePixel(adjacentWidth1 / 2, deviceScaleFactor);
 
-        if (((side == BSTop || side == BSLeft) && adjacentWidth2 < 0) || ((side == BSBottom || side == BSRight) && adjacentWidth2 > 0))
+        if (((side == BoxSide::Top || side == BoxSide::Left) && adjacentWidth2 < 0) || ((side == BoxSide::Bottom || side == BoxSide::Right) && adjacentWidth2 > 0))
             offset2 = ceilToDevicePixel(adjacentWidth2 / 2, deviceScaleFactor);
 
-        if (((side == BSTop || side == BSLeft) && adjacentWidth1 > 0) || ((side == BSBottom || side == BSRight) && adjacentWidth1 < 0))
+        if (((side == BoxSide::Top || side == BoxSide::Left) && adjacentWidth1 > 0) || ((side == BoxSide::Bottom || side == BoxSide::Right) && adjacentWidth1 < 0))
             offset3 = floorToDevicePixel(fabs(adjacentWidth1) / 2, deviceScaleFactor);
 
-        if (((side == BSTop || side == BSLeft) && adjacentWidth2 > 0) || ((side == BSBottom || side == BSRight) && adjacentWidth2 < 0))
+        if (((side == BoxSide::Top || side == BoxSide::Left) && adjacentWidth2 > 0) || ((side == BoxSide::Bottom || side == BoxSide::Right) && adjacentWidth2 < 0))
             offset4 = ceilToDevicePixel(adjacentWidth2 / 2, deviceScaleFactor);
 
         float adjustedX = ceilToDevicePixel((x1 + x2) / 2, deviceScaleFactor);
@@ -1847,19 +1865,19 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
         y2 = roundToDevicePixel(y2, deviceScaleFactor);
 
         switch (side) {
-        case BSTop:
+        case BoxSide::Top:
             drawLineFor(FloatRect(FloatPoint(x1 + offset1, y1), FloatPoint(x2 - offset2, adjustedY)), side, s1, FloatSize(adjacent1BigHalf, adjacent2BigHalf));
             drawLineFor(FloatRect(FloatPoint(x1 + offset3, adjustedY), FloatPoint(x2 - offset4, y2)), side, s2, FloatSize(adjacent1SmallHalf, adjacent2SmallHalf));
             break;
-        case BSLeft:
+        case BoxSide::Left:
             drawLineFor(FloatRect(FloatPoint(x1, y1 + offset1), FloatPoint(adjustedX, y2 - offset2)), side, s1, FloatSize(adjacent1BigHalf, adjacent2BigHalf));
             drawLineFor(FloatRect(FloatPoint(adjustedX, y1 + offset3), FloatPoint(x2, y2 - offset4)), side, s2, FloatSize(adjacent1SmallHalf, adjacent2SmallHalf));
             break;
-        case BSBottom:
+        case BoxSide::Bottom:
             drawLineFor(FloatRect(FloatPoint(x1 + offset1, y1), FloatPoint(x2 - offset2, adjustedY)), side, s2, FloatSize(adjacent1BigHalf, adjacent2BigHalf));
             drawLineFor(FloatRect(FloatPoint(x1 + offset3, adjustedY), FloatPoint(x2 - offset4, y2)), side, s1, FloatSize(adjacent1SmallHalf, adjacent2SmallHalf));
             break;
-        case BSRight:
+        case BoxSide::Right:
             drawLineFor(FloatRect(FloatPoint(x1, y1 + offset1), FloatPoint(adjustedX, y2 - offset2)), side, s2, FloatSize(adjacent1BigHalf, adjacent2BigHalf));
             drawLineFor(FloatRect(FloatPoint(adjustedX, y1 + offset3), FloatPoint(x2, y2 - offset4)), side, s1, FloatSize(adjacent1SmallHalf, adjacent2SmallHalf));
             break;
@@ -1894,25 +1912,25 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
         Vector<FloatPoint> quad;
         quad.reserveInitialCapacity(4);
         switch (side) {
-        case BSTop:
+        case BoxSide::Top:
             quad.uncheckedAppend({ x1 + std::max<float>(-adjacentWidth1, 0), y1 });
             quad.uncheckedAppend({ x1 + std::max<float>( adjacentWidth1, 0), y2 });
             quad.uncheckedAppend({ x2 - std::max<float>( adjacentWidth2, 0), y2 });
             quad.uncheckedAppend({ x2 - std::max<float>(-adjacentWidth2, 0), y1 });
             break;
-        case BSBottom:
+        case BoxSide::Bottom:
             quad.uncheckedAppend({ x1 + std::max<float>( adjacentWidth1, 0), y1 });
             quad.uncheckedAppend({ x1 + std::max<float>(-adjacentWidth1, 0), y2 });
             quad.uncheckedAppend({ x2 - std::max<float>(-adjacentWidth2, 0), y2 });
             quad.uncheckedAppend({ x2 - std::max<float>( adjacentWidth2, 0), y1 });
             break;
-        case BSLeft:
+        case BoxSide::Left:
             quad.uncheckedAppend({ x1, y1 + std::max<float>(-adjacentWidth1, 0) });
             quad.uncheckedAppend({ x1, y2 - std::max<float>(-adjacentWidth2, 0) });
             quad.uncheckedAppend({ x2, y2 - std::max<float>( adjacentWidth2, 0) });
             quad.uncheckedAppend({ x2, y1 + std::max<float>( adjacentWidth1, 0) });
             break;
-        case BSRight:
+        case BoxSide::Right:
             quad.uncheckedAppend({ x1, y1 + std::max<float>( adjacentWidth1, 0) });
             quad.uncheckedAppend({ x1, y2 - std::max<float>( adjacentWidth2, 0) });
             quad.uncheckedAppend({ x2, y2 - std::max<float>(-adjacentWidth2, 0) });
@@ -2076,10 +2094,10 @@ void RenderElement::paintOutline(PaintInfo& paintInfo, const LayoutRect& paintRe
     float bottomOuter = outer.maxY();
     float bottomInner = std::min(inner.maxY(), bottomOuter);
 
-    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, topOuter), FloatPoint(leftInner, bottomOuter)), BSLeft, outlineColor, outlineStyle, outlineWidth, outlineWidth);
-    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, topOuter), FloatPoint(rightOuter, topInner)), BSTop, outlineColor, outlineStyle, outlineWidth, outlineWidth);
-    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(rightInner, topOuter), FloatPoint(rightOuter, bottomOuter)), BSRight, outlineColor, outlineStyle, outlineWidth, outlineWidth);
-    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, bottomInner), FloatPoint(rightOuter, bottomOuter)), BSBottom, outlineColor, outlineStyle, outlineWidth, outlineWidth);
+    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, topOuter), FloatPoint(leftInner, bottomOuter)), BoxSide::Left, outlineColor, outlineStyle, outlineWidth, outlineWidth);
+    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, topOuter), FloatPoint(rightOuter, topInner)), BoxSide::Top, outlineColor, outlineStyle, outlineWidth, outlineWidth);
+    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(rightInner, topOuter), FloatPoint(rightOuter, bottomOuter)), BoxSide::Right, outlineColor, outlineStyle, outlineWidth, outlineWidth);
+    drawLineForBoxSide(graphicsContext, FloatRect(FloatPoint(leftOuter, bottomInner), FloatPoint(rightOuter, bottomOuter)), BoxSide::Bottom, outlineColor, outlineStyle, outlineWidth, outlineWidth);
 
     if (useTransparencyLayer)
         graphicsContext.endTransparencyLayer();
@@ -2138,7 +2156,8 @@ bool RenderElement::checkForRepaintDuringLayout() const
 
 ImageOrientation RenderElement::imageOrientation() const
 {
-    return style().imageOrientation();
+    auto* imageElement = is<HTMLImageElement>(element()) ? downcast<HTMLImageElement>(element()) : nullptr;
+    return (imageElement && !imageElement->allowsOrientationOverride()) ? ImageOrientation(ImageOrientation::FromImage) : style().imageOrientation();
 }
 
 void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded()
@@ -2289,5 +2308,18 @@ void RenderElement::resetTextAutosizing()
     }
 }
 #endif // ENABLE(TEXT_AUTOSIZING)
+
+std::unique_ptr<RenderStyle> RenderElement::animatedStyle()
+{
+    std::unique_ptr<RenderStyle> result;
+
+    if (auto* timeline = documentTimeline())
+        result = timeline->animatedStyleForRenderer(*this);
+
+    if (!result)
+        result = RenderStyle::clonePtr(style());
+
+    return result;
+}
 
 }

@@ -112,6 +112,7 @@ static void test_engine_views(void) {
     SOSTestDeviceListSync(name, test_directive, test_reason, testDevices, pre, post);
     SOSTestDeviceListInSync(name, test_directive, test_reason, testDevices);
     SOSTestDeviceDestroyEngine(testDevices);
+    SOSTestDeviceForceCloseDatabases(testDevices);
     CFReleaseNull(testDevices);
 
     CFReleaseNull(views);
@@ -126,6 +127,7 @@ int secd_75_engine_views(int argc, char *const *argv)
     plan_tests(kTestTestCount);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     test_engine_views();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

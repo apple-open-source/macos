@@ -28,57 +28,74 @@
 #if ENABLE(WEB_AUDIO)
 
 #include "AudioDestination.h"
+#include "AudioOutputUnitAdaptor.h"
 #include <AudioUnit/AudioUnit.h>
 #include <wtf/RefPtr.h>
+#include <wtf/UniqueRef.h>
 
 namespace WebCore {
 
 class AudioBus;
+class MultiChannelResampler;
+class PushPullFIFO;
 
-using CreateAudioDestinationCocoaOverride = std::unique_ptr<AudioDestination>(*)(AudioIOCallback&, float sampleRate);
+using CreateAudioDestinationCocoaOverride = Ref<AudioDestination>(*)(AudioIOCallback&, float sampleRate);
 
 // An AudioDestination using CoreAudio's default output AudioUnit
-class AudioDestinationCocoa : public AudioDestination {
+class AudioDestinationCocoa : public AudioDestination, public AudioUnitRenderer {
 public:
-    AudioDestinationCocoa(AudioIOCallback&, float sampleRate);
-    virtual ~AudioDestinationCocoa();
+    WEBCORE_EXPORT AudioDestinationCocoa(AudioIOCallback&, unsigned numberOfOutputChannels, float sampleRate, bool configureAudioOutputUnit = true);
+    WEBCORE_EXPORT virtual ~AudioDestinationCocoa();
 
     WEBCORE_EXPORT static CreateAudioDestinationCocoaOverride createOverride;
 
 protected:
-    void setIsPlaying(bool);
+    WEBCORE_EXPORT bool hasEnoughFrames(UInt32 numberOfFrames) const;
+    WEBCORE_EXPORT OSStatus render(double sampleTime, uint64_t hostTime, UInt32 numberOfFrames, AudioBufferList* ioData) final;
 
+    WEBCORE_EXPORT void setIsPlaying(bool);
     bool isPlaying() final { return m_isPlaying; }
-    float sampleRate() const final { return m_sampleRate; }
-    unsigned framesPerBuffer() const final;
-    AudioUnit& outputUnit() { return m_outputUnit; }
-    
-    // DefaultOutputUnit callback
-    static OSStatus inputProc(void* userData, AudioUnitRenderActionFlags*, const AudioTimeStamp*, UInt32 busNumber, UInt32 numberOfFrames, AudioBufferList* ioData);
+    float sampleRate() const final { return m_contextSampleRate; }
+    WEBCORE_EXPORT unsigned framesPerBuffer() const final;
 
-    void setAudioStreamBasicDescription(AudioStreamBasicDescription&, float sampleRate);
+    WEBCORE_EXPORT unsigned numberOfOutputChannels() const;
+
+    WEBCORE_EXPORT void getAudioStreamBasicDescription(AudioStreamBasicDescription&);
 
 private:
-    void start() override;
-    void stop() override;
+    friend Ref<AudioDestination> AudioDestination::create(AudioIOCallback&, const String&, unsigned, unsigned, float);
 
-    friend std::unique_ptr<AudioDestination> AudioDestination::create(AudioIOCallback&, const String&, unsigned, unsigned, float);
-    
-    void configure();
-    void processBusAfterRender(AudioBus&, UInt32 numberOfFrames);
+    WEBCORE_EXPORT void start(Function<void(Function<void()>&&)>&& dispatchToRenderThread, CompletionHandler<void(bool)>&&) final;
+    WEBCORE_EXPORT void stop(CompletionHandler<void(bool)>&&) final;
 
-    OSStatus render(const AudioTimeStamp*, UInt32 numberOfFrames, AudioBufferList* ioData);
+    virtual void startRendering(CompletionHandler<void(bool)>&&);
+    virtual void stopRendering(CompletionHandler<void(bool)>&&);
 
-    AudioUnit m_outputUnit;
-    AudioIOCallback& m_callback;
+    void renderOnRenderingThead(size_t framesToRender);
+
+    AudioOutputUnitAdaptor m_audioOutputUnitAdaptor;
+
+    // To pass the data from FIFO to the audio device callback.
+    Ref<AudioBus> m_outputBus;
+
+    // To push the rendered result from WebAudio graph into the FIFO.
     Ref<AudioBus> m_renderBus;
-    Ref<AudioBus> m_spareBus;
 
-    float m_sampleRate;
+    // Resolves the buffer size mismatch between the WebAudio engine and
+    // the callback function from the actual audio device.
+    UniqueRef<PushPullFIFO> m_fifo;
+    Lock m_fifoLock;
+
+    std::unique_ptr<MultiChannelResampler> m_resampler;
+    AudioIOPosition m_outputTimestamp;
+
+    Lock m_dispatchToRenderThreadLock;
+    Function<void(Function<void()>&&)> m_dispatchToRenderThread;
+
+    float m_contextSampleRate;
+
+    Lock m_isPlayingLock;
     bool m_isPlaying { false };
-
-    unsigned m_startSpareFrame { 0 };
-    unsigned m_endSpareFrame { 0 };
 };
 
 } // namespace WebCore

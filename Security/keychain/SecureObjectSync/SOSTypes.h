@@ -134,6 +134,8 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void)rpcTriggerBackup:(NSArray<NSString *>*)backupPeers complete:(void (^)(NSError *error))complete;
 - (void)rpcTriggerRingUpdate:(void (^)(NSError *error))complete;
 
+- (void)removeV0Peers:(void(^)(bool removedV0Peer, NSError *error))reply;
+
 @end
 #endif
 

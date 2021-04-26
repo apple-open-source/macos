@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NativeWebMouseEvent_h
-#define NativeWebMouseEvent_h
+#pragma once
 
-#include "WebEvent.h"
+#include "WebMouseEvent.h"
+#include <WebCore/PointerID.h>
 
 #if USE(APPKIT)
 #include <wtf/RetainPtr.h>
@@ -66,7 +66,7 @@ public:
     NativeWebMouseEvent(const NativeWebMouseEvent&);
     NativeWebMouseEvent(GdkEvent*, int, Optional<WebCore::FloatSize>);
     NativeWebMouseEvent(GdkEvent*, const WebCore::IntPoint&, int, Optional<WebCore::FloatSize>);
-    NativeWebMouseEvent(Type, Button, unsigned short buttons, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, int clickCount, OptionSet<Modifier> modifiers, Optional<WebCore::FloatSize>);
+    NativeWebMouseEvent(Type, Button, unsigned short buttons, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, int clickCount, OptionSet<Modifier> modifiers, Optional<WebCore::FloatSize>, WebCore::PointerID, const String& pointerType);
     explicit NativeWebMouseEvent(const WebCore::IntPoint&);
 #elif PLATFORM(IOS_FAMILY)
     NativeWebMouseEvent(::WebEvent *);
@@ -102,5 +102,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // NativeWebMouseEvent_h

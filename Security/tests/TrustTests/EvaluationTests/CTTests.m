@@ -599,7 +599,7 @@ errOut:
     ok(SecTrustStoreSetCTExceptions(TrustTestsAppID, (__bridge CFDictionaryRef)empty, &error),
        "failed to set empty exceptions");
 
-    /* Copy exceptiosn to ensure no change */
+    /* Copy exceptions to ensure no change */
     ok(copiedExceptions = SecTrustStoreCopyCTExceptions(TrustTestsAppID, &error),
        "failed to copy TrustTests' exceptions: %@", error);
     ok([exceptions2 isEqualToDictionary:(__bridge NSDictionary*)copiedExceptions],
@@ -631,6 +631,7 @@ errOut:
 #define check_errSecParam \
 if (error) { \
 is(CFErrorGetCode(error), errSecParam, "bad input produced unxpected error code: %ld", (long)CFErrorGetCode(error)); \
+CFReleaseNull(error); \
 } else { \
 fail("expected failure to set NULL exceptions"); \
 }

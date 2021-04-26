@@ -42,6 +42,8 @@ WI.DatabaseManager = class DatabaseManager extends WI.Object
 
     activateExtraDomain(domain)
     {
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
+
         console.assert(domain === "Database");
 
         for (let target of WI.targets)
@@ -88,7 +90,7 @@ WI.DatabaseManager = class DatabaseManager extends WI.Object
                 target.DatabaseAgent.disable();
         }
 
-        WI.Frame.removeEventListener(null, null, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
 
         this._reset();
     }

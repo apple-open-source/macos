@@ -135,7 +135,7 @@ void InlineFlowBox::addToLine(InlineBox* child)
                 shouldClearDescendantsHaveSameLineHeightAndBaseline = true;
         } else {
             if (child->renderer().isLineBreak()) {
-                // FIXME: This is dumb. We only turn off because current layout test results expect the <br> to be 0-height on the baseline.
+                // FIXME: This isn't ideal. We only turn off because current layout test results expect the <br> to be 0-height on the baseline.
                 // Other than making a zillion tests have to regenerate results, there's no reason to ditch the optimization here.
                 shouldClearDescendantsHaveSameLineHeightAndBaseline = child->renderer().isBR();
             } else {
@@ -175,6 +175,9 @@ void InlineFlowBox::addToLine(InlineBox* child)
             child->clearKnownToHaveNoOverflow();
         else if (childStyle.hasOutlineInVisualOverflow())
             child->clearKnownToHaveNoOverflow();
+
+        if (lineStyle().hasOutlineInVisualOverflow())
+            clearKnownToHaveNoOverflow();
         
         if (knownToHaveNoOverflow() && is<InlineFlowBox>(*child) && !downcast<InlineFlowBox>(*child).knownToHaveNoOverflow())
             clearKnownToHaveNoOverflow();
@@ -486,9 +489,12 @@ bool InlineFlowBox::requiresIdeographicBaseline(const GlyphOverflowAndFallbackFo
 
 static bool verticalAlignApplies(const RenderObject& renderer)
 {
-    // http://www.w3.org/TR/CSS2/visudet.html#propdef-vertical-align - vertical-align
-    // only applies to inline level and table-cell elements
-    return !renderer.isText() || renderer.parent()->isInline() || renderer.parent()->isTableCell();
+    // http://www.w3.org/TR/CSS2/visudet.html#propdef-vertical-align - vertical-align only applies to inline level and table-cell elements.
+    // FIXME: Ideally we would only align inline level boxes which means that text inside an inline box would just sit on the box itself.
+    if (!renderer.isText())
+        return true;
+    auto& parentRenderer = *renderer.parent();
+    return (parentRenderer.isInline() && parentRenderer.style().display() != DisplayType::InlineBlock) || parentRenderer.isTableCell();
 }
 
 void InlineFlowBox::adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent, int maxPositionTop, int maxPositionBottom)
@@ -563,6 +569,7 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
     if (!checkChildren)
         return;
 
+    InlineBox* maxAscentInlineBox = nullptr;
     for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
         if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
@@ -596,11 +603,12 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
             // means is that ascent and descent (including leading), can end up being negative.  The setMaxAscent and
             // setMaxDescent booleans are used to ensure that we're willing to initially set maxAscent/Descent to negative
             // values.
-            ascent -= child->logicalTop();
+            ascent -= floorf(child->logicalTop());
             descent += child->logicalTop();
             if (affectsAscent && (maxAscent < ascent || !setMaxAscent)) {
                 maxAscent = ascent;
                 setMaxAscent = true;
+                maxAscentInlineBox = child;
             }
 
             if (affectsDescent && (maxDescent < descent || !setMaxDescent)) {
@@ -609,10 +617,17 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
             }
         }
 
-        if (inlineFlowBox)
+        if (inlineFlowBox) {
             inlineFlowBox->computeLogicalBoxHeights(rootBox, maxPositionTop, maxPositionBottom, maxAscent, maxDescent,
-                                                    setMaxAscent, setMaxDescent, strictMode, textBoxDataMap,
-                                                    baselineType, verticalPositionCache);
+                setMaxAscent, setMaxDescent, strictMode, textBoxDataMap, baselineType, verticalPositionCache);
+        }
+    }
+    if (maxAscentInlineBox) {
+        // When the inline box stretches the ascent, we floor the logical top value to make sure the inline box does not
+        // stick out of block container at the top (see above).
+        // In such cases the logical top also needs to be adjusted to match this stretched ascent geometry.
+        // (not doing so will result a subpixel logical top offset while it should be flushed with the top edge)
+        maxAscentInlineBox->setLogicalTop(floorf(maxAscentInlineBox->logicalTop()));
     }
 }
 

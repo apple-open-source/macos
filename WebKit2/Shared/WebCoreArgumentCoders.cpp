@@ -39,6 +39,7 @@
 #include <WebCore/CompositionUnderline.h>
 #include <WebCore/Credential.h>
 #include <WebCore/Cursor.h>
+#include <WebCore/DOMCacheEngine.h>
 #include <WebCore/DatabaseDetails.h>
 #include <WebCore/DictationAlternative.h>
 #include <WebCore/DictionaryPopupInfo.h>
@@ -60,7 +61,6 @@
 #include <WebCore/Length.h>
 #include <WebCore/LengthBox.h>
 #include <WebCore/MediaSelectionOption.h>
-#include <WebCore/NativeImage.h>
 #include <WebCore/Pasteboard.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/PromisedAttachmentInfo.h>
@@ -100,17 +100,12 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/FloatQuad.h>
-#include <WebCore/InspectorOverlay.h>
 #include <WebCore/SelectionRect.h>
 #include <WebCore/SharedBuffer.h>
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include <WebCore/MediaPlaybackTargetContext.h>
-#endif
-
-#if ENABLE(MEDIA_SESSION)
-#include <WebCore/MediaSessionMetadata.h>
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -172,6 +167,9 @@ static WARN_UNUSED_RETURN bool decodeSharedBuffer(Decoder& decoder, RefPtr<Share
 
     auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
+        return false;
+
+    if (sharedMemoryBuffer->size() < bufferSize)
         return false;
 
     buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), bufferSize);
@@ -1104,145 +1102,50 @@ bool ArgumentCoder<ImageHandle>::decode(Decoder& decoder, ImageHandle& imageHand
     return true;
 }
 
-static void encodeNativeImage(Encoder& encoder, NativeImagePtr image)
+void ArgumentCoder<Ref<Font>>::encode(Encoder& encoder, const Ref<WebCore::Font>& font)
 {
-    auto imageSize = nativeImageSize(image);
-    auto bitmap = ShareableBitmap::createShareable(imageSize, { });
-    auto graphicsContext = bitmap->createGraphicsContext();
-    encoder << !!graphicsContext;
-    if (!graphicsContext)
-        return;
+    encoder << font->origin();
+    encoder << (font->isInterstitial() ? Font::Interstitial::Yes : Font::Interstitial::No);
+    encoder << font->visibility();
+    encoder << (font->isTextOrientationFallback() ? Font::OrientationFallback::Yes : Font::OrientationFallback::No);
+    encoder << font->renderingResourceIdentifier();
+    // Intentionally don't encode m_isBrokenIdeographFallback because it doesn't affect drawGlyphs().
 
-    graphicsContext->drawNativeImage(image, imageSize, FloatRect({ }, imageSize), FloatRect({ }, imageSize));
-
-    ShareableBitmap::Handle handle;
-    bitmap->createHandle(handle);
-
-    encoder << handle;
+    encodePlatformData(encoder, font);
 }
 
-static WARN_UNUSED_RETURN bool decodeNativeImage(Decoder& decoder, NativeImagePtr& nativeImage)
+Optional<Ref<Font>> ArgumentCoder<Ref<Font>>::decode(Decoder& decoder)
 {
-    Optional<bool> didCreateGraphicsContext;
-    decoder >> didCreateGraphicsContext;
-    if (!didCreateGraphicsContext.hasValue() || !didCreateGraphicsContext.value())
-        return false;
+    Optional<Font::Origin> origin;
+    decoder >> origin;
+    if (!origin.hasValue())
+        return WTF::nullopt;
 
-    ShareableBitmap::Handle handle;
-    if (!decoder.decode(handle))
-        return false;
+    Optional<Font::Interstitial> isInterstitial;
+    decoder >> isInterstitial;
+    if (!isInterstitial.hasValue())
+        return WTF::nullopt;
 
-    auto bitmap = ShareableBitmap::create(handle);
-    if (!bitmap)
-        return false;
+    Optional<Font::Visibility> visibility;
+    decoder >> visibility;
+    if (!visibility.hasValue())
+        return WTF::nullopt;
 
-    auto image = bitmap->createImage();
-    if (!image)
-        return false;
+    Optional<Font::OrientationFallback> isTextOrientationFallback;
+    decoder >> isTextOrientationFallback;
+    if (!isTextOrientationFallback.hasValue())
+        return WTF::nullopt;
 
-    nativeImage = image->nativeImage();
-    if (!nativeImage)
-        return false;
+    Optional<RenderingResourceIdentifier> renderingRersouceIdentifier;
+    decoder >> renderingRersouceIdentifier;
+    if (!renderingRersouceIdentifier.hasValue())
+        return WTF::nullopt;
 
-    return true;
-}
+    auto platformData = decodePlatformData(decoder);
+    if (!platformData.hasValue())
+        return WTF::nullopt;
 
-static void encodeOptionalNativeImage(Encoder& encoder, NativeImagePtr image)
-{
-    bool hasImage = !!image;
-    encoder << hasImage;
-
-    if (hasImage)
-        encodeNativeImage(encoder, image);
-}
-
-static WARN_UNUSED_RETURN bool decodeOptionalNativeImage(Decoder& decoder, NativeImagePtr& image)
-{
-    image = nullptr;
-
-    bool hasImage;
-    if (!decoder.decode(hasImage))
-        return false;
-
-    if (!hasImage)
-        return true;
-
-    return decodeNativeImage(decoder, image);
-}
-
-void ArgumentCoder<NativeImageHandle>::encode(Encoder& encoder, const NativeImageHandle& imageHandle)
-{
-    encodeOptionalNativeImage(encoder, imageHandle.image.get());
-}
-
-bool ArgumentCoder<NativeImageHandle>::decode(Decoder& decoder, NativeImageHandle& imageHandle)
-{
-    return decodeOptionalNativeImage(decoder, imageHandle.image);
-}
-
-void ArgumentCoder<FontHandle>::encode(Encoder& encoder, const FontHandle& handle)
-{
-    encoder << !!handle.font;
-    if (!handle.font)
-        return;
-
-    auto* fontFaceData = handle.font->fontFaceData();
-    encoder << !!fontFaceData;
-    if (fontFaceData) {
-        encodeSharedBuffer(encoder, fontFaceData);
-        auto& data = handle.font->platformData();
-        encoder << data.size();
-        encoder << data.syntheticBold();
-        encoder << data.syntheticOblique();
-    }
-
-    encodePlatformData(encoder, handle);
-}
-
-bool ArgumentCoder<FontHandle>::decode(Decoder& decoder, FontHandle& handle)
-{
-    Optional<bool> hasFont;
-    decoder >> hasFont;
-    if (!hasFont.hasValue())
-        return false;
-
-    if (!hasFont.value())
-        return true;
-
-    Optional<bool> hasFontFaceData;
-    decoder >> hasFontFaceData;
-    if (!hasFontFaceData.hasValue())
-        return false;
-
-    if (hasFontFaceData.value()) {
-        RefPtr<SharedBuffer> fontFaceData;
-        if (!decodeSharedBuffer(decoder, fontFaceData))
-            return false;
-
-        if (!fontFaceData)
-            return false;
-
-        Optional<float> fontSize;
-        decoder >> fontSize;
-        if (!fontSize)
-            return false;
-
-        Optional<bool> syntheticBold;
-        decoder >> syntheticBold;
-        if (!syntheticBold)
-            return false;
-
-        Optional<bool> syntheticItalic;
-        decoder >> syntheticItalic;
-        if (!syntheticItalic)
-            return false;
-
-        FontDescription description;
-        description.setComputedSize(*fontSize);
-        handle = { fontFaceData.releaseNonNull(), Font::Origin::Remote, *fontSize, *syntheticBold, *syntheticItalic };
-    }
-
-    return decodePlatformData(decoder, handle);
+    return Font::create(platformData.value(), origin.value(), isInterstitial.value(), visibility.value(), isTextOrientationFallback.value(), renderingRersouceIdentifier);
 }
 
 void ArgumentCoder<Cursor>::encode(Encoder& encoder, const Cursor& cursor)
@@ -1752,7 +1655,7 @@ bool ArgumentCoder<PasteboardURL>::decode(Decoder& decoder, PasteboardURL& conte
 
 #if PLATFORM(IOS_FAMILY)
 
-void ArgumentCoder<Highlight>::encode(Encoder& encoder, const Highlight& highlight)
+void ArgumentCoder<InspectorOverlay::Highlight>::encode(Encoder& encoder, const InspectorOverlay::Highlight& highlight)
 {
     encoder << static_cast<uint32_t>(highlight.type);
     encoder << highlight.usePageCoordinates;
@@ -1764,12 +1667,12 @@ void ArgumentCoder<Highlight>::encode(Encoder& encoder, const Highlight& highlig
     encoder << highlight.quads;
 }
 
-bool ArgumentCoder<Highlight>::decode(Decoder& decoder, Highlight& highlight)
+bool ArgumentCoder<InspectorOverlay::Highlight>::decode(Decoder& decoder, InspectorOverlay::Highlight& highlight)
 {
     uint32_t type;
     if (!decoder.decode(type))
         return false;
-    highlight.type = (HighlightType)type;
+    highlight.type = (InspectorOverlay::Highlight::Type)type;
 
     if (!decoder.decode(highlight.usePageCoordinates))
         return false;
@@ -2117,32 +2020,6 @@ bool ArgumentCoder<UserStyleSheet>::decode(Decoder& decoder, UserStyleSheet& use
     return true;
 }
 
-#if ENABLE(MEDIA_SESSION)
-void ArgumentCoder<MediaSessionMetadata>::encode(Encoder& encoder, const MediaSessionMetadata& result)
-{
-    encoder << result.artist();
-    encoder << result.album();
-    encoder << result.title();
-    encoder << result.artworkURL();
-}
-
-bool ArgumentCoder<MediaSessionMetadata>::decode(Decoder& decoder, MediaSessionMetadata& result)
-{
-    String artist, album, title;
-    URL artworkURL;
-    if (!decoder.decode(artist))
-        return false;
-    if (!decoder.decode(album))
-        return false;
-    if (!decoder.decode(title))
-        return false;
-    if (!decoder.decode(artworkURL))
-        return false;
-    result = MediaSessionMetadata(title, artist, album, artworkURL);
-    return true;
-}
-#endif
-
 void ArgumentCoder<ScrollableAreaParameters>::encode(Encoder& encoder, const ScrollableAreaParameters& parameters)
 {
     encoder << parameters.horizontalScrollElasticity;
@@ -2151,8 +2028,8 @@ void ArgumentCoder<ScrollableAreaParameters>::encode(Encoder& encoder, const Scr
     encoder << parameters.horizontalScrollbarMode;
     encoder << parameters.verticalScrollbarMode;
 
-    encoder << parameters.hasEnabledHorizontalScrollbar;
-    encoder << parameters.hasEnabledVerticalScrollbar;
+    encoder << parameters.allowsHorizontalScrolling;
+    encoder << parameters.allowsVerticalScrolling;
 
     encoder << parameters.horizontalScrollbarHiddenByStyle;
     encoder << parameters.verticalScrollbarHiddenByStyle;
@@ -2172,9 +2049,9 @@ bool ArgumentCoder<ScrollableAreaParameters>::decode(Decoder& decoder, Scrollabl
     if (!decoder.decode(params.verticalScrollbarMode))
         return false;
 
-    if (!decoder.decode(params.hasEnabledHorizontalScrollbar))
+    if (!decoder.decode(params.allowsHorizontalScrolling))
         return false;
-    if (!decoder.decode(params.hasEnabledVerticalScrollbar))
+    if (!decoder.decode(params.allowsVerticalScrolling))
         return false;
 
     if (!decoder.decode(params.horizontalScrollbarHiddenByStyle))
@@ -3243,28 +3120,30 @@ Optional<WebCore::CDMInstanceSession::KeyStatusVector> ArgumentCoder<WebCore::CD
 
 void ArgumentCoder<Ref<WebCore::ImageData>>::encode(Encoder& encoder, const Ref<WebCore::ImageData>& imageData)
 {
-    // FIXME: Copying from the ImageData to the SharedBuffer is slow. Invent some way for the SharedBuffer to be populated directly.
-    auto sharedBuffer = WebCore::SharedBuffer::create(imageData->data()->data(), imageData->data()->byteLength());
     encoder << imageData->size();
-    encoder << sharedBuffer;
+
+    auto rawData = imageData->data();
+    encoder << static_cast<uint64_t>(rawData->byteLength());
+    encoder.encodeFixedLengthData(rawData->data(), rawData->byteLength(), 1);
 }
 
 Optional<Ref<WebCore::ImageData>> ArgumentCoder<Ref<WebCore::ImageData>>::decode(Decoder& decoder)
 {
     Optional<IntSize> imageDataSize;
-    Optional<Ref<SharedBuffer>> data;
-
     decoder >> imageDataSize;
     if (!imageDataSize)
         return WTF::nullopt;
 
-    decoder >> data;
-    if (!data)
+    Optional<uint64_t> dataLength;
+    decoder >> dataLength;
+    if (!dataLength)
         return WTF::nullopt;
 
-    // FIXME: Copying from the SharedBuffer into the ImageData is slow. Invent some way for the ImageData to simply just retain the SharedBuffer, and use it internally.
-    // Alternatively, we could create an overload for putImageData() which operates on the SharedBuffer directly.
-    auto imageData = ImageData::create(*imageDataSize, Uint8ClampedArray::create(reinterpret_cast<const uint8_t*>((*data)->data()), (*data)->size()));
+    auto rawData = Uint8ClampedArray::createUninitialized(*dataLength);
+    if (!decoder.decodeFixedLengthData(rawData->data(), rawData->length(), 1))
+        return WTF::nullopt;
+
+    auto imageData = ImageData::create(*imageDataSize, WTFMove(rawData));
     if (!imageData)
         return WTF::nullopt;
 
@@ -3296,5 +3175,83 @@ Optional<RefPtr<WebCore::ImageData>> ArgumentCoder<RefPtr<WebCore::ImageData>>::
         return WTF::nullopt;
     return { WTFMove(*result) };
 }
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+void ArgumentCoder<WebCore::GraphicsContextGLAttributes>::encode(Encoder& encoder, const WebCore::GraphicsContextGLAttributes& attributes)
+{
+    encoder << attributes.alpha;
+    encoder << attributes.depth;
+    encoder << attributes.stencil;
+    encoder << attributes.antialias;
+    encoder << attributes.premultipliedAlpha;
+    encoder << attributes.preserveDrawingBuffer;
+    encoder << attributes.failIfMajorPerformanceCaveat;
+    encoder << attributes.powerPreference;
+    encoder << attributes.shareResources;
+    encoder << attributes.webGLVersion;
+    encoder << attributes.noExtensions;
+    encoder << attributes.devicePixelRatio;
+    encoder << attributes.initialPowerPreference;
+#if ENABLE(WEBXR)
+    encoder << attributes.xrCompatible;
+#endif
+}
+
+Optional<WebCore::GraphicsContextGLAttributes> ArgumentCoder<WebCore::GraphicsContextGLAttributes>::decode(Decoder& decoder)
+{
+    GraphicsContextGLAttributes attributes;
+    if (!decoder.decode(attributes.alpha))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.depth))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.stencil))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.antialias))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.premultipliedAlpha))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.preserveDrawingBuffer))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.failIfMajorPerformanceCaveat))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.powerPreference))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.shareResources))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.webGLVersion))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.noExtensions))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.devicePixelRatio))
+        return WTF::nullopt;
+    if (!decoder.decode(attributes.initialPowerPreference))
+        return WTF::nullopt;
+#if ENABLE(WEBXR)
+    if (!decoder.decode(attributes.xrCompatible))
+        return WTF::nullopt;
+#endif
+    return attributes;
+}
+
+void ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::encode(Encoder& encoder, const WebCore::GraphicsContextGL::ActiveInfo& activeInfo)
+{
+    encoder << activeInfo.name;
+    encoder << activeInfo.type;
+    encoder << activeInfo.size;
+}
+
+Optional<WebCore::GraphicsContextGL::ActiveInfo> ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::decode(Decoder& decoder)
+{
+    WebCore::GraphicsContextGL::ActiveInfo activeInfo;
+    if (!decoder.decode(activeInfo.name))
+        return WTF::nullopt;
+    if (!decoder.decode(activeInfo.type))
+        return WTF::nullopt;
+    if (!decoder.decode(activeInfo.size))
+        return WTF::nullopt;
+    return activeInfo;
+}
+
+#endif
 
 } // namespace IPC

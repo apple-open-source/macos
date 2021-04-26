@@ -75,6 +75,7 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(fetchEscrowRecords:contextID:forceFetch:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(setUserControllableViewsSyncStatus:contextID:enabled:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(fetchUserControllableViewsSyncStatus:contextID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(resetAccountCDPContents:contextID:reply:) argumentIndex:0 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

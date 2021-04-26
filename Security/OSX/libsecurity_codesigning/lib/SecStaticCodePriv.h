@@ -91,6 +91,40 @@ OSStatus SecStaticCodeSetValidationConditions(SecStaticCodeRef code, CFDictionar
  */
 OSStatus SecStaticCodeCancelValidation(SecStaticCodeRef code, SecCSFlags flags);
 
+/*
+ @function SecStaticCodeEnableOnlineNotarizationCheck
+ Sets a flag on the object to allow an online notarization check once for the lifetime of the object during
+ the next validation.
+
+ @param code A StaticCode object whose validation should be modified.
+ @param enable Whether to enable or disable online notarization checks.
+ */
+OSStatus SecStaticCodeEnableOnlineNotarizationCheck(SecStaticCodeRef code, Boolean enable) __SPI_AVAILABLE(macos(11.3));
+
+/*
+    @function SecStaticCodeValidateResource
+    For a SecStaticCodeRef, check that the resource at the provided path is part of the signature and unaltered.
+    This call will fail if the file is not in the bundle, missing from the bundle, optional, or signed
+    into the bundle in a way that it cannot be fully verified.
+
+    @param code A SecStaticCode object for the outer bundle.
+    @param resourcePath A CFStringRef containing the absolute path to a sealed resource file.
+        This path will be checked and must be to something within the code object's base path.
+    @param flags Flags to use during validation, see SecStaticCodeCheckValidity
+    @param errors An optional pointer to a CFErrorRef variable. If the call fails
+        (something other than errSecSuccess is returned), and this argument is non-NULL,
+        a CFErrorRef is stored there further describing the nature and circumstances
+        of the failure. The caller must CFRelease() this error object when done with it.
+
+    @result noErr if the file at resourcePath validates as a resource of the bundle represented by code. Can return a
+        variety of errors from CSCommon.h or other Security framework headers, but notable errors are:
+
+        errSecParam if the resource is not within the code object.
+        errSecCSResourcesNotFound if the resources in the bundle could not be loaded.
+        errSecCSResourcesNotSealed if the requested resource was found but cannot be verified.
+        errSecCSBadResource if the resource couldn't be found or was altered.
+ */
+OSStatus SecStaticCodeValidateResourceWithErrors(SecStaticCodeRef code, CFURLRef resourcePath, SecCSFlags flags, CFErrorRef *errors) __SPI_AVAILABLE(macos(11.3));
 
 #ifdef __cplusplus
 }

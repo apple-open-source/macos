@@ -46,11 +46,11 @@ public:
         return adoptRef(*new ImageDecoderGStreamerSample(WTFMove(sample), presentationSize));
     }
 
-    NativeImagePtr image() const
+    PlatformImagePtr image() const
     {
         if (!m_image)
             return nullptr;
-        return m_image->image().nativeImage();
+        return m_image->image().nativeImage()->platformImage();
     }
     void dropImage() { m_image = nullptr; }
 
@@ -98,15 +98,25 @@ ImageDecoderGStreamer::ImageDecoderGStreamer(SharedBuffer& data, const String& m
 
 bool ImageDecoderGStreamer::supportsContainerType(const String& type)
 {
-    return GStreamerRegistryScanner::singleton().isContainerTypeSupported(type);
+    // Ideally this decoder should operate only from the WebProcess (or from the GPUProcess) which
+    // should be the only process where GStreamer has been runtime initialized.
+    if (!gst_is_initialized())
+        return false;
+
+    return GStreamerRegistryScanner::singleton().isContainerTypeSupported(GStreamerRegistryScanner::Configuration::Decoding, type);
 }
 
 bool ImageDecoderGStreamer::canDecodeType(const String& mimeType)
 {
+    // Ideally this decoder should operate only from the WebProcess (or from the GPUProcess) which
+    // should be the only process where GStreamer has been runtime initialized.
+    if (!gst_is_initialized())
+        return false;
+
     if (mimeType.isEmpty())
         return false;
 
-    return GStreamerRegistryScanner::singleton().isContainerTypeSupported(mimeType);
+    return GStreamerRegistryScanner::singleton().isContainerTypeSupported(GStreamerRegistryScanner::Configuration::Decoding, mimeType);
 }
 
 EncodedDataStatus ImageDecoderGStreamer::encodedDataStatus() const
@@ -139,10 +149,10 @@ String ImageDecoderGStreamer::uti() const
     return { };
 }
 
-ImageOrientation ImageDecoderGStreamer::frameOrientationAtIndex(size_t) const
+ImageDecoder::FrameMetadata ImageDecoderGStreamer::frameMetadataAtIndex(size_t) const
 {
     notImplemented();
-    return ImageOrientation::None;
+    return { };
 }
 
 Seconds ImageDecoderGStreamer::frameDurationAtIndex(size_t index) const
@@ -169,7 +179,7 @@ unsigned ImageDecoderGStreamer::frameBytesAtIndex(size_t index, SubsamplingLevel
     return (frameSize.area() * 4).unsafeGet();
 }
 
-NativeImagePtr ImageDecoderGStreamer::createFrameImageAtIndex(size_t index, SubsamplingLevel, const DecodingOptions&)
+PlatformImagePtr ImageDecoderGStreamer::createFrameImageAtIndex(size_t index, SubsamplingLevel, const DecodingOptions&)
 {
     LockHolder holder { m_sampleGeneratorLock };
 
@@ -213,6 +223,24 @@ const ImageDecoderGStreamerSample* ImageDecoderGStreamer::sampleAtIndex(size_t i
     return toSample(iter);
 }
 
+int ImageDecoderGStreamer::InnerDecoder::selectStream(GstStream* stream)
+{
+    // Select only the first video stream.
+    auto* object = GST_OBJECT_CAST(m_decodebin.get());
+    GST_OBJECT_LOCK(object);
+    auto numberOfSourcePads = m_decodebin->numsrcpads;
+    GST_OBJECT_UNLOCK(object);
+
+    if (numberOfSourcePads) {
+        GST_DEBUG_OBJECT(m_pipeline.get(), "Discarding additional %" GST_PTR_FORMAT, stream);
+        return 0;
+    }
+
+    int result = gst_stream_get_stream_type(stream) & GST_STREAM_TYPE_VIDEO ? 1 : 0;
+    GST_DEBUG_OBJECT(m_pipeline.get(), "%" GST_PTR_FORMAT " selected: %s", stream, boolForPrinting(result));
+    return result;
+}
+
 void ImageDecoderGStreamer::InnerDecoder::decodebinPadAddedCallback(ImageDecoderGStreamer::InnerDecoder* decoder, GstPad* pad)
 {
     decoder->connectDecoderPad(pad);
@@ -220,7 +248,7 @@ void ImageDecoderGStreamer::InnerDecoder::decodebinPadAddedCallback(ImageDecoder
 
 void ImageDecoderGStreamer::InnerDecoder::connectDecoderPad(GstPad* pad)
 {
-    auto padCaps = adoptGRef(gst_pad_get_current_caps(pad));
+    auto padCaps = adoptGRef(gst_pad_query_caps(pad, nullptr));
     GST_DEBUG_OBJECT(m_pipeline.get(), "New decodebin pad %" GST_PTR_FORMAT " caps: %" GST_PTR_FORMAT, pad, padCaps.get());
     RELEASE_ASSERT(doCapsHaveType(padCaps.get(), "video"));
 
@@ -333,13 +361,14 @@ void ImageDecoderGStreamer::InnerDecoder::preparePipeline()
     GstElement* source = gst_element_factory_make("giostreamsrc", nullptr);
     g_object_set(source, "stream", m_memoryStream.get(), nullptr);
 
-    GstElement* decoder = gst_element_factory_make("decodebin", nullptr);
-    auto allowedCaps = adoptGRef(gst_caps_new_empty_simple("video/x-raw"));
-    g_object_set(decoder, "caps", allowedCaps.get(), "expose-all-streams", false, nullptr);
-    g_signal_connect_swapped(decoder, "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
+    m_decodebin = gst_element_factory_make("decodebin3", nullptr);
+    g_signal_connect(m_decodebin.get(), "select-stream", G_CALLBACK(+[](GstElement*, GstStreamCollection*, GstStream* stream, ImageDecoderGStreamer::InnerDecoder* decoder) -> int {
+        return decoder->selectStream(stream);
+    }), this);
+    g_signal_connect_swapped(m_decodebin.get(), "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
 
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), source, decoder, nullptr);
-    gst_element_link(source, decoder);
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), source, m_decodebin.get(), nullptr);
+    gst_element_link(source, m_decodebin.get());
     gst_element_set_state(m_pipeline.get(), GST_STATE_PLAYING);
 }
 
@@ -394,7 +423,7 @@ void ImageDecoderGStreamer::pushEncodedData(const SharedBuffer& buffer)
         }
     }
     m_innerDecoder = nullptr;
-    callOnMainThread([this] {
+    callOnMainThreadAndWait([&] {
         if (m_encodedDataStatusChangedCallback)
             m_encodedDataStatusChangedCallback(encodedDataStatus());
     });

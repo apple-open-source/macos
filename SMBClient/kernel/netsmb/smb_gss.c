@@ -42,6 +42,7 @@
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_gss.h>
 #include <netsmb/smb_gss_2.h>
+#include <netsmb/smb_rq_2.h>
 
 #include <sys/kauth.h>
 #include <smbfs/smbfs.h>
@@ -61,20 +62,20 @@ extern kern_return_t host_get_special_port(host_priv_t, int, int, ipc_port_t *);
 
 /*
  * smb_gss_negotiate:
- * This routine is called from smb_smb_negotiate to initialize the session_gss
+ * This routine is called from smb_smb_negotiate to initialize the iod_gss
  * structure in a session for doing extened security. We asn.1 decode the security
  * blob passed in, and get the task special port for gssd.
  */
 int 
-smb_gss_negotiate(struct smb_session *sessionp, vfs_context_t context)
+smb_gss_negotiate(struct smbiod *iod, vfs_context_t context)
 {
-	struct smb_gss *gp = &sessionp->session_gss;
+	struct smb_gss *gp = &iod->iod_gss;
 	mach_port_t gssd_host_port;
 	uid_t uid;
 	kauth_cred_t cred;
 	kern_return_t kr;
-
-	if (IPC_PORT_VALID(gp->gss_mp))
+    
+	if (IPC_PORT_VALID(iod->iod_session->gss_mp))
 		return 0;
 	
 	DBG_ASSERT(context);
@@ -110,12 +111,12 @@ smb_gss_negotiate(struct smb_session *sessionp, vfs_context_t context)
 	if (uid == AU_DEFAUDITID)
 		uid = kauth_cred_getuid(cred);
 
-	kr = mach_gss_lookup(gssd_host_port, uid, gp->gss_asid, &gp->gss_mp);
-	if (kr != KERN_SUCCESS || !IPC_PORT_VALID(gp->gss_mp)) {
+	kr = mach_gss_lookup(gssd_host_port, uid, gp->gss_asid, &iod->iod_session->gss_mp);
+	if (kr != KERN_SUCCESS || !IPC_PORT_VALID(iod->iod_session->gss_mp)) {
 		if (kr != KERN_SUCCESS)
 			SMBERROR("mach_gss_lookup failed: status %x (%d)\n", kr, kr);
 		else
-			SMBERROR("Port is %s\n", gp->gss_mp == IPC_PORT_DEAD ? "dead" : "null");
+			SMBERROR("Port is %s\n", iod->iod_session->gss_mp == IPC_PORT_DEAD ? "dead" : "null");
 
 		return EPIPE;
 	}
@@ -127,8 +128,8 @@ smb_gss_negotiate(struct smb_session *sessionp, vfs_context_t context)
  *
  * Reset in case we need to reconnect or reauth after an error
  */
-static void
-smb_gss_reset(struct smb_gss *gp)
+__unused static void
+smb_gss_reset(__unused struct smb_gss *gp)
 {
 	if (gp->gss_token != NULL) {
         SMB_FREE(gp->gss_token, M_SMBTEMP);
@@ -137,7 +138,7 @@ smb_gss_reset(struct smb_gss *gp)
 	gp->gss_ctx = 0;
 	gp->gss_cred = 0;
 	gp->gss_major = 0;
-	gp->gss_minor = 0;	
+	gp->gss_minor = 0;
 }
 
 /*
@@ -148,11 +149,7 @@ smb_gss_reset(struct smb_gss *gp)
 void
 smb_gss_destroy(struct smb_gss *gp)
 {
-	extern void ipc_port_release_send(ipc_port_t);
 	
-	/* Release the mach port by  calling the kernel routine needed to release task special port */
-	if (IPC_PORT_VALID(gp->gss_mp))
-	    ipc_port_release_send(gp->gss_mp);
     if (gp->gss_cpn) {
         SMB_FREE(gp->gss_cpn, M_SMBTEMP);
     }
@@ -245,6 +242,11 @@ gss_mach_vmcopyout(vm_map_copy_t in, uint32_t len, u_char *out)
 	vm_map_offset_t map_data;
 	vm_offset_t data;
 	int error;
+    
+    if (!out) {
+        SMBERROR("No MEM!!");
+        return ENOMEM;
+    }
 	
 	error = vm_map_copyout(ipc_kernel_map, &map_data, in);
 	if (error)
@@ -274,11 +276,11 @@ gss_mach_vm_map_copy_discard(vm_map_copy_t copy, mach_msg_type_number_t len)
  * Wrapper to make mach up call, using the parameters in the smb_gss structure
  * and the supplied uid. (Should be the session_uid field of the enclosing session).
  */
-
 static kern_return_t
-smb_gss_init(struct smb_session *sessionp, uid_t uid, uint32_t tryGuestWithIntegFlag)
+smb_gss_init(struct smbiod *iod, uid_t uid, uint32_t tryGuestWithIntegFlag)
 {
-	struct smb_gss *cp = &sessionp->session_gss;
+	struct smb_gss *cp = &iod->iod_gss;
+    struct smb_session *sessionp = iod->iod_session;
 	uint32_t gssd_flags = GSSD_NO_DEFAULT;
 	uint32_t flags = GSSD_MUTUAL_FLAG | GSSD_DELEG_POLICY_FLAG;
 	kern_return_t kr;
@@ -294,7 +296,7 @@ smb_gss_init(struct smb_session *sessionp, uid_t uid, uint32_t tryGuestWithInteg
 	char display_name[MAX_DISPLAY_STR];
 	gssd_mechtype mechtype;	
 
-	if (!IPC_PORT_VALID(cp->gss_mp)) {
+	if (!IPC_PORT_VALID(sessionp->gss_mp)) {
 		SMBWARNING("smb_gss_init: gssd port not valid\n");
 		goto out;
 	}
@@ -340,7 +342,7 @@ smb_gss_init(struct smb_session *sessionp, uid_t uid, uint32_t tryGuestWithInteg
 retry:
 	*display_name = '\0';
 	kr = mach_gss_init_sec_context_v2(
-					  cp->gss_mp,
+					  sessionp->gss_mp,
 					  mechtype,
 					  (gssd_byte_buffer) itoken, (mach_msg_type_number_t) cp->gss_tokenlen,
 					  uid,
@@ -371,53 +373,86 @@ retry:
 				gss_mach_alloc_buffer(cp->gss_cpn, cp->gss_cpn_len, &cpn);
 			if (cp->gss_spn_len > 0)
 				gss_mach_alloc_buffer(cp->gss_spn, cp->gss_spn_len, &spn);
-			goto retry;	
+			goto retry;
 		}
 		goto out;
 	}
 
-	if (keylen > 0) {
-		/* Free any old key and reset the sequence number */
-		smb_reset_sig(sessionp);
-		sessionp->session_mackeylen = keylen;
-		SMB_MALLOC(sessionp->session_mackey, uint8_t *, sessionp->session_mackeylen, M_SMBTEMP, M_WAITOK);
-		error = gss_mach_vmcopyout((vm_map_copy_t) okey, sessionp->session_mackeylen, sessionp->session_mackey);
-		if (error) {
-			gss_mach_vm_map_copy_discard((vm_map_copy_t)otoken, otokenlen);
-			goto out;
-		}
-        
-        /*
-         * MS-SMB2 3.2.1.3 Per Session
-         * "Session.SessionKey: the first 16 bytes of the cryptographic key
-         * for this authenticated context...."
-         *
-         * So we must truncate the signing key if required.
-         * See <rdar://problem/13591834>.
-         */
-        if (sessionp->session_flags & SMBV_SMB2) {
-            if (sessionp->session_mackeylen > SMB2_KRB5_SESSION_KEYLEN) {
-                sessionp->session_mackeylen = SMB2_KRB5_SESSION_KEYLEN;
+    if (keylen > 0) {
+        if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+            /* Alternate channel: Derive SMB 3 channel signing key */
+            if (SMBV_SMB3_OR_LATER(sessionp)) {
+                iod->iod_mackeylen = keylen;
+                SMB_MALLOC(iod->iod_mackey, uint8_t *,
+                           iod->iod_mackeylen, M_SMBTEMP, M_WAITOK);
+
+                error = gss_mach_vmcopyout((vm_map_copy_t) okey,
+                                           iod->iod_mackeylen,
+                                           iod->iod_mackey);
+                if (error) {
+                    SMBERROR("gss_mach_vmcopyout returned %d.\n", error);
+                    gss_mach_vm_map_copy_discard((vm_map_copy_t)otoken, otokenlen);
+                    goto out;
+                }
+
+                /*
+                 * MS-SMB2 3.2.1.3 Per Session
+                 * "Session.SessionKey: the first 16 bytes of the cryptographic key
+                 * for this authenticated context...."
+                 *
+                 * So we must truncate the session key if required.
+                 */
+                if (sessionp->session_flags & SMBV_SMB2) {
+                    if (iod->iod_mackeylen > SMB2_KRB5_SESSION_KEYLEN) {
+                        iod->iod_mackeylen = SMB2_KRB5_SESSION_KEYLEN;
+                    }
+                }
             }
         }
-        
-        /* Derive SMB 3 keys from the session key from gssd */
-		if (SMBV_SMB3_OR_LATER(sessionp)) {
-            smb3_derive_keys(sessionp);
+        else {
+            /*
+             * Main channel
+             * Free any old key and reset the sequence number
+             */
+            smb_reset_sig(sessionp);
+            sessionp->session_mackeylen = keylen;
+            SMB_MALLOC(sessionp->session_mackey, uint8_t *,
+                       sessionp->session_mackeylen, M_SMBTEMP, M_WAITOK);
+            error = gss_mach_vmcopyout((vm_map_copy_t) okey,
+                                       sessionp->session_mackeylen,
+                                       sessionp->session_mackey);
+            if (error) {
+                gss_mach_vm_map_copy_discard((vm_map_copy_t)otoken, otokenlen);
+                goto out;
+            }
+            
+            /*
+             * MS-SMB2 3.2.1.3 Per Session
+             * "Session.SessionKey: the first 16 bytes of the cryptographic key
+             * for this authenticated context...."
+             *
+             * So we must truncate the session key if required.
+             * See <rdar://problem/13591834>.
+             */
+            if (sessionp->session_flags & SMBV_SMB2) {
+                if (sessionp->session_mackeylen > SMB2_KRB5_SESSION_KEYLEN) {
+                    sessionp->session_mackeylen = SMB2_KRB5_SESSION_KEYLEN;
+                }
+            }
+
+            SMBDEBUG("%s keylen = %d seqno = %d\n", sessionp->session_srvname, keylen, sessionp->session_seqno);
+            smb_hexdump(__FUNCTION__, "setting session_mackey = ", sessionp->session_mackey, sessionp->session_mackeylen);
+            /*
+             * Windows expects the sequence number to restart once we get a signing
+             * key. They expect this to happen once the client creates a authorization
+             * token blob to send to the server. This was we can validate the servers
+             * response. When doing Kerberos and now NTLMSSP we don't get the signing
+             * key until after the gss mech has completed. Not sure how to really
+             * fix this issue, but for now we just reset the sequence number as if
+             * we had the key when the last round went out.
+             */
+            sessionp->session_seqno = 2;
         }
-        
-		SMBDEBUG("%s keylen = %d seqno = %d\n", sessionp->session_srvname, keylen, sessionp->session_seqno);
-		smb_hexdump(__FUNCTION__, "setting session_mackey = ", sessionp->session_mackey, sessionp->session_mackeylen);
-		/* 
-		 * Windows expects the sequence number to restart once we get a signing
-		 * key. They expect this to happen once the client creates a authorization
-		 * token blob to send to the server. This was we can validate the servers
-		 * response. When doing Kerberos and now NTLMSSP we don't get the signing
-		 * key until after the gss mech has completed. Not sure how to really 
-		 * fix this issue, but for now we just reset the sequence number as if
-		 * we had the key when the last round went out.
-		 */
-		sessionp->session_seqno = 2;
 	}
 
 	/* If we're done, see if the server is mapping everybody to guest */
@@ -454,7 +489,7 @@ retry:
 	 * to correct the problem. So lets return EAGAIN so the reconnect code can 
 	 * try again later.
 	 */
-	if (SMB_GSS_ERROR(cp) && (sessionp->session_iod->iod_flags & SMBIOD_RECONNECT))
+    if (SMB_GSS_ERROR(cp) && (iod->iod_flags & SMBIOD_RECONNECT))
 		return EAGAIN;
 
 	return (0);
@@ -479,6 +514,147 @@ static uint32_t smb_gss_session_caps(struct smb_session *sessionp)
 }
 
 /*
+ * smb_gss_alt_ch_session_setup:
+ *
+ * Negotiate Session-Setup on alternate channel (as part of multichanneling).
+ */
+int
+smb_gss_alt_ch_session_setup(struct smbiod *iod)
+{
+    struct smb_session *sessionp = iod->iod_session;
+    int error = 0;
+    uint32_t caps;
+    uint16_t action = 0;
+    uint32_t derive_key = 0;
+
+    /*
+     * Multichannel can not work with Guest logins on the main channel.
+     * Alt channels are set up by using the signing key from the main channel
+     * on the Session Setup requests, but Guest logins have no signing keys.
+     */
+    
+    /* Get our caps from the session. N.B. Seems only Samba uses this */
+    caps = smb_gss_session_caps(sessionp);
+
+    do {
+        /* Call gss to create a security blob */
+        error = smb_gss_init(iod, sessionp->session_uid, 0);
+        
+        /* No token to send or error so just break out */
+        if (error || (SMB_GSS_ERROR(&iod->iod_gss))) {
+            SMB_LOG_AUTH("GSSD extended security error = %d gss_major = %d gss_minor = %d\n",
+                       error, iod->iod_gss.gss_major, iod->iod_gss.gss_minor);
+
+            /* Always return EAUTH unless we want the reconnect code to try again */
+            if (error != EAGAIN)
+                error = EAUTH;
+            break;
+        }
+        
+        // exchange session setups with the server
+        if (iod->iod_gss.gss_tokenlen) {
+            error = smb_gss_ssandx(iod, caps, &action, iod->iod_context);
+            if (error) {
+                break;
+            }
+        }
+    } while (SMB_GSS_CONTINUE_NEEDED(&iod->iod_gss));
+    
+    if ((error == 0) && !SMBV_HAS_GUEST_ACCESS(sessionp)
+        && !SMBV_HAS_ANONYMOUS_ACCESS(sessionp) &&
+        (action & SMB_ACT_GUEST)) {
+        /*
+         * We wanted to only login the users as guest if they ask to be login as
+         * guest. Window system will login any bad user name as guest if guest is
+         * turn on.
+         * The first problem here is with XPHome. XPHome doesn't care if the
+         * user is real or made up, it always logs them is as guest. We now have
+         * a way to tell if Simple File Sharing (XPHome) is being used, so this
+         * is no longer an issue.
+         *
+         * The second problem here is with Vista. Vista will log you in as guest
+         * if your account has no password. The problem here is we don't always
+         * know if the user provided a password or not. We could have the Network
+         * Authorization Helper tell us, but this would not work in the cache
+         * case.
+         *
+         * The user wanted authenticated access but got guest access, log them
+         * out and return EAUTH.
+         */
+        SMBWARNING("Got guest access, but wanted real access, logging off.\n");
+        error = EAUTH;
+    }
+    
+    if (!error) {
+        if ((SESSION_CAPS(sessionp) & SMB_CAP_EXT_SECURITY)) {
+            if (sessionp->session_flags & SMBV_SMB2) {
+                /* Not in reconnect, its now safe to start up crediting */
+                smb2_rq_credit_start(iod, 0);
+            }
+        }
+    }
+
+    /*
+     * Should we derive signing/sealing keys?
+     * 1. Has to be no error and SMB v3.x or later
+     * 2. Dont need to derive keys if SMB v3.0.2 and Guest or Anonymous login
+     * 3. SMB v3.1.1 needs the signing key for Guest/Anonymous for the
+     *    pre auth integrity check
+     */
+    if ((error == 0) && SMBV_SMB3_OR_LATER(sessionp)) {
+        if (sessionp->session_flags & SMBV_SMB311) {
+            derive_key = 1;
+        }
+        else {
+            if (!SMBV_HAS_GUEST_ACCESS(sessionp) &&
+                !SMBV_HAS_ANONYMOUS_ACCESS(sessionp)) {
+                derive_key = 1;
+            }
+        }
+    }
+
+    /* Derive SMB 3 keys */
+    if (derive_key == 1) {
+        error = smb3_derive_channel_keys(iod);
+        if (error) {
+            SMBERROR("smb3_derive_channel_keys returned %d. id: %u \n",
+                     error, iod->iod_id);
+            /* For alt channel, dont logoff or clear the signature keys */
+            //(void)smb_smb_ssnclose(sessionp, iod->iod_context);
+            //smb_reset_sig(sessionp);
+            return(EAUTH);
+        }
+        
+        if (iod->iod_sess_setup_reply != NULL) {
+            /*
+             * Need to verify last session setup reply from server.
+             * This might be due to SMB v3.1.1 pre auth integrity
+             * check or SMB 3.x.x multichannel
+             */
+            error = smb3_verify_session_setup(sessionp, iod,
+                                              iod->iod_sess_setup_reply,
+                                              iod->iod_sess_setup_reply_len);
+            
+            /* Free the saved Session Setup reply */
+            SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
+            iod->iod_sess_setup_reply = NULL;
+
+            if (error) {
+                SMBERROR("smb3_verify_session_setup returned %d. id: %u\n",
+                         error, iod->iod_id);
+                /* For alt channel, dont logoff or clear the signature keys */
+                //(void)smb_smb_ssnclose(sessionp, iod->iod_context);
+                //smb_reset_sig(sessionp);
+                error = EAUTH;
+           }
+        }
+    }
+
+    return error;
+}
+
+
+/*
  * smb_gss_ssandx:
  *
  * Send a session setup and x message on session with cred and caps
@@ -488,7 +664,7 @@ smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
                 vfs_context_t context)
 {
 	struct smb_rq *rqp = NULL;
-	struct smb_gss *gp = &sessionp->session_gss;
+	struct smb_gss *gp = &sessionp->session_iod->iod_gss;  // valid for smb1 (single channel)
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	uint8_t		wc;
@@ -630,12 +806,14 @@ bad:
  */
 
 int
-smb_gss_ssnsetup(struct smb_session *sessionp, vfs_context_t context)
+smb_gss_ssnsetup(struct smbiod *iod, vfs_context_t context)
 {
 	int error = 0;
 	uint32_t caps;
 	uint16_t action = 0;
+    struct smb_session *sessionp = iod->iod_session;
     uint32_t tryGuestWithIntegFlag = 0;
+    uint32_t derive_key = 0;
 	
 	/* We should always have a gssd port! */
 	if (!SMB_USE_GSS(sessionp)) {
@@ -644,7 +822,9 @@ smb_gss_ssnsetup(struct smb_session *sessionp, vfs_context_t context)
 	}
 
 again:
-	/*
+    derive_key = 0;
+
+    /*
 	 * set the smbuid to zero so we will pick up the first
 	 * value returned from the server in smb_gss_ssandx
 	 */
@@ -656,12 +836,12 @@ again:
 
 	do {
 		/* Call gss to create a security blob */
-        error = smb_gss_init(sessionp, sessionp->session_uid, tryGuestWithIntegFlag);
+        error = smb_gss_init(iod, sessionp->session_uid, tryGuestWithIntegFlag);
 
 		/* No token to send or error so just break out */
-		if (error || (SMB_GSS_ERROR(&sessionp->session_gss))) {
+		if (error || (SMB_GSS_ERROR(&iod->iod_gss))) {
 			SMB_LOG_AUTH("GSSD extended security error = %d gss_major = %d gss_minor = %d\n", 
-					   error, sessionp->session_gss.gss_major, sessionp->session_gss.gss_minor);
+					   error, iod->iod_gss.gss_major, iod->iod_gss.gss_minor);
             
             if ((sessionp->session_session_id != 0) || (sessionp->session_smbuid != 0)) {
                 /* 
@@ -678,11 +858,10 @@ again:
 				error = EAUTH;
 			break;
 		}
-		if ((sessionp->session_gss.gss_tokenlen) && ((error = smb_gss_ssandx(sessionp, caps, 
-                                                                   &action, 
-                                                                   context))))
+		if ((iod->iod_gss.gss_tokenlen) &&
+            ((error = smb_gss_ssandx(iod, caps, &action, context))))
 			break;
-	} while (SMB_GSS_CONTINUE_NEEDED(&sessionp->session_gss));
+	} while (SMB_GSS_CONTINUE_NEEDED(&iod->iod_gss));
 
     /*
      * Windows 2016 Server wants GSSD_INTEG_FLAG flag set for their Guest
@@ -722,15 +901,94 @@ again:
         (void)smb_smb_ssnclose(sessionp, context);
         error = EAUTH;
 	}
+    
 	if ((error == 0) && (action & SMB_ACT_GUEST)) {
 		/* And the lying dogs might tells us to do signing when they don't */
 		sessionp->session_hflags2 &= ~SMB_FLAGS2_SECURITY_SIGNATURE;
 		smb_reset_sig(sessionp);
 	}
-	if (error)	/* Reset the signature info */
+    
+    if (error) {
+    	/* Reset the signature info */
 		smb_reset_sig(sessionp);
+    }
+    
+    /*
+     * Should we derive signing/sealing keys?
+     * 1. Has to be no error and SMB v3.x or later
+     * 2. Dont need to derive keys if SMB v3.0.2 and Guest or Anonymous login
+     * 3. SMB v3.1.1 needs the signing key for user logins for the
+     *    pre auth integrity check
+     * 4. SMB v3.1.1 and Guest logins MAY need the signing key if its not a
+     *    true Guest login. [MS-SMB2] Section 3.3.5.5.3, step 12. If
+     *    SMB2_SESSION_FLAG_IS_GUEST is NOT set in the SessionFlags field, then
+     *    its a user account with the name of GUEST and no password and the
+     *    Session Setup reply WILL be signed for the pre auth integrity check.
+     *    If SMB2_SESSION_FLAG_IS_GUEST is set, then its a true Guest login and
+     *    there will be no session keys to be derived and the pre auth integrity
+     *    check is skipped.
+     */
+    if ((error == 0) && SMBV_SMB3_OR_LATER(sessionp)) {
+        if (sessionp->session_flags & SMBV_SMB311) {
+            if (!(action & SMB_ACT_GUEST)) {
+                /* Regular user login or non true Guest login */
+                derive_key = 1;
+            }
+            else {
+                /*
+                 * SMB2_SESSION_FLAG_IS_GUEST is set, so true Guest and we wont
+                 * have any session keys to use so do not derive keys.
+                 */
+                if (iod->iod_sess_setup_reply != NULL) {
+                    /* Free the saved Session Setup reply */
+                    SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
+                    iod->iod_sess_setup_reply = NULL;
+                }
+            }
+        }
+        else {
+            if (!SMBV_HAS_GUEST_ACCESS(sessionp) &&
+                !SMBV_HAS_ANONYMOUS_ACCESS(sessionp)) {
+                derive_key = 1;
+            }
+        }
+    }
+    
+    /* Derive SMB 3 keys */
+    if (derive_key == 1) {
+        error = smb3_derive_keys(iod);
+        if (error) {
+            SMBERROR("smb3_derive_keys returned %d. id: %u \n",
+                     error, iod->iod_id);
+            (void)smb_smb_ssnclose(sessionp, context);
+            smb_reset_sig(sessionp);
+            return(EAUTH);
+        }
+        
+        if (iod->iod_sess_setup_reply != NULL) {
+            /*
+             * Need to verify last session setup reply from server.
+             * This might be due to SMB v3.1.1 pre auth integrity
+             * check or SMB 3.x.x multichannel
+             */
+            error = smb3_verify_session_setup(sessionp, iod,
+                                              iod->iod_sess_setup_reply,
+                                              iod->iod_sess_setup_reply_len);
+            
+            /* Free the saved Session Setup reply */
+            SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
+            iod->iod_sess_setup_reply = NULL;
 
-	smb_gss_reset(&sessionp->session_gss);
+            if (error) {
+                SMBERROR("smb3_verify_session_setup returned %d. id: %u\n",
+                         error, iod->iod_id);
+                (void)smb_smb_ssnclose(sessionp, context);
+                smb_reset_sig(sessionp);
+                error = EAUTH;
+           }
+        }
+    }
+    
 	return error;
 }
 
@@ -738,15 +996,16 @@ again:
  * The session needs to hold a reference on the credentials until its destroyed.
  * 
  */
-void smb_gss_ref_cred(struct smb_session *sessionp)
+void smb_gss_ref_cred(struct smbiod *iod)
 {
-	struct smb_gss *cp = &sessionp->session_gss;
+	struct smb_gss *cp = &iod->iod_gss;
+    struct smb_session *sessionp = iod->iod_session;
 	vm_map_copy_t cpn = NULL;
 	gssd_mechtype mechtype;	
 	kern_return_t kr;
 	int retry_cnt = 0;
 
-	SMBDEBUG("%s\n", sessionp->session_srvname);
+	SMBDEBUG("id %d, srvname: %s\n", iod->iod_id, sessionp->session_srvname);
 	if (!(SESSION_CAPS(sessionp) & SMB_CAP_EXT_SECURITY)) {
 		/* Not using gssd then no way to take a reference */
 		return;
@@ -764,7 +1023,7 @@ void smb_gss_ref_cred(struct smb_session *sessionp)
 	
 	gss_mach_alloc_buffer(cp->gss_cpn, cp->gss_cpn_len, &cpn);
 retry:
-	kr = mach_gss_hold_cred(cp->gss_mp, mechtype, cp->gss_client_nt, 
+	kr = mach_gss_hold_cred(iod->iod_session->gss_mp, mechtype, cp->gss_client_nt,
 							(gssd_byte_buffer)cpn, 
 							(mach_msg_type_number_t)cp->gss_cpn_len, 
 							&cp->gss_major, &cp->gss_minor);
@@ -784,15 +1043,16 @@ retry:
 /*
  * The session holds a reference on the credtials release it.
  */
-void smb_gss_rel_cred(struct smb_session *sessionp)
+void smb_gss_rel_cred(struct smbiod *iod)
 {
-	struct smb_gss *cp = &sessionp->session_gss;
+    struct smb_gss *cp = &iod->iod_gss;
+    struct smb_session *sessionp = iod->iod_session;
 	vm_map_copy_t cpn = NULL;
 	gssd_mechtype mechtype;	
 	kern_return_t kr;
 	int retry_cnt = 0;
 
-	SMBDEBUG("%s\n", sessionp->session_srvname);
+    SMBDEBUG("id %d,%s\n", iod->iod_id, sessionp->session_srvname);
 	/* Not using gssd then no way to take a reference */
 	if (!(SESSION_CAPS(sessionp) & SMB_CAP_EXT_SECURITY)) {
 		return;
@@ -810,7 +1070,7 @@ void smb_gss_rel_cred(struct smb_session *sessionp)
 	
 	gss_mach_alloc_buffer(cp->gss_cpn, cp->gss_cpn_len, &cpn);
 retry:
-	kr = mach_gss_unhold_cred(cp->gss_mp, mechtype, cp->gss_client_nt,  
+	kr = mach_gss_unhold_cred(iod->iod_session->gss_mp, mechtype, cp->gss_client_nt,
 							  (gssd_byte_buffer)cpn, 
 							  (mach_msg_type_number_t)cp->gss_cpn_len, 
 							  &cp->gss_major, &cp->gss_minor);
@@ -826,3 +1086,58 @@ retry:
 				   cp->gss_major, cp->gss_minor);
 	}
 }
+
+int
+smb_gss_dup(struct smb_gss *parent_gp, struct smb_gss *new_gp) {
+
+    int error = 0;
+    
+    *new_gp = *parent_gp;
+    new_gp->gss_cpn = NULL;
+    new_gp->gss_spn = NULL;
+    new_gp->gss_cpn_display = NULL;
+
+    // Clear gss_token
+    new_gp->gss_tokenlen = 0;
+    new_gp->gss_token    = NULL;
+
+    // dup gss_cpn
+    if (parent_gp->gss_cpn_len) {
+        SMB_MALLOC(new_gp->gss_cpn, typeof(new_gp->gss_cpn), parent_gp->gss_cpn_len, M_SMBTEMP, M_WAITOK);
+        if (!new_gp->gss_cpn) {
+            error = ENOMEM;
+            goto exit;
+        }
+        memcpy(new_gp->gss_cpn, parent_gp->gss_cpn, parent_gp->gss_cpn_len);
+        new_gp->gss_cpn_len = parent_gp->gss_cpn_len;
+    }
+
+    // dup gss_spn
+    if (parent_gp->gss_spn_len) {
+        SMB_MALLOC(new_gp->gss_spn, typeof(new_gp->gss_spn), parent_gp->gss_spn_len, M_SMBTEMP, M_WAITOK);
+        if (!new_gp->gss_spn) {
+            error = ENOMEM;
+            goto exit;
+        }
+        memcpy(new_gp->gss_spn, parent_gp->gss_spn, parent_gp->gss_spn_len);
+        new_gp->gss_spn_len = parent_gp->gss_spn_len;
+    }
+
+    // dup gss_cpn_display
+    if (parent_gp->gss_cpn_display && parent_gp->gss_cpn_display[0]) {
+        size_t len = strnlen(parent_gp->gss_cpn_display, MAX_DISPLAY_STR);
+        SMB_MALLOC(new_gp->gss_cpn_display, char *, len, M_SMBTEMP, M_WAITOK);
+        if (!new_gp->gss_cpn_display) {
+            error = ENOMEM;
+            goto exit;
+        }
+        strlcpy(new_gp->gss_cpn_display, parent_gp->gss_cpn_display, len);
+    }
+
+exit:
+    return error;
+}
+
+
+
+

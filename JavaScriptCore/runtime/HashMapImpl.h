@@ -243,8 +243,11 @@ ALWAYS_INLINE static bool areKeysEqual(JSGlobalObject* globalObject, JSValue a, 
 // Keep in sync with the implementation of DFG and FTL normalization.
 ALWAYS_INLINE JSValue normalizeMapKey(JSValue key)
 {
-    if (!key.isNumber())
+    if (!key.isNumber()) {
+        if (key.isHeapBigInt())
+            return tryConvertToBigInt32(key.asHeapBigInt());
         return key;
+    }
 
     if (key.isInt32())
         return key;
@@ -276,6 +279,11 @@ static ALWAYS_INLINE uint32_t wangsInt64Hash(uint64_t key)
     return static_cast<unsigned>(key);
 }
 
+ALWAYS_INLINE uint32_t jsMapHash(JSBigInt* bigInt)
+{
+    return bigInt->hash();
+}
+
 ALWAYS_INLINE uint32_t jsMapHash(JSGlobalObject* globalObject, VM& vm, JSValue value)
 {
     ASSERT_WITH_MESSAGE(normalizeMapKey(value) == value, "We expect normalized values flowing into this function.");
@@ -286,6 +294,9 @@ ALWAYS_INLINE uint32_t jsMapHash(JSGlobalObject* globalObject, VM& vm, JSValue v
         RETURN_IF_EXCEPTION(scope, UINT_MAX);
         return wtfString.impl()->hash();
     }
+
+    if (value.isHeapBigInt())
+        return jsMapHash(value.asHeapBigInt());
 
     return wangsInt64Hash(JSValue::encode(value));
 }
@@ -302,6 +313,9 @@ ALWAYS_INLINE Optional<uint32_t> concurrentJSMapHash(JSValue key)
             return WTF::nullopt;
         return impl->concurrentHash();
     }
+
+    if (key.isHeapBigInt())
+        return key.asHeapBigInt()->concurrentHash();
 
     uint64_t rawValue = JSValue::encode(key);
     return wangsInt64Hash(rawValue);

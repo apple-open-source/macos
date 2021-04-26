@@ -35,6 +35,9 @@ void LKAReportKeychainUpgradeOutcomeWithError(int fromversion, int toversion, LK
 void LKABackupReportStart(bool hasKeybag, bool hasPasscode, bool isEMCS);
 void LKABackupReportEnd(bool hasBackup, CFErrorRef error);
 
+// For tests only
+void LKAForceClose(void);
+
 #if __OBJC2__
 
 #import <Foundation/Foundation.h>

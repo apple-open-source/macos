@@ -51,6 +51,18 @@ public:
     virtual void
     free() override;
 
+    virtual kern_return_t
+    ClientCrashed(IOService * client, uint64_t options) override;
+
+    /*!
+     * @brief       Send a dictionary of properties to an IOService.
+     * @discussion  Can set only properties defined in IOPCIFamilyDefinitions.h
+     * @param       properties Dictionary of properties.
+     * @return      kIOReturnSuccess if at least one key/value pair is successful. See IOReturn.h for error codes.
+     */
+    virtual kern_return_t
+    SetProperties(OSDictionary * properties) override;
+
 #pragma mark Session Management
     /*!
      * @brief       Open a session to the IOPCIDevice

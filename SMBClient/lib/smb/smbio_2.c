@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -248,7 +248,99 @@ bad:
 	return error;
 }
 
-int 
+int
+smb2io_ioctl(struct smb_ctx *smbctx, SMBFID fid, uint32_t ioctl_ctl_code,
+             const uint8_t *sndData, size_t sndDataLen,
+             uint8_t *rcvdData, size_t *rcvDataLen)
+{
+    int error = 0;
+    struct smb2ioc_ioctl ioctl_rq;
+    uint32_t rcv_max_output_len = 0;
+
+    if (smb_is_smb2(smbctx)) {
+        /*
+         * Using SMB 2/3
+         */
+
+        /*
+         * SMB ioctl uses 32 bit field, never let the calling process send more
+         * than will fit in this field.
+         */
+        if (sndDataLen > UINT32_MAX) {
+            return EINVAL;
+        }
+
+        /*
+         * SMB 2/3 ioctl uses 32 bit field, never let the calling process request
+         * more than will fit in this field.
+         */
+        if (rcvDataLen != NULL) {
+            if (*rcvDataLen > UINT32_MAX) {
+                rcv_max_output_len = UINT32_MAX;
+            } else {
+                rcv_max_output_len = (uint32_t) *rcvDataLen;
+            }
+        }
+
+        bzero(&ioctl_rq, sizeof(ioctl_rq));
+        ioctl_rq.ioc_version = SMB_IOC_STRUCT_VERSION;
+        ioctl_rq.ioc_ctl_code = ioctl_ctl_code;
+
+        ioctl_rq.ioc_fid = fid;
+
+        ioctl_rq.ioc_snd_input_len = (uint32_t) sndDataLen;
+        ioctl_rq.ioc_snd_input = (void *) sndData;
+
+        ioctl_rq.ioc_snd_output_len = (uint32_t) 0;
+        ioctl_rq.ioc_snd_output = (void *) NULL;
+
+        ioctl_rq.ioc_rcv_input_len = 0;
+        ioctl_rq.ioc_rcv_input = (void *) NULL;
+
+        ioctl_rq.ioc_rcv_output_len = rcv_max_output_len;
+        ioctl_rq.ioc_rcv_output = (void *) rcvdData;
+
+        /* Call the kernel to make the Ioctl call */
+        if (smb_ioctl_call(smbctx->ct_fd, SMB2IOC_IOCTL, &ioctl_rq) == -1) {
+            os_log_debug(OS_LOG_DEFAULT, "%s: smb_ioctl_call, syserr = %s",
+                         __FUNCTION__,
+                         strerror(errno));
+            error = errno;                  /* Some internal error happened? */
+            goto bad;
+        }
+        else {
+            error = ioctl_rq.ioc_ret_ntstatus;    /* error from server */
+            if ((error) &&
+                (ioctl_rq.ioc_ret_ntstatus != STATUS_BUFFER_OVERFLOW)) {
+                os_log_debug(OS_LOG_DEFAULT, "%s: smb_ioctl_call, ntstatus = 0x%x",
+                             __FUNCTION__,
+                             error);
+                goto bad;
+            }
+        }
+
+        if (rcvDataLen != NULL) {
+            *rcvDataLen = ioctl_rq.ioc_ret_output_len;
+        }
+
+        if (ioctl_rq.ioc_ret_ntstatus == STATUS_BUFFER_OVERFLOW) {
+            return EOVERFLOW;
+        }
+
+        error = 0;
+    }
+    else {
+        /*
+         * Using SMB 1
+         */
+        return ENOTSUP;
+    }
+
+bad:
+    return error;
+}
+
+int
 smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName, 
                  struct open_inparms *inparms, 
                  struct open_outparm_ex *outparms, SMBFID *fid)

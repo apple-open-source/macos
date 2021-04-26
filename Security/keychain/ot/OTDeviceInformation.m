@@ -41,7 +41,7 @@
 - (instancetype)initForContainerName:(NSString*)containerName
                            contextID:(NSString*)contextID
                                epoch:(uint64_t)epoch
-                           machineID:(NSString*)machineID
+                           machineID:(NSString* _Nullable)machineID
                              modelID:(NSString*)modelID
                           deviceName:(NSString*)deviceName
                         serialNumber:(NSString*)serialNumber

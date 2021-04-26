@@ -56,7 +56,9 @@ namespace JSC {
 
 const ClassInfo WebAssemblyFunction::s_info = { "WebAssemblyFunction", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(WebAssemblyFunction) };
 
-static EncodedJSValue JSC_HOST_CALL callWebAssemblyFunction(JSGlobalObject* globalObject, CallFrame* callFrame)
+static JSC_DECLARE_HOST_FUNCTION(callWebAssemblyFunction);
+
+JSC_DEFINE_HOST_FUNCTION(callWebAssemblyFunction, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -86,10 +88,10 @@ static EncodedJSValue JSC_HOST_CALL callWebAssemblyFunction(JSGlobalObject* glob
                 return JSValue::encode(throwException(globalObject, scope, createJSWebAssemblyRuntimeError(globalObject, vm, "Funcref must be an exported wasm function")));
             break;
         }
-        case Wasm::Anyref:
+        case Wasm::Externref:
             break;
         case Wasm::I64:
-            arg = JSValue();
+            arg = JSValue::decode(bitwise_cast<uint64_t>(arg.toBigInt64(globalObject)));
             break;
         case Wasm::F32:
             arg = JSValue::decode(bitwise_cast<uint32_t>(arg.toFloat(globalObject)));
@@ -212,7 +214,10 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
     totalFrameSize += wasmCallInfo.headerAndArgumentStackSizeInBytes;
     totalFrameSize += savedResultRegisters.size() * sizeof(CPURegister);
 
-    if (wasmCallInfo.argumentsIncludeI64 || wasmCallInfo.resultsIncludeI64)
+    // FIXME: Optimize Wasm function call even if arguments include I64.
+    // This requires I64 extraction from BigInt.
+    // https://bugs.webkit.org/show_bug.cgi?id=220053
+    if (wasmCallInfo.argumentsIncludeI64)
         return nullptr;
 
     totalFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), totalFrameSize);
@@ -285,7 +290,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
             isNull.link(&jit);
             FALLTHROUGH;
         }
-        case Wasm::Anyref: {
+        case Wasm::Externref: {
             if (isStack) {
                 jit.load64(jsParam, scratchGPR);
                 jit.store64(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
@@ -355,20 +360,20 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 
     if (!!moduleInformation.memory) {
         GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
-        GPRReg scratchOrSize = stackLimitGPR;
+        GPRReg scratchOrBoundsCheckingSize = stackLimitGPR;
         auto mode = instance()->memoryMode();
 
         if (isARM64E()) {
             if (mode != Wasm::MemoryMode::Signaling)
-                scratchOrSize = pinnedRegs.sizeRegister;
-            jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedMemorySize()), scratchOrSize);
+                scratchOrBoundsCheckingSize = pinnedRegs.boundsCheckingSizeRegister;
+            jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedBoundsCheckingSize()), scratchOrBoundsCheckingSize);
         } else {
             if (mode != Wasm::MemoryMode::Signaling)
-                jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedMemorySize()), pinnedRegs.sizeRegister);
+                jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedBoundsCheckingSize()), pinnedRegs.boundsCheckingSizeRegister);
         }
 
         jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedMemory()), baseMemory);
-        jit.cageConditionally(Gigacage::Primitive, baseMemory, scratchOrSize, scratchOrSize);
+        jit.cageConditionally(Gigacage::Primitive, baseMemory, scratchOrBoundsCheckingSize, scratchOrBoundsCheckingSize);
     }
 
     // We use this callee to indicate how to unwind past these types of frames:
@@ -429,7 +434,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 
 WebAssemblyFunction* WebAssemblyFunction::create(VM& vm, JSGlobalObject* globalObject, Structure* structure, unsigned length, const String& name, JSWebAssemblyInstance* instance, Wasm::Callee& jsEntrypoint, Wasm::WasmToWasmImportableFunction::LoadLocation wasmToWasmEntrypointLoadLocation, Wasm::SignatureIndex signatureIndex)
 {
-    NativeExecutable* executable = vm.getHostFunction(callWebAssemblyFunction, NoIntrinsic, callHostFunctionAsConstructor, nullptr, name);
+    NativeExecutable* executable = vm.getHostFunction(callWebAssemblyFunction, WasmFunctionIntrinsic, callHostFunctionAsConstructor, nullptr, name);
     WebAssemblyFunction* function = new (NotNull, allocateCell<WebAssemblyFunction>(vm.heap)) WebAssemblyFunction(vm, executable, globalObject, structure, jsEntrypoint, wasmToWasmEntrypointLoadLocation, signatureIndex);
     function->finishCreation(vm, executable, length, name, instance);
     return function;

@@ -2950,7 +2950,9 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 							 || (0x06421103 == vendorProduct)
 							 || (0x06451103 == vendorProduct)
 							 || (0x2392197B == vendorProduct)
-							 || (0x01221c28 == vendorProduct));
+							 || (0x01221c28 == vendorProduct)
+							 || (0x92351b4b == vendorProduct)
+							 || (0x08300034 == vendorProduct));
 
     mapper->initHardware(NULL);
 

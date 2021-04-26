@@ -48,11 +48,7 @@
 #include "common.h"
 #include "netshareenum.h"
 
-/*
- * Allocate a buffer and then use CFStringGetCString to copy the c-style string 
- * into the buffer. The calling routine needs to free the buffer when done.
- */
-static char *CStringCreateWithCFString(CFStringRef inStr)
+char *CStringCreateWithCFString(CFStringRef inStr)
 {
 	CFIndex maxLen;
 	char *str;

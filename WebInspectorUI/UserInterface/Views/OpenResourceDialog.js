@@ -124,7 +124,7 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
 
             treeElement.mainTitle = createHighlightedTitleFragment(resource.displayName, result.matchingTextRanges);
 
-            if (resource instanceof WI.LocalResource && resource.isLocalResourceOverride)
+            if (resource instanceof WI.LocalResource && resource.localResourceOverride)
                 treeElement.subtitle = WI.UIString("Local Override");
 
             let path = resource.urlComponents.path;
@@ -390,7 +390,7 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
 
     _addLocalResourceOverrides()
     {
-        if (!WI.NetworkManager.supportsLocalResourceOverrides())
+        if (!WI.NetworkManager.supportsOverridingResponses())
             return;
 
         const suppressFilterUpdate = true;

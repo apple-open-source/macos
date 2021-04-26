@@ -50,6 +50,10 @@ namespace WebCore {
 #if PLATFORM(COCOA)
     String copyImageUnknownFileLabel();
 #endif
+#if ENABLE(APP_HIGHLIGHTS)
+    WEBCORE_EXPORT String contextMenuItemTagAddHighlightToCurrentGroup();
+    WEBCORE_EXPORT String contextMenuItemTagAddHighlightToNewGroup();
+#endif
 
 #if ENABLE(CONTEXT_MENUS)
     WEBCORE_EXPORT String contextMenuItemTagOpenLinkInNewWindow();
@@ -202,11 +206,9 @@ namespace WebCore {
     String AXListItemActionVerb();
 
 #if PLATFORM(COCOA)
-#if ENABLE(METER_ELEMENT)
     String AXMeterGaugeRegionOptimumText();
     String AXMeterGaugeRegionSuboptimalText();
     String AXMeterGaugeRegionLessGoodText();
-#endif
 #endif
 #if ENABLE(APPLE_PAY)
     String AXApplePayPlainLabel();

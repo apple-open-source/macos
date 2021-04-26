@@ -74,8 +74,7 @@ struct LoadParameters {
 
 #if PLATFORM(COCOA)
     RetainPtr<NSDictionary> dataDetectionContext;
-    Optional<SandboxExtension::Handle> neHelperExtensionHandle;
-    Optional<SandboxExtension::Handle> neSessionManagerExtensionHandle;
+    SandboxExtension::HandleArray networkExtensionSandboxExtensionHandles;
 #endif
 #if PLATFORM(IOS)
     Optional<SandboxExtension::Handle> contentFilterExtensionHandle;

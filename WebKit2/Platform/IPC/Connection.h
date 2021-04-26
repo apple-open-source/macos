@@ -80,7 +80,6 @@ enum class WaitForOption {
 #define MESSAGE_CHECK_BASE(assertion, connection) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, (void)0)
 
 #define MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion) do { \
-    ASSERT(assertion); \
     if (UNLIKELY(!(assertion))) { \
         (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
         { completion; } \
@@ -89,7 +88,6 @@ enum class WaitForOption {
 } while (0)
 
 #define MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, connection, returnValue) do { \
-    ASSERT(assertion); \
     if (UNLIKELY(!(assertion))) { \
         (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
         return (returnValue); \
@@ -117,10 +115,36 @@ public:
     class WorkQueueMessageReceiver : public MessageReceiver, public ThreadSafeRefCounted<WorkQueueMessageReceiver> {
     };
 
-    class ThreadMessageReceiver : public MessageReceiver, public ThreadSafeRefCounted<ThreadMessageReceiver> {
+    class ThreadMessageReceiver : public MessageReceiver {
     public:
-        virtual void dispatchToThread(WTF::Function<void()>&&) { };
+        virtual void dispatchToThread(WTF::Function<void()>&&) = 0;
+
+        void ref() { refMessageReceiver(); }
+        void deref() { derefMessageReceiver(); }
+
+    protected:
+        virtual void refMessageReceiver() = 0;
+        virtual void derefMessageReceiver() = 0;
     };
+
+    class ThreadMessageReceiverRefCounted : public ThreadMessageReceiver, public ThreadSafeRefCounted<ThreadMessageReceiverRefCounted> {
+    public:
+        using ThreadSafeRefCounted::ref;
+        using ThreadSafeRefCounted::deref;
+
+    private:
+        void refMessageReceiver() final { ThreadSafeRefCounted::ref(); }
+        void derefMessageReceiver() final { ThreadSafeRefCounted::deref(); }
+    };
+
+#if ENABLE(IPC_TESTING_API)
+    class MessageObserver : public CanMakeWeakPtr<MessageObserver> {
+    public:
+        virtual ~MessageObserver() = default;
+        virtual void willSendMessage(const Encoder&, OptionSet<SendOption>) = 0;
+        virtual void didReceiveMessage(const Decoder&) = 0;
+    };
+#endif
 
 #if USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
@@ -190,21 +214,23 @@ public:
     typedef void (*DidCloseOnConnectionWorkQueueCallback)(Connection*);
     void setDidCloseOnConnectionWorkQueueCallback(DidCloseOnConnectionWorkQueueCallback);
 
-    void addWorkQueueMessageReceiver(ReceiverName, WorkQueue&, WorkQueueMessageReceiver*);
-    void removeWorkQueueMessageReceiver(ReceiverName);
+    void addWorkQueueMessageReceiver(ReceiverName, WorkQueue&, WorkQueueMessageReceiver*, uint64_t destinationID = 0);
+    void removeWorkQueueMessageReceiver(ReceiverName, uint64_t destinationID = 0);
 
-    void addThreadMessageReceiver(ReceiverName, ThreadMessageReceiver*);
-    void removeThreadMessageReceiver(ReceiverName);
+    void addThreadMessageReceiver(ReceiverName, ThreadMessageReceiver*, uint64_t destinationID = 0);
+    void removeThreadMessageReceiver(ReceiverName, uint64_t destinationID = 0);
 
     bool open();
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
     void postConnectionDidCloseOnConnectionWorkQueue();
-
     template<typename T, typename C> void sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID = 0, OptionSet<SendOption> = { }); // Thread-safe.
     template<typename T> bool send(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions = { }); // Thread-safe.
-    template<typename T> bool sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { }); // Main thread only.
+    // Sync senders should check the SendSyncResult for true/false in case they need to know if the result was really received.
+    // Sync senders should hold on to the SendSyncResult in case they reference the contents of the reply via DataRefererence / ArrayReference.
+    using SendSyncResult = std::unique_ptr<Decoder>;
+    template<typename T> SendSyncResult sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { }); // Main thread only.
     template<typename T> bool waitForAndDispatchImmediately(uint64_t destinationID, Seconds timeout, OptionSet<WaitForOption> waitForOptions = { }); // Main thread only.
     
     // Thread-safe.
@@ -223,7 +249,7 @@ public:
 
     // Main thread only.
     template<typename T, typename U>
-    bool sendSync(T&& message, typename T::Reply&& reply, ObjectIdentifier<U> destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    SendSyncResult sendSync(T&& message, typename T::Reply&& reply, ObjectIdentifier<U> destinationID, Seconds timeout = Seconds::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         return sendSync<T>(WTFMove(message), WTFMove(reply), destinationID.toUInt64(), timeout, sendSyncOptions);
     }
@@ -256,10 +282,6 @@ public:
 
     bool isValid() const { return m_isValid; }
 
-#if HAVE(QOS_CLASSES)
-    void setShouldBoostMainThreadOnSyncMessage(bool b) { m_shouldBoostMainThreadOnSyncMessage = b; }
-#endif
-
     uint64_t installIncomingSyncMessageCallback(WTF::Function<void()>&&);
     void uninstallIncomingSyncMessageCallback(uint64_t);
     bool hasIncomingSyncMessage();
@@ -269,6 +291,13 @@ public:
     void ignoreTimeoutsForTesting() { m_ignoreTimeoutsForTesting = true; }
 
     void enableIncomingMessagesThrottling();
+
+#if ENABLE(IPC_TESTING_API)
+    void addMessageObserver(const MessageObserver&);
+
+    void setIgnoreInvalidMessageForTesting() { m_ignoreInvalidMessageForTesting = true; }
+    bool ignoreInvalidMessageForTesting() const { return m_ignoreInvalidMessageForTesting; }
+#endif
 
 private:
     Connection(Identifier, bool isServer, Client&);
@@ -335,6 +364,9 @@ private:
         unsigned m_throttlingLevel { 0 };
     };
 
+    RefPtr<ThreadMessageReceiver> threadMessageReceiver(std::unique_ptr<Decoder>&);
+    std::pair<RefPtr<WorkQueue>, RefPtr<WorkQueueMessageReceiver>> workQueueMessageReceiver(std::unique_ptr<Decoder>&);
+
     Client& m_client;
     UniqueID m_uniqueID;
     bool m_isServer;
@@ -349,11 +381,11 @@ private:
     Ref<WorkQueue> m_connectionQueue;
 
     Lock m_workQueueMessageReceiversMutex;
-    using WorkQueueMessageReceiverMap = HashMap<ReceiverName, std::pair<RefPtr<WorkQueue>, RefPtr<WorkQueueMessageReceiver>>, WTF::IntHash<ReceiverName>, WTF::StrongEnumHashTraits<ReceiverName>>;
+    using WorkQueueMessageReceiverMap = HashMap<std::pair<uint8_t, uint64_t>, std::pair<RefPtr<WorkQueue>, RefPtr<WorkQueueMessageReceiver>>>;
     WorkQueueMessageReceiverMap m_workQueueMessageReceivers;
 
     Lock m_threadMessageReceiversLock;
-    using ThreadMessageReceiverMap = HashMap<ReceiverName, RefPtr<ThreadMessageReceiver>, WTF::IntHash<ReceiverName>, WTF::StrongEnumHashTraits<ReceiverName>>;
+    using ThreadMessageReceiverMap = HashMap<std::pair<uint8_t, uint64_t>, RefPtr<ThreadMessageReceiver>>;
     ThreadMessageReceiverMap m_threadMessageReceivers;
 
     unsigned m_inSendSyncCount;
@@ -392,9 +424,13 @@ private:
     RefPtr<WorkQueue> m_incomingSyncMessageCallbackQueue;
     uint64_t m_nextIncomingSyncMessageCallbackID { 0 };
 
+#if ENABLE(IPC_TESTING_API)
+    Vector<WeakPtr<MessageObserver>> m_messageObservers;
+    bool m_ignoreInvalidMessageForTesting { false };
+#endif
+
 #if HAVE(QOS_CLASSES)
     pthread_t m_mainThread { 0 };
-    bool m_shouldBoostMainThreadOnSyncMessage { false };
 #endif
 
 #if USE(UNIX_DOMAIN_SOCKETS)
@@ -485,12 +521,12 @@ void Connection::sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t
 
     auto encoder = makeUnique<Encoder>(T::name(), destinationID);
     uint64_t listenerID = nextAsyncReplyHandlerID();
-    addAsyncReplyHandler(*this, listenerID, [completionHandler = WTFMove(completionHandler)] (Decoder* decoder) mutable {
+    addAsyncReplyHandler(*this, listenerID, CompletionHandler<void(Decoder*)>([completionHandler = WTFMove(completionHandler)] (Decoder* decoder) mutable {
         if (decoder && decoder->isValid())
             T::callReply(*decoder, WTFMove(completionHandler));
         else
             T::cancelReply(WTFMove(completionHandler));
-    });
+    }, CompletionHandlerCallThread::MainThread));
     encoder->encode(listenerID);
     encoder->encode(message.arguments());
     sendMessage(WTFMove(encoder), sendOptions);
@@ -515,7 +551,7 @@ void moveTuple(std::tuple<A...>&& a, std::tuple<B...>& b)
     TupleMover<sizeof...(A), std::tuple<A...>, std::tuple<B...>>::move(WTFMove(a), b);
 }
 
-template<typename T> bool Connection::sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout, OptionSet<SendSyncOption> sendSyncOptions)
+template<typename T> Connection::SendSyncResult Connection::sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Seconds timeout, OptionSet<SendSyncOption> sendSyncOptions)
 {
     COMPILE_ASSERT(T::isSync, SyncMessageExpected);
     RELEASE_ASSERT(RunLoop::isMain());
@@ -534,15 +570,15 @@ template<typename T> bool Connection::sendSync(T&& message, typename T::Reply&& 
     // Now send the message and wait for a reply.
     std::unique_ptr<Decoder> replyDecoder = sendSyncMessage(syncRequestID, WTFMove(encoder), timeout, sendSyncOptions);
     if (!replyDecoder)
-        return false;
+        return { };
 
     // Decode the reply.
     Optional<typename T::ReplyArguments> replyArguments;
     *replyDecoder >> replyArguments;
     if (!replyArguments)
-        return false;
+        return { };
     moveTuple(WTFMove(*replyArguments), reply);
-    return true;
+    return replyDecoder;
 }
 
 template<typename T> bool Connection::waitForAndDispatchImmediately(uint64_t destinationID, Seconds timeout, OptionSet<WaitForOption> waitForOptions)

@@ -298,6 +298,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*!
 	@function   IOHIDElementGetReportSize
 	@abstract   Returns the report size in bits for the element.
+    @discussion If the element is an array type the total number of bit in the element is equal to
+                IOHIDElementGetReportSize(element) * IOHIDElementGetReportCount(element). Otherwise this size is the
+                total number of bits in the element.
+
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.
     @result     Returns the report size.
 */
@@ -308,8 +312,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*!
 	@function   IOHIDElementGetReportCount
 	@abstract   Returns the report count for the element.
-    @discussion If the report count is greater than one and the element does not represent an array then it is a
-                repeated set of value usages, the size of each report is the report size divided by the report count.
+    @discussion If the IOHIDElementGetReportCount(element) is greater than one and the element does not represent an
+                array then the element represents a repeated set of usages, the size of each usage in the element is
+                IOHIDElementGetReportSize(element) / IOHIDElementGetReportCount(element).
+
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.
     @result     Returns the report count.
 */

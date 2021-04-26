@@ -72,14 +72,14 @@ RefPtr<Table> Table::tryCreate(uint32_t initial, Optional<uint32_t> maximum, Tab
     switch (type) {
     case TableElementType::Funcref:
         return adoptRef(new FuncRefTable(initial, maximum));
-    case TableElementType::Anyref:
+    case TableElementType::Externref:
         return adoptRef(new Table(initial, maximum));
     }
 
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-Optional<uint32_t> Table::grow(uint32_t delta)
+Optional<uint32_t> Table::grow(uint32_t delta, JSValue defaultValue)
 {
     RELEASE_ASSERT(m_owner);
     if (delta == 0)
@@ -123,11 +123,19 @@ Optional<uint32_t> Table::grow(uint32_t delta)
             return WTF::nullopt;
     }
 
-    if (!checkedGrow(m_jsValues, [] (WriteBarrier<Unknown>& slot) { slot.setStartingValue(jsNull()); }))
+    if (!checkedGrow(m_jsValues, [defaultValue] (WriteBarrier<Unknown>& slot) { slot.setStartingValue(defaultValue); }))
         return WTF::nullopt;
 
     setLength(newLength);
     return newLength;
+}
+
+void Table::copy(const Table* srcTable, uint32_t dstIndex, uint32_t srcIndex)
+{
+    RELEASE_ASSERT(isExternrefTable());
+    RELEASE_ASSERT(srcTable->isExternrefTable());
+
+    set(dstIndex, srcTable->get(srcIndex));
 }
 
 void Table::clear(uint32_t index)
@@ -145,7 +153,7 @@ void Table::clear(uint32_t index)
 void Table::set(uint32_t index, JSValue value)
 {
     RELEASE_ASSERT(index < length());
-    RELEASE_ASSERT(isAnyrefTable());
+    RELEASE_ASSERT(isExternrefTable());
     RELEASE_ASSERT(m_owner);
     clear(index);
     m_jsValues.get()[index & m_mask].set(m_owner->vm(), m_owner, value);
@@ -205,6 +213,16 @@ const WasmToWasmImportableFunction& FuncRefTable::function(uint32_t index) const
 Instance* FuncRefTable::instance(uint32_t index) const
 {
     return m_instances.get()[index & m_mask];
+}
+
+void FuncRefTable::copyFunction(const FuncRefTable* srcTable, uint32_t dstIndex, uint32_t srcIndex)
+{
+    if (srcTable->get(srcIndex).isNull()) {
+        clear(dstIndex);
+        return;
+    }
+
+    setFunction(dstIndex, jsCast<JSObject*>(srcTable->get(srcIndex)), srcTable->function(srcIndex), srcTable->instance(srcIndex));
 }
 
 } } // namespace JSC::Table

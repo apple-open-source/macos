@@ -28,51 +28,95 @@
 #if ENABLE(GPU_PROCESS) && ENABLE(WEB_AUDIO)
 
 #include "Connection.h"
-#include "RemoteAudioBusData.h"
+#include "GPUProcessConnection.h"
 #include "RemoteAudioDestinationIdentifier.h"
-#include "WebProcessSupplement.h"
-#include <WebCore/AudioDestination.h>
 #include <WebCore/AudioIOCallback.h>
+#include <wtf/CrossThreadQueue.h>
+#include <wtf/MediaTime.h>
+#include <wtf/Threading.h>
 
 #if PLATFORM(COCOA)
-#include <WebCore/CARingBuffer.h>
+#include "SharedRingBufferStorage.h"
+#include <WebCore/AudioDestinationCocoa.h>
+#else
+#include <WebCore/AudioDestinationGStreamer.h>
 #endif
+
+namespace WebCore {
+class CARingBuffer;
+class WebAudioBufferList;
+}
+
+namespace WTF {
+#if PLATFORM(COCOA)
+class MachSemaphore;
+#endif
+}
 
 namespace WebKit {
 
-class RemoteAudioDestinationProxy : public WebCore::AudioDestination, private IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+class SharedRingBufferFrameBounds;
+
+class RemoteAudioDestinationProxy final
+#if PLATFORM(COCOA)
+    : public WebCore::AudioDestinationCocoa
+#else
+    : public WebCore::AudioDestinationGStreamer
+#endif
+    , public GPUProcessConnection::Client {
     WTF_MAKE_NONCOPYABLE(RemoteAudioDestinationProxy);
 public:
-    using AudioBus = WebCore::AudioBus;
     using AudioIOCallback = WebCore::AudioIOCallback;
+    using WebCore::AudioDestination::ref;
+    using WebCore::AudioDestination::deref;
 
-    static std::unique_ptr<AudioDestination> create(AudioIOCallback&, const String& inputDeviceId, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate);
+    static Ref<AudioDestination> create(AudioIOCallback&, const String& inputDeviceId, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate);
 
     RemoteAudioDestinationProxy(AudioIOCallback&, const String& inputDeviceId, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate);
     ~RemoteAudioDestinationProxy();
 
-    void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
-
-    void renderBuffer(const WebKit::RemoteAudioBusData&, CompletionHandler<void()>&&);
-    void didChangeIsPlaying(bool isPlaying);
-
 private:
-    // WebCore::AudioDestination
-    void start() override;
-    void stop() override;
-    bool isPlaying() override { return m_isPlaying; }
-    float sampleRate() const override { return m_sampleRate; }
-    unsigned framesPerBuffer() const override { return m_framesPerBuffer; }
+    void startRendering(CompletionHandler<void(bool)>&&) final;
+    void stopRendering(CompletionHandler<void(bool)>&&) final;
 
-    // IPC::MessageReceiver
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
+    void startRenderingThread();
+    void stopRenderingThread();
+    void renderQuantum();
 
-    AudioIOCallback& m_callback;
-    float m_sampleRate { 0. };
-    unsigned m_framesPerBuffer { 0 };
+    void connectToGPUProcess();
+
+    // GPUProcessConnection::Client.
+    void gpuProcessConnectionDidClose(GPUProcessConnection&) final;
+
+#if !PLATFORM(COCOA)
+    bool isPlaying() final { return false; }
+    void setIsPlaying(bool) { }
+    float sampleRate() const final { return 0; }
+    unsigned numberOfOutputChannels() const { return m_numberOfOutputChannels; }
+#endif
+
+#if PLATFORM(COCOA)
+    void storageChanged(SharedMemory*, const WebCore::CAAudioStreamDescription& format, size_t frameCount);
+#endif
+
     RemoteAudioDestinationIdentifier m_destinationID;
-    bool m_isPlaying { false };
+
+#if PLATFORM(COCOA)
+    uint64_t m_numberOfFrames { 0 };
+    std::unique_ptr<WebCore::CARingBuffer> m_ringBuffer;
+    std::unique_ptr<WTF::MachSemaphore> m_renderSemaphore;
+    std::unique_ptr<WebCore::WebAudioBufferList> m_audioBufferList;
+    uint64_t m_currentFrame { 0 };
+    float m_sampleRate;
+#else
+    unsigned m_numberOfOutputChannels;
+#endif
+
+    String m_inputDeviceId;
+    unsigned m_numberOfInputChannels;
+
+    RefPtr<Thread> m_renderThread;
+    std::atomic<bool> m_shouldStopThread { false };
 };
 
 } // namespace WebKit

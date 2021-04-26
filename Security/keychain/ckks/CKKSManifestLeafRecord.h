@@ -48,6 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable CKKSManifestLeafRecord*)commitToDatabaseWithError:(NSError**)error;
 
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
+
 @end
 
 @interface CKKSEgoManifestLeafRecord : CKKSManifestLeafRecord

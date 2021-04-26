@@ -1194,7 +1194,7 @@ authorization_copy_prelogin_userdb(connection_t conn, xpc_object_t message, xpc_
 
     status = preloginudb_copy_userdb(uuid, flags, &cfarray);
     xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
-    require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "authorization_copy_prelogin_userdb: database failed"));
+    require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "authorization_copy_prelogin_userdb: database failed %d", (int)status));
   
     xpcarr = _CFXPCCreateXPCObjectFromCFObject(cfarray);
     require(xpcarr != NULL, done);
@@ -1204,5 +1204,69 @@ done:
     CFReleaseSafe(cfarray);
     xpc_release_safe(xpcarr);
 
+    return status;
+}
+
+// IN:  AUTH_XPC_RIGHT_NAME, AUTH_XPC_HINTS_NAME, AUTH_XPC_FLAGS
+// OUT: AUTH_XPC_DATA
+OSStatus
+authorization_copy_prelogin_pref_value(connection_t conn, xpc_object_t message, xpc_object_t reply)
+{
+    OSStatus status = errAuthorizationDenied;
+    xpc_object_t xpcoutput = NULL;
+    const char *uuid = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
+    const char *user = xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME);
+    const char *domain = xpc_dictionary_get_string(message, AUTH_XPC_HINTS_NAME);
+    const char *item = xpc_dictionary_get_string(message, AUTH_XPC_ITEM_NAME);
+
+    CFTypeRef output = NULL;
+    status = prelogin_copy_pref_value(uuid, user, domain, item, &output);
+    xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
+  
+    xpcoutput = _CFXPCCreateXPCObjectFromCFObject(output);
+    require(xpcoutput != NULL, done);
+    xpc_dictionary_set_value(reply, AUTH_XPC_DATA, xpcoutput);
+
+done:
+    CFReleaseSafe(output);
+    xpc_release_safe(xpcoutput);
+
+    return status;
+}
+
+// IN:  AUTH_XPC_RIGHT_NAME, AUTH_XPC_ITEM_NAME
+// OUT: AUTH_XPC_ITEM_VALUE
+OSStatus
+authorization_prelogin_smartcardonly_override(connection_t conn, xpc_object_t message, xpc_object_t reply)
+{
+    OSStatus status = errAuthorizationDenied;
+
+    process_t proc = connection_get_process(conn);
+    
+    uint64 operation = xpc_dictionary_get_uint64(message, AUTH_XPC_ITEM_NAME);
+    
+    if (operation != kAuthorizationOverrideOperationQuery) {
+        // check if caller is entitled to handle the override
+        Boolean entitlementCheckPassed = false;
+        CFTypeRef overrideEntitlement = process_copy_entitlement_value(proc, "com.apple.authorization.smartcard.override");
+        if (overrideEntitlement && (CFGetTypeID(overrideEntitlement) == CFBooleanGetTypeID()) && overrideEntitlement == kCFBooleanTrue) {
+            os_log_debug(AUTHD_LOG, "server: caller allowed to handle override");
+            entitlementCheckPassed = true;
+        } else {
+            os_log_error(AUTHD_LOG, "server: caller NOT allowed to handle override");
+        }
+        CFReleaseSafe(overrideEntitlement);
+        require(entitlementCheckPassed, done);
+    }
+
+    const char *uuid = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
+    Boolean result = false;
+    status = prelogin_smartcardonly_override(uuid, operation, &result);
+    xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
+    if (operation == kAuthorizationOverrideOperationQuery) {
+        xpc_dictionary_set_bool(reply, AUTH_XPC_ITEM_VALUE, result);
+    }
+
+done:
     return status;
 }

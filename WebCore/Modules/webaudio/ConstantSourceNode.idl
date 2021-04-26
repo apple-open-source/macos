@@ -26,8 +26,9 @@
 [
     Conditional=WEB_AUDIO,
     JSGenerateToJSObject,
-    EnabledBySetting=ModernUnprefixedWebAudio
+    EnabledBySetting=ModernUnprefixedWebAudio,
+    Exposed=Window
 ] interface ConstantSourceNode : AudioScheduledSourceNode {
-    [MayThrowException] constructor (BaseAudioContext context, optional ConstantSourceOptions options);
+    constructor (BaseAudioContext context, optional ConstantSourceOptions options);
     readonly attribute AudioParam offset;
 };

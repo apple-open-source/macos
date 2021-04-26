@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,6 +27,7 @@
 #include "smbclient_internal.h"
 
 #include <stdlib.h>
+#include <time.h>
 #include <pwd.h>
 #include <unistd.h>
 #include <readpassphrase.h>
@@ -321,18 +322,9 @@ SMBMountShareEx(
 	void *args)
 {
     NTSTATUS    status = STATUS_SUCCESS;
-    int         err = 0;
-    void *      hContext = NULL;
-	CFStringRef mountPtRef = NULL;
 	CFMutableDictionaryRef mOptions = NULL;
 	CFNumberRef numRef = NULL;
 	
-	status = SMBServerContext(inConnection, &hContext);
-	if (!NT_SUCCESS(status)) {
-		/* Couldn't get the context? */
-        goto done;
-    }
-
 	mOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
 										 &kCFTypeDictionaryValueCallBacks);
 	if (mOptions == NULL) {
@@ -411,44 +403,75 @@ SMBMountShareEx(
 			}
 		}
 	}
-	
-	/* Get the mount point */
-	if (mountPoint) {
-		mountPtRef = CFStringCreateWithCString(kCFAllocatorDefault, mountPoint, 
-											   kCFStringEncodingUTF8);
-	}
-	if (mountPtRef == NULL) {
-		/* No mount point */
-		errno = ENOMEM;
-		status = STATUS_NO_MEMORY;
-		goto done;
-	}
-	/* Set the share if they gave us one */
-	if (targetShare) {
-		err = smb_ctx_setshare(hContext, targetShare);
-	}
-	
-	if (err == 0) {
-		err = smb_mount(hContext, mountPtRef, mOptions, NULL, callout, args);
-	}
-	
-	if (err) {
-		errno = err;
-		status = STATUS_UNSUCCESSFUL;
-		goto done;
-	}
-	
+
+    status = SMBMountShareExDict(inConnection, targetShare, mountPoint,
+                                 mOptions, NULL, callout, args);
+
 done:
 	if (mOptions) {
 		CFRelease(mOptions);
 	}
-	if (mountPtRef) {
-		CFRelease(mountPtRef);
-	}
 	return status;
 }
 
-NTSTATUS 
+NTSTATUS
+SMBMountShareExDict(
+    SMBHANDLE inConnection,
+    const char *targetShare,
+    const char *mountPoint,
+    CFDictionaryRef mountOptions,
+    CFDictionaryRef *retMountInfo,
+    void (*callout)(void *, void *),
+    void *args)
+{
+    NTSTATUS    status = STATUS_SUCCESS;
+    int         err = 0;
+    void *      hContext = NULL;
+    CFStringRef mountPtRef = NULL;
+
+    status = SMBServerContext(inConnection, &hContext);
+    if (!NT_SUCCESS(status)) {
+        /* Couldn't get the context? */
+        goto done;
+    }
+
+    /* Get the mount point */
+    if (mountPoint) {
+        mountPtRef = CFStringCreateWithCString(kCFAllocatorDefault, mountPoint,
+                                               kCFStringEncodingUTF8);
+    }
+
+    if (mountPtRef == NULL) {
+        /* No mount point */
+        errno = ENOMEM;
+        status = STATUS_NO_MEMORY;
+        goto done;
+    }
+
+    /* Set the share if they gave us one */
+    if (targetShare) {
+        err = smb_ctx_setshare(hContext, targetShare);
+    }
+
+    if (err == 0) {
+        err = smb_mount(hContext, mountPtRef, mountOptions, retMountInfo,
+                        callout, args);
+    }
+
+    if (err) {
+        errno = err;
+        status = STATUS_UNSUCCESSFUL;
+        goto done;
+    }
+
+done:
+    if (mountPtRef) {
+        CFRelease(mountPtRef);
+    }
+    return status;
+}
+
+NTSTATUS
 SMBOpenServer(
     const char * targetServer,
     SMBHANDLE * outConnection)
@@ -837,6 +860,93 @@ SMBGetServerProperties(
     return STATUS_SUCCESS;
 }
 
+
+NTSTATUS
+SMBGetMultichannelProperties(SMBHANDLE inConnection, void *outAttrs)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    struct smb_ctx *ctx = NULL;
+
+    if (!inConnection || !outAttrs)
+        return STATUS_INVALID_PARAMETER;
+
+    status = SMBServerContext(inConnection, (void **)&ctx);
+    if (!NT_SUCCESS(status)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: failed to get smb_ctx, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return status;
+    }
+
+    struct smbioc_multichannel_properties *mc_props = outAttrs;
+    memset(mc_props, 0, sizeof(struct smbioc_multichannel_properties));
+    mc_props->ioc_version = SMB_IOC_STRUCT_VERSION;
+    if (smb_ioctl_call(ctx->ct_fd, SMBIOC_MULTICHANNEL_PROPERTIES, mc_props) == -1) {
+        os_log_error(OS_LOG_DEFAULT, "%s: Getting the multi-channel properties failed, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return errno;
+    }
+
+    return status;
+}
+
+NTSTATUS
+SMBGetNicInfoProperties(SMBHANDLE inConnection, void *outAttrs, uint8_t inClientOrServer)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    struct smb_ctx *ctx = NULL;
+
+    if (!inConnection || !outAttrs)
+        return STATUS_INVALID_PARAMETER;
+
+    status = SMBServerContext(inConnection, (void **)&ctx);
+    if (!NT_SUCCESS(status)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: failed to get smb_ctx, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return status;
+    }
+
+    struct smbioc_nic_info *nic_info = outAttrs;
+    memset(nic_info, 0, sizeof(struct smbioc_nic_info));
+    nic_info->ioc_version = SMB_IOC_STRUCT_VERSION;
+    nic_info->flags = inClientOrServer;
+    if (smb_ioctl_call(ctx->ct_fd, SMBIOC_NIC_INFO, nic_info) == -1) {
+        os_log_error(OS_LOG_DEFAULT, "%s: Getting the network interfaces properties failed, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return errno;
+    }
+
+    return status;
+}
+
+NTSTATUS
+SMBGetMultichannelSessionInfoProperties(SMBHANDLE inConnection, void *outAttrs)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    struct smb_ctx *ctx = NULL;
+
+    if (!inConnection || !outAttrs)
+        return STATUS_INVALID_PARAMETER;
+
+    status = SMBServerContext(inConnection, (void **)&ctx);
+    if (!NT_SUCCESS(status)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: failed to get smb_ctx, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return status;
+    }
+
+    struct smbioc_session_properties *session_info = outAttrs;
+    memset(session_info, 0, sizeof(struct smbioc_session_properties));
+    session_info->ioc_version = SMB_IOC_STRUCT_VERSION;
+    if (smb_ioctl_call(ctx->ct_fd, SMBIOC_SESSION_PROPERTIES, session_info) == -1) {
+        os_log_error(OS_LOG_DEFAULT,
+                     "%s: Getting the session mc info properties failed, syserr = %s",
+                     __FUNCTION__, strerror(errno));
+        return errno;
+    }
+
+    return status;
+}
+
 NTSTATUS
 SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
 {
@@ -872,6 +982,11 @@ SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
         sattrs->session_misc_flags = session_prop.misc_flags;
         sattrs->session_hflags = session_prop.hflags;
         sattrs->session_hflags2 = session_prop.hflags2;
+
+        if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
+            strlcpy(sattrs->snapshot_time, session_prop.snapshot_time,
+                    sizeof(sattrs->snapshot_time));
+        }
     }
     
     memset(&share_prop, 0, sizeof(share_prop));
@@ -919,5 +1034,31 @@ SMBReleaseServer(
 
     return STATUS_SUCCESS;
 }
+
+time_t
+SMBConvertGMT( const char *gmt_string)
+{
+    struct tm gmt_time = {0};
+    time_t local_time;
+    int ret;
+
+    /* Convert the @GMT token to local time */
+    ret = sscanf(gmt_string, "@GMT-%d.%d.%d-%d.%d.%d",
+                 &gmt_time.tm_year, &gmt_time.tm_mon, &gmt_time.tm_mday,
+                 &gmt_time.tm_hour, &gmt_time.tm_min, &gmt_time.tm_sec);
+    if (ret != 6) {
+        os_log_error(OS_LOG_DEFAULT, "%s: sscanf failed on <%s>",
+                     __FUNCTION__, gmt_string);
+        return(0);
+    }
+
+    gmt_time.tm_year -= 1900;   /* tm_year is years from 1900 */
+    gmt_time.tm_mon -= 1;       /* tm_mon starts at 0 for Jan */
+
+    local_time = timegm(&gmt_time);
+
+    return(local_time);
+}
+
 
 /* vim: set sw=4 ts=4 tw=79 et: */

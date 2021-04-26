@@ -46,6 +46,7 @@
 #include "EditorClient.h"
 #include "ElementAncestorIterator.h"
 #include "EventHandler.h"
+#include "EventLoop.h"
 #include "File.h"
 #include "FloatRect.h"
 #include "FocusController.h"
@@ -154,7 +155,7 @@ static RefPtr<DocumentFragment> documentFragmentFromDragData(const DragData& dra
             String title;
             String url = dragData.asURL(DragData::DoNotConvertFilenames, &title);
             if (!url.isEmpty()) {
-                auto& document = context.start.container->document();
+                auto& document = context.start.document();
                 auto anchor = HTMLAnchorElement::create(document);
                 anchor->setHref(url);
                 if (title.isEmpty()) {
@@ -683,10 +684,7 @@ bool DragController::canProcessDrag(const DragData& dragData)
         return true;
 #endif
 
-    if (is<HTMLPlugInElement>(*dragNode)) {
-        if (!downcast<HTMLPlugInElement>(*dragNode).canProcessDrag() && !dragNode->hasEditableStyle())
-            return false;
-    } else if (!dragNode->hasEditableStyle())
+    if (!dragNode->hasEditableStyle())
         return false;
 
     if (m_didInitiateDrag && m_documentUnderMouse == m_dragInitiator && result.isSelected())
@@ -774,17 +772,13 @@ Element* DragController::draggableElement(const Frame* sourceFrame, Element* sta
     state.type = sourceFrame->selection().contains(dragOrigin) ? DragSourceAction::Selection : OptionSet<DragSourceAction>({ });
     if (!startElement)
         return nullptr;
+
 #if ENABLE(ATTACHMENT_ELEMENT)
     if (auto attachment = enclosingAttachmentElement(*startElement)) {
-        auto selection = sourceFrame->selection().selection();
+        auto& selection = sourceFrame->selection().selection();
         bool isSingleAttachmentSelection = selection.start() == Position(attachment.get(), Position::PositionIsBeforeAnchor) && selection.end() == Position(attachment.get(), Position::PositionIsAfterAnchor);
-        bool isAttachmentElementInCurrentSelection = false;
-        if (auto selectedRange = selection.toNormalizedRange()) {
-            auto compareResult = createLiveRange(*selectedRange)->compareNode(*attachment);
-            isAttachmentElementInCurrentSelection = !compareResult.hasException() && compareResult.releaseReturnValue() == Range::NODE_INSIDE;
-        }
-
-        if (!isAttachmentElementInCurrentSelection || isSingleAttachmentSelection) {
+        auto selectedRange = selection.firstRange();
+        if (isSingleAttachmentSelection || !selectedRange || !contains<ComposedTree>(*selectedRange, *attachment)) {
             state.type = DragSourceAction::Attachment;
             return attachment.get();
         }
@@ -1463,7 +1457,7 @@ void DragController::insertDroppedImagePlaceholdersAtCaret(const Vector<IntSize>
         return;
     }
 
-    auto container = commonInclusiveAncestor(*insertedContentRange);
+    auto container = commonInclusiveAncestor<ComposedTree>(*insertedContentRange);
     if (!is<ContainerNode>(container)) {
         ASSERT_NOT_REACHED();
         return;
@@ -1471,8 +1465,7 @@ void DragController::insertDroppedImagePlaceholdersAtCaret(const Vector<IntSize>
 
     Vector<Ref<HTMLImageElement>> placeholders;
     for (auto& placeholder : descendantsOfType<HTMLImageElement>(downcast<ContainerNode>(*container))) {
-        auto intersectsNode = createLiveRange(*insertedContentRange)->intersectsNode(placeholder);
-        if (!intersectsNode.hasException() && intersectsNode.returnValue())
+        if (intersects<ComposedTree>(*insertedContentRange, placeholder))
             placeholders.append(placeholder);
     }
 
@@ -1495,14 +1488,18 @@ void DragController::insertDroppedImagePlaceholdersAtCaret(const Vector<IntSize>
     m_droppedImagePlaceholderRange = WTFMove(insertedContentRange);
 
     frame->selection().clear();
-    caretController.setCaretPosition(createLegacyEditingPosition(m_droppedImagePlaceholderRange->start));
+    caretController.setCaretPosition(makeDeprecatedLegacyPosition(m_droppedImagePlaceholderRange->start));
 }
 
-void DragController::finalizeDroppedImagePlaceholder(HTMLImageElement& placeholder)
+void DragController::finalizeDroppedImagePlaceholder(HTMLImageElement& placeholder, CompletionHandler<void()>&& completion)
 {
-    ASSERT(placeholder.isDroppedImagePlaceholder());
-    placeholder.removeAttribute(HTMLNames::heightAttr);
-    placeholder.removeInlineStyleProperty(CSSPropertyBackgroundColor);
+    placeholder.document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [completion = WTFMove(completion), placeholder = makeRefPtr(placeholder)] () mutable {
+        if (placeholder->isDroppedImagePlaceholder()) {
+            placeholder->removeAttribute(HTMLNames::heightAttr);
+            placeholder->removeInlineStyleProperty(CSSPropertyBackgroundColor);
+        }
+        completion();
+    });
 }
 
 // Manual drag caret manipulation

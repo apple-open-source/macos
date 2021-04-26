@@ -1,0 +1,20 @@
+--- src/Makefile.in	2020-04-22 11:14:17.000000000 +0200
++++ src/Makefile.in	2020-11-24 22:28:37.000000000 +0100
+@@ -501,7 +501,7 @@
+ libccid_la_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) $(PTHREAD_CFLAGS) \
+ 	$(SYMBOL_VISIBILITY) -D$(CCID_VERSION) -DSIMCLIST_NO_DUMPRESTORE
+ 
+-libccid_la_LDFLAGS = -avoid-version
++libccid_la_LDFLAGS = -avoid-version -Wl,-headerpad_max_install_names
+ libccidtwin_la_SOURCES = $(COMMON) $(SERIAL) $(TOKEN_PARSER) \
+ 	$(PROVIDED_BY_PCSC) $(T1)
+ 
+@@ -509,7 +509,7 @@
+ 	-DTWIN_SERIAL -D$(CCID_VERSION) -DSIMCLIST_NO_DUMPRESTORE
+ 
+ libccidtwin_la_LIBADD = $(PTHREAD_LIBS)
+-libccidtwin_la_LDFLAGS = -avoid-version
++libccidtwin_la_LDFLAGS = -avoid-version -Wl,-headerpad_max_install_names
+ parse_SOURCES = parse.c debug.c ccid_usb.c $(TOKEN_PARSER)
+ parse_LDADD = $(LIBUSB_LIBS)
+ parse_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) -DSIMCLIST_NO_DUMPRESTORE

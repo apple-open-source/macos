@@ -258,6 +258,7 @@ int secd_70_engine_corrupt(int argc, char *const *argv)
     drop_manifest();
     add_sha1();
     change_sha1();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
     __security_simulatecrash_enable(true);
 #else
     plan_tests(0);

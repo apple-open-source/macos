@@ -30,6 +30,7 @@
 #import "WKBundleAPICast.h"
 #import "WKDOMInternals.h"
 #import <WebCore/Document.h>
+#import <WebCore/TextIterator.h>
 #import <WebCore/VisibleUnits.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -49,12 +50,7 @@
 
 - (id)initWithDocument:(WKDOMDocument *)document
 {
-    auto range = WebCore::Range::create(*WebKit::toWebCoreDocument(document));
-    self = [self _initWithImpl:range.ptr()];
-    if (!self)
-        return nil;
-
-    return self;
+    return [self _initWithImpl:WebCore::Range::create(*WebKit::toWebCoreDocument(document)).ptr()];
 }
 
 - (void)dealloc
@@ -118,7 +114,9 @@
 
 - (NSString *)text
 {
-    return _impl->text();
+    auto range = makeSimpleRange(*_impl);
+    range.start.document().updateLayout();
+    return plainText(range);
 }
 
 - (BOOL)isCollapsed
@@ -128,13 +126,15 @@
 
 - (NSArray *)textRects
 {
-    _impl->ownerDocument().updateLayoutIgnorePendingStylesheets();
-    return createNSArray(WebCore::RenderObject::absoluteTextRects(makeSimpleRange(*_impl))).autorelease();
+    auto range = makeSimpleRange(*_impl);
+    range.start.document().updateLayoutIgnorePendingStylesheets();
+    return createNSArray(WebCore::RenderObject::absoluteTextRects(range)).autorelease();
 }
 
 - (WKDOMRange *)rangeByExpandingToWordBoundaryByCharacters:(NSUInteger)characters inDirection:(WKDOMRangeDirection)direction
 {
-    auto newRange = rangeExpandedByCharactersInDirectionAtWordBoundary(direction == WKDOMRangeDirectionForward ?  _impl->endPosition() : _impl->startPosition(), characters, direction == WKDOMRangeDirectionForward ? WebCore::SelectionDirection::Forward : WebCore::SelectionDirection::Backward);
+    auto range = makeSimpleRange(*_impl);
+    auto newRange = rangeExpandedByCharactersInDirectionAtWordBoundary(makeDeprecatedLegacyPosition(direction == WKDOMRangeDirectionForward ? range.end : range.start), characters, direction == WKDOMRangeDirectionForward ? WebCore::SelectionDirection::Forward : WebCore::SelectionDirection::Backward);
     return [[[WKDOMRange alloc] _initWithImpl:createLiveRange(newRange).get()] autorelease];
 }
 

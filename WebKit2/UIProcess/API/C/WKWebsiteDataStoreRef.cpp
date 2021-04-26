@@ -28,6 +28,7 @@
 
 #include "APIArray.h"
 #include "APIHTTPCookieStore.h"
+#include "NetworkProcessProxy.h"
 #include "ShouldGrandfatherStatistics.h"
 #include "WKAPICast.h"
 #include "WKDictionary.h"
@@ -69,6 +70,16 @@ WKWebsiteDataStoreRef WKWebsiteDataStoreCreateWithConfiguration(WKWebsiteDataSto
     return WebKit::toAPI(&WebKit::WebsiteDataStore::create(*WebKit::toImpl(configuration), sessionID).leakRef());
 }
 
+void WKWebsiteDataStoreTerminateNetworkProcess(WKWebsiteDataStoreRef dataStore)
+{
+    WebKit::toImpl(dataStore)->terminateNetworkProcess();
+}
+
+WKProcessID WKWebsiteDataStoreGetNetworkProcessIdentifier(WKWebsiteDataStoreRef dataStore)
+{
+    return WebKit::toImpl(dataStore)->networkProcess().processIdentifier();
+}
+
 void WKWebsiteDataStoreRemoveITPDataForDomain(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreRemoveITPDataForDomainFunction callback)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -95,6 +106,16 @@ void WKWebsiteDataStoreDoesStatisticsDomainIDExistInDatabase(WKWebsiteDataStoreR
 #else
     callback(false, context);
 #endif
+}
+
+void WKWebsiteDataStoreSetServiceWorkerFetchTimeoutForTesting(WKWebsiteDataStoreRef dataStore, double seconds)
+{
+    WebKit::toImpl(dataStore)->setServiceWorkerTimeoutForTesting(Seconds(seconds));
+}
+
+void WKWebsiteDataStoreResetServiceWorkerFetchTimeoutForTesting(WKWebsiteDataStoreRef dataStore)
+{
+    WebKit::toImpl(dataStore)->resetServiceWorkerTimeoutForTesting();
 }
 
 void WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef, bool enable)
@@ -127,9 +148,27 @@ void WKWebsiteDataStoreSetResourceLoadStatisticsDebugMode(WKWebsiteDataStoreRef 
     WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsDebugMode(enable);
 }
 
+void WKWebsiteDataStoreSyncLocalStorage(WKWebsiteDataStoreRef dataStore, void* context, WKWebsiteDataStoreSyncLocalStorageCallback callback)
+{
+    WebKit::toImpl(dataStore)->syncLocalStorage([context, callback] {
+        if (callback)
+            callback(context);
+    });
+}
+
 WKHTTPCookieStoreRef WKWebsiteDataStoreGetHTTPCookieStore(WKWebsiteDataStoreRef dataStoreRef)
 {
     return WebKit::toAPI(&WebKit::toImpl(dataStoreRef)->cookieStore());
+}
+
+void WKWebsiteDataStoreSetAllowsAnySSLCertificateForWebSocketTesting(WKWebsiteDataStoreRef dataStore, bool allows)
+{
+    WebKit::toImpl(dataStore)->setAllowsAnySSLCertificateForWebSocket(allows);
+}
+
+void WKWebsiteDataStoreClearCachedCredentials(WKWebsiteDataStoreRef dataStoreRef)
+{
+    WebKit::toImpl(dataStoreRef)->clearCachedCredentials();
 }
 
 void WKWebsiteDataStoreSetResourceLoadStatisticsDebugModeWithCompletionHandler(WKWebsiteDataStoreRef dataStoreRef, bool enable, void* context, WKWebsiteDataStoreStatisticsDebugModeFunction completionHandler)
@@ -175,10 +214,10 @@ void WKWebsiteDataStoreSetStatisticsMergeStatistic(WKWebsiteDataStoreRef dataSto
 #endif
 }
 
-void WKWebsiteDataStoreSetStatisticsExpiredStatistic(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, void* context, WKWebsiteDataStoreStatisticsMergeStatisticFunction completionHandler)
+void WKWebsiteDataStoreSetStatisticsExpiredStatistic(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, void* context, WKWebsiteDataStoreStatisticsMergeStatisticFunction completionHandler)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    WebKit::toImpl(dataStoreRef)->insertExpiredStatisticForTesting(URL(URL(), WebKit::toImpl(host)->string()), hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent, [context, completionHandler] {
+    WebKit::toImpl(dataStoreRef)->insertExpiredStatisticForTesting(URL(URL(), WebKit::toImpl(host)->string()), numberOfOperatingDaysPassed, hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent, [context, completionHandler] {
         completionHandler(context);
     });
 #else
@@ -346,17 +385,6 @@ void WKWebsiteDataStoreIsStatisticsGrandfathered(WKWebsiteDataStoreRef dataStore
 #endif
 }
 
-void WKWebsiteDataStoreSetUseITPDatabase(WKWebsiteDataStoreRef dataStoreRef, bool value, void* context, WKWebsiteDataStoreSetUseITPDatabaseFunction completionHandler)
-{
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    WebKit::toImpl(dataStoreRef)->setUseITPDatabase(value, [context, completionHandler] {
-        completionHandler(context);
-    });
-#else
-    completionHandler(context);
-#endif
-}
-
 void WKWebsiteDataStoreSetStatisticsSubframeUnderTopFrameOrigin(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, WKStringRef topFrameHost)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -440,13 +468,6 @@ void WKWebsiteDataStoreStatisticsUpdateCookieBlocking(WKWebsiteDataStoreRef data
     });
 #else
     completionHandler(context);
-#endif
-}
-
-void WKWebsiteDataStoreStatisticsSubmitTelemetry(WKWebsiteDataStoreRef dataStoreRef)
-{
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    WebKit::toImpl(dataStoreRef)->submitTelemetry();
 #endif
 }
 
@@ -579,9 +600,14 @@ void WKWebsiteDataStoreStatisticsHasIsolatedSession(WKWebsiteDataStoreRef dataSt
 
 void WKWebsiteDataStoreHasAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreHasAppBoundSessionFunction callback)
 {
+#if ENABLE(APP_BOUND_DOMAINS)
     WebKit::toImpl(dataStoreRef)->hasAppBoundSession([context, callback](bool hasAppBoundSession) {
         callback(hasAppBoundSession, context);
     });
+#else
+    UNUSED_PARAM(dataStoreRef);
+    callback(false, context);
+#endif
 }
 
 void WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTestingFunction completionHandler)
@@ -652,8 +678,8 @@ void WKWebsiteDataStoreSetResourceLoadStatisticsThirdPartyCNAMEDomainForTesting(
 
 void WKWebsiteDataStoreSetAppBoundDomainsForTesting(WKArrayRef originURLsRef, void* context, WKWebsiteDataStoreSetAppBoundDomainsForTestingFunction completionHandler)
 {
-#if PLATFORM(COCOA)
-    RefPtr<API::Array> originURLsArray = toImpl(originURLsRef);
+#if ENABLE(APP_BOUND_DOMAINS)
+    RefPtr<API::Array> originURLsArray = WebKit::toImpl(originURLsRef);
     size_t newSize = originURLsArray ? originURLsArray->size() : 0;
     HashSet<WebCore::RegistrableDomain> domains;
     domains.reserveInitialCapacity(newSize);
@@ -692,7 +718,6 @@ void WKWebsiteDataStoreStatisticsResetToConsistentState(WKWebsiteDataStoreRef da
     store.setResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTesting(false, [callbackAggregator] { });
     store.resetParametersToDefaultValues([callbackAggregator] { });
     store.scheduleClearInMemoryAndPersistent(WebKit::ShouldGrandfatherStatistics::No, [callbackAggregator] { });
-    store.setUseITPDatabase(false, [callbackAggregator] { });
 #else
     UNUSED_PARAM(dataStoreRef);
     completionHandler(context);
@@ -792,9 +817,9 @@ void WKWebsiteDataStoreClearAllDeviceOrientationPermissions(WKWebsiteDataStoreRe
 #endif
 }
 
-void WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemoval(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemovalFunction callback)
+void WKWebsiteDataStoreClearPrivateClickMeasurementsThroughWebsiteDataRemoval(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearPrivateClickMeasurementsThroughWebsiteDataRemovalFunction callback)
 {
-    OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::AdClickAttributions;
+    OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::PrivateClickMeasurements;
     WebKit::toImpl(dataStoreRef)->removeData(dataTypes, WallTime::fromRawSeconds(0), [context, callback] {
         callback(context);
     });
@@ -815,15 +840,22 @@ void WKWebsiteDataStoreResetQuota(WKWebsiteDataStoreRef dataStoreRef, void* cont
 
 void WKWebsiteDataStoreClearAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAppBoundSessionFunction completionHandler)
 {
+#if ENABLE(APP_BOUND_DOMAINS)
     WebKit::toImpl(dataStoreRef)->clearAppBoundSession([context, completionHandler] {
         completionHandler(context);
     });
+#else
+    UNUSED_PARAM(dataStoreRef);
+    completionHandler(context);
+#endif
 }
 
 void WKWebsiteDataStoreReinitializeAppBoundDomains(WKWebsiteDataStoreRef dataStoreRef)
 {
-#if PLATFORM(COCOA)
+#if ENABLE(APP_BOUND_DOMAINS)
     WebKit::toImpl(dataStoreRef)->reinitializeAppBoundDomains();
+#else
+    UNUSED_PARAM(dataStoreRef);
 #endif
 }
 

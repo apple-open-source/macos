@@ -3409,7 +3409,7 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	uint32_t lint, createopt, efa;
 	uint64_t llint;
 	int error;
-	uint16_t fid, *namelenp;
+	uint16_t fid = 0, *namelenp;
 	size_t nmlen = in_nmlen;	/* Don't change the input name length, we need it for making the ino number */
     int need_close = 0;
     SMBFID temp_fid = 0;

@@ -51,6 +51,7 @@ public:
 
     bool handleWheelEvent(const PlatformWheelEvent&);
     
+    void willDoProgrammaticScroll(const FloatPoint&);
     void currentScrollPositionChanged();
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -70,22 +71,25 @@ public:
     void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const override;
 
 private:
-    bool isAlreadyPinnedInDirectionOfGesture(const PlatformWheelEvent&, ScrollEventAxis) const;
+    bool isPinnedForScrollDeltaOnAxis(float scrollDelta, ScrollEventAxis, float scrollLimit = 0) const;
 
     // ScrollControllerClient.
     std::unique_ptr<ScrollControllerTimer> createTimer(Function<void()>&&) final;
     bool allowsHorizontalStretching(const PlatformWheelEvent&) const final;
     bool allowsVerticalStretching(const PlatformWheelEvent&) const final;
     IntSize stretchAmount() const final;
-    bool pinnedInDirection(const FloatSize&) const final;
-    bool canScrollHorizontally() const final;
-    bool canScrollVertically() const final;
+    bool isPinnedForScrollDelta(const FloatSize&) const final;
+    RectEdges<bool> edgePinnedState() const final;
+    bool allowsHorizontalScrolling() const final;
+    bool allowsVerticalScrolling() const final;
     bool shouldRubberBandInDirection(ScrollDirection) const final;
     void immediateScrollBy(const FloatSize&) final;
     void immediateScrollByWithoutContentEdgeConstraints(const FloatSize&) final;
     void didStopRubberbandSnapAnimation() final;
     void rubberBandingStateChanged(bool) final;
     void adjustScrollPositionToBoundsIfNecessary() final;
+
+    bool scrollPositionIsNotRubberbandingEdge(const FloatPoint&) const;
 
 #if ENABLE(CSS_SCROLL_SNAP)
     FloatPoint scrollOffset() const override;

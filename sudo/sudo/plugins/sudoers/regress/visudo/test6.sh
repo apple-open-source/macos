@@ -3,7 +3,9 @@
 # Verify parsing of Defaults syntax
 #
 
-./visudo -csf - <<EOF
+: ${VISUDO=visudo}
+
+$VISUDO -csf - <<EOF
 Defaults		syslog=auth
 Defaults>root		!set_logname
 Defaults:FULLTIMERS	!lecture
@@ -19,7 +21,7 @@ User_Alias		FULLTIMERS = millert, mikef, dowdy
 
 Cmnd_Alias		PAGERS = /usr/bin/more, /usr/bin/pg, /usr/bin/less
 
-Host_Alias		SERVERS = master, mail, www, ns
+Host_Alias		SERVERS = primary, mail, www, ns
 EOF
 
 exit 0

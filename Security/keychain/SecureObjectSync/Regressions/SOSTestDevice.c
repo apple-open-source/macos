@@ -82,6 +82,22 @@ void SOSTestDeviceDestroyEngine(CFMutableDictionaryRef testDevices) {
     });
 }
 
+void SOSTestDeviceForceCloseDatabase(SOSTestDeviceRef testDevice) {
+    if(testDevice->db) {
+        SecDbForceClose(testDevice->db);
+    }
+}
+
+void SOSTestDeviceForceCloseDatabases(CFMutableDictionaryRef testDevices) {
+    CFArrayRef deviceIDs = (CFArrayRef)CFDictionaryGetValue(testDevices, CFSTR("@devicesIDs"));
+
+    CFArrayForEach(deviceIDs, ^(const void *value) {
+        CFStringRef sourceID = (CFStringRef)value;
+        SOSTestDeviceRef td = (SOSTestDeviceRef)CFDictionaryGetValue(testDevices, sourceID);
+        SOSTestDeviceForceCloseDatabase(td);
+    });
+}
+
 CFStringRef SOSTestDeviceGetID(SOSTestDeviceRef td) {
     CFStringRef engineID = NULL;
     SOSEngineRef engine = SOSDataSourceGetSharedEngine(td->ds, NULL);
@@ -507,5 +523,6 @@ void SOSTestDeviceListTestSync(const char *name, const char *test_directive, con
     SOSTestDeviceListSync(name, test_directive, test_reason, testDevices, pre, post);
     SOSTestDeviceListInSync(name, test_directive, test_reason, testDevices);
     SOSTestDeviceDestroyEngine(testDevices);
+    SOSTestDeviceForceCloseDatabases(testDevices);
     CFReleaseSafe(testDevices);
 }

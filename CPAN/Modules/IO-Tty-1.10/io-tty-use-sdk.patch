@@ -1,0 +1,19 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index e46426a..dcd2e51 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -399,11 +399,13 @@ __EOT__
+ 
+ print "DEFINE = @{[sort keys %define]}\n";
+ 
++my $alllibs = join(" ", @libs);
++
+ WriteMakefile1(
+     'NAME'	     => 'IO::Tty',
+     'VERSION'        => $Package_Version,
+     'DEFINE'	     => join(" ", sort keys %define),
+-    'LIBS'           => join(" ", @libs),
++    'LIBS'           => [ "-L@SDKROOT@/usr/lib $alllibs " ],
+     'clean'	     => {'FILES' => 'xssubs.c conf Tty.exp_old log'},
+     'realclean'	     => {'FILES' => 'Tty IO-Tty.ppd'},
+     'MAP_TARGET'     => 'perltty',

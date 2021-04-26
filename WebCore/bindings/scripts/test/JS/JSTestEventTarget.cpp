@@ -50,12 +50,11 @@ using namespace JSC;
 
 // Functions
 
-JSC::EncodedJSValue JSC_HOST_CALL jsTestEventTargetPrototypeFunctionItem(JSC::JSGlobalObject*, JSC::CallFrame*);
+static JSC_DECLARE_HOST_FUNCTION(jsTestEventTargetPrototypeFunction_item);
 
 // Attributes
 
-JSC::EncodedJSValue jsTestEventTargetConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestEventTargetConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+static JSC_DECLARE_CUSTOM_GETTER(jsTestEventTargetConstructor);
 
 class JSTestEventTargetPrototype final : public JSC::JSNonFinalObject {
 public:
@@ -89,28 +88,28 @@ private:
 };
 STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestEventTargetPrototype, JSTestEventTargetPrototype::Base);
 
-using JSTestEventTargetConstructor = JSDOMConstructorNotConstructable<JSTestEventTarget>;
+using JSTestEventTargetDOMConstructor = JSDOMConstructorNotConstructable<JSTestEventTarget>;
 
-template<> JSValue JSTestEventTargetConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
+template<> JSValue JSTestEventTargetDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
     return JSEventTarget::getConstructor(vm, &globalObject);
 }
 
-template<> void JSTestEventTargetConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
+template<> void JSTestEventTargetDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestEventTarget::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestEventTarget"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
-template<> const ClassInfo JSTestEventTargetConstructor::s_info = { "TestEventTarget", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEventTargetConstructor) };
+template<> const ClassInfo JSTestEventTargetDOMConstructor::s_info = { "TestEventTarget", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEventTargetDOMConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestEventTargetPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestEventTargetConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestEventTargetConstructor) } },
-    { "item", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestEventTargetPrototypeFunctionItem), (intptr_t) (1) } },
+    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestEventTargetConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "item", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestEventTargetPrototypeFunction_item), (intptr_t) (1) } },
 };
 
 const ClassInfo JSTestEventTargetPrototype::s_info = { "TestEventTarget", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestEventTargetPrototype) };
@@ -150,7 +149,7 @@ JSObject* JSTestEventTarget::prototype(VM& vm, JSDOMGlobalObject& globalObject)
 
 JSValue JSTestEventTarget::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSTestEventTargetConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSTestEventTargetDOMConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
 }
 
 bool JSTestEventTarget::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyName propertyName, PropertySlot& slot)
@@ -172,7 +171,7 @@ bool JSTestEventTarget::getOwnPropertySlot(JSObject* object, JSGlobalObject* lex
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+    if (auto namedProperty = accessVisibleNamedProperty<LegacyOverrideBuiltIns::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
         auto value = toJS<IDLInterface<Node>>(*lexicalGlobalObject, *thisObject->globalObject(), WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
         return true;
@@ -201,7 +200,7 @@ bool JSTestEventTarget::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObje
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+    if (auto namedProperty = accessVisibleNamedProperty<LegacyOverrideBuiltIns::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
         auto value = toJS<IDLInterface<Node>>(*lexicalGlobalObject, *thisObject->globalObject(), WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
         return true;
@@ -209,7 +208,7 @@ bool JSTestEventTarget::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObje
     return JSObject::getOwnPropertySlotByIndex(object, lexicalGlobalObject, index, slot);
 }
 
-void JSTestEventTarget::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, EnumerationMode mode)
+void JSTestEventTarget::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto* thisObject = jsCast<JSTestEventTarget*>(object);
@@ -226,7 +225,7 @@ template<> inline JSTestEventTarget* IDLOperation<JSTestEventTarget>::cast(JSGlo
     return jsDynamicCast<JSTestEventTarget*>(JSC::getVM(&lexicalGlobalObject), callFrame.thisValue());
 }
 
-EncodedJSValue jsTestEventTargetConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
+JSC_DEFINE_CUSTOM_GETTER(jsTestEventTargetConstructor, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName))
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -236,20 +235,7 @@ EncodedJSValue jsTestEventTargetConstructor(JSGlobalObject* lexicalGlobalObject,
     return JSValue::encode(JSTestEventTarget::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestEventTargetConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
-{
-    VM& vm = JSC::getVM(lexicalGlobalObject);
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestEventTargetPrototype*>(vm, JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype)) {
-        throwVMTypeError(lexicalGlobalObject, throwScope);
-        return false;
-    }
-    // Shadowing a built-in constructor
-    return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
-}
-
-static inline JSC::EncodedJSValue jsTestEventTargetPrototypeFunctionItemBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestEventTarget>::ClassParameter castedThis)
+static inline JSC::EncodedJSValue jsTestEventTargetPrototypeFunction_itemBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestEventTarget>::ClassParameter castedThis)
 {
     auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -264,9 +250,9 @@ static inline JSC::EncodedJSValue jsTestEventTargetPrototypeFunctionItemBody(JSC
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLInterface<Node>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.item(WTFMove(index)))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestEventTargetPrototypeFunctionItem(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
+JSC_DEFINE_HOST_FUNCTION(jsTestEventTargetPrototypeFunction_item, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
 {
-    return IDLOperation<JSTestEventTarget>::call<jsTestEventTargetPrototypeFunctionItemBody>(*lexicalGlobalObject, *callFrame, "item");
+    return IDLOperation<JSTestEventTarget>::call<jsTestEventTargetPrototypeFunction_itemBody>(*lexicalGlobalObject, *callFrame, "item");
 }
 
 JSC::IsoSubspace* JSTestEventTarget::subspaceForImpl(JSC::VM& vm)

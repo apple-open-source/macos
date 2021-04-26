@@ -96,6 +96,7 @@
 #include <WebCore/DocumentMarkerController.h>
 #include <WebCore/DragController.h>
 #include <WebCore/DragData.h>
+#include <WebCore/DummySpeechRecognitionProvider.h>
 #include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
@@ -167,6 +168,7 @@
 #include <WebCore/UserContentController.h>
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
+#include <WebCore/WebCoreJITOperations.h>
 #include <WebCore/WebCoreTextRenderer.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <WebCore/WindowsTouch.h>
@@ -423,6 +425,7 @@ WebView::WebView()
     JSC::initialize();
     WTF::initializeMainThread();
     WTF::setProcessPrivileges(allPrivileges());
+    WebCore::populateJITOperations();
     WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
 
     m_backingStoreSize.cx = m_backingStoreSize.cy = 0;
@@ -1285,7 +1288,7 @@ void WebView::paint(HDC dc, LPARAM options)
 {
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
 
-    m_page->updateRendering();
+    m_page->isolatedUpdateRendering();
 
     if (paintCompositedContentToHDC(dc)) {
         ::ValidateRect(m_viewWindow, nullptr);
@@ -2134,7 +2137,7 @@ bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
     if (!coreFrame)
         return false;
 
-    return coreFrame->eventHandler().handleWheelEvent(wheelEvent);
+    return coreFrame->eventHandler().handleWheelEvent(wheelEvent, { WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch });
 }
 
 bool WebView::verticalScroll(WPARAM wParam, LPARAM /*lParam*/)
@@ -2971,7 +2974,7 @@ HRESULT WebView::canShowMIMEType(_In_ BSTR mimeType, _Out_ BOOL* canShow)
 bool WebView::canShowMIMEType(const String& mimeType)
 {
     Frame* coreFrame = core(m_mainFrame);
-    bool arePluginsEnabled = coreFrame && coreFrame->loader().arePluginsEnabled();
+    bool arePluginsEnabled = coreFrame && coreFrame->arePluginsEnabled();
 
     bool canShow = MIMETypeRegistry::isSupportedImageMIMEType(mimeType)
         || MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType)
@@ -3125,10 +3128,12 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
         SocketProvider::create(),
         makeUniqueRef<LibWebRTCProvider>(),
         CacheStorageProvider::create(),
+        m_webViewGroup->userContentController(),
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<WebProgressTrackerClient>(),
         makeUniqueRef<WebFrameLoaderClient>(webFrame),
+        makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProvider>()
     );
     configuration.chromeClient = new WebChromeClient(this);
@@ -3138,7 +3143,6 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
     configuration.applicationCacheStorage = &WebApplicationCache::storage();
     configuration.databaseProvider = &WebDatabaseProvider::singleton();
     configuration.storageNamespaceProvider = &m_webViewGroup->storageNamespaceProvider();
-    configuration.userContentProvider = &m_webViewGroup->userContentController();
     configuration.visitedLinkStore = &m_webViewGroup->visitedLinkStore();
     configuration.pluginInfoProvider = &WebPluginInfoProvider::singleton();
 
@@ -5124,6 +5128,10 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
 
     ASSERT(preferences == m_preferences);
 
+    hr = preferencesChangedGenerated(*m_preferences);
+    if (FAILED(hr))
+        return hr;
+
     BString str;
     int size;
     unsigned javaScriptRuntimeFlags;
@@ -5229,21 +5237,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
 
     // FIXME: Add preferences for the runtime enabled features.
 
-    hr = prefsPrivate->fetchAPIEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled(!!enabled);
-
-    hr = prefsPrivate->shadowDOMEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setShadowDOMEnabled(!!enabled);
-
-    hr = prefsPrivate->customElementsEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setCustomElementsEnabled(!!enabled);
-
     hr = prefsPrivate->menuItemElementEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5259,45 +5252,25 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setModernMediaControlsEnabled(!!enabled);
 
-    hr = prefsPrivate->webAnimationsEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(!!enabled);
-
     hr = prefsPrivate->webAnimationsCompositeOperationsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCompositeOperationsEnabled(!!enabled);
+    settings.setWebAnimationsCompositeOperationsEnabled(!!enabled);
 
     hr = prefsPrivate->webAnimationsMutableTimelinesEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsMutableTimelinesEnabled(!!enabled);
-
-    hr = prefsPrivate->webAnimationsCSSIntegrationEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled(!!enabled);
+    settings.setWebAnimationsMutableTimelinesEnabled(!!enabled);
 
     hr = prefsPrivate->CSSCustomPropertiesAndValuesEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setCSSCustomPropertiesAndValuesEnabled(!!enabled);
-
-    hr = prefsPrivate->userTimingEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setUserTimingEnabled(!!enabled);
-
-    hr = prefsPrivate->resourceTimingEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setResourceTimingEnabled(!!enabled);
+    settings.setCSSCustomPropertiesAndValuesEnabled(!!enabled);
 
     hr = prefsPrivate->linkPreloadEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setLinkPreloadEnabled(!!enabled);
+    settings.setLinkPreloadEnabled(!!enabled);
 
     hr = prefsPrivate->fetchAPIKeepAliveEnabled(&enabled);
     if (FAILED(hr))
@@ -5307,17 +5280,12 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = prefsPrivate->mediaPreloadingEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setMediaPreloadingEnabled(!!enabled);
-
-    hr = prefsPrivate->isSecureContextAttributeEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setIsSecureContextAttributeEnabled(!!enabled);
+    settings.setMediaPreloadingEnabled(!!enabled);
 
     hr = prefsPrivate->dataTransferItemsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setDataTransferItemsEnabled(!!enabled);
+    settings.setDataTransferItemsEnabled(!!enabled);
 
     hr = prefsPrivate->inspectorAdditionsEnabled(&enabled);
     if (FAILED(hr))
@@ -5343,6 +5311,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings.setCSSOMViewSmoothScrollingEnabled(!!enabled);
+
+    hr = prefsPrivate->CSSIndividualTransformPropertiesEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setCSSIndividualTransformPropertiesEnabled(!!enabled);
 
     hr = preferences->privateBrowsingEnabled(&enabled);
     if (FAILED(hr))
@@ -5484,11 +5457,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings.setLocalStorageEnabled(enabled);
-
-    hr = prefsPrivate->experimentalNotificationsEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    settings.setExperimentalNotificationsEnabled(enabled);
 
     hr = prefsPrivate->isWebSecurityEnabled(&enabled);
     if (FAILED(hr))
@@ -5675,10 +5643,25 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings.setAsyncClipboardAPIEnabled(!!enabled);
 
+    hr = prefsPrivate->contactPickerAPIEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setContactPickerAPIEnabled(!!enabled);
+
     hr = prefsPrivate->aspectRatioOfImgFromWidthAndHeightEnabled(&enabled);
     if (FAILED(hr))
         return hr;
     settings.setAspectRatioOfImgFromWidthAndHeightEnabled(!!enabled);
+
+    hr = prefsPrivate->speechRecognitionEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setSpeechRecognitionEnabled(!!enabled);
+
+    hr = prefsPrivate->overscrollBehaviorEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setOverscrollBehaviorEnabled(!!enabled);
 
     return S_OK;
 }
@@ -5999,7 +5982,7 @@ HRESULT WebView::setInitialFocus(BOOL forward)
     if (m_page) {
         Frame& frame = m_page->focusController().focusedOrMainFrame();
         frame.document()->setFocusedElement(0);
-        m_page->focusController().setInitialFocus(forward ? FocusDirectionForward : FocusDirectionBackward, 0);
+        m_page->focusController().setInitialFocus(forward ? FocusDirection::Forward : FocusDirection::Backward, 0);
     }
     return S_OK;
 }
@@ -7246,13 +7229,13 @@ void WebView::flushPendingGraphicsLayerChangesSoon()
 {
 #if USE(CA)
     if (!m_layerTreeHost) {
-        m_page->updateRendering();
+        m_page->isolatedUpdateRendering();
         return;
     }
     m_layerTreeHost->flushPendingGraphicsLayerChangesSoon();
 #elif USE(TEXTURE_MAPPER_GL)
     if (!isAcceleratedCompositing()) {
-        m_page->updateRendering();
+        m_page->isolatedUpdateRendering();
         return;
     }
     if (!m_acceleratedCompositingContext)
@@ -7479,7 +7462,7 @@ void WebView::flushPendingGraphicsLayerChanges()
     if (!isAcceleratedCompositing())
         return;
 
-    m_page->updateRendering();
+    m_page->isolatedUpdateRendering();
 
     // Updating layout might have taken us out of compositing mode.
     if (m_backingLayer)
@@ -7902,11 +7885,14 @@ HRESULT WebView::layerTreeAsString(_Deref_opt_out_ BSTR* treeBstr)
         return S_OK;
 
     String tree = m_layerTreeHost->layerTreeAsString();
-
+#elif USE(TEXTURE_MAPPER_GL)
+    if (!isAcceleratedCompositing())
+        return S_OK;
+    String tree = m_acceleratedCompositingContext->layerTreeAsString();
+#endif
     *treeBstr = BString(tree).release();
     if (!*treeBstr && tree.length())
         return E_OUTOFMEMORY;
-#endif
 
     return S_OK;
 }

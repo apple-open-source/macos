@@ -64,10 +64,10 @@ public:
 
     // Custom attributes
 #if ENABLE(Condition22) || ENABLE(Condition23)
-    JSC::JSValue implementsStr3(JSC::JSGlobalObject&) const;
+    JSC::JSValue mixinCustomAttribute(JSC::JSGlobalObject&) const;
 #endif
 #if ENABLE(Condition22) || ENABLE(Condition23)
-    void setImplementsStr3(JSC::JSGlobalObject&, JSC::JSValue);
+    void setMixinCustomAttribute(JSC::JSGlobalObject&, JSC::JSValue);
 #endif
 #if ENABLE(Condition11) || ENABLE(Condition12)
     JSC::JSValue supplementalStr3(JSC::JSGlobalObject&) const;
@@ -78,7 +78,7 @@ public:
 
     // Custom functions
 #if ENABLE(Condition22) || ENABLE(Condition23)
-    JSC::JSValue implementsMethod3(JSC::JSGlobalObject&, JSC::CallFrame&);
+    JSC::JSValue mixinCustomOperation(JSC::JSGlobalObject&, JSC::CallFrame&);
 #endif
 #if ENABLE(Condition11) || ENABLE(Condition12)
     JSC::JSValue supplementalMethod3(JSC::JSGlobalObject&, JSC::CallFrame&);
@@ -89,10 +89,10 @@ protected:
     void finishCreation(JSC::VM&);
 };
 
-class JSTestInterfaceOwner : public JSC::WeakHandleOwner {
+class WEBCORE_EXPORT JSTestInterfaceOwner final : public JSC::WeakHandleOwner {
 public:
-    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**);
-    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**) final;
+    void finalize(JSC::Handle<JSC::Unknown>, void* context) final;
 };
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestInterface*)

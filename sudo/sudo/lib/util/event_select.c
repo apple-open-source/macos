@@ -31,22 +31,9 @@
 #ifdef HAVE_SYS_SELECT_H
 # include <sys/select.h>
 #endif /* HAVE_SYS_SELECT_H */
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# include "compat/stdbool.h"
-#endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <time.h>
-#include <unistd.h>
-#include <errno.h>
 
 #include "sudo_compat.h"
 #include "sudo_util.h"
@@ -57,7 +44,7 @@
 int
 sudo_ev_base_alloc_impl(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_base_alloc_impl, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_alloc_impl, SUDO_DEBUG_EVENT);
 
     base->maxfd = NFDBITS - 1;
     base->readfds_in = calloc(1, sizeof(fd_mask));
@@ -78,7 +65,7 @@ sudo_ev_base_alloc_impl(struct sudo_event_base *base)
 void
 sudo_ev_base_free_impl(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_base_free_impl, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_free_impl, SUDO_DEBUG_EVENT);
     free(base->readfds_in);
     free(base->writefds_in);
     free(base->readfds_out);
@@ -89,7 +76,7 @@ sudo_ev_base_free_impl(struct sudo_event_base *base)
 int
 sudo_ev_add_impl(struct sudo_event_base *base, struct sudo_event *ev)
 {
-    debug_decl(sudo_ev_add_impl, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_add_impl, SUDO_DEBUG_EVENT);
 
     /* If out of space in fd sets, realloc. */
     if (ev->fd > base->maxfd) {
@@ -149,7 +136,7 @@ sudo_ev_add_impl(struct sudo_event_base *base, struct sudo_event *ev)
 int
 sudo_ev_del_impl(struct sudo_event_base *base, struct sudo_event *ev)
 {
-    debug_decl(sudo_ev_del_impl, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_del_impl, SUDO_DEBUG_EVENT);
 
     /* Remove from readfds and writefds and adjust high fd. */
     if (ISSET(ev->events, SUDO_EV_READ)) {
@@ -204,7 +191,7 @@ sudo_ev_scan_impl(struct sudo_event_base *base, int flags)
     struct sudo_event *ev;
     size_t setsize;
     int nready;
-    debug_decl(sudo_ev_loop, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_loop, SUDO_DEBUG_EVENT);
 
     if ((ev = TAILQ_FIRST(&base->timeouts)) != NULL) {
 	sudo_gettime_mono(&now);
@@ -234,7 +221,7 @@ sudo_ev_scan_impl(struct sudo_event_base *base, int flags)
     switch (nready) {
     case -1:
 	/* Error or interrupted by signal. */
-	debug_return_int(-1);
+	break;
     case 0:
 	/* Front end will activate timeout events. */
 	break;

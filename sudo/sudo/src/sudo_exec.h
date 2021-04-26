@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2016 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2017, 2020-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -41,8 +41,8 @@
 #define SFD_STDIN	0
 #define SFD_STDOUT	1
 #define SFD_STDERR	2
-#define SFD_MASTER	3
-#define SFD_SLAVE	4
+#define SFD_LEADER	3
+#define SFD_FOLLOWER	4
 #define SFD_USERTTY	5
 
 /*
@@ -73,6 +73,7 @@
  */
 #define SESH_SUCCESS	    0		/* successful operation */
 #define SESH_ERR_FAILURE    1		/* unspecified error */
+#define SESH_ERR_KILLED     2		/* killed by a signal */
 #define SESH_ERR_INVALID    30		/* invalid -e arg value */
 #define SESH_ERR_BAD_PATHS  31		/* odd number of paths */
 #define SESH_ERR_NO_FILES   32		/* copy error, no files copied */
@@ -83,6 +84,7 @@
  */
 struct command_details;
 struct command_status;
+struct stat;
 
 /* exec.c */
 void exec_cmnd(struct command_details *details, int errfd);

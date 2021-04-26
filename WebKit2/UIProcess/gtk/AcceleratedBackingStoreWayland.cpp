@@ -136,10 +136,12 @@ static bool tryInitializeSHM()
 #if WPE_FDO_CHECK_VERSION(1, 7, 0)
     if (!wpe_fdo_initialize_shm())
         return false;
-#endif
 
     s_waylandImpl = WaylandImpl::SHM;
     return true;
+#else
+    return false;
+#endif
 }
 #endif // USE(WPE_RENDERER)
 
@@ -399,7 +401,7 @@ void AcceleratedBackingStoreWayland::displayBuffer(struct wpe_fdo_shm_exported_b
         cairo_surface_set_user_data(m_surface.get(), &s_surfaceDataKey, surfaceData, [](void* data) {
             fastFree(data);
         });
-        cairoSurfaceSetDeviceScale(m_surface.get(), m_webPage.deviceScaleFactor(), m_webPage.deviceScaleFactor());
+        cairo_surface_set_device_scale(m_surface.get(), m_webPage.deviceScaleFactor(), m_webPage.deviceScaleFactor());
     }
 
     unsigned char* surfaceData = cairo_image_surface_get_data(m_surface.get());
@@ -470,7 +472,7 @@ void AcceleratedBackingStoreWayland::downloadTexture(unsigned texture, const Int
     if (!m_surface || cairo_image_surface_get_width(m_surface.get()) != textureSize.width() || cairo_image_surface_get_height(m_surface.get()) != textureSize.height())
         m_surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, textureSize.width(), textureSize.height()));
 
-    cairoSurfaceSetDeviceScale(m_surface.get(), m_webPage.deviceScaleFactor(), m_webPage.deviceScaleFactor());
+    cairo_surface_set_device_scale(m_surface.get(), m_webPage.deviceScaleFactor(), m_webPage.deviceScaleFactor());
 
     GLuint fb;
     glGenFramebuffers(1, &fb);
@@ -517,7 +519,9 @@ void AcceleratedBackingStoreWayland::snapshot(GtkSnapshot* gtkSnapshot)
         if (!tryEnsureTexture(texture, textureSize))
             return;
 
-        graphene_rect_t bounds = GRAPHENE_RECT_INIT(0, 0, static_cast<float>(textureSize.width()), static_cast<float>(textureSize.height()));
+        float deviceScaleFactor = m_webPage.deviceScaleFactor();
+
+        graphene_rect_t bounds = GRAPHENE_RECT_INIT(0, 0, static_cast<float>(textureSize.width() / deviceScaleFactor), static_cast<float>(textureSize.height() / deviceScaleFactor));
         if (m_gdkGLContext) {
             GRefPtr<GdkTexture> gdkTexture = adoptGRef(gdk_gl_texture_new(m_gdkGLContext.get(), texture, textureSize.width(), textureSize.height(), nullptr, nullptr));
             gtk_snapshot_append_texture(gtkSnapshot, gdkTexture.get(), &bounds);
@@ -550,12 +554,6 @@ void AcceleratedBackingStoreWayland::snapshot(GtkSnapshot* gtkSnapshot)
 
     graphene_rect_t bounds = GRAPHENE_RECT_INIT(0, 0, static_cast<float>(cairo_image_surface_get_width(m_surface.get())), static_cast<float>(cairo_image_surface_get_height(m_surface.get())));
     RefPtr<cairo_t> cr = adoptRef(gtk_snapshot_append_cairo(gtkSnapshot, &bounds));
-
-    // The compositor renders the texture flipped for gdk, fix that here.
-    cairo_matrix_t transform;
-    cairo_matrix_init(&transform, 1, 0, 0, -1, 0, cairo_image_surface_get_height(m_surface.get()) / m_webPage.deviceScaleFactor());
-    cairo_transform(cr.get(), &transform);
-
     cairo_set_source_surface(cr.get(), m_surface.get(), 0, 0);
     cairo_set_operator(cr.get(), CAIRO_OPERATOR_OVER);
     cairo_paint(cr.get());

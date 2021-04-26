@@ -68,7 +68,7 @@
     OCMStub([mockConnection synchronousRemoteObjectProxyWithErrorHandler:[OCMArg any]]).andCall(self, @selector(synchronousEscrowServer));
     self.escrowRequest = [[SecEscrowRequest alloc] initWithConnection:mockConnection];
 
-    SetCustomHomeURLString((__bridge CFStringRef) tmp_dir);
+    SecSetCustomHomeURLString((__bridge CFStringRef) tmp_dir);
     SecKeychainDbReset(NULL);
 
     // Actually load the database.

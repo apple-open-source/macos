@@ -114,26 +114,12 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
         this._textEditor.revealPosition(position, textRangeToSelect, forceUnformatted);
     }
 
-    shown()
-    {
-        super.shown();
-
-        this._textEditor.shown();
-    }
-
-    hidden()
-    {
-        super.hidden();
-
-        this._textEditor.hidden();
-    }
-
     closed()
     {
         super.closed();
 
-        WI.settings.showJavaScriptTypeInformation.removeEventListener(null, null, this);
-        WI.settings.enableControlFlowProfiler.removeEventListener(null, null, this);
+        WI.settings.showJavaScriptTypeInformation.removeEventListener(WI.Setting.Event.Changed, this._showJavaScriptTypeInformationSettingChanged, this);
+        WI.settings.enableControlFlowProfiler.removeEventListener(WI.Setting.Event.Changed, this._enableControlFlowProfilerSettingChanged, this);
 
         this._textEditor.close();
     }

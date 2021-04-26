@@ -32,6 +32,8 @@
 #include "AppleSmartBattery.h"
 #include "AppleSmartBatteryKeys.h"
 #include "AppleSmartBatteryKeysPrivate.h"
+#include "battery/adapter.h"
+#include "battery/smcaccessoryinfo_defs.h"
 
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 #include "battery/charger.h"
@@ -225,13 +227,7 @@ bool AppleSmartBattery::start(IOService *provider)
 
     initializeCommands();
 
-#if TARGET_OS_OSX
-    // Make sure that we read battery state at least 5 times at 30 second intervals
-    // after system boot.
     fInitialPollCountdown = kInitialPollCountdown;
-#else
-    fInitialPollCountdown = 0;
-#endif // TARGET_OS_OSX
 #if TARGET_OS_OSX_X86
     fDisplayKeys = false;
 #else
@@ -388,6 +384,11 @@ void AppleSmartBattery::updateDictionaryInIOReg(const OSSymbol *sym, smcToRegist
 {
     OSDictionary *dict = smcKeysToDictionary(keys);
     if (!dict) {
+        return;
+    }
+
+    if (!dict->getCount()) {
+        OSSafeReleaseNULL(dict);
         return;
     }
 
@@ -584,7 +585,8 @@ bool AppleSmartBattery::pollBatteryState(int type)
         _machinePath = type;
     }
 
-    if (fInitialPollCountdown > 0) {
+    if (fInitialPollCountdown > 0 ||
+        (_batteryCellCount && !properties->getObject(serialKey))) {
         // We're going out of our way to make sure that we get a successfull
         // initial poll at boot. Upgrade all early boot polls to kBoot.
         _machinePath = kBoot;
@@ -764,7 +766,6 @@ void AppleSmartBattery::externalConnectedTimeout(void)
 void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint16_t machinePath)
 {
     uint64_t now, nsec;
-    static bool initialPollComplete = false;
 
     if (fBatteryReadAllTimer) {
         fBatteryReadAllTimer->cancelTimeout();
@@ -792,6 +793,7 @@ void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint1
 
         if (fInitialPollCountdown > 0) {
             fInitialPollCountdown--;
+        } else {
         }
 
         OSNumber *num = OSNumber::withNumber(secs, 32);
@@ -821,6 +823,10 @@ void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint1
         BM_LOG1("SmartBattery: finished polling type %d\n", machinePath);
 
         updateStatus();
+        if (_needRegisterService) {
+            this->registerService();
+            _needRegisterService = false;
+        }
     } else {
         BM_ERRLOG("SmartBattery: abort polling\n");
 

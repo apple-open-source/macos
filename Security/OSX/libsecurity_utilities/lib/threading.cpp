@@ -253,7 +253,7 @@ Thread::~Thread()
 {
 }
 
-void Thread::run()
+void Thread::threadRun()
 {
     pthread_t pt;
     pthread_attr_t ptattrs;
@@ -284,10 +284,10 @@ void *Thread::runner(void *arg)
         // otherwise it will crash if something underneath throws.
     {
         Thread *me = static_cast<Thread *>(arg);
-        secinfo("thread", "%p starting", pthread_self());
-        me->action();
-        secinfo("thread", "%p terminating", pthread_self());
-        delete me;
+        pthread_setname_np(me->threadName);
+        secinfo("thread", "%p: %s starting", pthread_self(), me->threadName);
+        me->threadAction();
+        secinfo("thread", "%p: %s terminating", pthread_self(), me->threadName);
         return NULL;
     }
     catch (...)
@@ -296,22 +296,7 @@ void *Thread::runner(void *arg)
     }
 }
 
-void Thread::yield()
+void Thread::threadYield()
 {
 	::sched_yield();
-}
-
-
-//
-// ThreadRunner implementation
-//
-ThreadRunner::ThreadRunner(Action *todo)
-{
-    mAction = todo;
-    run();
-}
-
-void ThreadRunner::action()
-{
-    mAction();
 }

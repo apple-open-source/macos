@@ -41,6 +41,8 @@ __BEGIN_DECLS
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
+#define TRUST_TIME_LEEWAY (4500.0) // 1h15m: 1 hour to address DST/time zone issues, 15 min for clock skew
+
 /* Constants used as keys in property lists.  See
  SecTrustCopySummaryPropertiesAtIndex for more information. */
 extern const CFStringRef kSecPropertyKeyType;
@@ -64,6 +66,8 @@ extern const CFStringRef kSecTrustInfoCompanyNameKey;
 extern const CFStringRef kSecTrustInfoRevocationKey;
 extern const CFStringRef kSecTrustInfoRevocationValidUntilKey;
 extern const CFStringRef kSecTrustInfoCertificateTransparencyKey;
+extern const CFStringRef kSecTrustInfoResultNotBefore;
+extern const CFStringRef kSecTrustInfoResultNotAfter;
 
 /* Constants used as keys in the certificate details dictionary.
  An array of per-certificate details is returned by SecTrustCopyResult
@@ -441,7 +445,6 @@ OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
 OSStatus SecTrustSetPinningException(SecTrustRef trust)
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
-#if TARGET_OS_IPHONE
 /*!
   @function SecTrustGetExceptionResetCount
   @abstract Returns the current epoch of trusted exceptions.
@@ -449,8 +452,8 @@ OSStatus SecTrustSetPinningException(SecTrustRef trust)
   @result An unsigned 64-bit integer representing the current epoch.
   @discussion Exceptions tagged with an older epoch are not trusted.
   */
-uint64_t SecTrustGetExceptionResetCount(CFErrorRef *error)
-    API_UNAVAILABLE(macos, macCatalyst) API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
+uint64_t SecTrustGetExceptionResetCount(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    API_AVAILABLE(macos(11.3), ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
   @function SecTrustIncrementExceptionResetCount
@@ -459,9 +462,8 @@ uint64_t SecTrustGetExceptionResetCount(CFErrorRef *error)
   @result A result code. See "Security Error Codes" (SecBase.h)
   @discussion By increasing the current epoch any existing exceptions, tagged with the old epoch, become distrusted.
   */
-OSStatus SecTrustIncrementExceptionResetCount(CFErrorRef *error)
-    __API_UNAVAILABLE(macos, macCatalyst) __API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
-#endif
+OSStatus SecTrustIncrementExceptionResetCount(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    API_AVAILABLE(macos(11.3), ios(12.0), tvos(12.0), watchos(5.0));
 
 #ifdef __BLOCKS__
 /*!

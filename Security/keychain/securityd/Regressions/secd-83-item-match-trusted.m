@@ -46,6 +46,8 @@ int secd_83_item_match_trusted(int argc, char *const *argv)
         for (id returnKeyName in returnKeyNames)
             test(returnKeyName);
     }
+
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
     
     return 0;
 }

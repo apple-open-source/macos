@@ -70,7 +70,9 @@ mtree_verifyspec(FILE *fi)
 		RECORD_FAILURE(60, WARN_MISMATCH);
 		return rval;
 	} else {
-		RECORD_FAILURE(61, WARN_MISMATCH);
+		if (mval != 0) {
+			RECORD_FAILURE(61, WARN_MISMATCH);
+		}
 		return mval;
 	}
 }

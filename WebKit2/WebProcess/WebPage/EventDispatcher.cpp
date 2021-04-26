@@ -27,11 +27,12 @@
 #include "EventDispatcher.h"
 
 #include "EventDispatcherMessages.h"
-#include "WebEvent.h"
 #include "WebEventConversion.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include "WebTouchEvent.h"
+#include "WebWheelEvent.h"
 #include <WebCore/Page.h>
 #include <WebCore/WheelEventTestMonitor.h>
 #include <wtf/MainThread.h>
@@ -42,9 +43,7 @@
 #include <WebCore/AsyncScrollingCoordinator.h>
 #endif
 
-#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 #include <WebCore/DisplayRefreshMonitorManager.h>
-#endif
 
 #if ENABLE(SCROLLING_THREAD)
 #include <WebCore/ScrollingThread.h>
@@ -120,52 +119,61 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
     }
 #endif
 
+    auto processingSteps = OptionSet<WebCore::WheelEventProcessingSteps> { WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch };
 #if ENABLE(SCROLLING_THREAD)
-    auto sentToScrollingThread = [&]() {
+    processingSteps = [&]() -> OptionSet<WheelEventProcessingSteps> {
         LockHolder locker(m_scrollingTreesMutex);
 
         auto scrollingTree = m_scrollingTrees.get(pageID);
         if (!scrollingTree)
-            return false;
+            return { WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch };
         
         // FIXME: It's pretty horrible that we're updating the back/forward state here.
         // WebCore should always know the current state and know when it changes so the
         // scrolling tree can be notified.
         // We only need to do this at the beginning of the gesture.
-        if (platformWheelEvent.phase() == PlatformWheelEventPhaseBegan)
+        if (platformWheelEvent.phase() == PlatformWheelEventPhase::Began)
             scrollingTree->setMainFrameCanRubberBand({ canRubberBandAtTop, canRubberBandAtRight, canRubberBandAtBottom, canRubberBandAtLeft });
 
         auto processingSteps = scrollingTree->determineWheelEventProcessing(platformWheelEvent);
-        if (!processingSteps.contains(WheelEventProcessingSteps::ScrollingThread))
-            return false;
 
         scrollingTree->willProcessWheelEvent();
 
-        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, pageID, protectedThis = makeRef(*this)] {
-            auto result = scrollingTree->handleWheelEvent(platformWheelEvent);
-
-            if (result.needsMainThreadProcessing()) {
-                protectedThis->dispatchWheelEventViaMainThread(pageID, wheelEvent);
+        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, processingSteps, pageID, protectedThis = makeRef(*this)] {
+            if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling)) {
+                scrollingTree->willSendEventToMainThread(platformWheelEvent);
+                protectedThis->dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
+                scrollingTree->waitForEventToBeProcessedByMainThread(platformWheelEvent);
                 return;
             }
+        
+            auto result = scrollingTree->handleWheelEvent(platformWheelEvent, processingSteps);
 
+            if (result.needsMainThreadProcessing()) {
+                protectedThis->dispatchWheelEventViaMainThread(pageID, wheelEvent, result.steps);
+                if (result.steps.contains(WheelEventProcessingSteps::MainThreadForScrolling))
+                    return;
+            }
+
+            // If we scrolled on the scrolling thread (even if we send the event to the main thread for passive event handlers)
+            // respond to the UI process that the event was handled.
             protectedThis->sendDidReceiveEvent(pageID, wheelEvent.type(), result.wasHandled);
         });
 
-        return true;
+        return processingSteps;
     }();
 
-    if (sentToScrollingThread)
-        return;
-
+    auto scrollingTree = m_scrollingTrees.get(pageID);
+    if (!scrollingTree)
+        dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
 #else
     UNUSED_PARAM(canRubberBandAtLeft);
     UNUSED_PARAM(canRubberBandAtRight);
     UNUSED_PARAM(canRubberBandAtTop);
     UNUSED_PARAM(canRubberBandAtBottom);
-#endif
 
-    dispatchWheelEventViaMainThread(pageID, wheelEvent);
+    dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
+#endif
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
@@ -229,15 +237,15 @@ void EventDispatcher::dispatchTouchEvents()
 }
 #endif
 
-void EventDispatcher::dispatchWheelEventViaMainThread(WebCore::PageIdentifier pageID, const WebWheelEvent& wheelEvent)
+void EventDispatcher::dispatchWheelEventViaMainThread(WebCore::PageIdentifier pageID, const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
     ASSERT(!RunLoop::isMain());
-    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, wheelEvent]() mutable {
-        protectedThis->dispatchWheelEvent(pageID, wheelEvent);
+    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, wheelEvent, steps = processingSteps - WheelEventProcessingSteps::ScrollingThread]() mutable {
+        protectedThis->dispatchWheelEvent(pageID, wheelEvent, steps);
     });
 }
 
-void EventDispatcher::dispatchWheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent)
+void EventDispatcher::dispatchWheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
     ASSERT(RunLoop::isMain());
 
@@ -245,7 +253,7 @@ void EventDispatcher::dispatchWheelEvent(PageIdentifier pageID, const WebWheelEv
     if (!webPage)
         return;
 
-    webPage->wheelEvent(wheelEvent);
+    webPage->wheelEvent(wheelEvent, processingSteps);
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
@@ -268,8 +276,6 @@ void EventDispatcher::sendDidReceiveEvent(PageIdentifier pageID, WebEvent::Type 
 }
 #endif
 
-#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-
 void EventDispatcher::notifyScrollingTreesDisplayWasRefreshed(PlatformDisplayID displayID)
 {
 #if ENABLE(SCROLLING_THREAD)
@@ -279,6 +285,7 @@ void EventDispatcher::notifyScrollingTreesDisplayWasRefreshed(PlatformDisplayID 
 #endif
 }
 
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 void EventDispatcher::displayWasRefreshed(PlatformDisplayID displayID)
 {
     ASSERT(!RunLoop::isMain());

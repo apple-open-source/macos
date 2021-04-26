@@ -1,14 +1,15 @@
 #include <regressions/test/testmore.h>
 
-DISABLED_ONE_TEST(ssl_39_echo)
 
 #if TARGET_OS_IPHONE
 
+OFF_ONE_TEST(ssl_39_echo)
 ONE_TEST(ssl_40_clientauth)
 ONE_TEST(ssl_41_clientauth)
 
 #else
 
+DISABLED_ONE_TEST(ssl_39_echo)
 DISABLED_ONE_TEST(ssl_40_clientauth)
 DISABLED_ONE_TEST(ssl_41_clientauth)
 

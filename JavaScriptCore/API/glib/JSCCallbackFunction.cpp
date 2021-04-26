@@ -52,16 +52,29 @@ static JSObjectRef callAsConstructor(JSContextRef callerContext, JSObjectRef con
 
 const ClassInfo JSCCallbackFunction::s_info = { "CallbackFunction", &InternalFunction::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCCallbackFunction) };
 
+static JSC_DECLARE_HOST_FUNCTION(callJSCCallbackFunction);
+static JSC_DECLARE_HOST_FUNCTION(constructJSCCallbackFunction);
+
+JSC_DEFINE_HOST_FUNCTION(callJSCCallbackFunction, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    return APICallbackFunction::callImpl<JSCCallbackFunction>(globalObject, callFrame);
+}
+
+JSC_DEFINE_HOST_FUNCTION(constructJSCCallbackFunction, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    return APICallbackFunction::constructImpl<JSCCallbackFunction>(globalObject, callFrame);
+}
+
 JSCCallbackFunction* JSCCallbackFunction::create(VM& vm, JSGlobalObject* globalObject, const String& name, Type type, JSCClass* jscClass, GRefPtr<GClosure>&& closure, GType returnType, Optional<Vector<GType>>&& parameters)
 {
     Structure* structure = globalObject->glibCallbackFunctionStructure();
     JSCCallbackFunction* function = new (NotNull, allocateCell<JSCCallbackFunction>(vm.heap)) JSCCallbackFunction(vm, structure, type, jscClass, WTFMove(closure), returnType, WTFMove(parameters));
-    function->finishCreation(vm, name);
+    function->finishCreation(vm, 0, name);
     return function;
 }
 
 JSCCallbackFunction::JSCCallbackFunction(VM& vm, Structure* structure, Type type, JSCClass* jscClass, GRefPtr<GClosure>&& closure, GType returnType, Optional<Vector<GType>>&& parameters)
-    : InternalFunction(vm, structure, APICallbackFunction::call<JSCCallbackFunction>, type == Type::Constructor ? APICallbackFunction::construct<JSCCallbackFunction> : nullptr)
+    : InternalFunction(vm, structure, callJSCCallbackFunction, type == Type::Constructor ? constructJSCCallbackFunction : nullptr)
     , m_functionCallback(callAsFunction)
     , m_constructCallback(callAsConstructor)
     , m_type(type)

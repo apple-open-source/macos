@@ -28,38 +28,32 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
 #include "sudoers.h"
 
 /*
- * Check the given command against the specified whitelist (NULL-terminated).
- * On success, rewrites cmnd based on the whitelist and returns true.
+ * Check the given command against the specified allowlist (NULL-terminated).
+ * On success, rewrites cmnd based on the allowlist and returns true.
  * On failure, returns false.
  */
 static bool
-cmnd_allowed(char *cmnd, size_t cmnd_size, struct stat *cmnd_sbp,
-    char * const *whitelist)
+cmnd_allowed(char *cmnd, size_t cmnd_size, const char *runchroot,
+    struct stat *cmnd_sbp, char * const *allowlist)
 {
     const char *cmnd_base;
-    char * const *wl;
-    debug_decl(cmnd_allowed, SUDOERS_DEBUG_UTIL)
+    char * const *al;
+    debug_decl(cmnd_allowed, SUDOERS_DEBUG_UTIL);
 
-    if (!sudo_goodpath(cmnd, cmnd_sbp))
+    if (!sudo_goodpath(cmnd, runchroot, cmnd_sbp))
 	debug_return_bool(false);
 
-    if (whitelist == NULL)
+    if (allowlist == NULL)
 	debug_return_bool(true);	/* nothing to check */
 
     /* We compare the base names to avoid excessive stat()ing. */
@@ -67,22 +61,21 @@ cmnd_allowed(char *cmnd, size_t cmnd_size, struct stat *cmnd_sbp,
 	debug_return_bool(false);	/* can't happen */
     cmnd_base++;
 
-    for (wl = whitelist; *wl != NULL; wl++) {
+    for (al = allowlist; *al != NULL; al++) {
+	const char *base, *path = *al;
 	struct stat sb;
-	const char *base;
 
-	if ((base = strrchr(*wl, '/')) == NULL)
+	if ((base = strrchr(path, '/')) == NULL)
 	    continue;		/* XXX - warn? */
 	base++;
 
 	if (strcmp(cmnd_base, base) != 0)
 	    continue;
 
-	if (sudo_goodpath(*wl, &sb) &&
+	if (sudo_goodpath(path, runchroot, &sb) &&
 	    sb.st_dev == cmnd_sbp->st_dev && sb.st_ino == cmnd_sbp->st_ino) {
-	    /* Overwrite cmnd with safe version from whitelist. */
-	    if (strlcpy(cmnd, *wl, cmnd_size) < cmnd_size)
-		return true;
+	    /* Overwrite cmnd with safe version from allowlist. */
+	    if (strlcpy(cmnd, path, cmnd_size) < cmnd_size)
 		debug_return_bool(true);
 	}
     }
@@ -99,14 +92,15 @@ cmnd_allowed(char *cmnd, size_t cmnd_size, struct stat *cmnd_sbp,
  */
 int
 find_path(const char *infile, char **outfile, struct stat *sbp,
-    const char *path, int ignore_dot, char * const *whitelist)
+    const char *path, const char *runchroot, int ignore_dot,
+    char * const *allowlist)
 {
     char command[PATH_MAX];
     const char *cp, *ep, *pathend;
     bool found = false;
     bool checkdot = false;
     int len;
-    debug_decl(find_path, SUDOERS_DEBUG_UTIL)
+    debug_decl(find_path, SUDOERS_DEBUG_UTIL);
 
     /*
      * If we were given a fully qualified or relative path
@@ -117,7 +111,8 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
 	    errno = ENAMETOOLONG;
 	    debug_return_int(NOT_FOUND_ERROR);
 	}
-	found = cmnd_allowed(command, sizeof(command), sbp, whitelist);
+	found = cmnd_allowed(command, sizeof(command), runchroot, sbp,
+	    allowlist);
 	goto done;
     }
 
@@ -146,7 +141,8 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
 	    errno = ENAMETOOLONG;
 	    debug_return_int(NOT_FOUND_ERROR);
 	}
-	found = cmnd_allowed(command, sizeof(command), sbp, whitelist);
+	found = cmnd_allowed(command, sizeof(command), runchroot,
+	    sbp, allowlist);
 	if (found)
 	    break;
     }
@@ -160,7 +156,8 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
 	    errno = ENAMETOOLONG;
 	    debug_return_int(NOT_FOUND_ERROR);
 	}
-	found = cmnd_allowed(command, sizeof(command), sbp, whitelist);
+	found = cmnd_allowed(command, sizeof(command), runchroot,
+	    sbp, allowlist);
 	if (found && ignore_dot)
 	    debug_return_int(NOT_FOUND_DOT);
     }

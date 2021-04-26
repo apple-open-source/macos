@@ -119,6 +119,7 @@ private:
         case ProcessTerminationReason::RequestedByClient:
         case ProcessTerminationReason::RequestedByNetworkProcess:
         case ProcessTerminationReason::NavigationSwap:
+        case ProcessTerminationReason::RequestedByGPUProcess:
             break;
         }
         return false;

@@ -32,6 +32,7 @@
 #include "FindController.h"
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
+#include "IPCTestingAPI.h"
 #include "InjectedBundle.h"
 #include "InjectedBundleDOMWindowExtension.h"
 #include "InjectedBundleNavigationAction.h"
@@ -72,7 +73,6 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/HTMLAppletElement.h>
 #include <WebCore/HTMLFormElement.h>
 #include <WebCore/HistoryController.h>
 #include <WebCore/HistoryItem.h>
@@ -342,7 +342,7 @@ void WebFrameLoaderClient::dispatchDidReceiveServerRedirectForProvisionalLoad()
 
     WebDocumentLoader* documentLoader = static_cast<WebDocumentLoader*>(m_frame->coreFrame()->loader().provisionalDocumentLoader());
     if (!documentLoader) {
-        WEBFRAMELOADERCLIENT_RELEASE_LOG_FAULT(Loading, "dispatchDidReceiveServerRedirectForProvisionalLoad: Called with no provisional DocumentLoader (frameState=%i, stateForDebugging=%i)", m_frame->coreFrame()->loader().state(), m_frame->coreFrame()->loader().stateMachine().stateForDebugging());
+        WEBFRAMELOADERCLIENT_RELEASE_LOG_FAULT(Loading, "dispatchDidReceiveServerRedirectForProvisionalLoad: Called with no provisional DocumentLoader (frameState=%hhu, stateForDebugging=%i)", m_frame->coreFrame()->loader().state(), m_frame->coreFrame()->loader().stateMachine().stateForDebugging());
         return;
     }
 
@@ -784,14 +784,16 @@ void WebFrameLoaderClient::dispatchDidLayout()
     }
 }
 
-Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction& navigationAction)
+Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction& navigationAction, NewFrameOpenerPolicy newFrameOpenerPolicy)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return nullptr;
 
     // Just call through to the chrome client.
-    Page* newPage = webPage->corePage()->chrome().createWindow(*m_frame->coreFrame(), { }, navigationAction);
+    WindowFeatures windowFeatures;
+    windowFeatures.noopener = newFrameOpenerPolicy == NewFrameOpenerPolicy::Suppress;
+    Page* newPage = webPage->corePage()->chrome().createWindow(*m_frame->coreFrame(), windowFeatures, navigationAction);
     if (!newPage)
         return nullptr;
     
@@ -878,6 +880,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Navigati
     navigationActionData.canHandleRequest = webPage->canHandleRequest(request);
     navigationActionData.shouldOpenExternalURLsPolicy = navigationAction.shouldOpenExternalURLsPolicy();
     navigationActionData.downloadAttribute = navigationAction.downloadAttribute();
+    navigationActionData.privateClickMeasurement = navigationAction.privateClickMeasurement();
 
     webPage->send(Messages::WebPageProxy::DecidePolicyForNewWindowAction(m_frame->frameID(), m_frame->info(), identifier, navigationActionData, request,
         frameName, listenerID, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
@@ -984,7 +987,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
     navigationActionData.sourceBackForwardItemIdentifier = navigationAction.sourceBackForwardItemIdentifier();
     navigationActionData.lockHistory = navigationAction.lockHistory();
     navigationActionData.lockBackForwardList = navigationAction.lockBackForwardList();
-    navigationActionData.adClickAttribution = navigationAction.adClickAttribution();
+    navigationActionData.privateClickMeasurement = navigationAction.privateClickMeasurement();
 
     auto* coreFrame = m_frame->coreFrame();
     if (!coreFrame)
@@ -1652,27 +1655,6 @@ WebCore::WebGLLoadPolicy WebFrameLoaderClient::resolveWebGLPolicyForURL(const UR
 
 #endif
 
-RefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& pluginSize, HTMLAppletElement& appletElement, const URL&, const Vector<String>& paramNames, const Vector<String>& paramValues)
-{
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    auto plugin = createPlugin(pluginSize, appletElement, URL(), paramNames, paramValues, appletElement.serviceType(), false);
-    if (!plugin) {
-        if (auto* webPage = m_frame->page()) {
-            auto frameURLString = m_frame->coreFrame()->loader().documentLoader()->responseURL().string();
-            auto pageURLString = webPage->corePage()->mainFrame().loader().documentLoader()->responseURL().string();
-            webPage->send(Messages::WebPageProxy::DidFailToInitializePlugin(appletElement.serviceType(), frameURLString, pageURLString));
-        }
-    }
-    return plugin;
-#else
-    UNUSED_PARAM(pluginSize);
-    UNUSED_PARAM(appletElement);
-    UNUSED_PARAM(paramNames);
-    UNUSED_PARAM(paramValues);
-    return nullptr;
-#endif
-}
-
 static bool pluginSupportsExtension(const PluginData& pluginData, const String& extension)
 {
     ASSERT(extension.convertToASCIILowercase() == extension);
@@ -1711,7 +1693,7 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const 
         return ObjectContentType::Image;
 
     if (WebPage* webPage = m_frame->page()) {
-        auto allowedPluginTypes = webFrame().coreFrame()->loader().arePluginsEnabled()
+        auto allowedPluginTypes = webFrame().coreFrame()->arePluginsEnabled()
             ? PluginData::AllPlugins : PluginData::OnlyApplicationPlugins;
         if (webPage->corePage()->pluginData().supportsMimeType(mimeType, allowedPluginTypes))
             return ObjectContentType::PlugIn;
@@ -1742,6 +1724,11 @@ void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& 
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
+
+#if ENABLE(IPC_TESTING_API)
+    if (world.isNormal() && webPage->ipcTestingAPIEnabled())
+        IPCTestingAPI::inject(*webPage, m_frame.get(), world);
+#endif
 
     webPage->injectedBundleLoaderClient().didClearWindowObjectForFrame(*webPage, m_frame, world);
 
@@ -1897,8 +1884,9 @@ void WebFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<void(Exp
 #endif
     parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
     parameters.options.destination = FetchOptions::Destination::EmptyString;
+#if ENABLE(APP_BOUND_DOMAINS)
     parameters.isNavigatingToAppBoundDomain = m_frame->isTopFrameNavigatingToAppBoundDomain();
-    
+#endif
     WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::SendH2Ping(parameters), WTFMove(completionHandler));
 }
 
@@ -1952,6 +1940,7 @@ void WebFrameLoaderClient::finishedLoadingApplicationManifest(uint64_t callbackI
 }
 #endif // ENABLE(APPLICATION_MANIFEST)
 
+#if ENABLE(APP_BOUND_DOMAINS)
 bool WebFrameLoaderClient::shouldEnableInAppBrowserPrivacyProtections() const
 {
     return m_frame->shouldEnableInAppBrowserPrivacyProtections();
@@ -1968,6 +1957,7 @@ void WebFrameLoaderClient::notifyPageOfAppBoundBehavior()
 
     webPage->notifyPageOfAppBoundBehavior();
 }
+#endif
 
 } // namespace WebKit
 

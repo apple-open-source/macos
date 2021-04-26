@@ -80,18 +80,18 @@ void RenderSlider::computePreferredLogicalWidths()
     m_maxPreferredLogicalWidth = 0;
 
     if (style().width().isFixed() && style().width().value() > 0)
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().width().value());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().width());
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
     if (style().minWidth().isFixed() && style().minWidth().value() > 0) {
-        m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().minWidth().value()));
-        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().minWidth().value()));
+        m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().minWidth()));
+        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().minWidth()));
     }
 
     if (style().maxWidth().isFixed()) {
-        m_maxPreferredLogicalWidth = std::min(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().maxWidth().value()));
-        m_minPreferredLogicalWidth = std::min(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().maxWidth().value()));
+        m_maxPreferredLogicalWidth = std::min(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().maxWidth()));
+        m_minPreferredLogicalWidth = std::min(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style().maxWidth()));
     }
 
     LayoutUnit toAdd = horizontalBorderAndPaddingExtent();
@@ -116,6 +116,19 @@ void RenderSlider::layout()
 bool RenderSlider::inDragMode() const
 {
     return element().sliderThumbElement()->active();
+}
+
+double RenderSlider::valueRatio() const
+{
+    auto& element = this->element();
+
+    auto min = element.minimum();
+    auto max = element.maximum();
+    auto value = element.valueAsNumber();
+
+    if (max <= min)
+        return 0;
+    return (value - min) / (max - min);
 }
 
 } // namespace WebCore

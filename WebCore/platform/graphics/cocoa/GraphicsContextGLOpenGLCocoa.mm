@@ -20,20 +20,19 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #import "config.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_GL)
+#if ENABLE(WEBGL)
 #import "GraphicsContextGLOpenGL.h"
 
 #import "ExtensionsGLANGLE.h"
 #import "GraphicsContextGLANGLEUtilities.h"
+#import "GraphicsContextGLIOSurfaceSwapChain.h"
 #import "GraphicsContextGLOpenGLManager.h"
-#import "HostWindow.h"
 #import "Logging.h"
-#import "OpenGLSoftLinkCocoa.h"
 #import "RuntimeApplicationChecks.h"
 #import "WebCoreThread.h"
 #import "WebGLLayer.h"
@@ -41,9 +40,8 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/text/CString.h>
 
-#if PLATFORM(MAC)
-#import "ScreenProperties.h"
-#import <OpenGL/CGLRenderers.h>
+#if ENABLE(VIDEO) && USE(AVFOUNDATION)
+#include "GraphicsContextGLCV.h"
 #endif
 
 namespace WebCore {
@@ -72,24 +70,35 @@ static bool checkVolatileContextSupportIfDeviceExists(EGLDisplay display, const 
 }
 #endif
 
-static EGLDisplay InitializeEGLDisplay()
+static EGLDisplay InitializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
 {
     EGLint majorVersion = 0;
     EGLint minorVersion = 0;
     EGLDisplay display;
-    bool shouldInitializeWithVolatileContextSupport = !isInWebProcess();
+
+    Vector<EGLint> displayAttributes;
+
+    // FIXME: This should come in from the GraphicsContextGLAttributes.
+    bool shouldInitializeWithVolatileContextSupport = !(isInWebProcess() || isInGPUProcess());
     if (shouldInitializeWithVolatileContextSupport) {
         // For WK1 type APIs we need to set "volatile platform context" for specific
         // APIs, since client code will be able to override the thread-global context
         // that ANGLE expects.
-        EGLint displayAttributes[] = {
-            EGL_PLATFORM_ANGLE_DEVICE_CONTEXT_VOLATILE_EAGL_ANGLE, EGL_TRUE,
-            EGL_PLATFORM_ANGLE_DEVICE_CONTEXT_VOLATILE_CGL_ANGLE, EGL_TRUE,
-            EGL_NONE
-        };
-        display = EGL_GetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), displayAttributes);
-    } else
-        display = EGL_GetDisplay(EGL_DEFAULT_DISPLAY);
+        displayAttributes.append(EGL_PLATFORM_ANGLE_DEVICE_CONTEXT_VOLATILE_EAGL_ANGLE);
+        displayAttributes.append(EGL_TRUE);
+        displayAttributes.append(EGL_PLATFORM_ANGLE_DEVICE_CONTEXT_VOLATILE_CGL_ANGLE);
+        displayAttributes.append(EGL_TRUE);
+    }
+
+    if (attrs.useMetal) {
+        displayAttributes.append(EGL_PLATFORM_ANGLE_TYPE_ANGLE);
+        displayAttributes.append(EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE);
+    }
+
+    LOG(WebGL, "Attempting to use ANGLE's %s backend.", attrs.useMetal ? "Metal" : "OpenGL");
+
+    displayAttributes.append(EGL_NONE);
+    display = EGL_GetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void*>(EGL_DEFAULT_DISPLAY), displayAttributes.data());
 
     if (EGL_Initialize(display, &majorVersion, &minorVersion) == EGL_FALSE) {
         LOG(WebGL, "EGLDisplay Initialization failed.");
@@ -130,92 +139,50 @@ RefPtr<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::create(GraphicsContextG
     if (GraphicsContextGLOpenGLManager::sharedManager().hasTooManyContexts())
         return nullptr;
 
-    RefPtr<GraphicsContextGLOpenGL> context = adoptRef(new GraphicsContextGLOpenGL(attrs, hostWindow, destination));
+    RefPtr<GraphicsContextGLOpenGL> context = adoptRef(new GraphicsContextGLOpenGL(attrs, hostWindow, nullptr, nullptr));
 
     if (!context->m_contextObj)
         return nullptr;
 
-    GraphicsContextGLOpenGLManager::sharedManager().addContext(context.get(), hostWindow);
+    GraphicsContextGLOpenGLManager::sharedManager().addContext(context.get());
 
     return context;
 }
 
 Ref<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::createShared(GraphicsContextGLOpenGL& sharedContext)
 {
-    auto hostWindow = GraphicsContextGLOpenGLManager::sharedManager().hostWindowForContext(&sharedContext);
-    auto context = adoptRef(*new GraphicsContextGLOpenGL(sharedContext.contextAttributes(), hostWindow, sharedContext.destination(), &sharedContext));
 
-    GraphicsContextGLOpenGLManager::sharedManager().addContext(context.ptr(), hostWindow);
+    auto context = adoptRef(*new GraphicsContextGLOpenGL(sharedContext.contextAttributes(), nullptr, &sharedContext, nullptr));
+
+    GraphicsContextGLOpenGLManager::sharedManager().addContext(context.ptr());
 
     return context;
 }
 
-#if PLATFORM(MAC) // FIXME: This probably should be just enabled - see <rdar://53062794>.
-
-static void setGPUByRegistryID(CGLContextObj contextObj, CGLPixelFormatObj pixelFormatObj, IORegistryGPUID preferredGPUID)
+Ref<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::createForGPUProcess(const GraphicsContextGLAttributes& attrs, GraphicsContextGLIOSurfaceSwapChain* swapChain)
 {
-    // When the WebProcess does not have access to the WindowServer, there is no way for OpenGL to tell which GPU is connected to a display.
-    // On 10.13+, find the virtual screen that corresponds to the preferred GPU by its registryID.
-    // CGLSetVirtualScreen can then be used to tell OpenGL which GPU it should be using.
-
-    if (!contextObj || !preferredGPUID)
-        return;
-
-    GLint virtualScreenCount = 0;
-    CGLError error = CGLDescribePixelFormat(pixelFormatObj, 0, kCGLPFAVirtualScreenCount, &virtualScreenCount);
-    ASSERT(error == kCGLNoError);
-
-    GLint firstAcceleratedScreen = -1;
-
-    for (GLint virtualScreen = 0; virtualScreen < virtualScreenCount; ++virtualScreen) {
-        GLint displayMask = 0;
-        error = CGLDescribePixelFormat(pixelFormatObj, virtualScreen, kCGLPFADisplayMask, &displayMask);
-        ASSERT(error == kCGLNoError);
-
-        auto gpuID = gpuIDForDisplayMask(displayMask);
-
-        if (gpuID == preferredGPUID) {
-            error = CGLSetVirtualScreen(contextObj, virtualScreen);
-            ASSERT(error == kCGLNoError);
-            LOG(WebGL, "Context (%p) set to GPU with ID: (%lld).", contextObj, gpuID);
-            return;
-        }
-
-        if (firstAcceleratedScreen < 0) {
-            GLint isAccelerated = 0;
-            error = CGLDescribePixelFormat(pixelFormatObj, virtualScreen, kCGLPFAAccelerated, &isAccelerated);
-            ASSERT(error == kCGLNoError);
-            if (isAccelerated)
-                firstAcceleratedScreen = virtualScreen;
-        }
-    }
-
-    // No registryID match found; set to first hardware-accelerated virtual screen.
-    if (firstAcceleratedScreen >= 0) {
-        error = CGLSetVirtualScreen(contextObj, firstAcceleratedScreen);
-        ASSERT(error == kCGLNoError);
-        LOG(WebGL, "RegistryID (%lld) not matched; Context (%p) set to virtual screen (%d).", preferredGPUID, contextObj, firstAcceleratedScreen);
-    }
+    return adoptRef(*new GraphicsContextGLOpenGL(attrs, nullptr, nullptr, swapChain));
 }
 
-#endif // PLATFORM(MAC)
-
-GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes attrs, HostWindow* hostWindow, GraphicsContextGL::Destination destination, GraphicsContextGLOpenGL* sharedContext)
-    : GraphicsContextGL(attrs, destination, sharedContext)
+GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes attrs, HostWindow*, GraphicsContextGLOpenGL* sharedContext, GraphicsContextGLIOSurfaceSwapChain* swapChain)
+    : GraphicsContextGL(attrs, Destination::Offscreen, sharedContext)
 {
-    m_isForWebGL2 = attrs.isWebGL2;
+    m_isForWebGL2 = attrs.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2;
 
-#if HAVE(APPLE_GRAPHICS_CONTROL)
-    m_powerPreferenceUsedForCreation = (hasLowAndHighPowerGPUs() && attrs.powerPreference == GraphicsContextGLPowerPreference::HighPerformance) ? GraphicsContextGLPowerPreference::HighPerformance : GraphicsContextGLPowerPreference::Default;
-#else
-    m_powerPreferenceUsedForCreation = GraphicsContextGLPowerPreference::Default;
-#endif
-
-    m_displayObj = InitializeEGLDisplay();
+    m_displayObj = InitializeEGLDisplay(attrs);
     if (m_displayObj == EGL_NO_DISPLAY)
         return;
+
+    bool supportsPowerPreference = false;
+#if PLATFORM(MAC)
     const char *displayExtensions = EGL_QueryString(m_displayObj, EGL_EXTENSIONS);
-    LOG(WebGL, "Extensions: %s", displayExtensions);
+    m_supportsPowerPreference = strstr(displayExtensions, "EGL_ANGLE_power_preference");
+    supportsPowerPreference = m_supportsPowerPreference;
+#endif
+    if (!supportsPowerPreference && attrs.powerPreference == GraphicsContextGLPowerPreference::HighPerformance) {
+        attrs.powerPreference = GraphicsContextGLPowerPreference::Default;
+        setContextAttributes(attrs);
+    }
 
     EGLint configAttributes[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -269,12 +236,6 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     eglContextAttributes.append(EGL_CONTEXT_BIND_GENERATES_RESOURCE_CHROMIUM);
     eglContextAttributes.append(EGL_FALSE);
 
-    if (strstr(displayExtensions, "EGL_ANGLE_power_preference")) {
-        eglContextAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
-        // EGL_LOW_POWER_ANGLE is the default. Change to
-        // EGL_HIGH_POWER_ANGLE if desired.
-        eglContextAttributes.append(EGL_LOW_POWER_ANGLE);
-    }
     eglContextAttributes.append(EGL_NONE);
 
     m_contextObj = EGL_CreateContext(m_displayObj, m_configObj, sharedContext ? static_cast<EGLContext>(sharedContext->m_contextObj) : EGL_NO_CONTEXT, eglContextAttributes.data());
@@ -289,54 +250,45 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     if (m_isForWebGL2)
         gl::Enable(GraphicsContextGL::PRIMITIVE_RESTART_FIXED_INDEX);
 
+    Vector<ASCIILiteral, 4> requiredExtensions;
+    if (m_isForWebGL2) {
+        // For WebGL 2.0 occlusion queries to work.
+        requiredExtensions.append("GL_EXT_occlusion_query_boolean"_s);
+    }
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    ExtensionsGL& extensions = getExtensions();
-
     if (!needsEAGLOnMac()) {
-        static constexpr const char* requiredExtensions[] = {
-            "GL_ANGLE_texture_rectangle", // For IOSurface-backed textures.
-            "GL_EXT_texture_format_BGRA8888", // For creating the EGL surface from an IOSurface.
-        };
-
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(requiredExtensions); ++i) {
-            if (!extensions.supports(requiredExtensions[i])) {
-                LOG(WebGL, "Missing required extension. %s", requiredExtensions[i]);
-                return;
+        // For IOSurface-backed textures.
+        requiredExtensions.append("GL_ANGLE_texture_rectangle"_s);
+        // For creating the EGL surface from an IOSurface.
+        requiredExtensions.append("GL_EXT_texture_format_BGRA8888"_s);
             }
 
-            extensions.ensureEnabled(requiredExtensions[i]);
-        }
-    }
 #endif // PLATFORM(MAC) || PLATFORM(MACCATALYST)
-
-#if PLATFORM(MAC)
-    // FIXME: It's unclear if MACCATALYST should take these steps as well, but that
-    // would require the PlatformScreenMac code to be exposed to Catalyst too.
-    EGLDeviceEXT device = nullptr;
-    EGL_QueryDisplayAttribEXT(m_displayObj, EGL_DEVICE_EXT, reinterpret_cast<EGLAttrib*>(&device));
-    CGLContextObj cglContext = nullptr;
-    CGLPixelFormatObj pixelFormat = nullptr;
-    EGL_QueryDeviceAttribEXT(device, EGL_CGL_CONTEXT_ANGLE, reinterpret_cast<EGLAttrib*>(&cglContext));
-    EGL_QueryDeviceAttribEXT(device, EGL_CGL_PIXEL_FORMAT_ANGLE, reinterpret_cast<EGLAttrib*>(&pixelFormat));
-    auto gpuID = (hostWindow && hostWindow->displayID()) ? gpuIDForDisplay(hostWindow->displayID()) : primaryGPUID();
-    setGPUByRegistryID(cglContext, pixelFormat, gpuID);
-#else
-    UNUSED_PARAM(hostWindow);
-#endif
-
+    ExtensionsGL& extensions = getExtensions();
+    for (auto& extension : requiredExtensions) {
+        if (!extensions.supports(extension)) {
+            LOG(WebGL, "Missing required extension. %s", extension.characters());
+            return;
+        }
+        extensions.ensureEnabled(extension);
+    }
     validateAttributes();
     attrs = contextAttributes(); // They may have changed during validation.
 
-    // Create the WebGLLayer
+    if (swapChain)
+        m_swapChain = swapChain;
+    else {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
         m_webGLLayer = adoptNS([[WebGLLayer alloc] initWithDevicePixelRatio:attrs.devicePixelRatio contentsOpaque:!attrs.alpha]);
 #ifndef NDEBUG
         [m_webGLLayer setName:@"WebGL Layer"];
 #endif
     END_BLOCK_OBJC_EXCEPTIONS
+        m_swapChain = &[m_webGLLayer swapChain];
+    }
 
     // Create the texture that will be used for the framebuffer.
-    GLenum textureTarget = IOSurfaceTextureTarget();
+    GLenum textureTarget = drawingBufferTextureTarget();
 
     gl::GenTextures(1, &m_texture);
     gl::BindTexture(textureTarget, m_texture);
@@ -383,10 +335,8 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
 GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 {
     GraphicsContextGLOpenGLManager::sharedManager().removeContext(this);
-
-    if (m_contextObj) {
+    if (makeContextCurrent()) {
         GraphicsContextGLAttributes attrs = contextAttributes();
-        makeContextCurrent(); // TODO: check result.
         gl::DeleteTextures(1, &m_texture);
 
         if (attrs.antialias) {
@@ -403,18 +353,17 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
             gl::DeleteTextures(1, &m_preserveDrawingBufferTexture);
         if (m_preserveDrawingBufferFBO)
             gl::DeleteFramebuffers(1, &m_preserveDrawingBufferFBO);
-
-        if (m_displayBufferPbuffer) {
-            EGL_ReleaseTexImage(m_displayObj, m_displayBufferPbuffer, EGL_BACK_BUFFER);
-            EGL_DestroySurface(m_displayObj, m_displayBufferPbuffer);
-        }
-        auto recycledBuffer = [m_webGLLayer recycleBuffer];
+    }
+    if (m_displayBufferPbuffer) {
+        EGL_DestroySurface(m_displayObj, m_displayBufferPbuffer);
+        auto recycledBuffer = m_swapChain->recycleBuffer();
         if (recycledBuffer.handle)
             EGL_DestroySurface(m_displayObj, recycledBuffer.handle);
-        auto contentsHandle = [m_webGLLayer detachClient];
+        auto contentsHandle = m_swapChain->detachClient();
         if (contentsHandle)
             EGL_DestroySurface(m_displayObj, contentsHandle);
-
+    }
+    if (m_contextObj) {
         EGL_MakeCurrent(m_displayObj, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         EGL_DestroyContext(m_displayObj, m_contextObj);
     }
@@ -422,7 +371,7 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
     LOG(WebGL, "Destroyed a GraphicsContextGLOpenGL (%p).", this);
 }
 
-GCGLenum GraphicsContextGLOpenGL::IOSurfaceTextureTarget()
+GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTarget()
 {
 #if PLATFORM(MACCATALYST)
     if (needsEAGLOnMac())
@@ -435,7 +384,7 @@ GCGLenum GraphicsContextGLOpenGL::IOSurfaceTextureTarget()
 #endif
 }
 
-GCGLenum GraphicsContextGLOpenGL::IOSurfaceTextureTargetQuery()
+GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTargetQuery()
 {
 #if PLATFORM(MACCATALYST)
     if (needsEAGLOnMac())
@@ -448,10 +397,10 @@ GCGLenum GraphicsContextGLOpenGL::IOSurfaceTextureTargetQuery()
 #endif
 }
 
-GCGLint GraphicsContextGLOpenGL::EGLIOSurfaceTextureTarget()
+GCGLint GraphicsContextGLOpenGL::EGLDrawingBufferTextureTarget()
 {
 #if PLATFORM(MACCATALYST)
-    if (needsEAGLOnMac()) 
+    if (needsEAGLOnMac())
         return EGL_TEXTURE_2D;
     return EGL_TEXTURE_RECTANGLE_ANGLE;
 #elif PLATFORM(MAC)
@@ -537,32 +486,26 @@ void GraphicsContextGLOpenGL::checkGPUStatus()
 
 void GraphicsContextGLOpenGL::setContextVisibility(bool isVisible)
 {
-    if (m_powerPreferenceUsedForCreation == GraphicsContextGLPowerPreference::HighPerformance) {
-        if (isVisible)
-            GraphicsContextGLOpenGLManager::sharedManager().addContextRequiringHighPerformance(this);
-        else
-            GraphicsContextGLOpenGLManager::sharedManager().removeContextRequiringHighPerformance(this);
-    }
-}
-
 #if PLATFORM(MAC)
-void GraphicsContextGLOpenGL::updateCGLContext()
-{
-    if (!m_contextObj)
+    if (contextAttributes().powerPreference != GraphicsContextGLPowerPreference::HighPerformance)
         return;
-
-    LOG(WebGL, "Detected a mux switch or display reconfiguration. Call CGLUpdateContext. (%p)", this);
-
-    makeContextCurrent();
-    EGLDeviceEXT device = nullptr;
-    EGL_QueryDisplayAttribEXT(m_displayObj, EGL_DEVICE_EXT, reinterpret_cast<EGLAttrib*>(&device));
-    CGLContextObj cglContext = nullptr;
-    EGL_QueryDeviceAttribEXT(device, EGL_CGL_CONTEXT_ANGLE, reinterpret_cast<EGLAttrib*>(&cglContext));
-
-    CGLUpdateContext(cglContext);
-    m_hasSwitchedToHighPerformanceGPU = true;
-}
+    if (isVisible)
+        m_highPerformanceGPURequest = ScopedHighPerformanceGPURequest::acquire();
+    else
+        m_highPerformanceGPURequest = { };
+#else
+    UNUSED_PARAM(isVisible);
 #endif
+}
+
+void GraphicsContextGLOpenGL::displayWasReconfigured()
+{
+#if PLATFORM(MAC)
+    if (m_supportsPowerPreference)
+        EGL_HandleGPUSwitchANGLE(m_displayObj);
+#endif
+    dispatchContextChangedNotification();
+}
 
 bool GraphicsContextGLOpenGL::reshapeDisplayBufferBacking()
 {
@@ -575,11 +518,16 @@ bool GraphicsContextGLOpenGL::reshapeDisplayBufferBacking()
         m_displayBufferPbuffer = EGL_NO_SURFACE;
     }
     // Reset the future recycled buffer now, because it most likely will not be reusable at the time it will be reused.
-    auto recycledBuffer = [m_webGLLayer recycleBuffer];
+    auto recycledBuffer = m_swapChain->recycleBuffer();
     if (recycledBuffer.handle)
         EGL_DestroySurface(m_displayObj, recycledBuffer.handle);
     recycledBuffer.surface.reset();
+    return allocateAndBindDisplayBufferBacking();
+}
 
+bool GraphicsContextGLOpenGL::allocateAndBindDisplayBufferBacking()
+{
+    ASSERT(!getInternalFramebufferSize().isEmpty());
     auto backing = WebCore::IOSurface::create(getInternalFramebufferSize(), WebCore::sRGBColorSpaceRef());
     if (!backing)
         return false;
@@ -592,7 +540,7 @@ bool GraphicsContextGLOpenGL::reshapeDisplayBufferBacking()
         EGL_WIDTH, size.width(),
         EGL_HEIGHT, size.height(),
         EGL_IOSURFACE_PLANE_ANGLE, 0,
-        EGL_TEXTURE_TARGET, WebCore::GraphicsContextGLOpenGL::EGLIOSurfaceTextureTarget(),
+        EGL_TEXTURE_TARGET, WebCore::GraphicsContextGLOpenGL::EGLDrawingBufferTextureTarget(),
         EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, usingAlpha ? GL_BGRA_EXT : GL_RGB,
         EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
         EGL_TEXTURE_TYPE_ANGLE, GL_UNSIGNED_BYTE,
@@ -608,8 +556,8 @@ bool GraphicsContextGLOpenGL::reshapeDisplayBufferBacking()
 
 bool GraphicsContextGLOpenGL::bindDisplayBufferBacking(std::unique_ptr<IOSurface> backing, void* pbuffer)
 {
-    GCGLenum textureTarget = IOSurfaceTextureTarget();
-    ScopedRestoreTextureBinding restoreBinding(IOSurfaceTextureTargetQuery(), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    GCGLenum textureTarget = drawingBufferTextureTarget();
+    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQuery(), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
     gl::BindTexture(textureTarget, m_texture);
     if (!EGL_BindTexImage(m_displayObj, pbuffer, EGL_BACK_BUFFER)) {
         EGL_DestroySurface(m_displayObj, pbuffer);
@@ -627,50 +575,8 @@ bool GraphicsContextGLOpenGL::isGLES2Compliant() const
 
 void GraphicsContextGLOpenGL::simulateContextChanged()
 {
-    GraphicsContextGLOpenGLManager::sharedManager().updateAllContexts();
+    GraphicsContextGLOpenGLManager::sharedManager().displayWasReconfigured();
 }
-
-bool GraphicsContextGLOpenGL::allowOfflineRenderers() const
-{
-#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-    // When WindowServer access is blocked in the WebProcess, there is no way
-    // for OpenGL to decide which GPU is connected to a display (online/offline).
-    // OpenGL will then consider all GPUs, or renderers, as offline, which means
-    // all offline renderers need to be considered when finding a pixel format.
-    // In WebKit legacy, there will still be a WindowServer connection, and
-    // m_displayMask will not be set in this case.
-    if (primaryOpenGLDisplayMask())
-        return true;
-#elif PLATFORM(MACCATALYST)
-    // FIXME: <rdar://53062794> We're very inconsistent about WEBPROCESS_WINDOWSERVER_BLOCKING
-    // and MAC/MACCATALYST and OPENGL/OPENGLES.
-    return true;
-#endif
-        
-#if HAVE(APPLE_GRAPHICS_CONTROL)
-    if (hasLowAndHighPowerGPUs())
-        return true;
-#endif
-    
-    return false;
-}
-
-#if PLATFORM(MAC)
-void GraphicsContextGLOpenGL::screenDidChange(PlatformDisplayID displayID)
-{
-    if (!m_contextObj)
-        return;
-    if (!m_hasSwitchedToHighPerformanceGPU) {
-        EGLDeviceEXT device = nullptr;
-        EGL_QueryDisplayAttribEXT(m_displayObj, EGL_DEVICE_EXT, reinterpret_cast<EGLAttrib*>(&device));
-        CGLContextObj cglContext = nullptr;
-        CGLPixelFormatObj pixelFormat = nullptr;
-        EGL_QueryDeviceAttribEXT(device, EGL_CGL_CONTEXT_ANGLE, reinterpret_cast<EGLAttrib*>(&cglContext));
-        EGL_QueryDeviceAttribEXT(device, EGL_CGL_PIXEL_FORMAT_ANGLE, reinterpret_cast<EGLAttrib*>(&pixelFormat));
-        setGPUByRegistryID(cglContext, pixelFormat, gpuIDForDisplay(displayID));
-    }
-}
-#endif // !PLATFORM(MAC)
 
 void GraphicsContextGLOpenGL::prepareForDisplay()
 {
@@ -683,10 +589,10 @@ void GraphicsContextGLOpenGL::prepareForDisplay()
     // The IOSurface will be used from other graphics subsystem, so flush GL commands.
     gl::Flush();
 
-    auto recycledBuffer = [m_webGLLayer recycleBuffer];
+    auto recycledBuffer = m_swapChain->recycleBuffer();
 
     EGL_ReleaseTexImage(m_displayObj, m_displayBufferPbuffer, EGL_BACK_BUFFER);
-    [m_webGLLayer prepareForDisplayWithContents: {WTFMove(m_displayBufferBacking), m_displayBufferPbuffer}];
+    m_swapChain->present({ WTFMove(m_displayBufferBacking), m_displayBufferPbuffer });
     m_displayBufferPbuffer = EGL_NO_SURFACE;
 
     bool hasNewBacking = false;
@@ -700,11 +606,42 @@ void GraphicsContextGLOpenGL::prepareForDisplay()
 
     // Error will be handled by next call to makeContextCurrent() which will notice lack of display buffer.
     if (!hasNewBacking)
-        reshapeDisplayBufferBacking();
+        allocateAndBindDisplayBufferBacking();
 
     markLayerComposited();
 }
 
+RefPtr<ImageData> GraphicsContextGLOpenGL::readCompositedResults()
+{
+    auto& displayBuffer = m_swapChain->displayBuffer();
+    if (!displayBuffer.surface || !displayBuffer.handle)
+        return nullptr;
+    if (displayBuffer.surface->size() != getInternalFramebufferSize())
+        return nullptr;
+    // Note: We are using GL to read the IOSurface. At the time of writing, there are no convinient
+    // functions to convert the IOSurface pixel data to ImageData. The image data ends up being
+    // drawn to a ImageBuffer, but at the time there's no functions to construct a NativeImage
+    // out of an IOSurface in such a way that drawing the NativeImage would be guaranteed leave
+    // the IOSurface be unrefenced after the draw call finishes.
+    ScopedTexture texture;
+    GCGLenum textureTarget = drawingBufferTextureTarget();
+    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQuery(), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    gl::BindTexture(textureTarget, texture);
+    if (!EGL_BindTexImage(m_displayObj, displayBuffer.handle, EGL_BACK_BUFFER))
+        return nullptr;
+    gl::TexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    ScopedFramebuffer fbo;
+    ScopedRestoreReadFramebufferBinding fboBinding(m_isForWebGL2, m_state.boundReadFBO, fbo);
+    gl::FramebufferTexture2D(fboBinding.framebufferTarget(), GL_COLOR_ATTACHMENT0, textureTarget, texture, 0);
+    ASSERT(gl::CheckFramebufferStatus(fboBinding.framebufferTarget()) == GL_FRAMEBUFFER_COMPLETE);
+
+    auto result = readPixelsForPaintResults();
+
+    EGLBoolean releaseOk = EGL_ReleaseTexImage(m_displayObj, displayBuffer.handle, EGL_BACK_BUFFER);
+    ASSERT_UNUSED(releaseOk, releaseOk);
+    return result;
 }
 
-#endif // ENABLE(GRAPHICS_CONTEXT_GL)
+}
+
+#endif // ENABLE(WEBGL)

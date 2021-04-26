@@ -40,7 +40,7 @@ static_assert(sizeof(InlineItem) == sizeof(InlineTextItem), "");
 
 static inline bool isWhitespaceCharacter(UChar character, bool preserveNewline)
 {
-    return character == ' ' || character == '\t' || (character == '\n' && !preserveNewline);
+    return character == space || character == tabCharacter || (character == newlineCharacter && !preserveNewline);
 }
 
 static unsigned moveToNextNonWhitespacePosition(const StringView& textContent, unsigned startPosition, bool preserveNewline)
@@ -73,13 +73,14 @@ void InlineTextItem::createAndAppendTextItems(InlineItems& inlineContent, const 
 
     auto& style = inlineTextBox.style();
     auto& font = style.fontCascade();
+    auto whitespaceContentIsTreatedAsSingleSpace = !TextUtil::shouldPreserveSpacesAndTabs(inlineTextBox);
     LazyLineBreakIterator lineBreakIterator(text);
     unsigned currentPosition = 0;
 
     auto inlineItemWidth = [&](auto startPosition, auto length) -> Optional<InlineLayoutUnit> {
         if (!inlineTextBox.canUseSimplifiedContentMeasuring())
             return { };
-        return TextUtil::width(inlineTextBox, startPosition, startPosition + length);
+        return TextUtil::width(inlineTextBox, startPosition, startPosition + length, { });
     };
 
     while (currentPosition < text.length()) {
@@ -96,9 +97,24 @@ void InlineTextItem::createAndAppendTextItems(InlineItems& inlineContent, const 
 
         if (isWhitespaceCharacter(text[currentPosition], style.preserveNewline())) {
             auto appendWhitespaceItem = [&] (auto startPosition, auto itemLength) {
-                auto simpleSingleWhitespaceContent = inlineTextBox.canUseSimplifiedContentMeasuring() && (itemLength == 1 || style.collapseWhiteSpace());
+                auto simpleSingleWhitespaceContent = inlineTextBox.canUseSimplifiedContentMeasuring() && (itemLength == 1 || whitespaceContentIsTreatedAsSingleSpace);
                 auto width = simpleSingleWhitespaceContent ? makeOptional(InlineLayoutUnit { font.spaceWidth() }) : inlineItemWidth(startPosition, itemLength);
-                inlineContent.append(InlineTextItem::createWhitespaceItem(inlineTextBox, startPosition, itemLength, width));
+                auto isWordSeparator = [&] {
+                    if (whitespaceContentIsTreatedAsSingleSpace)
+                        return true;
+                    if (itemLength != 1) {
+                        // FIXME: Add support for cases where the whitespace content contains different type of characters (e.g  "\t  \t  \t").
+                        return false;
+                    }
+                    auto whitespaceCharacter = text[startPosition];
+                    return whitespaceCharacter == space
+                        || whitespaceCharacter == noBreakSpace
+                        || whitespaceCharacter == ethiopicWordspace
+                        || whitespaceCharacter == aegeanWordSeparatorLine
+                        || whitespaceCharacter == aegeanWordSeparatorDot
+                        || whitespaceCharacter == ugariticWordDivider;
+                }();
+                inlineContent.append(InlineTextItem::createWhitespaceItem(inlineTextBox, startPosition, itemLength, isWordSeparator, width));
             };
 
             auto length = moveToNextNonWhitespacePosition(text, currentPosition, style.preserveNewline());
@@ -114,9 +130,30 @@ void InlineTextItem::createAndAppendTextItems(InlineItems& inlineContent, const 
             continue;
         }
 
-        auto length = moveToNextBreakablePosition(currentPosition, lineBreakIterator, style);
-        inlineContent.append(InlineTextItem::createNonWhitespaceItem(inlineTextBox, currentPosition, length, inlineItemWidth(currentPosition, length)));
-        currentPosition += length;
+        auto hasTrailingSoftHyphen = false;
+        auto initialNonWhitespacePosition = currentPosition;
+        auto isAtSoftHyphen = [&](auto position) {
+            return text[position] == softHyphen;
+        };
+        if (style.hyphens() == Hyphens::None) {
+            // Let's merge candidate InlineTextItems separated by soft hyphen when the style says so.
+            while (currentPosition < text.length()) {
+                auto nonWhiteSpaceLength = moveToNextBreakablePosition(currentPosition, lineBreakIterator, style);
+                ASSERT(nonWhiteSpaceLength);
+                currentPosition += nonWhiteSpaceLength;
+                if (!isAtSoftHyphen(currentPosition - 1))
+                    break;
+            }
+        } else {
+            auto nonWhiteSpaceLength = moveToNextBreakablePosition(initialNonWhitespacePosition, lineBreakIterator, style);
+            ASSERT(nonWhiteSpaceLength);
+            currentPosition += nonWhiteSpaceLength;
+            hasTrailingSoftHyphen = isAtSoftHyphen(currentPosition - 1);
+        }
+        ASSERT(initialNonWhitespacePosition < currentPosition);
+        ASSERT_IMPLIES(style.hyphens() == Hyphens::None, !hasTrailingSoftHyphen);
+        auto length = currentPosition - initialNonWhitespacePosition;
+        inlineContent.append(InlineTextItem::createNonWhitespaceItem(inlineTextBox, initialNonWhitespacePosition, length, hasTrailingSoftHyphen, inlineItemWidth(initialNonWhitespacePosition, length)));
     }
 }
 
@@ -124,6 +161,12 @@ bool InlineTextItem::isEmptyContent() const
 {
     // FIXME: We should check for more zero width content and not just U+200B.
     return !m_length || (m_length == 1 && inlineTextBox().content()[start()] == zeroWidthSpace); 
+}
+
+bool InlineTextItem::shouldPreserveSpacesAndTabs(const InlineTextItem& inlineTextItem)
+{
+    ASSERT(inlineTextItem.isWhitespace());
+    return TextUtil::shouldPreserveSpacesAndTabs(inlineTextItem.layoutBox());
 }
 
 }

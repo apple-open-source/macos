@@ -1943,7 +1943,7 @@ pax_attribute(struct archive_read *a, struct tar *tar,
 			pax_time(value, &s, &n);
 			archive_entry_set_birthtime(entry, s, n);
 		}
-		if (memcmp(key, "LIBARCHIVE.xattr.", 17) == 0)
+		if (strlen(key) >= 18 && memcmp(key, "LIBARCHIVE.xattr.", 17) == 0)
 			pax_attribute_xattr(entry, key, value);
 		break;
 	case 'S':

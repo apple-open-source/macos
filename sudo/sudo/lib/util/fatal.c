@@ -24,8 +24,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
 #include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -36,19 +34,17 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-
-#define DEFAULT_TEXT_DOMAIN	"sudo"
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
-
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_queue.h"
-#include "sudo_util.h"
-#include "sudo_plugin.h"
-
+#include <unistd.h>
 #ifndef HAVE_GETADDRINFO
 # include "compat/getaddrinfo.h"
 #endif
+
+#include "sudo_compat.h"
+#include "sudo_fatal.h"
+#include "sudo_gettext.h"
+#include "sudo_queue.h"
+#include "sudo_util.h"
+#include "sudo_plugin.h"
 
 struct sudo_fatal_callback {
     SLIST_ENTRY(sudo_fatal_callback) entries;
@@ -58,8 +54,8 @@ SLIST_HEAD(sudo_fatal_callback_list, sudo_fatal_callback);
 
 static struct sudo_fatal_callback_list callbacks = SLIST_HEAD_INITIALIZER(&callbacks);
 static sudo_conv_t sudo_warn_conversation;
-static bool (*sudo_warn_setlocale)(bool, int *);
-static bool (*sudo_warn_setlocale_prev)(bool, int *);
+static sudo_warn_setlocale_t sudo_warn_setlocale;
+static sudo_warn_setlocale_t sudo_warn_setlocale_prev;
 
 static void warning(const char *errstr, const char *fmt, va_list ap);
 
@@ -242,6 +238,8 @@ warning(const char *errstr, const char *fmt, va_list ap)
             fputs(": ", stderr);
             fputs(errstr, stderr);
         }
+        if (isatty(fileno(stderr)))
+            putc('\r', stderr);
         putc('\n', stderr);
     }
 
@@ -280,18 +278,19 @@ sudo_fatal_callback_register_v1(sudo_fatal_callback_t func)
 int
 sudo_fatal_callback_deregister_v1(sudo_fatal_callback_t func)
 {
-    struct sudo_fatal_callback *cb, **prev;
+    struct sudo_fatal_callback *cb, *prev = NULL;
 
     /* Search for callback and remove if found, dupes are not allowed. */
-    SLIST_FOREACH_PREVPTR(cb, prev, &callbacks, entries) {
+    SLIST_FOREACH(cb, &callbacks, entries) {
 	if (cb->func == func) {
-	    if (cb == SLIST_FIRST(&callbacks))
+	    if (prev == NULL)
 		SLIST_REMOVE_HEAD(&callbacks, entries);
 	    else
-		SLIST_REMOVE_AFTER(*prev, entries);
+		SLIST_REMOVE_AFTER(prev, entries);
 	    free(cb);
 	    return 0;
 	}
+	prev = cb;
     }
 
     return -1;
@@ -312,7 +311,7 @@ sudo_warn_set_conversation_v1(sudo_conv_t conv)
  * locale for user warnings.
  */
 void
-sudo_warn_set_locale_func_v1(bool (*func)(bool, int *))
+sudo_warn_set_locale_func_v1(sudo_warn_setlocale_t func)
 {
     sudo_warn_setlocale_prev = sudo_warn_setlocale;
     sudo_warn_setlocale = func;

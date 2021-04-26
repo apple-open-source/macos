@@ -47,22 +47,19 @@ class WebProcessProxy;
 class WebsiteDataStore;
 struct GPUProcessCreationParameters;
 
-class GPUProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient, public CanMakeWeakPtr<GPUProcessProxy> {
+class GPUProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient, public CanMakeWeakPtr<GPUProcessProxy>, public RefCounted<GPUProcessProxy> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(GPUProcessProxy);
     friend LazyNeverDestroyed<GPUProcessProxy>;
 public:
-    static GPUProcessProxy& singleton();
-    static GPUProcessProxy* singletonIfCreated() { return m_singleton; }
+    static Ref<GPUProcessProxy> getOrCreate();
+    static GPUProcessProxy* singletonIfCreated();
+    ~GPUProcessProxy();
 
     void getGPUProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
 
     ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
-
-    // ProcessThrottlerClient
-    void sendProcessDidResume() final { }
-    ASCIILiteral clientName() const final { return "GPUProcess"_s; }
 
 #if ENABLE(MEDIA_STREAM)
     void setUseMockCaptureDevices(bool);
@@ -78,7 +75,6 @@ public:
 
 private:
     explicit GPUProcessProxy();
-    ~GPUProcessProxy();
 
     void addSession(const WebsiteDataStore&);
 
@@ -92,7 +88,9 @@ private:
     void gpuProcessCrashed();
 
     // ProcessThrottlerClient
-    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final { }
+    ASCIILiteral clientName() const final { return "GPUProcess"_s; }
+    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final;
+    void sendProcessDidResume() final;
 
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
@@ -102,11 +100,11 @@ private:
     void didClose(IPC::Connection&) override;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName) override;
 
+    void terminateWebProcess(WebCore::ProcessIdentifier);
+
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     void didCreateContextForVisibilityPropagation(LayerHostingContextID);
 #endif
-
-    static GPUProcessProxy* m_singleton;
 
     ProcessThrottler m_throttler;
     ProcessThrottler::ActivityVariant m_activityFromWebProcesses;

@@ -35,6 +35,8 @@
 #import <CommonCrypto/CommonCryptorSPI.h>
 #import <TargetConditionals.h>
 #import "gssoslog.h"
+#import "heimbase.h"
+#import <os/transaction_private.h>
 
 #define PLATFORM_SUPPORT_CLASS_F !TARGET_OS_SIMULATOR
 
@@ -51,6 +53,9 @@
  */
 
 static const size_t ivSize = 16;
+#if PLATFORM_SUPPORT_CLASS_F
+static os_transaction_t keyNotReadyTransaction = NULL;
+#endif
 
 NSData *
 ksEncryptData(NSData *plainText)
@@ -65,15 +70,17 @@ ksEncryptData(NSData *plainText)
     uint32_t key_wrapped_size;
     CCCryptorStatus ccerr;
 
-    if (![plainText isKindOfClass:[NSData class]]) abort();
+    heim_assert([plainText isKindOfClass:[NSData class]], "input is not NSData");
     
     size_t ctLen = [plainText length];
     size_t tagLen = 16;
 
-    if (SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey))
+    if (SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey)) {
 	abort();
-    if (SecRandomCopyBytes(kSecRandomDefault, ivSize, iv))
+    }
+    if (SecRandomCopyBytes(kSecRandomDefault, ivSize, iv)) {
 	abort();
+    }
 
     int bulkKeyWrappedSize;
 #if PLATFORM_SUPPORT_CLASS_F
@@ -84,10 +91,21 @@ ksEncryptData(NSData *plainText)
     error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, bad_keybag_handle, bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
     if (error) {
 	os_log_error(GSSOSLog(), "Error with wrap key: %d", error);
+	//if not ready, keep in memory until next time, else crash
+	if (error == kAKSReturnNotReady) {
+	    //start a transaction
+	    keyNotReadyTransaction = os_transaction_create("com.apple.Heimdal.GSSCred.keyNotReady");
+	    return NULL;
+	}
 	abort();
     }
-    if ((unsigned long)bulkKeyWrappedSize > sizeof(bulkKeyWrapped))
+    //complete the transaction, if present
+    if (keyNotReadyTransaction) {
+	keyNotReadyTransaction = NULL;
+    }
+    if ((unsigned long)bulkKeyWrappedSize > sizeof(bulkKeyWrapped)) {
 	abort();
+    }
 
 #else
     bulkKeyWrappedSize = bulkKeySize;
@@ -98,8 +116,9 @@ ksEncryptData(NSData *plainText)
     size_t blobLen = sizeof(key_wrapped_size) + key_wrapped_size + ivSize + ctLen + tagLen;
     
     blob = [[NSMutableData alloc] initWithLength:blobLen];
-    if (blob == NULL)
+    if (blob == NULL) {
 	return NULL;
+    }
 
     UInt8 *cursor = [blob mutableBytes];
 

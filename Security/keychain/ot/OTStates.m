@@ -118,6 +118,8 @@ OctagonState* const OctagonStateHealthCheckReset = (OctagonState*) @"health_chec
 /* signout */
 OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*) @"no_account_do_reset";
 
+OctagonState* const OctagonStateLostAccountAuth = (OctagonState*) @"authkit_auth_lost";
+
 OctagonState* const OctagonStateWaitForUnlock = (OctagonState*) @"wait_for_unlock";
 OctagonState* const OctagonStateWaitForClassCUnlock = (OctagonState*) @"wait_for_class_c_unlock";
 
@@ -213,6 +215,7 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonStateMap(void) {
                 OctagonStateWaitForClassCUnlock:                @64U,
                 OctagonStateBottlePreloadOctagonKeysInSOS:      @65U,
                 OctagonStateAttemptSOSUpgradeDetermineCDPState: @66U,
+                OctagonStateLostAccountAuth:                    @67U,
             };
     });
     return map;
@@ -247,6 +250,27 @@ NSSet<OctagonState*>* OctagonInAccountStates(void)
 
         // If the device hasn't unlocked yet, we don't know what we wrote down for iCloud account status
         [sourceStates removeObject:OctagonStateWaitForClassCUnlock];
+
+        s = sourceStates;
+    });
+    return s;
+}
+
+NSSet<OctagonState*>* OctagonNotInCliqueStates(void)
+{
+    static NSSet<OctagonState*>* s = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSMutableSet* sourceStates = [NSMutableSet set];
+
+        [sourceStates addObject:OctagonStateNoAccount];
+        [sourceStates addObject:OctagonStateNoAccountDoReset];
+        [sourceStates addObject:OctagonStateInitializing];
+        [sourceStates addObject:OctagonStateDetermineiCloudAccountState];
+        [sourceStates addObject:OctagonStateWaitingForCloudKitAccount];
+        [sourceStates addObject:OctagonStateCloudKitNewlyAvailable];
+        [sourceStates addObject:OctagonStateWaitForHSA2];
+        [sourceStates addObject:OctagonStateUntrusted];
 
         s = sourceStates;
     });

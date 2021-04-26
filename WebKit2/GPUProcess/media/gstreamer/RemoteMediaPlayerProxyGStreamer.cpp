@@ -33,7 +33,7 @@
 
 namespace WebKit {
 
-void RemoteMediaPlayerProxy::prepareForPlayback(bool, WebCore::MediaPlayerEnums::Preload, bool, bool, float videoContentScale, CompletionHandler<void(Optional<LayerHostingContextID>&& inlineLayerHostingContextId, Optional<LayerHostingContextID>&& fullscreenLayerHostingContextId)>&&)
+void RemoteMediaPlayerProxy::prepareForPlayback(bool, WebCore::MediaPlayerEnums::Preload, bool, bool, float videoContentScale, CompletionHandler<void(Optional<LayerHostingContextID>&& inlineLayerHostingContextId)>&&)
 {
     notImplemented();
 }
@@ -42,23 +42,6 @@ void RemoteMediaPlayerProxy::mediaPlayerFirstVideoFrameAvailable()
 {
     notImplemented();
 }
-
-void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
-{
-    notImplemented();
-}
-
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-void RemoteMediaPlayerProxy::enterFullscreen(CompletionHandler<void()>&& completionHandler)
-{
-    notImplemented();
-}
-
-void RemoteMediaPlayerProxy::exitFullscreen(CompletionHandler<void()>&& completionHandler)
-{
-    notImplemented();
-}
-#endif
 
 } // namespace WebKit
 

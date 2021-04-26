@@ -222,6 +222,8 @@ static void tests(void)
     diag("This still fails - don't be alarmed");
     CFRelease(update);
     CFRelease(query);
+
+    secd_test_teardown_delete_temp_keychain("secd_32_restore_bad_backup");
 }
 
 int secd_32_restore_bad_backup(int argc, char *const *argv)

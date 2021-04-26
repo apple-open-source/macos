@@ -79,6 +79,7 @@ set_y_previous(yankreg_T *yreg)
  * Keep the last expression line here, for repeating.
  */
 static char_u	*expr_line = NULL;
+static exarg_T	*expr_eap = NULL;
 
 /*
  * Get an expression for the "\"=expr1" or "CTRL-R =expr1"
@@ -95,19 +96,22 @@ get_expr_register(void)
     if (*new_line == NUL)	// use previous line
 	vim_free(new_line);
     else
-	set_expr_line(new_line);
+	set_expr_line(new_line, NULL);
     return '=';
 }
 
 /*
  * Set the expression for the '=' register.
  * Argument must be an allocated string.
+ * "eap" may be used if the next line needs to be checked when evaluating the
+ * expression.
  */
     void
-set_expr_line(char_u *new_line)
+set_expr_line(char_u *new_line, exarg_T *eap)
 {
     vim_free(expr_line);
     expr_line = new_line;
+    expr_eap = eap;
 }
 
 /*
@@ -136,7 +140,7 @@ get_expr_line(void)
 	return expr_copy;
 
     ++nested;
-    rv = eval_to_string(expr_copy, NULL, TRUE);
+    rv = eval_to_string_eap(expr_copy, TRUE, expr_eap);
     --nested;
     vim_free(expr_copy);
     return rv;
@@ -475,6 +479,73 @@ set_execreg_lastc(int lastc)
 }
 
 /*
+ * When executing a register as a series of ex-commands, if the
+ * line-continuation character is used for a line, then join it with one or
+ * more previous lines. Note that lines are processed backwards starting from
+ * the last line in the register.
+ *
+ * Arguments:
+ *   lines - list of lines in the register
+ *   idx - index of the line starting with \ or "\. Join this line with all the
+ *	   immediate predecessor lines that start with a \ and the first line
+ *	   that doesn't start with a \. Lines that start with a comment "\
+ *	   character are ignored.
+ *
+ * Returns the concatenated line. The index of the line that should be
+ * processed next is returned in idx.
+ */
+    static char_u *
+execreg_line_continuation(char_u **lines, long *idx)
+{
+    garray_T	ga;
+    long	i = *idx;
+    char_u	*p;
+    int		cmd_start;
+    int		cmd_end = i;
+    int		j;
+    char_u	*str;
+
+    ga_init2(&ga, (int)sizeof(char_u), 400);
+
+    // search backwards to find the first line of this command.
+    // Any line not starting with \ or "\ is the start of the
+    // command.
+    while (--i > 0)
+    {
+	p = skipwhite(lines[i]);
+	if (*p != '\\' && (p[0] != '"' || p[1] != '\\' || p[2] != ' '))
+	    break;
+    }
+    cmd_start = i;
+
+    // join all the lines
+    ga_concat(&ga, lines[cmd_start]);
+    for (j = cmd_start + 1; j <= cmd_end; j++)
+    {
+	p = skipwhite(lines[j]);
+	if (*p == '\\')
+	{
+	    // Adjust the growsize to the current length to
+	    // speed up concatenating many lines.
+	    if (ga.ga_len > 400)
+	    {
+		if (ga.ga_len > 8000)
+		    ga.ga_growsize = 8000;
+		else
+		    ga.ga_growsize = ga.ga_len;
+	    }
+	    ga_concat(&ga, p + 1);
+	}
+    }
+    ga_append(&ga, NUL);
+    str = vim_strsave(ga.ga_data);
+    ga_clear(&ga);
+
+    *idx = i;
+    return str;
+}
+
+/*
  * Execute a yank register: copy it into the stuff buffer.
  *
  * Return FAIL for failure, OK otherwise.
@@ -580,6 +651,8 @@ do_execreg(
 	for (i = y_current->y_size; --i >= 0; )
 	{
 	    char_u *escaped;
+	    char_u *str;
+	    int	    free_str = FALSE;
 
 	    // insert NL between lines and after last line if type is MLINE
 	    if (y_current->y_type == MLINE || i < y_current->y_size - 1
@@ -588,7 +661,23 @@ do_execreg(
 		if (ins_typebuf((char_u *)"\n", remap, 0, TRUE, silent) == FAIL)
 		    return FAIL;
 	    }
-	    escaped = vim_strsave_escape_csi(y_current->y_array[i]);
+
+	    // Handle line-continuation for :@<register>
+	    str = y_current->y_array[i];
+	    if (colon && i > 0)
+	    {
+		p = skipwhite(str);
+		if (*p == '\\' || (p[0] == '"' && p[1] == '\\' && p[2] == ' '))
+		{
+		    str = execreg_line_continuation(y_current->y_array, &i);
+		    if (str == NULL)
+			return FAIL;
+		    free_str = TRUE;
+		}
+	    }
+	    escaped = vim_strsave_escape_csi(str);
+	    if (free_str)
+		vim_free(str);
 	    if (escaped == NULL)
 		return FAIL;
 	    retval = ins_typebuf(escaped, remap, 0, TRUE, silent);
@@ -903,16 +992,16 @@ yank_do_autocmd(oparg_T *oap, yankreg_T *reg)
     for (n = 0; n < reg->y_size; n++)
 	list_append_string(list, reg->y_array[n], -1);
     list->lv_lock = VAR_FIXED;
-    dict_add_list(v_event, "regcontents", list);
+    (void)dict_add_list(v_event, "regcontents", list);
 
     buf[0] = (char_u)oap->regname;
     buf[1] = NUL;
-    dict_add_string(v_event, "regname", buf);
+    (void)dict_add_string(v_event, "regname", buf);
 
     buf[0] = get_op_char(oap->op_type);
     buf[1] = get_extra_op_char(oap->op_type);
     buf[2] = NUL;
-    dict_add_string(v_event, "operator", buf);
+    (void)dict_add_string(v_event, "operator", buf);
 
     buf[0] = NUL;
     buf[1] = NUL;
@@ -925,7 +1014,9 @@ yank_do_autocmd(oparg_T *oap, yankreg_T *reg)
 			     reglen + 1);
 		break;
     }
-    dict_add_string(v_event, "regtype", buf);
+    (void)dict_add_string(v_event, "regtype", buf);
+
+    (void)dict_add_bool(v_event, "visual", oap->is_VIsual);
 
     // Lock the dictionary and its keys
     dict_set_items_ro(v_event);
@@ -1271,7 +1362,7 @@ op_yank(oparg_T *oap, int deleting, int mess)
 	}
     }
 
-    if (!cmdmod.lockmarks)
+    if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0)
     {
 	// Set "'[" and "']" marks.
 	curbuf->b_op_start = oap->start;
@@ -1400,6 +1491,7 @@ copy_yank_reg(yankreg_T *reg)
     void
 do_put(
     int		regname,
+    char_u	*expr_result,	// result for regname "=" when compiled
     int		dir,		// BACKWARD for 'P', FORWARD for 'p'
     long	count,
     int		flags)
@@ -1464,11 +1556,12 @@ do_put(
 
     // For special registers '%' (file name), '#' (alternate file name) and
     // ':' (last command line), etc. we have to create a fake yank register.
-    if (get_spec_reg(regname, &insert_string, &allocated, TRUE))
-    {
-	if (insert_string == NULL)
-	    return;
-    }
+    // For compiled code "expr_result" holds the expression result.
+    if (regname == '=' && expr_result != NULL)
+	insert_string = expr_result;
+    else if (get_spec_reg(regname, &insert_string, &allocated, TRUE)
+		&& insert_string == NULL)
+	return;
 
     // Autocommands may be executed when saving lines for undo.  This might
     // make "y_array" invalid, so we start undo now to avoid that.
@@ -1680,7 +1773,7 @@ do_put(
 	{
 	    if (dir == FORWARD && c == NUL)
 		++col;
-	    if (dir != FORWARD && c != NUL)
+	    if (dir != FORWARD && c != NUL && curwin->w_cursor.coladd > 0)
 		++curwin->w_cursor.col;
 	    if (c == TAB)
 	    {
@@ -1853,16 +1946,29 @@ do_put(
 	    --lnum;
 	new_cursor = curwin->w_cursor;
 
-	// simple case: insert into current line
+	// simple case: insert into one line at a time
 	if (y_type == MCHAR && y_size == 1)
 	{
-	    linenr_T end_lnum = 0; // init for gcc
+	    linenr_T	end_lnum = 0; // init for gcc
+	    linenr_T	start_lnum = lnum;
 
 	    if (VIsual_active)
 	    {
 		end_lnum = curbuf->b_visual.vi_end.lnum;
 		if (end_lnum < curbuf->b_visual.vi_start.lnum)
 		    end_lnum = curbuf->b_visual.vi_start.lnum;
+		if (end_lnum > start_lnum)
+		{
+		    pos_T   pos;
+
+		    // "col" is valid for the first line, in following lines
+		    // the virtual column needs to be used.  Matters for
+		    // multi-byte characters.
+		    pos.lnum = lnum;
+		    pos.col = col;
+		    pos.coladd = 0;
+		    getvcol(curwin, &pos, NULL, &vcol, NULL);
+		}
 	    }
 
 	    do {
@@ -1870,6 +1976,16 @@ do_put(
 		if (totlen > 0)
 		{
 		    oldp = ml_get(lnum);
+		    if (lnum > start_lnum)
+		    {
+			pos_T   pos;
+
+			pos.lnum = lnum;
+			if (getvpos(&pos, vcol) == OK)
+			    col = pos.col;
+			else
+			    col = MAXCOL;
+		    }
 		    if (VIsual_active && col > (int)STRLEN(oldp))
 		    {
 			lnum++;
@@ -2067,7 +2183,7 @@ error:
     curwin->w_set_curswant = TRUE;
 
 end:
-    if (cmdmod.lockmarks)
+    if (cmdmod.cmod_flags & CMOD_LOCKMARKS)
     {
 	curbuf->b_op_start = orig_start;
 	curbuf->b_op_end = orig_end;
@@ -2117,6 +2233,15 @@ get_register_name(int num)
 	return num + 'a' - 10;
 #endif
     }
+}
+
+/*
+ * Return the index of the register "" points to.
+ */
+    int
+get_unname_register()
+{
+    return y_previous == NULL ? -1 : y_previous - &y_regs[0];
 }
 
 /*
@@ -2653,7 +2778,7 @@ write_reg_contents_ex(
     {
 	char_u	    *p, *s;
 
-	p = vim_strnsave(str, (int)len);
+	p = vim_strnsave(str, len);
 	if (p == NULL)
 	    return;
 	if (must_append && expr_line != NULL)
@@ -2662,7 +2787,7 @@ write_reg_contents_ex(
 	    vim_free(p);
 	    p = s;
 	}
-	set_expr_line(p);
+	set_expr_line(p, NULL);
 	return;
     }
 

@@ -67,6 +67,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)holdFetchesUntil:(CKKSResultOperation* _Nullable)holdOperation;
 
 - (void)cancel;
+- (void)halt;
 
 // I don't recommend using these unless you're a test.
 @property CKKSNearFutureScheduler* fetchScheduler;

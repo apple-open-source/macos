@@ -29,10 +29,11 @@
         {
             "id": "CoordinateSystem",
             "type": "string",
-            "description": "The coordinate system in which rects, points, and sizes are to be interpreted.",
+            "description": "The coordinate system in which rects, points, and sizes are to be interpreted. LayoutViewport is a legacy value and should not be used going forward.",
             "enum": [
                 "Page",
-                "Viewport"
+                "Viewport",
+                "LayoutViewport"
             ]
         },
         {
@@ -148,9 +149,13 @@
             "description": "Enumerates different platform-independent virtual keys on a physical keyboard whose input via keyboard may or may not produce characters.",
             "enum": [
                 "Shift",
+                "ShiftRight",
                 "Control",
+                "ControlRight",
                 "Alternate",
+                "AlternateRight",
                 "Meta",
+                "MetaRight",
                 "Command",
                 "Cancel",
                 "Help",
@@ -161,15 +166,25 @@
                 "Pause",
                 "Escape",
                 "PageUp",
+                "PageUpRight",
                 "PageDown",
+                "PageDownRight",
                 "End",
+                "EndRight",
                 "Home",
+                "HomeRight",
                 "LeftArrow",
+                "LeftArrowRight",
                 "UpArrow",
+                "UpArrowRight",
                 "RightArrow",
+                "RightArrowRight",
                 "DownArrow",
+                "DownArrowRight",
                 "Insert",
+                "InsertRight",
                 "Delete",
+                "DeleteRight",
                 "Space",
                 "Semicolon",
                 "Equals",
@@ -225,6 +240,16 @@
             ]
         },
         {
+            "id": "CookieSameSitePolicy",
+            "type": "string",
+            "description": "Enumerates values for cookies same site policy",
+            "enum": [
+                "None",
+                "Lax",
+                "Strict"
+            ]
+        },
+        {
             "id": "Cookie",
             "type": "object",
             "properties": [
@@ -236,7 +261,8 @@
                 { "name": "size", "type": "integer", "description": "Cookie size." },
                 { "name": "httpOnly", "type": "boolean", "description": "True if cookie is http-only." },
                 { "name": "secure", "type": "boolean", "description": "True if cookie is secure." },
-                { "name": "session", "type": "boolean", "description": "True in case of session cookie." }
+                { "name": "session", "type": "boolean", "description": "True in case of session cookie." },
+                { "name": "sameSite", "$ref": "CookieSameSitePolicy", "description": "Cookie same site policy." }
             ]
         },
         {
@@ -263,7 +289,9 @@
                 "Null",
                 "Mouse",
                 "Keyboard",
-                "Touch"
+                "Touch",
+                "Wheel",
+                "Pen"
             ]
         },
         {
@@ -301,9 +329,10 @@
                 { "name": "pressedCharKey", "type": "string", "optional": true, "description": "For 'keyboard' input sources, specifies a character key that has 'pressed' state. Unmentioned character keys are assumed to have a 'released' state." },
                 { "name": "pressedVirtualKeys", "type": "array", "items": { "$ref": "VirtualKey" }, "optional": true, "description": "For 'keyboard' input sources, specifies virtual keys that have a 'pressed' state. Unmentioned virtual keys are assumed to have a 'released' state." },
                 { "name": "pressedButton", "$ref": "MouseButton", "optional": true, "description": "For 'mouse' input sources, specifies which mouse button has a 'pressed' state. Unmentioned mouse buttons are assumed to have a 'released' state. For 'touch' input sources, passing MouseButton::Left denotes a touch-down state." },
-                { "name": "origin", "$ref": "MouseMoveOrigin", "optional": true, "description": "For 'mouse' input sources, specifies the origin type of a mouse move transition. Defaults to 'Viewport' if omitted."},
+                { "name": "origin", "$ref": "MouseMoveOrigin", "optional": true, "description": "For 'mouse' or 'wheel' input sources, specifies the origin type of a mouse move transition. Defaults to 'Viewport' if omitted."},
                 { "name": "nodeHandle", "$ref": "NodeHandle", "optional": true, "description": "The handle of the element to use as origin when origin type is 'Element'."},
-                { "name": "location", "$ref": "Point", "optional": true, "description": "For 'mouse' or 'touch' input sources, specifies a location in view coordinates to which the input source should transition. Transitioning to this state may interpolate intemediate input source states to better simulate real user movements and gestures." },
+                { "name": "location", "$ref": "Point", "optional": true, "description": "For 'mouse', 'wheel' or 'touch' input sources, specifies a location in view coordinates to which the input source should transition. Transitioning to this state may interpolate intemediate input source states to better simulate real user movements and gestures." },
+                { "name": "delta", "$ref": "Size", "optional": true, "description": "For 'wheel' input sources, specifies a scroll delta."},
                 { "name": "duration", "type": "integer", "optional": true, "description": "The minimum number of milliseconds that must elapse while the relevant input source transitions to this state." }
             ]
         }

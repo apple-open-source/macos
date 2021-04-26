@@ -230,15 +230,6 @@ WI.TimelineView = class TimelineView extends WI.ContentView
         return true;
     }
 
-    needsLayout()
-    {
-        // FIXME: needsLayout can be removed once <https://webkit.org/b/150741> is fixed.
-        if (!this.visible)
-            return;
-
-        super.needsLayout();
-    }
-
     // DataGrid filter delegate
 
     dataGridMatchNodeAgainstCustomFilters(node)
@@ -346,4 +337,5 @@ WI.TimelineView.Event = {
     ScannerShow: "timeline-view-scanner-show",
     ScannerHide: "timeline-view-scanner-hide",
     NeedsEntireSelectedRange: "timeline-view-needs-entire-selected-range",
+    NeedsFiltersCleared: "timeline-view-needs-filters-cleared",
 };

@@ -596,15 +596,15 @@ nanov2_get_allocation_block_index(void)
 #if CONFIG_NANO_USES_HYPER_SHIFT
 	if (os_likely(nano_common_max_magazines_is_ncpu)) {
 		// Default case is max magazines == physical number of CPUs, which
-		// must be > _os_cpu_number() >> hyper_shift, so the modulo
+		// must be > _malloc_cpu_number() >> hyper_shift, so the modulo
 		// operation is not required.
-		return _os_cpu_number() >> hyper_shift;
+		return _malloc_cpu_number() >> hyper_shift;
 	}
 #else // CONFIG_NANO_USES_HYPER_SHIFT
 	if (os_likely(nano_common_max_magazines_is_ncpu)) {
 		// Default case is max magazines == logical number of CPUs, which
-		// must be > _os_cpu_number() so the modulo operation is not required.
-		return _os_cpu_number();
+		// must be > _malloc_cpu_number() so the modulo operation is not required.
+		return _malloc_cpu_number();
 	}
 #endif // CONFIG_NANO_USES_HYPER_SHIFT
 
@@ -614,7 +614,7 @@ nanov2_get_allocation_block_index(void)
 #endif // CONFIG_NANO_USES_HYPER_SHIFT
 
 	if (os_likely(_os_cpu_number_override == -1)) {
-		return (_os_cpu_number() >> shift) % nano_common_max_magazines;
+		return (_malloc_cpu_number() >> shift) % nano_common_max_magazines;
 	}
 	return (_os_cpu_number_override >> shift) % nano_common_max_magazines;
 }

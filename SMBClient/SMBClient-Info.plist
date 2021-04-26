@@ -15,12 +15,12 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.4</string>
+	<string>3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.4</string>
+	<string>3.5</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2009-2018 Apple Inc. All rights reserved.</string>
+	<string>Copyright © 2009-2020 Apple Inc. All rights reserved.</string>
 </dict>
 </plist>

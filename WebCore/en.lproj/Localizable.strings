@@ -46,6 +46,9 @@
 /* Visible name of Service Worker process. The argument is the application name. */
 "%@ Service Worker (%@)" = "%@ Service Worker (%@)";
 
+/* visible name of the WebAuthn process. The argument is the application name. */
+"%@ Web Authentication" = "%@ Web Authentication";
+
 /* Visible name of the web process. The argument is the application name. */
 "%@ Web Content" = "%@ Web Content";
 
@@ -124,6 +127,9 @@
 /* Message for requesting cross-site cookie and website data access. */
 "Allow “%@” to use cookies and website data while browsing “%@”?" = "Allow “%@” to use cookies and website data while browsing “%@”?";
 
+/* Message for requesting cross-site cookie and website data access for multiple third party domains. */
+"Allow “%@” and “%@” to use cookies and website data while browsing “%@”?" = "Allow “%@” and “%@” to use cookies and website data while browsing “%@”?";
+
 /* Message for user media prompt */
 "Allow “%@” to use your camera and microphone?" = "Allow “%@” to use your camera and microphone?";
 
@@ -138,6 +144,15 @@
 
 /* Disallow button title in user media prompt */
 "Don’t Allow (usermedia)" = "Don’t Allow";
+
+/* Message for speech recognition prompt */
+"Allow “%@” to capture your audio and use it for speech recognition?" = "Allow “%@” to capture your audio and use it for speech recognition?";
+
+/* Allow button title in speech recognition prompt */
+"Allow (speechrecognition)" = "Allow";
+
+/* Disallow button title in speech recognition prompt */
+"Don’t Allow (speechrecognition)" = "Don’t Allow";
 
 /* WKErrorUnknown description */
 "An unknown error occurred" = "An unknown error occurred";
@@ -307,6 +322,9 @@
 /* Message for requesting cross-site cookie and website data access. */
 "Do you want to allow “%@” to use cookies and website data while browsing “%@”?" = "Do you want to allow “%@” to use cookies and website data while browsing “%@”?";
 
+/* Message for requesting cross-site cookie and website data access for multiple third party domains. */
+"Do you want to allow “%@” and “%@” to use cookies and website data while browsing “%@”?" = "Do you want to allow “%@” and “%@” to use cookies and website data while browsing “%@”?";
+
 /* Button title in Storage Access API prompt */
 "Don't Allow (cross-site cookie and website data access)" = "Don't Allow";
 
@@ -426,9 +444,6 @@
 
 /* Undo action name */
 "Indent (Undo action name)" = "Indent";
-
-/* Undo action name */
-"Insert Drawing (Undo action name)" = "Insert Drawing";
 
 /* Undo action name */
 "Insert List (Undo action name)" = "Insert List";
@@ -909,6 +924,9 @@
 
 /* Informative text for requesting cross-site cookie and website data access. */
 "This will allow “%@” to track your activity." = "This will allow “%@” to track your activity.";
+
+/* Informative text for requesting cross-site cookie and website data access. */
+"This will allow “%@” and “%@” to track your activity." = "This will allow “%@” and “%@” to track your activity.";
 
 /* Undo action name */
 "Tighten Kerning (Undo action name)" = "Tighten Kerning";

@@ -948,6 +948,25 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     _schema = nil;
 }
 
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    ckksinfo("ckksmanifest", recordID.zoneID, "CloudKit notification: deleted manifest record (%@): %@", SecCKRecordManifestType, recordID);
+
+    CKKSManifest* manifest = [CKKSManifest manifestForRecordName:recordID.recordName error:&localerror];
+    if (manifest) {
+        [manifest deleteFromDatabase:&localerror];
+    }
+
+    ckksinfo("ckksmanifest", recordID.zoneID, "CKKSManifest was deleted: %@ %@ error: %@", recordID, manifest, localerror);
+    if(error && localerror) {
+        *error = localerror;
+    }
+
+    return localerror == nil;
+}
+
 @end
 
 @implementation CKKSPendingManifest
@@ -1015,6 +1034,23 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     else {
         return nil;
     }
+}
+
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+    CKKSPendingManifest* manifest = [[CKKSPendingManifest alloc] initWithCKRecord:record];
+    bool saved = [manifest saveToDatabase:&localerror];
+    if (!saved || localerror != nil) {
+        ckkserror("ckksmanifest", record.recordID.zoneID, "Failed to save fetched manifest record to database: %@: %@", manifest, localerror);
+        ckksinfo("ckksmanifest", record.recordID.zoneID, "manifest CKRecord was %@", record);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+    return YES;
 }
 
 @end

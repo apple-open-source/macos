@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2018
+ * Copyright (c) 1996, 1998-2005, 2007-2021
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -32,18 +32,11 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -65,10 +58,10 @@ static char *getln(int, char *, size_t, bool, enum tgetpass_errval *);
 static char *sudo_askpass(const char *, const char *);
 
 static int
-suspend(int signo, struct sudo_conv_callback *callback)
+suspend(int sig, struct sudo_conv_callback *callback)
 {
     int ret = 0;
-    debug_decl(suspend, SUDO_DEBUG_CONV)
+    debug_decl(suspend, SUDO_DEBUG_CONV);
 
     if (callback != NULL && SUDO_API_VERSION_GET_MAJOR(callback->version) != SUDO_CONV_CALLBACK_VERSION_MAJOR) {
 	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
@@ -79,12 +72,12 @@ suspend(int signo, struct sudo_conv_callback *callback)
     }
 
     if (callback != NULL && callback->on_suspend != NULL) {
-	if (callback->on_suspend(signo, callback->closure) == -1)
+	if (callback->on_suspend(sig, callback->closure) == -1)
 	    ret = -1;
     }
-    kill(getpid(), signo);
+    kill(getpid(), sig);
     if (callback != NULL && callback->on_resume != NULL) {
-	if (callback->on_resume(signo, callback->closure) == -1)
+	if (callback->on_resume(sig, callback->closure) == -1)
 	    ret = -1;
     }
     debug_return_int(ret);
@@ -93,19 +86,19 @@ suspend(int signo, struct sudo_conv_callback *callback)
 static void
 tgetpass_display_error(enum tgetpass_errval errval)
 {
-    debug_decl(tgetpass_display_error, SUDO_DEBUG_CONV)
+    debug_decl(tgetpass_display_error, SUDO_DEBUG_CONV);
 
     switch (errval) {
     case TGP_ERRVAL_NOERROR:
 	break;
     case TGP_ERRVAL_TIMEOUT:
-	sudo_warnx(U_("timed out reading password"));
+	sudo_warnx("%s", U_("timed out reading password"));
 	break;
     case TGP_ERRVAL_NOPASSWORD:
-	sudo_warnx(U_("no password was provided"));
+	sudo_warnx("%s", U_("no password was provided"));
 	break;
     case TGP_ERRVAL_READERROR:
-	sudo_warn(U_("unable to read password"));
+	sudo_warn("%s", U_("unable to read password"));
 	break;
     }
     debug_return;
@@ -124,10 +117,9 @@ tgetpass(const char *prompt, int timeout, int flags,
     static const char *askpass;
     static char buf[SUDO_CONV_REPL_MAX + 1];
     int i, input, output, save_errno, ttyfd;
-    bool need_restart, neednl = false;
-    bool feedback = ISSET(flags, TGP_MASK);
+    bool feedback, need_restart, neednl;
     enum tgetpass_errval errval;
-    debug_decl(tgetpass, SUDO_DEBUG_CONV)
+    debug_decl(tgetpass, SUDO_DEBUG_CONV);
 
     (void) fflush(stdout);
 
@@ -141,11 +133,12 @@ restart:
     /* Try to open /dev/tty if we are going to be using it for I/O. */
     ttyfd = -1;
     if (!ISSET(flags, TGP_STDIN|TGP_ASKPASS)) {
-	ttyfd = open(_PATH_TTY, O_RDWR);
 	/* If no tty present and we need to disable echo, try askpass. */
+	ttyfd = open(_PATH_TTY, O_RDWR);
 	if (ttyfd == -1 && !ISSET(flags, TGP_ECHO|TGP_NOECHO_TRY)) {
 	    if (askpass == NULL || getenv_unhooked("DISPLAY") == NULL) {
-		sudo_warnx(U_("a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"));
+		sudo_warnx("%s",
+		    U_("a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"));
 		debug_return_str(NULL);
 	    }
 	    SET(flags, TGP_ASKPASS);
@@ -155,7 +148,8 @@ restart:
     /* If using a helper program to get the password, run it instead. */
     if (ISSET(flags, TGP_ASKPASS)) {
 	if (askpass == NULL || *askpass == '\0')
-	    sudo_fatalx(U_("no askpass program specified, try setting SUDO_ASKPASS"));
+	    sudo_fatalx("%s",
+		U_("no askpass program specified, try setting SUDO_ASKPASS"));
 	debug_return_str_masked(sudo_askpass(askpass, prompt));
     }
 
@@ -164,12 +158,16 @@ restart:
 	signo[i] = 0;
     pass = NULL;
     save_errno = 0;
+    neednl = false;
     need_restart = false;
+    feedback = false;
 
     /* Use tty for reading/writing if available else use stdin/stderr. */
     if (ttyfd == -1) {
 	input = STDIN_FILENO;
 	output = STDERR_FILENO;
+	/* Don't try to mask password if /dev/tty is not available. */
+	CLR(flags, TGP_MASK);
     } else {
 	input = ttyfd;
 	output = ttyfd;
@@ -181,23 +179,20 @@ restart:
      */
     if (!ISSET(flags, TGP_ECHO)) {
 	for (;;) {
-	    if (feedback)
-		neednl = sudo_term_cbreak(input);
+	    if (ISSET(flags, TGP_MASK))
+		neednl = feedback = sudo_term_cbreak(input);
 	    else
 		neednl = sudo_term_noecho(input);
 	    if (neednl || errno != EINTR)
 		break;
 	    /* Received SIGTTOU, suspend the process. */
 	    if (suspend(SIGTTOU, callback) == -1) {
-		if (input != STDIN_FILENO)
-		    (void) close(input);
+		if (ttyfd != -1)
+		    (void) close(ttyfd);
 		debug_return_ptr(NULL);
 	    }
 	}
     }
-    /* Only use feedback mode when we can disable echo. */
-    if (!neednl)
-	feedback = false;
 
     /*
      * Catch signals that would otherwise cause the user to end
@@ -254,8 +249,8 @@ restore:
 	/* Restore old tty settings if possible. */
 	(void) sudo_term_restore(input, true);
     }
-    if (input != STDIN_FILENO)
-	(void) close(input);
+    if (ttyfd != -1)
+	(void) close(ttyfd);
 
     /*
      * If we were interrupted by a signal, resend it to ourselves
@@ -298,7 +293,7 @@ sudo_askpass(const char *askpass, const char *prompt)
     enum tgetpass_errval errval;
     int pfd[2], status;
     pid_t child;
-    debug_decl(sudo_askpass, SUDO_DEBUG_CONV)
+    debug_decl(sudo_askpass, SUDO_DEBUG_CONV);
 
     /* Set SIGCHLD handler to default since we call waitpid() below. */
     memset(&sa, 0, sizeof(sa));
@@ -308,24 +303,17 @@ sudo_askpass(const char *askpass, const char *prompt)
     (void) sigaction(SIGCHLD, &sa, &savechld);
 
     if (pipe2(pfd, O_CLOEXEC) == -1)
-	sudo_fatal(U_("unable to create pipe"));
+	sudo_fatal("%s", U_("unable to create pipe"));
 
     child = sudo_debug_fork();
     if (child == -1)
-	sudo_fatal(U_("unable to fork"));
+	sudo_fatal("%s", U_("unable to fork"));
 
     if (child == 0) {
-	/* child, set stdout to write side of the pipe or clear FD_CLOEXEC */
-	if (pfd[1] == STDOUT_FILENO) {
-	    if (fcntl(pfd[1], F_SETFD, 0) == -1) {
-		sudo_warn("fcntl");
-		_exit(255);
-	    }
-	} else {
-	    if (dup2(pfd[1], STDOUT_FILENO) == -1) {
-		sudo_warn("dup2");
-		_exit(255);
-	    }
+	/* child, set stdout to write side of the pipe */
+	if (dup3(pfd[1], STDOUT_FILENO, 0) == -1) {
+	    sudo_warn("dup3");
+	    _exit(255);
 	}
 	if (setuid(ROOT_UID) == -1)
 	    sudo_warn("setuid(%d)", ROOT_UID);
@@ -335,12 +323,12 @@ sudo_askpass(const char *askpass, const char *prompt)
 	restore_limits();
 	/* But avoid a setuid() failure on Linux due to RLIMIT_NPROC. */
 	unlimit_nproc();
-	if (setgid(user_details.gid)) {
-	    sudo_warn(U_("unable to set gid to %u"), (unsigned int)user_details.gid);
+	if (setgid(user_details.cred.gid)) {
+	    sudo_warn(U_("unable to set gid to %u"), (unsigned int)user_details.cred.gid);
 	    _exit(255);
 	}
-	if (setuid(user_details.uid)) {
-	    sudo_warn(U_("unable to set uid to %u"), (unsigned int)user_details.uid);
+	if (setuid(user_details.cred.uid)) {
+	    sudo_warn(U_("unable to set uid to %u"), (unsigned int)user_details.cred.uid);
 	    _exit(255);
 	}
 	restore_nproc();
@@ -384,14 +372,14 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
     ssize_t nr = -1;
     char *cp = buf;
     char c = '\0';
-    debug_decl(getln, SUDO_DEBUG_CONV)
+    debug_decl(getln, SUDO_DEBUG_CONV);
 
     *errval = TGP_ERRVAL_NOERROR;
 
     if (left == 0) {
 	*errval = TGP_ERRVAL_READERROR;
 	errno = EINVAL;
-	debug_return_str(NULL);		/* sanity */
+	debug_return_str(NULL);
     }
 
     while (--left) {
@@ -449,7 +437,7 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
 	    *errval = TGP_ERRVAL_NOPASSWORD;
 	    debug_return_str(NULL);
 	}
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     default:
 	debug_return_str_masked(buf);
     }

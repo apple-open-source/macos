@@ -246,9 +246,9 @@ SOFT_LINK_CLASS_OPTIONAL(RevealCore, RVSelection)
     
     for (NSValue *v in rects) {
         CGRect imgSrcRect = [_view convertRect:v.CGRectValue fromView:nil];
-        RetainPtr<CGImageRef> imageRef = _image->nativeImage();
+        auto nativeImage = _image->nativeImage();
         CGRect origin = CGRectMake(imgSrcRect.origin.x - highlightRect.origin.x, imgSrcRect.origin.y - highlightRect.origin.y, highlightRect.size.width, highlightRect.size.height);
-        CGContextDrawImage(context, origin, imageRef.get());
+        CGContextDrawImage(context, origin, nativeImage->platformImage().get());
     }
 }
 
@@ -323,7 +323,7 @@ Optional<std::tuple<SimpleRange, NSDictionary *>> DictionaryLookup::rangeAtHitTe
     NSUInteger hitIndex;
     Optional<SimpleRange> fullCharacterRange;
     
-    if (selection.selectionType() == VisibleSelection::RangeSelection) {
+    if (selection.isRange()) {
         auto selectionStart = selection.visibleStart();
         auto selectionEnd = selection.visibleEnd();
 

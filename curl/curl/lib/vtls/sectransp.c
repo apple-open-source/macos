@@ -36,6 +36,7 @@
 
 #ifdef __clang__
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 #pragma clang diagnostic ignored "-Wtautological-pointer-compare"
 #endif /* __clang__ */
 
@@ -1029,86 +1030,179 @@ static OSStatus CopyIdentityWithLabelOldSchool(char *label,
 }
 #endif /* CURL_SUPPORT_MAC_10_6 */
 
+#if CURL_BUILD_MAC_10_7 || CURL_BUILD_IOS
+static CFDataRef hexStrToData(CFStringRef hexStr) {
+  if(CFStringGetLength(hexStr) % 2 != 0)
+    return NULL;
+
+  char buffer[128];
+  const char *hexStrPtr = CFStringGetCStringPtr(hexStr, kCFStringEncodingUTF8);
+  if(hexStrPtr == NULL) {
+    bool res = CFStringGetCString(hexStr, buffer, sizeof(buffer),
+                                  kCFStringEncodingUTF8);
+    if(res)
+      hexStrPtr = buffer;
+    else
+      return NULL;
+  }
+
+  CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+  if(data != NULL) {
+    CFDataSetLength(data, CFStringGetLength(hexStr) / 2);
+    UInt8 *dataPtr = CFDataGetMutableBytePtr(data);
+
+    char tmpByteChars[3] = {0, 0, 0};
+    for(int i = 0; i < CFDataGetLength(data); ++i) {
+      tmpByteChars[0] = hexStrPtr[i * 2];
+      tmpByteChars[1] = hexStrPtr[i * 2 + 1];
+      dataPtr[i] = (UInt8)strtol(tmpByteChars, NULL, 16);
+    }
+  }
+  return data;
+}
+
+static OSStatus CopyIdentityWithPubKeyHash(CFDataRef pubKeyHash,
+                                           SecIdentityRef *out_cert_and_key) {
+  OSStatus status = errSecItemNotFound;
+  CFArrayRef identities = NULL;
+  SecPolicyRef policy = NULL;
+
+  CFMutableDictionaryRef query =
+    CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                              &kCFTypeDictionaryKeyCallBacks,
+                              &kCFTypeDictionaryValueCallBacks);
+  if(query == NULL)
+    goto end;
+
+  policy = SecPolicyCreateSSL(false, NULL);
+  if(policy == NULL)
+    goto end;
+
+  CFDictionarySetValue(query, kSecClass, kSecClassIdentity);
+  CFDictionarySetValue(query, kSecAttrApplicationLabel, pubKeyHash);
+  CFDictionarySetValue(query, kSecMatchPolicy, policy);
+  CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+  CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+  CFDictionarySetValue(query, kSecReturnAttributes, kCFBooleanTrue);
+
+  status = SecItemCopyMatching(query, (CFTypeRef *)&identities);
+  if(status != errSecSuccess)
+    goto end;
+
+  status = errSecItemNotFound;
+  for(int i = 0; i < CFArrayGetCount(identities); ++i) {
+    CFDictionaryRef attrs = CFArrayGetValueAtIndex(identities, i);
+    bool match = CFEqual(pubKeyHash,
+                         CFDictionaryGetValue(attrs, kSecAttrPublicKeyHash));
+    if(match) {
+      if(out_cert_and_key != NULL)
+        *out_cert_and_key =
+          (SecIdentityRef)CFRetain(CFDictionaryGetValue(attrs, kSecValueRef));
+      status = errSecSuccess;
+      break;
+    }
+  }
+
+ end:
+  if(identities != NULL)
+    CFRelease(identities);
+  if(query != NULL)
+    CFRelease(query);
+  if(policy != NULL)
+    CFRelease(policy);
+  return status;
+}
+
+static OSStatus _CopyIdentityWithLabel(CFStringRef label,
+                                       SecIdentityRef *out_cert_and_key) {
+  OSStatus status = errSecItemNotFound;
+  SecPolicyRef policy = NULL;
+  CFArrayRef certs = NULL;
+
+  CFMutableDictionaryRef query =
+    CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                              &kCFTypeDictionaryKeyCallBacks,
+                              &kCFTypeDictionaryValueCallBacks);
+  if(query == NULL)
+    goto end;
+
+  policy = SecPolicyCreateSSL(false, NULL);
+  if(policy == NULL)
+    goto end;
+
+  CFDictionarySetValue(query, kSecClass, kSecClassIdentity);
+  CFDictionarySetValue(query, kSecAttrLabel, label);
+  CFDictionarySetValue(query, kSecMatchPolicy, policy);
+  CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+  CFDictionarySetValue(query, kSecReturnAttributes, kCFBooleanTrue);
+  CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+
+  status = SecItemCopyMatching(query, (CFTypeRef *)&certs);
+  if(status != errSecSuccess)
+    goto end;
+
+  status = errSecItemNotFound;
+  for(int i = 0; i < CFArrayGetCount(certs); ++i) {
+    CFDictionaryRef attrs = CFArrayGetValueAtIndex(certs, i);
+    CFComparisonResult match =
+      CFStringCompare(label, CFDictionaryGetValue(attrs, kSecAttrLabel), 0);
+    if(match == kCFCompareEqualTo) {
+      if(out_cert_and_key != NULL)
+        *out_cert_and_key =
+          (SecIdentityRef)CFRetain(CFDictionaryGetValue(attrs, kSecValueRef));
+      status = errSecSuccess;
+      break;
+    }
+  }
+
+ end:
+  if(certs != NULL)
+    CFRelease(certs);
+  if(query != NULL)
+    CFRelease(query);
+  if(policy != NULL)
+    CFRelease(policy);
+  return status;
+}
+#endif /* CURL_BUILD_MAC_10_7 || CURL_BUILD_IOS */
+
 static OSStatus CopyIdentityWithLabel(char *label,
                                       SecIdentityRef *out_cert_and_key)
 {
   OSStatus status = errSecItemNotFound;
 
 #if CURL_BUILD_MAC_10_7 || CURL_BUILD_IOS
-  CFArrayRef keys_list;
-  CFIndex keys_list_count;
-  CFIndex i;
-  CFStringRef common_name;
-
+  static const CFStringRef publicKeyHashPrefix = CFSTR("pkh/");
+  long publicKeyHashPrefixLength = CFStringGetLength(publicKeyHashPrefix);
   /* SecItemCopyMatching() was introduced in iOS and Snow Leopard.
      kSecClassIdentity was introduced in Lion. If both exist, let's use them
      to find the certificate. */
   if(SecItemCopyMatching != NULL && kSecClassIdentity != NULL) {
-    CFTypeRef keys[5];
-    CFTypeRef values[5];
-    CFDictionaryRef query_dict;
-    CFStringRef label_cf = CFStringCreateWithCString(NULL, label,
-      kCFStringEncodingUTF8);
+    CFStringRef cfLabel = CFStringCreateWithCString(NULL, label,
+                                                    kCFStringEncodingUTF8);
+    if(cfLabel == NULL)
+      goto end;
 
-    /* Set up our search criteria and expected results: */
-    values[0] = kSecClassIdentity; /* we want a certificate and a key */
-    keys[0] = kSecClass;
-    values[1] = kCFBooleanTrue;    /* we want a reference */
-    keys[1] = kSecReturnRef;
-    values[2] = kSecMatchLimitAll; /* kSecMatchLimitOne would be better if the
-                                    * label matching below worked correctly */
-    keys[2] = kSecMatchLimit;
-    /* identity searches need a SecPolicyRef in order to work */
-    values[3] = SecPolicyCreateSSL(false, NULL);
-    keys[3] = kSecMatchPolicy;
-    /* match the name of the certificate (doesn't work in macOS 10.12.1) */
-    values[4] = label_cf;
-    keys[4] = kSecAttrLabel;
-    query_dict = CFDictionaryCreate(NULL, (const void **)keys,
-                                    (const void **)values, 5L,
-                                    &kCFCopyStringDictionaryKeyCallBacks,
-                                    &kCFTypeDictionaryValueCallBacks);
-    CFRelease(values[3]);
+    if(CFStringHasPrefix(cfLabel, publicKeyHashPrefix)) {
+      CFRange pubKeyHashRange =
+        CFRangeMake(publicKeyHashPrefixLength,
+                    CFStringGetLength(cfLabel) - publicKeyHashPrefixLength);
+      CFStringRef publicKeyHashStr =
+        CFStringCreateWithSubstring(NULL, cfLabel, pubKeyHashRange);
+      if(publicKeyHashStr != NULL) {
+	CFDataRef pubKeyHashData = hexStrToData(publicKeyHashStr);
+	if(pubKeyHashData != NULL) {
+	  status = CopyIdentityWithPubKeyHash(pubKeyHashData, out_cert_and_key);
+	  CFRelease(pubKeyHashData);
+	}
 
-    /* Do we have a match? */
-    status = SecItemCopyMatching(query_dict, (CFTypeRef *) &keys_list);
-
-    /* Because kSecAttrLabel matching doesn't work with kSecClassIdentity,
-     * we need to find the correct identity ourselves */
-    if(status == noErr) {
-      keys_list_count = CFArrayGetCount(keys_list);
-      *out_cert_and_key = NULL;
-      status = 1;
-      for(i = 0; i<keys_list_count; i++) {
-        OSStatus err = noErr;
-        SecCertificateRef cert = NULL;
-        SecIdentityRef identity =
-          (SecIdentityRef) CFArrayGetValueAtIndex(keys_list, i);
-        err = SecIdentityCopyCertificate(identity, &cert);
-        if(err == noErr) {
-#if CURL_BUILD_IOS
-          common_name = SecCertificateCopySubjectSummary(cert);
-#elif CURL_BUILD_MAC_10_7
-          SecCertificateCopyCommonName(cert, &common_name);
-#endif
-          if(CFStringCompare(common_name, label_cf, 0) == kCFCompareEqualTo) {
-            CFRelease(cert);
-            CFRelease(common_name);
-            CFRetain(identity);
-            *out_cert_and_key = identity;
-            status = noErr;
-            break;
-          }
-          CFRelease(common_name);
-        }
-        CFRelease(cert);
+	CFRelease(publicKeyHashStr);
       }
     }
-
-    if(keys_list)
-      CFRelease(keys_list);
-    CFRelease(query_dict);
-    CFRelease(label_cf);
+    else {
+      status = _CopyIdentityWithLabel(cfLabel, out_cert_and_key);
+    }
+    CFRelease(cfLabel);
   }
   else {
 #if CURL_SUPPORT_MAC_10_6
@@ -1121,6 +1215,8 @@ static OSStatus CopyIdentityWithLabel(char *label,
      to SecKeychainSearch. */
   status = CopyIdentityWithLabelOldSchool(label, out_cert_and_key);
 #endif /* CURL_BUILD_MAC_10_7 || CURL_BUILD_IOS */
+
+ end:
   return status;
 }
 

@@ -66,27 +66,15 @@ WI.ClusterContentView = class ClusterContentView extends WI.ContentView
         return true;
     }
 
-    shown()
-    {
-        super.shown();
-
-        this._contentViewContainer.shown();
-    }
-
-    hidden()
-    {
-        super.hidden();
-
-        this._contentViewContainer.hidden();
-    }
-
     closed()
     {
         super.closed();
 
         this._contentViewContainer.closeAllContentViews();
 
-        WI.ContentView.removeEventListener(null, null, this);
+        WI.ContentView.removeEventListener(WI.ContentView.Event.SelectionPathComponentsDidChange, this._contentViewSelectionPathComponentDidChange, this);
+        WI.ContentView.removeEventListener(WI.ContentView.Event.SupplementalRepresentedObjectsDidChange, this._contentViewSupplementalRepresentedObjectsDidChange, this);
+        WI.ContentView.removeEventListener(WI.ContentView.Event.NumberOfSearchResultsDidChange, this._contentViewNumberOfSearchResultsDidChange, this);
     }
 
     canGoBack()

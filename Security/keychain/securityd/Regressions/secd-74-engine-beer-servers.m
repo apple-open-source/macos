@@ -91,6 +91,7 @@ int secd_74_engine_beer_servers(int argc, char *const *argv)
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     beer_servers();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

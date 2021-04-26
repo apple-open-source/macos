@@ -9,6 +9,7 @@
 		<string>com.apple.hap.pairing</string>
 		<string>com.apple.hap.metadata</string>
 		<string>com.apple.continuity.unlock</string>
+		<string>com.apple.rapport</string>
 	</array>
 	<key>keychain-cloud-circle</key>
 	<true/>

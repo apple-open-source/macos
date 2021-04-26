@@ -38,6 +38,7 @@ POLICYCHECKMACRO(BlackListedLeaf,                F, B, L,  ,  , 0x8001210C, errS
 POLICYCHECKMACRO(GrayListedLeaf,                 R, T, L,  ,  , 0x8001212A, errSecNotTrusted) //CSSMERR_TP_NOT_TRUSTED
 POLICYCHECKMACRO(LeafSPKISHA256,                 R, P, L,  ,  , 0x8001243D, errSSLATSCertificateTrustViolation) //CSSMERR_APPLETP_LEAF_PIN_MISMATCH
 POLICYCHECKMACRO(NotCA,                          R, C, L,  , O, 0x80012116, errSecCertificateIsCA) // CSSMERR_TP_INVALID_CERT_AUTHORITY
+POLICYCHECKMACRO(KeyUsageReportOnly,             R, U, L,  ,  , 0x80012406, errSecInvalidKeyUsageForPolicy) //CSSMERR_APPLETP_INVALID_KEY_USAGE
 
 /********************************************************
 *********** Unverified Intermediate Checks *************

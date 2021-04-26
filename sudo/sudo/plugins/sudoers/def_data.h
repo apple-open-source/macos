@@ -1,3 +1,5 @@
+/* generated file, do not edit */
+
 #define I_SYSLOG                0
 #define def_syslog              (sudo_defs_table[I_SYSLOG].sd_un.ival)
 #define I_SYSLOG_GOODPRI        1
@@ -181,7 +183,7 @@
 #define I_PAM_ACCT_MGMT         90
 #define def_pam_acct_mgmt       (sudo_defs_table[I_PAM_ACCT_MGMT].sd_un.flag)
 #define I_MAXSEQ                91
-#define def_maxseq              (sudo_defs_table[I_MAXSEQ].sd_un.uival)
+#define def_maxseq              (sudo_defs_table[I_MAXSEQ].sd_un.str)
 #define I_USE_NETGROUPS         92
 #define def_use_netgroups       (sudo_defs_table[I_USE_NETGROUPS].sd_un.flag)
 #define I_SUDOEDIT_CHECKDIR     93
@@ -232,20 +234,48 @@
 #define def_log_allowed         (sudo_defs_table[I_LOG_ALLOWED].sd_un.flag)
 #define I_LOG_DENIED            116
 #define def_log_denied          (sudo_defs_table[I_LOG_DENIED].sd_un.flag)
-#define I_RUNAS_ALLOW_UNKNOWN_ID 117
+#define I_LOG_SERVERS           117
+#define def_log_servers         (sudo_defs_table[I_LOG_SERVERS].sd_un.list)
+#define I_LOG_SERVER_TIMEOUT    118
+#define def_log_server_timeout  (sudo_defs_table[I_LOG_SERVER_TIMEOUT].sd_un.ival)
+#define I_LOG_SERVER_KEEPALIVE  119
+#define def_log_server_keepalive (sudo_defs_table[I_LOG_SERVER_KEEPALIVE].sd_un.flag)
+#define I_LOG_SERVER_CABUNDLE   120
+#define def_log_server_cabundle (sudo_defs_table[I_LOG_SERVER_CABUNDLE].sd_un.str)
+#define I_LOG_SERVER_PEER_CERT  121
+#define def_log_server_peer_cert (sudo_defs_table[I_LOG_SERVER_PEER_CERT].sd_un.str)
+#define I_LOG_SERVER_PEER_KEY   122
+#define def_log_server_peer_key (sudo_defs_table[I_LOG_SERVER_PEER_KEY].sd_un.str)
+#define I_LOG_SERVER_VERIFY     123
+#define def_log_server_verify   (sudo_defs_table[I_LOG_SERVER_VERIFY].sd_un.flag)
+#define I_RUNAS_ALLOW_UNKNOWN_ID 124
 #define def_runas_allow_unknown_id (sudo_defs_table[I_RUNAS_ALLOW_UNKNOWN_ID].sd_un.flag)
-#define I_RUNAS_CHECK_SHELL     118
+#define I_RUNAS_CHECK_SHELL     125
 #define def_runas_check_shell   (sudo_defs_table[I_RUNAS_CHECK_SHELL].sd_un.flag)
+#define I_PAM_RUSER             126
+#define def_pam_ruser           (sudo_defs_table[I_PAM_RUSER].sd_un.flag)
+#define I_PAM_RHOST             127
+#define def_pam_rhost           (sudo_defs_table[I_PAM_RHOST].sd_un.flag)
+#define I_RUNCWD                128
+#define def_runcwd              (sudo_defs_table[I_RUNCWD].sd_un.str)
+#define I_RUNCHROOT             129
+#define def_runchroot           (sudo_defs_table[I_RUNCHROOT].sd_un.str)
+#define I_LOG_FORMAT            130
+#define def_log_format          (sudo_defs_table[I_LOG_FORMAT].sd_un.tuple)
+#define I_SELINUX               131
+#define def_selinux             (sudo_defs_table[I_SELINUX].sd_un.flag)
 
 enum def_tuple {
-	never,
-	once,
-	always,
-	any,
-	all,
-	digest_only,
-	global,
-	ppid,
-	tty,
-	kernel
+    never,
+    once,
+    always,
+    any,
+    all,
+    digest_only,
+    global,
+    ppid,
+    tty,
+    kernel,
+    sudo,
+    json
 };

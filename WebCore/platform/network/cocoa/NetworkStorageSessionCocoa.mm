@@ -33,6 +33,7 @@
 #import "SameSiteInfo.h"
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/Optional.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/URL.h>
@@ -212,7 +213,7 @@ CFURLStorageSessionRef createPrivateStorageSession(CFStringRef identifier, Optio
     return storageSession.leakRef();
 }
 
-NSArray *NetworkStorageSession::httpCookies(CFHTTPCookieStorageRef cookieStorage) const
+RetainPtr<NSArray> NetworkStorageSession::httpCookies(CFHTTPCookieStorageRef cookieStorage) const
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies) || m_isInMemoryCookieStore);
     if (!cookieStorage) {
@@ -248,7 +249,7 @@ static RetainPtr<NSDictionary> policyProperties(const SameSiteInfo& sameSiteInfo
 }
 #endif
 
-static NSArray *cookiesForURL(NSHTTPCookieStorage *storage, NSURL *url, NSURL *mainDocumentURL, const Optional<SameSiteInfo>& sameSiteInfo, NSString *partition = nullptr)
+static RetainPtr<NSArray> cookiesForURL(NSHTTPCookieStorage *storage, NSURL *url, NSURL *mainDocumentURL, const Optional<SameSiteInfo>& sameSiteInfo, NSString *partition = nullptr)
 {
     // The _getCookiesForURL: method calls the completionHandler synchronously. We use Optional<> to ensure this invariant.
     Optional<RetainPtr<NSArray>> cookiesPtr;
@@ -266,7 +267,7 @@ static NSArray *cookiesForURL(NSHTTPCookieStorage *storage, NSURL *url, NSURL *m
     UNUSED_PARAM(sameSiteInfo);
 #endif
     ASSERT(!!cookiesPtr);
-    return cookiesPtr->autorelease();
+    return WTFMove(*cookiesPtr);
 }
 
 void NetworkStorageSession::setHTTPCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSArray *cookies, NSURL *url, NSURL *mainDocumentURL, const SameSiteInfo& sameSiteInfo) const
@@ -300,7 +301,7 @@ void NetworkStorageSession::setHTTPCookiesForURL(CFHTTPCookieStorageRef cookieSt
 #endif
 }
 
-NSArray *NetworkStorageSession::httpCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSURL *firstParty, const Optional<SameSiteInfo>& sameSiteInfo, NSURL *url) const
+RetainPtr<NSArray> NetworkStorageSession::httpCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSURL *firstParty, const Optional<SameSiteInfo>& sameSiteInfo, NSURL *url) const
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies) || m_isInMemoryCookieStore);
     if (!cookieStorage) {
@@ -328,7 +329,7 @@ NSHTTPCookie *NetworkStorageSession::capExpiryOfPersistentCookie(NSHTTPCookie *c
     return cookie;
 }
 
-NSArray *NetworkStorageSession::cookiesForURL(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID, ShouldAskITP shouldAskITP, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+RetainPtr<NSArray> NetworkStorageSession::cookiesForURL(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID, ShouldAskITP shouldAskITP, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (shouldAskITP == ShouldAskITP::Yes && shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking))
@@ -347,13 +348,13 @@ std::pair<String, bool> NetworkStorageSession::cookiesForSession(const URL& firs
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
-    NSArray *cookies = cookiesForURL(firstParty, sameSiteInfo, url, frameID, pageID, shouldAskITP, shouldRelaxThirdPartyCookieBlocking);
-    if (![cookies count])
+    RetainPtr<NSArray> cookies = cookiesForURL(firstParty, sameSiteInfo, url, frameID, pageID, shouldAskITP, shouldRelaxThirdPartyCookieBlocking);
+    if (!cookies || ![cookies count])
         return { String(), false }; // Return a null string, not an empty one that StringBuilder would create below.
 
     StringBuilder cookiesBuilder;
     bool didAccessSecureCookies = false;
-    for (NSHTTPCookie *cookie in cookies) {
+    for (NSHTTPCookie *cookie in cookies.get()) {
         if (![[cookie name] length])
             continue;
 
@@ -500,7 +501,7 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
     rawCookies.clear();
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
-    NSArray *cookies = cookiesForURL(firstParty, sameSiteInfo, url, frameID, pageID, shouldAskITP, shouldRelaxThirdPartyCookieBlocking);
+    RetainPtr<NSArray> cookies = cookiesForURL(firstParty, sameSiteInfo, url, frameID, pageID, shouldAskITP, shouldRelaxThirdPartyCookieBlocking);
     NSUInteger count = [cookies count];
     rawCookies.reserveCapacity(count);
     for (NSUInteger i = 0; i < count; ++i) {
@@ -519,7 +520,7 @@ void NetworkStorageSession::deleteCookie(const URL& url, const String& cookieNam
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = this->cookieStorage();
-    NSArray *cookies = httpCookiesForURL(cookieStorage.get(), nil, WTF::nullopt, url);
+    RetainPtr<NSArray> cookies = httpCookiesForURL(cookieStorage.get(), nil, WTF::nullopt, url);
 
     NSString *cookieNameString = cookieName;
 
@@ -537,9 +538,9 @@ void NetworkStorageSession::getHostnamesWithCookies(HashSet<String>& hostnames)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
-    NSArray *cookies = httpCookies(cookieStorage().get());
+    RetainPtr<NSArray> cookies = httpCookies(cookieStorage().get());
     
-    for (NSHTTPCookie* cookie in cookies) {
+    for (NSHTTPCookie* cookie in cookies.get()) {
         if (NSString *domain = [cookie domain])
             hostnames.add(domain);
         else
@@ -566,12 +567,12 @@ void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>& host
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = this->cookieStorage();
-    NSArray *cookies = httpCookies(cookieStorage.get());
+    RetainPtr<NSArray> cookies = httpCookies(cookieStorage.get());
     if (!cookies)
         return;
 
     HashMap<String, Vector<RetainPtr<NSHTTPCookie>>> cookiesByDomain;
-    for (NSHTTPCookie *cookie in cookies) {
+    for (NSHTTPCookie *cookie in cookies.get()) {
         if (!cookie.domain || (includeHttpOnlyCookies == IncludeHttpOnlyCookies::No && cookie.isHTTPOnly))
             continue;
         cookiesByDomain.ensure(cookie.domain, [] {
@@ -624,7 +625,9 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
 
     m_didRegisterCookieListeners = true;
 
-    [nsCookieStorage() _setCookiesChangedHandler:^(NSArray<NSHTTPCookie*>* addedCookies, NSString* domainForChangedCookie) {
+    [nsCookieStorage() _setCookiesChangedHandler:makeBlockPtr([this, weakThis = makeWeakPtr(*this)](NSArray<NSHTTPCookie *> *addedCookies, NSString *domainForChangedCookie) {
+        if (!weakThis)
+            return;
         String host = domainForChangedCookie;
         auto it = m_cookieChangeObservers.find(host);
         if (it == m_cookieChangeObservers.end())
@@ -634,9 +637,11 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
             return;
         for (auto* observer : it->value)
             observer->cookiesAdded(host, cookies);
-    } onQueue:dispatch_get_main_queue()];
+    }).get() onQueue:dispatch_get_main_queue()];
 
-    [nsCookieStorage() _setCookiesRemovedHandler:^(NSArray<NSHTTPCookie*>* removedCookies, NSString* domainForRemovedCookies, bool removeAllCookies) {
+    [nsCookieStorage() _setCookiesRemovedHandler:makeBlockPtr([this, weakThis = makeWeakPtr(*this)](NSArray<NSHTTPCookie *> *removedCookies, NSString *domainForRemovedCookies, bool removeAllCookies) {
+        if (!weakThis)
+            return;
         if (removeAllCookies) {
             for (auto& observers : m_cookieChangeObservers.values()) {
                 for (auto* observer : observers)
@@ -655,7 +660,7 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
             return;
         for (auto* observer : it->value)
             observer->cookiesDeleted(host, cookies);
-    } onQueue:dispatch_get_main_queue()];
+    }).get() onQueue:dispatch_get_main_queue()];
 }
 
 void NetworkStorageSession::unregisterCookieChangeListenersIfNecessary()

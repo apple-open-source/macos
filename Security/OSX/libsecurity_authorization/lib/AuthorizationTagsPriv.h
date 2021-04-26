@@ -364,7 +364,7 @@
 /* Sheet window ID */
 #define kAuthorizationEnvironmentWindowId "cgwindowid"
 
-/* LWOS authenticate approval and admin status */
+/* FVUnlock authenticate approval and admin status */
 #define kAuthorizationFVAdmin "fvadmin"
 
 /* Prelogin user database defines */

@@ -39,9 +39,9 @@
 
 struct stat;
 typedef struct {
-	int gl_pathc;		/* Count of total paths so far. */
-	int gl_matchc;		/* Count of paths matching pattern. */
-	int gl_offs;		/* Reserved at beginning of gl_pathv. */
+	size_t gl_pathc;	/* Count of total paths so far. */
+	size_t gl_matchc;	/* Count of paths matching pattern. */
+	size_t gl_offs;		/* Reserved at beginning of gl_pathv. */
 	int gl_flags;		/* Copy of flags parameter to glob. */
 	char **gl_pathv;	/* List of paths matching pattern. */
 				/* Copy of errfunc parameter to glob. */
@@ -69,8 +69,8 @@ typedef struct {
 #define	GLOB_NOMATCH	(-3)	/* No match and GLOB_NOCHECK not set. */
 #define	GLOB_NOSYS	(-4)	/* Function not supported. */
 
-__dso_public int  sudo_glob(const char *, int, int (*)(const char *, int), glob_t *);
-__dso_public void sudo_globfree(glob_t *);
+sudo_dso_public int  sudo_glob(const char *, int, int (*)(const char *, int), glob_t *);
+sudo_dso_public void sudo_globfree(glob_t *);
 
 #define glob(_a, _b, _c, _d) sudo_glob((_a), (_b), (_c), (_d))
 #define globfree(_a) sudo_globfree((_a))

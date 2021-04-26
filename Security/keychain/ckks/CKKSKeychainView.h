@@ -41,6 +41,7 @@
 #import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSIncomingQueueOperation.h"
+#import "keychain/ckks/CKKSKeychainViewState.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSNewTLKOperation.h"
 #import "keychain/ckks/CKKSNotifier.h"
@@ -78,16 +79,22 @@ NS_ASSUME_NONNULL_BEGIN
                                         CKKSDatabaseProviderProtocol,
                                         OctagonStateMachineEngine>
 
+// CKKS is in the middle of a transition period, where this class will take ownership
+// of multiple CKKS views and CK zones.
+// The following properties are intended for use in that transition, and should eventually disappear
 @property (readonly) NSString* zoneName;
+@property (readonly) CKRecordZoneID* zoneID;
+@property CKKSKeychainViewState* viewState;
+
+// This will hold every view currently active.
+@property NSSet<CKKSKeychainViewState*>* viewStates;
+
 @property CKKSAccountStatus accountStatus;
 @property (readonly) CKContainer* container;
-@property (readonly) CKDatabase* database;
 @property (weak) CKKSAccountStateTracker* accountTracker;
 @property (weak) CKKSReachabilityTracker* reachabilityTracker;
 @property (readonly) CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 @property (readonly) dispatch_queue_t queue;
-
-@property (readonly) CKRecordZoneID* zoneID;
 
 @property CKKSCondition* loggedIn;
 @property CKKSCondition* loggedOut;
@@ -140,12 +147,6 @@ NS_ASSUME_NONNULL_BEGIN
 /* Used for testing */
 @property BOOL initiatedLocalScan;
 
-/* Trigger this to tell the whole machine that this view has changed */
-@property CKKSNearFutureScheduler* notifyViewChangedScheduler;
-
-/* Trigger this to tell the whole machine that this view is more ready then before */
-@property CKKSNearFutureScheduler* notifyViewReadyScheduler;
-
 @property (readonly) CKKSOperationDependencies* operationDependencies;
 
 - (instancetype)initWithContainer:(CKContainer*)container
@@ -179,8 +180,6 @@ NS_ASSUME_NONNULL_BEGIN
 // but it will continue to particpate in TLK sharing.
 // If policyIsFresh is set, any items discovered that do not match this policy will be moved.
 - (void)setCurrentSyncingPolicy:(TPSyncingPolicy*)syncingPolicy policyIsFresh:(BOOL)policyIsFresh;
-
-- (void)receivedItemForWrongView;
 
 /* Synchronous operations */
 
@@ -257,20 +256,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /* Synchronous operations which must be called from inside a dispatchAsyncWithAccountKeys or dispatchSync block */
 
-// Since we might have people interested in the state transitions of objects, please do those transitions via these methods
-- (bool)_onqueueChangeOutgoingQueueEntry:(CKKSOutgoingQueueEntry*)oqe
-                                 toState:(NSString*)state
-                                   error:(NSError* __autoreleasing*)error;
-- (bool)_onqueueErrorOutgoingQueueEntry:(CKKSOutgoingQueueEntry*)oqe
-                              itemError:(NSError*)itemError
-                                  error:(NSError* __autoreleasing*)error;
-
-// Call this if you've done a write and received an error. It'll pull out any new records returned as CKErrorServerRecordChanged and pretend we received them in a fetch
-//
-// Note that you need to tell this function the records you wanted to save, so it can determine which record failed from its CKRecordID.
-// I don't know why CKRecordIDs don't have record types, either.
 - (bool)_onqueueCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
-
 - (bool)_onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync;
 - (bool)_onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
 

@@ -64,6 +64,7 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_conn_2.h>
 #include <netsmb/smb_subr.h>
+#include <netsmb/smb2_mc_support.h>
 
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
@@ -106,6 +107,91 @@ int smbfs_hifi_set_perms(struct smb_share *share, vnode_t vp, vfs_context_t cont
 
 extern struct smb_reconnect_stats smb_reconn_stats;
 extern uint32_t g_max_dir_entries_cached;
+int smbfs_is_dataless_access_allowed(vnode_t vp, uint32_t open_check, vfs_context_t context);
+
+
+int
+smbfs_is_dataless_access_allowed(vnode_t vp, uint32_t open_check,
+                                 vfs_context_t context)
+{
+    int error = 0;
+    struct smbnode *np = NULL;
+    int do_check = 0;
+
+    if (vp == NULL) {
+        SMBERROR("vp is null \n");
+        return(EINVAL);
+    }
+
+    /* No support for dataless dirs at this time */
+    if (vnode_isdir(vp)) {
+        return(0);
+    }
+    
+    np = VTOSMB(vp);
+    if (np == NULL) {
+        SMBERROR("np is null \n");
+        return(EINVAL);
+    }
+    
+    /*
+     * If its a dataless file that is partially or fully offline, then it will
+     * show up as a reparse point. Otherwise its either not a dataless file
+     * or its a dataless file that has been completely recalled.
+     *
+     * Windows DeDupe services look very similar in that files are replaced
+     * with reparse points and the P bit is set. We do not want to treat
+     * deduped files like dataless, so check the specific reparse tag
+     *
+     * Thus dataless files MUST have the reparse tag of
+     * IO_REPARSE_TAG_STORAGE_SYNC to get this special treatment
+     */
+    if (!(np->n_dosattr & SMB_EFA_REPARSE_POINT) ||
+        (np->n_reparse_tag != IO_REPARSE_TAG_STORAGE_SYNC)) {
+        return(0);
+    }
+
+    /*
+     * If M bit is set, then its a newer server and we know for sure that
+     * reading the file will recall it. Opening the file is fine.
+     */
+    if (np->n_dosattr & SMB_EFA_RECALL_ON_DATA_ACCESS) {
+        if (open_check == 1) {
+            /* Opening the file is allowed */
+            return(0);
+        }
+
+        /* IO access has to be checked to see if its allowed */
+        do_check = 1;
+    }
+    else {
+        /*
+         * Check for older server which might have P or O bits set
+         * If P or O bits are set, then must be an older server so we assume
+         * that just opening the file will recall it.
+         */
+        if (np->n_dosattr & (SMB_EFA_OFFLINE | SMB_EFA_SPARSE)) {
+            do_check = 1;
+        }
+    }
+    
+    /*
+     * See if the process is allowed to open or do any IO on this file
+     */
+    if (do_check == 1) {
+        error = vfs_context_dataless_materialization_is_prevented(context);
+        if (error) {
+            SMBWARNING_LOCK(np, "Dataless access denied %d on <%s> \n",
+                     error, np->n_name);
+        }
+    }
+    else {
+        /* No check required, so access is allowed */
+        error = 0;
+    }
+
+    return(error);
+}
 
 
 static uint32_t
@@ -1114,7 +1200,7 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
 	struct smbnode *np = VTOSMB(vp);
 	uint16_t accessMode = 0;
 	uint16_t savedAccessMode = 0;
-	uint32_t rights, addedReadRights;
+	uint32_t rights, addedReadRights = 0;
 	uint32_t shareMode;
     SMBFID fid = 0;
 	int error = 0;
@@ -1471,14 +1557,27 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 	struct smbnode *np;
 	int	error;
     int ubc_invalidate = 0;
+    struct smb_share *share = NULL;
 
 	/* We only open files and directories and symlinks */
 	if (!vnode_isreg(vp) && !vnode_isdir(vp) && !vnode_islnk(vp)) {
 		return (EACCES);
     }
 		
-	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
+    /*
+     * Check to see if its a dataless file and allowed to be materialized
+     */
+    if (!vnode_isdir(vp)) {
+        error = smbfs_is_dataless_access_allowed(vp, 1, context);
+        if (error) {
+            /* This process is not allowed to materialize this file */
+            return(error);
+        }
+    }
+    
+    if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))) {
 		return (error);
+    }
 	
 	np = VTOSMB(vp);
 	np->n_lastvop = n_lastvop;
@@ -1487,9 +1586,8 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 	if (vnode_isdir(vp)) {
 		np->d_refcnt++;
 		error = 0;
-	} else {
-		struct smb_share *share;
-		
+	}
+    else {
 		share = smb_get_share_with_reference(VTOSMBFS(vp));
 		
         if (mode & O_TRUNC) {
@@ -1555,11 +1653,16 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 			if (error)	/* Got an error close the file and return the error */
 				(void)smbfs_close(share, vp, mode, context);
 		}
-		smb_share_rele(share, context);
+        
+        if (share != NULL) {
+            smb_share_rele(share, context);
+        }
 	}
-	if (error == EBUSY)
+    
+    if (error == EBUSY) {
 		error = EAGAIN;
-		
+    }
+
 	smbnode_unlock(np);
 	return(error);
 }
@@ -2207,6 +2310,45 @@ smbfs_vnop_open(struct vnop_open_args *ap)
     
     SMB_LOG_KTRACE(SMB_DBG_OPEN | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
+}
+
+/*
+ * smbfs_vnop_mmap_check
+ * struct vnodeop_desc *a_desc;
+ * vnode_t a_vp;
+ * int flags;
+ * vfs_context_t a_context;
+*/
+static int
+smbfs_vnop_mmap_check(struct vnop_mmap_check_args *ap)
+{
+    vnode_t vp = ap->a_vp;
+    struct smbnode *np = NULL;
+    int error = 0;
+    
+    SMB_LOG_KTRACE(SMB_DBG_MMAP_CHECK | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
+    if (vp == NULL) {
+        SMBERROR("vp is null \n");
+        return(EINVAL);
+    }
+
+    np = VTOSMB(vp);
+    if (np == NULL) {
+        SMBERROR("np is null \n");
+        return(EINVAL);
+    }
+
+    np->n_lastvop = smbfs_vnop_mmap_check;
+
+    /*
+     * Check to see if its a dataless file and allowed to be materialized
+     */
+    error = smbfs_is_dataless_access_allowed(vp, 0, ap->a_context);
+
+    SMB_LOG_KTRACE(SMB_DBG_MMAP_CHECK | DBG_FUNC_END, error, 0, 0, 0, 0);
+    
+    return (error);
 }
 
 /*
@@ -4576,7 +4718,19 @@ smbfs_vnop_setattr(struct vnop_setattr_args *ap)
 	struct smbnode *np;
 	struct smb_share *share;
 
-	if ((error = smbnode_lock(VTOSMB(ap->a_vp), SMBFS_EXCLUSIVE_LOCK))) {
+    /*
+     * Check to see if its a dataless file and allowed to be materialized
+     * Only need to check if its a file and setting va_data_size
+     */
+    if (VATTR_IS_ACTIVE(ap->a_vap, va_data_size) && (!vnode_isdir(ap->a_vp))) {
+        error = smbfs_is_dataless_access_allowed(ap->a_vp, 0, ap->a_context);
+        if (error) {
+            /* This process is not allowed to materialize this file */
+            return(error);
+        }
+    }
+
+    if ((error = smbnode_lock(VTOSMB(ap->a_vp), SMBFS_EXCLUSIVE_LOCK))) {
 		return (error);
 	}
     
@@ -4905,7 +5059,16 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	if (uio_offset(uio) < 0)
 		return (EINVAL);	/* cant read from a negative offset */
 	
-	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_SHARED_LOCK)))
+    /*
+     * Check to see if its a dataless file and allowed to be materialized
+     */
+    error = smbfs_is_dataless_access_allowed(vp, 0, ap->a_context);
+    if (error) {
+        /* This process is not allowed to materialize this file */
+        return(error);
+    }
+
+    if ((error = smbnode_lock(VTOSMB(vp), SMBFS_SHARED_LOCK)))
 		return (error);
 	
     SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_START,
@@ -5081,7 +5244,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	uio_t uio = ap->a_uio;
 	int error = 0;
     SMBFID fid = 0;
-	u_quad_t originalEOF;	
+	u_quad_t originalEOF = 0;	
 	user_size_t writeCount;
 	
 	/* Preflight checks */
@@ -5099,7 +5262,16 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	if (uio_resid(uio) == 0)
 		return (0);
 	
-	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
+    /*
+     * Check to see if its a dataless file and allowed to be materialized
+     */
+    error = smbfs_is_dataless_access_allowed(vp, 0, ap->a_context);
+    if (error) {
+        /* This process is not allowed to materialize this file */
+        return(error);
+    }
+
+    if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
 		return (error);
 	
     SMB_LOG_KTRACE(SMB_DBG_WRITE | DBG_FUNC_START,
@@ -6021,7 +6193,7 @@ smbfs_rmdir(struct smb_share *share, vnode_t dvp, vnode_t vp,
     if ((np->d_fctx != NULL) && (np->d_fctx->f_need_close == TRUE)) {
         error = smb2_smb_close_fid(np->d_fctx->f_share,
                                    np->d_fctx->f_create_fid,
-                                   NULL, NULL, context);
+                                   NULL, NULL, NULL, context);
         if (error) {
             SMBDEBUG("smb2_smb_close_fid failed %d\n", error);
         }
@@ -6031,7 +6203,7 @@ smbfs_rmdir(struct smb_share *share, vnode_t dvp, vnode_t vp,
     if ((np->d_rdir_fctx != NULL) && (np->d_rdir_fctx->f_need_close == TRUE)) {
         error = smb2_smb_close_fid(np->d_rdir_fctx->f_share,
                                    np->d_rdir_fctx->f_create_fid,
-                                   NULL, NULL, context);
+                                   NULL, NULL, NULL, context);
         if (error) {
             SMBDEBUG("smb2_smb_close_fid failed %d\n", error);
         }
@@ -7764,7 +7936,13 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             
             switch (pb->command) {
                 case kForceDisconnect:
-                    (void) smb_session_force_reconnect(sessionp);
+                    /*
+                     * With multichannel, forcing the main channel into
+                     * reconnect will cause it to fail over to another channel
+                     * until there are no more alt channels left, then it will
+                     * do a reconnect.
+                     */
+                    (void) smb_session_force_reconnect(sessionp->session_iod);
                     break;
 
                 default:
@@ -7774,6 +7952,7 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             break;
 
         case smbfsGetSessionSockaddrFSCTL: {
+            /* <72239144> Return original server IP address that was used */
             if (sessionp->session_saddr) {
                 memcpy(ap->a_data, sessionp->session_saddr,
                        sessionp->session_saddr->sa_len);
@@ -7783,7 +7962,23 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             break;
         }
 		
-	case smbfsUniqueShareIDFSCTL: {
+        case smbfsGetSessionSockaddrFSCTL2: {
+            struct smbSockAddrPB *pb = (struct smbSockAddrPB *) ap->a_data;
+
+            pb->sessionp = sessionp;
+
+            /* <72239144> Return original server IP address that was used */
+            if (sessionp->session_saddr) {
+                memcpy(&pb->addr, sessionp->session_saddr,
+                       sessionp->session_saddr->sa_len);
+            }
+            else {
+                error = EINVAL; /* Better never happen, but just in case */
+            }
+            break;
+        }
+
+        case smbfsUniqueShareIDFSCTL: {
             struct UniqueSMBShareID *uniqueptr = (struct UniqueSMBShareID *)ap->a_data;
 			
             uniqueptr->error = 0;
@@ -7900,7 +8095,7 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 
 					pb->disableSecondaryReconnect = 0;
 					
-					error = smb_iod_get_qos(sessionp, &option);
+					error = smb_iod_get_qos(sessionp->session_iod, &option);
 					if (error) {
 						SMBDEBUG("smb_iod_get_qos failed %d \n", error);
 					}
@@ -7973,7 +8168,7 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 					 */
 					option = pb->IP_QoS;
 					
-					error = smb_iod_set_qos(sessionp, &option);
+					error = smb_iod_set_qos(sessionp->session_iod, &option);
 					if (error) {
 						SMBERROR("smb_iod_set_qos failed %d \n", error);
 					}
@@ -8945,6 +9140,16 @@ smbfs_vnop_copyfile(struct vnop_copyfile_args *ap)
         goto out;
     }
 
+    /*
+     * Check to see if source file is a dataless file and allowed to be
+     * materialized
+     */
+    error = smbfs_is_dataless_access_allowed(fvp, 1, ap->a_context);
+    if (error) {
+        /* This process is not allowed to materialize this file */
+        goto out;
+    }
+
     fnp = VTOSMB(fvp);
 	tdnp = VTOSMB(tdvp);
     tnp = (tvp == NULL) ? NULL : VTOSMB(tvp);
@@ -9825,9 +10030,7 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
                                                0, &ntstatus,
                                                NULL, fap,
                                                NULL, ap->a_context);
-                if (sizep) {
-                    *sizep = fap->fa_size;
-                }
+                strmsize = fap->fa_size;
                 SMB_FREE(fap, M_SMBTEMP);
                 fap = NULL;
             }
@@ -9839,14 +10042,15 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
                                               &strmsize, &strm_alloc_size,
                                               &stream_flags, NULL,
                                               ap->a_context);
-                if (sizep) {
-                    *sizep = (size_t)strmsize;
-                }
             }
             SMB_LOG_KTRACE(SMB_DBG_GET_XATTR | DBG_FUNC_NONE,
                            0xabc001, error, stype, 0, 0);
 		}
 		
+        if (sizep) {
+            *sizep = (size_t)strmsize;
+        }
+
 		if (error) {
 			error = ENOATTR;
 		}
@@ -11162,6 +11366,34 @@ smbfs_pack_vap(struct smb_share *share, vnode_t dvp,
             va_flags |= UF_IMMUTABLE;
         }
         
+        /*
+         * Is the file currently dataless?
+         */
+        if ((fap->fa_attr & SMB_EFA_REPARSE_POINT) &&
+            (fap->fa_reparse_tag == IO_REPARSE_TAG_STORAGE_SYNC)) {
+            if (fap->fa_attr & SMB_EFA_RECALL_ON_DATA_ACCESS) {
+                /*
+                 * If M bit is set, then its a newer server and we know for
+                 * sure that reading the file will recall it. Opening the file
+                 * is fine.
+                 */
+                va_flags |= SF_DATALESS;
+            }
+            else {
+                /*
+                 * Check for older server which might have P or O bits set
+                 * If P or O bits are set, then must be an older server so we
+                 * assume that just opening the file will recall it.
+                 *
+                 * This is separated out in case we change our mind on this
+                 * behavior for older servers.
+                 */
+                if (fap->fa_attr & (SMB_EFA_OFFLINE | SMB_EFA_SPARSE)) {
+                    va_flags |= SF_DATALESS;
+                }
+            }
+        }
+
         VATTR_RETURN(vap, va_flags, va_flags);
     }
 		
@@ -12390,7 +12622,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     
     /* We should not need to allocate va_name */
     if (VATTR_IS_ACTIVE(vap, va_name)) {
-        SMB_ASSERT(vap->va_name != NULL)
+        SMB_ASSERT(vap->va_name != NULL);
     }
 
     /* Lock dir enum cache list */
@@ -12953,6 +13185,7 @@ static struct vnodeopv_entry_desc smbfs_vnodeop_entries[] = {
 	{ &vnop_lookup_desc,		(vnop_t *) smbfs_vnop_lookup },
 	{ &vnop_mkdir_desc,			(vnop_t *) smbfs_vnop_mkdir },
 	{ &vnop_mknod_desc,			(vnop_t *) smbfs_vnop_mknod },
+    { &vnop_mmap_check_desc,    (vnop_t *) smbfs_vnop_mmap_check },
 	{ &vnop_mmap_desc,			(vnop_t *) smbfs_vnop_mmap },
 	{ &vnop_mnomap_desc,		(vnop_t *) smbfs_vnop_mnomap },
 	{ &vnop_open_desc,			(vnop_t *) smbfs_vnop_open },

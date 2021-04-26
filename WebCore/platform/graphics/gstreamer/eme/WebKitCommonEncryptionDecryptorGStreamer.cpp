@@ -32,12 +32,12 @@
 #include <wtf/PrintStream.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Scope.h>
+#include <wtf/glib/WTFGType.h>
 
 using WebCore::CDMProxy;
 
 #define WEBKIT_MEDIA_CENC_DECRYPT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_MEDIA_CENC_DECRYPT, WebKitMediaCommonEncryptionDecryptPrivate))
 struct _WebKitMediaCommonEncryptionDecryptPrivate {
-    GRefPtr<GstEvent> protectionEvent;
     RefPtr<CDMProxy> cdmProxy;
 
     Lock cdmAttachmentMutex;
@@ -46,23 +46,23 @@ struct _WebKitMediaCommonEncryptionDecryptPrivate {
 
 static constexpr Seconds MaxSecondsToWaitForCDMProxy = 5_s;
 
+static void constructed(GObject*);
 static GstStateChangeReturn changeState(GstElement*, GstStateChange transition);
-static void finalize(GObject*);
 static GstCaps* transformCaps(GstBaseTransform*, GstPadDirection, GstCaps*, GstCaps*);
 static GstFlowReturn transformInPlace(GstBaseTransform*, GstBuffer*);
 static gboolean sinkEventHandler(GstBaseTransform*, GstEvent*);
 static void setContext(GstElement*, GstContext*);
 
-GST_DEBUG_CATEGORY_STATIC(webkit_media_common_encryption_decrypt_debug_category);
+GST_DEBUG_CATEGORY(webkit_media_common_encryption_decrypt_debug_category);
 #define GST_CAT_DEFAULT webkit_media_common_encryption_decrypt_debug_category
 
 #define webkit_media_common_encryption_decrypt_parent_class parent_class
-G_DEFINE_TYPE(WebKitMediaCommonEncryptionDecrypt, webkit_media_common_encryption_decrypt, GST_TYPE_BASE_TRANSFORM);
+WEBKIT_DEFINE_TYPE(WebKitMediaCommonEncryptionDecrypt, webkit_media_common_encryption_decrypt, GST_TYPE_BASE_TRANSFORM)
 
 static void webkit_media_common_encryption_decrypt_class_init(WebKitMediaCommonEncryptionDecryptClass* klass)
 {
     GObjectClass* gobjectClass = G_OBJECT_CLASS(klass);
-    gobjectClass->finalize = finalize;
+    gobjectClass->constructed = constructed;
 
     GST_DEBUG_CATEGORY_INIT(webkit_media_common_encryption_decrypt_debug_category,
         "webkitcenc", 0, "Common Encryption base class");
@@ -76,30 +76,15 @@ static void webkit_media_common_encryption_decrypt_class_init(WebKitMediaCommonE
     baseTransformClass->transform_caps = GST_DEBUG_FUNCPTR(transformCaps);
     baseTransformClass->transform_ip_on_passthrough = FALSE;
     baseTransformClass->sink_event = GST_DEBUG_FUNCPTR(sinkEventHandler);
-
-    g_type_class_add_private(klass, sizeof(WebKitMediaCommonEncryptionDecryptPrivate));
 }
 
-static void webkit_media_common_encryption_decrypt_init(WebKitMediaCommonEncryptionDecrypt* self)
+static void constructed(GObject* object)
 {
-    WebKitMediaCommonEncryptionDecryptPrivate* priv = WEBKIT_MEDIA_CENC_DECRYPT_GET_PRIVATE(self);
+    GstBaseTransform* base = GST_BASE_TRANSFORM(object);
 
-    self->priv = priv;
-    new (priv) WebKitMediaCommonEncryptionDecryptPrivate();
-
-    GstBaseTransform* base = GST_BASE_TRANSFORM(self);
     gst_base_transform_set_in_place(base, TRUE);
     gst_base_transform_set_passthrough(base, FALSE);
     gst_base_transform_set_gap_aware(base, FALSE);
-}
-
-static void finalize(GObject* object)
-{
-    WebKitMediaCommonEncryptionDecrypt* self = WEBKIT_MEDIA_CENC_DECRYPT(object);
-    WebKitMediaCommonEncryptionDecryptPrivate* priv = self->priv;
-
-    priv->~WebKitMediaCommonEncryptionDecryptPrivate();
-    GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
 
 static GstCaps* transformCaps(GstBaseTransform* base, GstPadDirection direction, GstCaps* caps, GstCaps* filter)

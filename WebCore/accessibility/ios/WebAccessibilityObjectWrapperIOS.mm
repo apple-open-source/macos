@@ -39,7 +39,6 @@
 #import "FontCascade.h"
 #import "Frame.h"
 #import "FrameSelection.h"
-#import "FrameView.h"
 #import "HitTestResult.h"
 #import "HTMLFrameOwnerElement.h"
 #import "HTMLInputElement.h"
@@ -336,6 +335,14 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 - (uint64_t)_axTextAreaTrait { return (1 << 24); }
 - (uint64_t)_axUpdatesFrequentlyTrait { return (1 << 25); }
 
+- (NSString *)accessibilityDOMIdentifier
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    return self.axBackingObject->identifierAttribute();
+}
+
 - (BOOL)accessibilityCanFuzzyHitTest
 {
     if (![self _prepareAccessibilityCall])
@@ -612,7 +619,14 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 - (AccessibilityObjectWrapper*)_accessibilityTableAncestor
 {
     if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*self.axBackingObject, false, [] (const AXCoreObject& object) {
-        return object.roleValue() == AccessibilityRole::Table;
+        switch (object.roleValue()) {
+        case AccessibilityRole::Table:
+        case AccessibilityRole::TreeGrid:
+        case AccessibilityRole::Grid:
+            return true;
+        default:
+            return false;
+        }
     }))
         return parent->wrapper();
     return nil;
@@ -681,15 +695,6 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             [self setAccessibilityValue:[wrapper accessibilityValue]];
             break;
         }
-        case AccessibilityRole::ListBox:
-        case AccessibilityRole::List:
-            traits |= [self _axContainedByListTrait];
-            break;
-        case AccessibilityRole::Grid:
-        case AccessibilityRole::Table:
-        case AccessibilityRole::TreeGrid:
-            traits |= [self _axContainedByTableTrait];
-            break;
         default:
             if ([self _accessibilityIsLandmarkRole:parentRole])
                 traits |= [self _axContainedByLandmarkTrait];
@@ -852,6 +857,10 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     if (!self.axBackingObject->isEnabled())
         traits |= [self _axNotEnabledTrait];
     
+    // If the treeitem supports the checked state, then it should also be marked with toggle status.
+    if (self.axBackingObject->supportsCheckedState())
+        traits |= [self _axToggleTrait];
+
     if (m_accessibilityTraitsFromAncestor == ULLONG_MAX)
         m_accessibilityTraitsFromAncestor = [self _accessibilityTraitsFromAncestors];
     
@@ -1156,6 +1165,20 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return self.axBackingObject->roleDescription();
 }
 
+- (NSString *)accessibilityBrailleLabel
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    return self.axBackingObject->brailleLabel();
+}
+
+- (NSString *)accessibilityBrailleRoleDescription
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    return self.axBackingObject->brailleRoleDescription();
+}
+
 - (NSString *)accessibilityLabel
 {
     if (![self _prepareAccessibilityCall])
@@ -1168,7 +1191,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
     // iOS doesn't distinguish between a title and description field,
     // so concatentation will yield the best result.
-    NSString *axTitle = [self baseAccessibilityTitle];
+    NSString *axTitle = self.axBackingObject->titleAttributeValue();
     NSString *axDescription = [self baseAccessibilityDescription];
     NSString *landmarkDescription = [self ariaLandmarkRoleDescription];
     NSString *interactiveVideoDescription = [self interactiveVideoDescription];
@@ -1447,8 +1470,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (value)
         return value;
     
-    AccessibilityRole role = self.axBackingObject->roleValue();
-    if (self.axBackingObject->isCheckboxOrRadio() || role == AccessibilityRole::MenuItemCheckbox || role == AccessibilityRole::MenuItemRadio || role == AccessibilityRole::Switch) {
+    if (self.axBackingObject->supportsCheckedState()) {
         switch (self.axBackingObject->checkboxOrRadioValue()) {
         case AccessibilityButtonState::Off:
             return [NSString stringWithFormat:@"%d", 0];
@@ -1746,25 +1768,23 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     static Class webViewClass = nil;
     if (!webViewClass)
         webViewClass = NSClassFromString(@"WebView");
-
     if (!webViewClass)
         return nil;
-    
-    FrameView* frameView = self.axBackingObject->documentFrameView();
 
+    auto* frameView = self.axBackingObject->documentFrameView();
     if (!frameView)
         return nil;
-    
+
     // If this is the top level frame, the UIWebDocumentView should be returned.
     id parentView = frameView->documentView();
     while (parentView && ![parentView isKindOfClass:webViewClass])
         parentView = [parentView superview];
-    
-    // The parentView should have an accessibilityContainer, if the UIKit accessibility bundle was loaded. 
+
+    // The parentView should have an accessibilityContainer, if the UIKit accessibility bundle was loaded.
     // The exception is DRT, which tests accessibility without the entire system turning accessibility on. Hence,
     // this check should be valid for everything except DRT.
     ASSERT([parentView accessibilityContainer] || IOSApplication::isDumpRenderTree());
-    
+
     return [parentView accessibilityContainer];
 }
 
@@ -1992,6 +2012,16 @@ static RenderObject* rendererForView(WAKView* view)
     // The UIKit accessibility wrapper will override and post appropriate notification.
 }
 
+- (void)postCurrentStateChangedNotification
+{
+    // The UIKit accessibility wrapper will override and post appropriate notification.
+}
+
+- (void)postNotification:(NSString *)notificationName
+{
+    // The UIKit accessibility wrapper will override and post appropriate notification.
+}
+
 // These will be used by the UIKit wrapper to calculate an appropriate description of scroll status.
 - (CGPoint)_accessibilityScrollPosition
 {
@@ -2081,7 +2111,8 @@ static RenderObject* rendererForView(WAKView* view)
 
 - (void)_accessibilitySetFocus:(BOOL)focus
 {
-    [self baseAccessibilitySetFocus:focus];
+    if (auto* backingObject = self.axBackingObject)
+        backingObject->setFocused(focus);
 }
 
 - (void)accessibilityDecreaseSelection:(TextGranularity)granularity
@@ -2320,14 +2351,14 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
                 if ([self _addAccessibilityObject:headingObject toTextMarkerArray:array])
                     continue;
 
-                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, VisiblePosition(createLegacyEditingPosition(it.range().start)));
+                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, makeContainerOffsetPosition(it.range().start));
                 
                 if (!listMarkerText.isEmpty()) 
                     [array addObject:listMarkerText];
                 // There was not an element representation, so just return the text.
                 [array addObject:it.text().createNSString().get()];
             } else {
-                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, VisiblePosition(createLegacyEditingPosition(it.range().start)));
+                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, makeContainerOffsetPosition(it.range().start));
 
                 if (!listMarkerText.isEmpty()) {
                     NSMutableAttributedString* attrString = [[NSMutableAttributedString alloc] init];
@@ -3018,44 +3049,26 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     return self.axBackingObject->invalidStatus();
 }
 
-- (NSString *)accessibilityARIACurrentStatus
+- (NSString *)accessibilityCurrentState
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    
-    switch (self.axBackingObject->currentState()) {
-    case AccessibilityCurrentState::False:
-        return @"false";
-    case AccessibilityCurrentState::Page:
-        return @"page";
-    case AccessibilityCurrentState::Step:
-        return @"step";
-    case AccessibilityCurrentState::Location:
-        return @"location";
-    case AccessibilityCurrentState::Time:
-        return @"time";
-    case AccessibilityCurrentState::Date:
-        return @"date";
-    case AccessibilityCurrentState::True:
-        return @"true";
-    }
+
+    return self.axBackingObject->currentValue();
 }
 
 - (NSString *)accessibilitySortDirection
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    
+
     switch (self.axBackingObject->sortDirection()) {
     case AccessibilitySortDirection::Ascending:
-        return @"ascending";
+        return @"AXAscendingSortDirection";
     case AccessibilitySortDirection::Descending:
-        return @"descending";
-    case AccessibilitySortDirection::Other:
-        return @"other";
-    case AccessibilitySortDirection::Invalid:
-    case AccessibilitySortDirection::None:
-        return nil;
+        return @"AXDescendingSortDirection";
+    default:
+        return @"AXUnknownSortDirection";
     }
 }
 

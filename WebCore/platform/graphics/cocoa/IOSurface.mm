@@ -27,7 +27,7 @@
 #import "IOSurface.h"
 
 #import "GraphicsContextCG.h"
-#import "GraphicsContextGLOpenGL.h"
+#import "GraphicsContextGL.h"
 #import "HostWindow.h"
 #import "IOSurfacePool.h"
 #import "ImageBuffer.h"
@@ -191,7 +191,7 @@ IOSurface::IOSurface(IntSize size, IntSize contextSize, CGColorSpaceRef colorSpa
     NSDictionary *options;
 
     switch (format) {
-    case Format::RGBA:
+    case Format::BGRA:
         options = optionsFor32BitSurface(size, 'BGRA');
         break;
 #if HAVE(IOSURFACE_RGB10)
@@ -224,22 +224,45 @@ IOSurface::IOSurface(IOSurfaceRef surface, CGColorSpaceRef colorSpace)
 
 IOSurface::~IOSurface() = default;
 
-IntSize IOSurface::maximumSize()
+static IntSize computeMaximumSurfaceSize()
 {
     IntSize maxSize(clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth)), clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceHeight)));
 
     // Protect against maxSize being { 0, 0 }.
-    const int iOSMaxSurfaceDimensionLowerBound = 1024;
+    const int maxSurfaceDimensionLowerBound = 1024;
 
 #if PLATFORM(IOS_FAMILY)
     // Match limits imposed by Core Animation. FIXME: should have API for this <rdar://problem/25454148>
-    const int iOSMaxSurfaceDimension = 8 * 1024;
+    const int maxSurfaceDimension = 8 * 1024;
 #else
     // IOSurface::maximumSize() can return { INT_MAX, INT_MAX } when hardware acceleration is unavailable.
-    const int iOSMaxSurfaceDimension = 32 * 1024;
+    const int maxSurfaceDimension = 32 * 1024;
 #endif
 
-    return maxSize.constrainedBetween({ iOSMaxSurfaceDimensionLowerBound, iOSMaxSurfaceDimensionLowerBound }, { iOSMaxSurfaceDimension, iOSMaxSurfaceDimension });
+    return maxSize.constrainedBetween({ maxSurfaceDimensionLowerBound, maxSurfaceDimensionLowerBound }, { maxSurfaceDimension, maxSurfaceDimension });
+}
+
+static WTF::Atomic<IntSize>& surfaceMaximumSize()
+{
+    static WTF::Atomic<IntSize> maximumSize;
+    return maximumSize;
+}
+
+void IOSurface::setMaximumSize(IntSize size)
+{
+    ASSERT(!size.isEmpty());
+    surfaceMaximumSize().store(size);
+}
+
+IntSize IOSurface::maximumSize()
+{
+    auto size = surfaceMaximumSize().load();
+    if (size.isEmpty()) {
+        auto computedSize = computeMaximumSurfaceSize();
+        surfaceMaximumSize().store(computedSize);
+        return computedSize;
+    }
+    return size;
 }
 
 MachSendRight IOSurface::createSendRight() const
@@ -279,7 +302,7 @@ CGContextRef IOSurface::ensurePlatformContext(const HostWindow* hostWindow)
     size_t bitsPerPixel = 32;
     
     switch (format()) {
-    case Format::RGBA:
+    case Format::BGRA:
         break;
 #if HAVE(IOSURFACE_RGB10)
     case Format::RGB10:
@@ -324,12 +347,12 @@ GraphicsContext& IOSurface::ensureGraphicsContext()
     return *m_graphicsContext;
 }
 
-IOSurface::SurfaceState IOSurface::state() const
+VolatilityState IOSurface::state() const
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
-    return previousState == kIOSurfacePurgeableEmpty ? IOSurface::SurfaceState::Empty : IOSurface::SurfaceState::Valid;
+    return previousState == kIOSurfacePurgeableEmpty ? VolatilityState::Empty : VolatilityState::Valid;
 }
 
 bool IOSurface::isVolatile() const
@@ -340,23 +363,23 @@ bool IOSurface::isVolatile() const
     return previousState != kIOSurfacePurgeableNonVolatile;
 }
 
-IOSurface::SurfaceState IOSurface::setIsVolatile(bool isVolatile)
+VolatilityState IOSurface::setVolatile(bool isVolatile)
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), isVolatile ? kIOSurfacePurgeableVolatile : kIOSurfacePurgeableNonVolatile, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
 
     if (previousState == kIOSurfacePurgeableEmpty)
-        return IOSurface::SurfaceState::Empty;
+        return VolatilityState::Empty;
 
-    return IOSurface::SurfaceState::Valid;
+    return VolatilityState::Valid;
 }
 
 IOSurface::Format IOSurface::format() const
 {
     unsigned pixelFormat = IOSurfaceGetPixelFormat(m_surface.get());
     if (pixelFormat == 'BGRA')
-        return Format::RGBA;
+        return Format::BGRA;
 
 #if HAVE(IOSURFACE_RGB10)
     if (pixelFormat == 'w30r')
@@ -370,7 +393,7 @@ IOSurface::Format IOSurface::format() const
         return Format::YUV422;
 
     ASSERT_NOT_REACHED();
-    return Format::RGBA;
+    return Format::BGRA;
 }
 
 IOSurfaceID IOSurface::surfaceID() const
@@ -459,11 +482,36 @@ void IOSurface::migrateColorSpaceToProperties()
     IOSurfaceSetValue(m_surface.get(), kIOSurfaceColorSpace, colorSpaceProperties.get());
 }
 
+IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
+{
+    switch (format) {
+    case PixelFormat::RGBA8:
+        RELEASE_ASSERT_NOT_REACHED();
+        return IOSurface::Format::BGRA;
+    case PixelFormat::BGRA8:
+        return IOSurface::Format::BGRA;
+#if HAVE(IOSURFACE_RGB10)
+    case PixelFormat::RGB10:
+        return IOSurface::Format::RGB10;
+    case PixelFormat::RGB10A8:
+        return IOSurface::Format::RGB10A8;
+#else
+    case PixelFormat::RGB10:
+    case PixelFormat::RGB10A8:
+        RELEASE_ASSERT_NOT_REACHED();
+        return IOSurface::Format::BGRA;
+#endif
+    }
+
+    ASSERT_NOT_REACHED();
+    return IOSurface::Format::BGRA;
+}
+
 static TextStream& operator<<(TextStream& ts, IOSurface::Format format)
 {
     switch (format) {
-    case IOSurface::Format::RGBA:
-        ts << "RGBA";
+    case IOSurface::Format::BGRA:
+        ts << "BGRA";
         break;
     case IOSurface::Format::YUV422:
         ts << "YUV422";
@@ -480,13 +528,13 @@ static TextStream& operator<<(TextStream& ts, IOSurface::Format format)
     return ts;
 }
 
-static TextStream& operator<<(TextStream& ts, IOSurface::SurfaceState state)
+static TextStream& operator<<(TextStream& ts, VolatilityState state)
 {
     switch (state) {
-    case IOSurface::SurfaceState::Valid:
+    case VolatilityState::Valid:
         ts << "valid";
         break;
-    case IOSurface::SurfaceState::Empty:
+    case VolatilityState::Empty:
         ts << "empty";
         break;
     }

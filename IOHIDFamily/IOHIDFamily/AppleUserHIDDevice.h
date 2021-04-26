@@ -116,6 +116,20 @@ protected:
      @function processReport
      @abstract process Set/Get reports for DriverKit drivers
      @discussion This method only used by DriverKit driver
+
+     @param command            Type of HIDReport to do. Currently either
+                               getReport or setReport
+     @param report             The data to be sent to the device in a setReport
+                               or recieved from the device in a getReport
+     @param reportType         The type of HIDReport, either Input, Output, or
+                               Feature.
+     @param options            Options to pass to the DriverKit Driver.
+     @param completionTimeout  Timeout in us
+     @param completion         IOHIDCompletion object to complete the report if
+                               async. Null if the request is sync.
+     @param releaseReport      True if the report passed in report param needs
+                               to be completed and freed when the report
+                               completes.
      */
 
     IOReturn processReport(HIDReportCommandType command,
@@ -123,7 +137,8 @@ protected:
                            IOHIDReportType      reportType,
                            IOOptionBits         options,
                            uint32_t             completionTimeout,
-                           IOHIDCompletion    * completion = 0);
+                           IOHIDCompletion    * completion = 0,
+                           bool                 releaseReport = false);
 
 public:
 

@@ -135,6 +135,14 @@
     }   \
 }
 
+#define CFDictionarySetInt64Value(dict, key, val) { \
+    CFNumberRef n = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &(val)); \
+    if (n) {    \
+        CFDictionarySetValue((dict), (key), n);     \
+        CFRelease(n);   \
+    }   \
+}
+
 #define CFDictionaryGetInt64Value(dict, key, val) { \
     CFNumberRef n;   \
     if (CFDictionaryGetValueIfPresent((dict), (key), (const void **)&n)) { \

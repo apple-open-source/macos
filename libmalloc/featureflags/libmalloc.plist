@@ -7,12 +7,12 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
-	<key>PGuardViaLaunchd</key>
+	<key>ProbGuard</key>
 	<dict>
 		<key>Enabled</key>
-		<false/>
+		<true/>
 	</dict>
-	<key>PGuardAllProcesses</key>
+	<key>ProbGuardAllProcesses</key>
 	<dict>
 		<key>Enabled</key>
 		<false/>

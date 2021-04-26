@@ -57,6 +57,17 @@ String copyImageUnknownFileLabel()
 {
     return WEB_UI_STRING("unknown", "Unknown filename");
 }
+#if ENABLE(APP_HIGHLIGHTS)
+String contextMenuItemTagAddHighlightToCurrentGroup()
+{
+    return localizedNSString(@"Add Highlight To Current Group");
+}
+
+String contextMenuItemTagAddHighlightToNewGroup()
+{
+    return localizedNSString(@"Add Highlight To New Group");
+}
+#endif
 
 #if ENABLE(CONTEXT_MENUS)
 String contextMenuItemTagSearchInSpotlight()
@@ -181,7 +192,6 @@ String contextMenuItemTagExitVideoEnhancedFullscreen()
 #endif
 #endif // ENABLE(CONTEXT_MENUS)
 
-#if ENABLE(METER_ELEMENT)
 String AXMeterGaugeRegionOptimumText()
 {
     return WEB_UI_STRING("optimal value", "The optimum value description for a meter element.");
@@ -196,7 +206,6 @@ String AXMeterGaugeRegionLessGoodText()
 {
     return WEB_UI_STRING("critical value", "The less good value description for a meter element.");
 }
-#endif // ENABLE(METER_ELEMENT)
 
 String builtInPDFPluginName()
 {

@@ -1931,6 +1931,8 @@ static void
 WriteCheckMsgSize(FILE *file, argument_t *arg)
 {
   routine_t *rt = arg->argRoutine;
+  ipc_type_t *it = arg->argType;
+  ipc_type_t *btype = it->itElement;
 
   /* If there aren't any more Out args after this, then
      we can use the msgh_size_delta value directly in
@@ -1945,7 +1947,8 @@ WriteCheckMsgSize(FILE *file, argument_t *arg)
     /*
      * emit code to verify that the server-code-provided count does not exceed the maximum count allowed by the type.
      */
-    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos,
+	    arg->argCount->argMsgField, it->itNumber/btype->itNumber);
     fputs("\t\t" "return MIG_TYPE_ERROR;\n", file);
     /* ...end... */
 
@@ -1974,7 +1977,8 @@ WriteCheckMsgSize(FILE *file, argument_t *arg)
     /*
      * emit code to verify that the server-code-provided count does not exceed the maximum count allowed by the type.
      */
-    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos,
+	  arg->argCount->argMsgField, it->itNumber/btype->itNumber);
     fputs("\t\t" "return MIG_TYPE_ERROR;\n", file);
     /* ...end... */
 

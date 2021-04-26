@@ -43,6 +43,10 @@ bool XPCServiceInitializerDelegate::checkEntitlements()
 {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     if (isClientSandboxed()) {
+        // FIXME(<rdar://problem/54178641>): Remove this check once WebKit can work without network access.
+        if (hasEntitlement("com.apple.security.network.client"))
+            return true;
+
         audit_token_t auditToken = { };
         xpc_connection_get_audit_token(m_connection.get(), &auditToken);
         if (auto rc = sandbox_check_by_audit_token(auditToken, "mach-lookup", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT), "com.apple.nsurlsessiond")) {
@@ -52,19 +56,6 @@ bool XPCServiceInitializerDelegate::checkEntitlements()
         }
     }
 #endif
-#if PLATFORM(IOS_FAMILY)
-    auto value = adoptOSObject(xpc_connection_copy_entitlement_value(m_connection.get(), "keychain-access-groups"));
-    if (value && xpc_get_type(value.get()) == XPC_TYPE_ARRAY) {
-        xpc_array_apply(value.get(), ^bool(size_t index, xpc_object_t object) {
-            if (xpc_get_type(object) == XPC_TYPE_STRING && !strcmp(xpc_string_get_string_ptr(object), "com.apple.identities")) {
-                IPC::setAllowsDecodingSecKeyRef(true);
-                return false;
-            }
-            return true;
-        });
-    }
-#endif
-
     return true;
 }
 
@@ -157,10 +148,14 @@ void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage)
 {
     // Make sure to destroy the priority boost message to avoid leaking a transaction.
     priorityBoostMessage = nullptr;
+
     // Balances the xpc_transaction_begin() in XPCServiceInitializer.
+#if PLATFORM(MAC)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     xpc_transaction_end();
 ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
+
     xpc_transaction_exit_clean();
 }
 

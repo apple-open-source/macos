@@ -27,6 +27,7 @@
 #define PlatformMediaSessionManager_h
 
 #include "DocumentIdentifier.h"
+#include "GenericTaskQueue.h"
 #include "MediaSessionIdentifier.h"
 #include "PlatformMediaSession.h"
 #include "Timer.h"
@@ -56,6 +57,20 @@ public:
 
     WEBCORE_EXPORT static void setShouldDeactivateAudioSession(bool);
     WEBCORE_EXPORT static bool shouldDeactivateAudioSession();
+
+    WEBCORE_EXPORT static void setWebMFormatReaderEnabled(bool);
+    WEBCORE_EXPORT static bool webMFormatReaderEnabled();
+    WEBCORE_EXPORT static void setVorbisDecoderEnabled(bool);
+    WEBCORE_EXPORT static bool vorbisDecoderEnabled();
+
+#if ENABLE(VP9)
+    WEBCORE_EXPORT static void setShouldEnableVP9Decoder(bool);
+    WEBCORE_EXPORT static bool shouldEnableVP9Decoder();
+    WEBCORE_EXPORT static void setShouldEnableVP8Decoder(bool);
+    WEBCORE_EXPORT static bool shouldEnableVP8Decoder();
+    WEBCORE_EXPORT static void setShouldEnableVP9SWDecoder(bool);
+    WEBCORE_EXPORT static bool shouldEnableVP9SWDecoder();
+#endif
 
     virtual ~PlatformMediaSessionManager() = default;
 
@@ -88,7 +103,8 @@ public:
     WEBCORE_EXPORT void processWillSuspend();
     WEBCORE_EXPORT void processDidResume();
 
-    void stopAllMediaPlaybackForDocument(DocumentIdentifier);
+    bool mediaPlaybackIsPaused(DocumentIdentifier);
+    void pauseAllMediaPlaybackForDocument(DocumentIdentifier);
     WEBCORE_EXPORT void stopAllMediaPlaybackForProcess();
 
     void suspendAllMediaPlaybackForDocument(DocumentIdentifier);
@@ -143,6 +159,7 @@ public:
     WEBCORE_EXPORT void processDidReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*);
 
     bool isInterrupted() const { return m_interrupted; }
+    bool hasNoSession() const;
 
 protected:
     friend class PlatformMediaSession;
@@ -168,7 +185,6 @@ protected:
 #endif
 
     int countActiveAudioCaptureSources();
-    bool hasNoSession() const;
 
     bool computeSupportsSeeking() const;
 
@@ -178,6 +194,7 @@ protected:
 private:
     friend class Internals;
 
+    void scheduleUpdateSessionState();
     virtual void updateSessionState() { }
 
     Vector<WeakPtr<PlatformMediaSession>> sessionsMatching(const Function<bool(const PlatformMediaSession&)>&) const;
@@ -196,6 +213,20 @@ private:
 #endif
 
     WeakHashSet<PlatformMediaSession::AudioCaptureSource> m_audioCaptureSources;
+    GenericTaskQueue<Timer> updateSessionStateQueue;
+
+#if ENABLE(WEBM_FORMAT_READER)
+    static bool m_webMFormatReaderEnabled;
+#endif
+#if ENABLE(VORBIS) && PLATFORM(MAC)
+    static bool m_vorbisDecoderEnabled;
+#endif
+
+#if ENABLE(VP9)
+    static bool m_vp9DecoderEnabled;
+    static bool m_vp8DecoderEnabled;
+    static bool m_vp9SWDecoderEnabled;
+#endif
 
 #if !RELEASE_LOG_DISABLED
     Ref<AggregateLogger> m_logger;

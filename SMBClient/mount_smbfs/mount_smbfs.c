@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001, Boris Popov
+ * Copyright (c) 2000-2020, Boris Popov
  * All rights reserved.
  *
  * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved. 
@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <sys/errno.h>
 #include <sys/mount.h>
+#include <time.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -49,10 +50,24 @@
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_internal.h>
 #include <smbclient/ntstatus.h>
+#include <netsmb/smb_lib.h>
 
 #include "SetNetworkAccountSID.h"
 
 #include <mntopts.h>
+
+#if !defined(kNetFSMountFlagsKey)
+    #define kNetFSMountFlagsKey        CFSTR("MountFlags")
+#endif
+
+#if !defined(kNetFSSoftMountKey)
+    #define kNetFSSoftMountKey        CFSTR("SoftMount")
+#endif
+
+#if !defined(kNetFSForceNewSessionKey)
+    #define kNetFSForceNewSessionKey    CFSTR("ForceNewSession")
+#endif
+
 
 static void usage(void);
 
@@ -116,15 +131,19 @@ int main(int argc, char *argv[])
 	int altflags = SMBFS_MNT_STREAMS_ON;
 	mode_t fileMode = 0, dirMode = 0;
 	int mntflags = 0;
-	NTSTATUS	status;
+	NTSTATUS status;
 	char mountPoint[MAXPATHLEN];
 	struct stat st;
 	char *next;
 	int opt;
 	const char * url = NULL;
 	int version = SMBFrameworkVersion();
+    CFMutableDictionaryRef mOptions = NULL;
+    CFNumberRef numRef = NULL;
+    char snapshot_time[32] = {0};
+    CFStringRef strRef = NULL;
 
-	while ((opt = getopt(argc, argv, "Nvhsd:f:o:")) != -1) {
+	while ((opt = getopt(argc, argv, "Nvhsd:f:o:t:")) != -1) {
 		switch (opt) {
 		    case 'd':
 				errno = 0;
@@ -152,6 +171,17 @@ int main(int argc, char *argv[])
 				options |= kSMBOptionForceNewSession;
                 mntOptions |= kSMBMntForceNewSession;
 				break;
+            case 't': {
+                strncpy(snapshot_time, optarg, sizeof(snapshot_time));
+
+                /*
+                 * Snapshot mounts are always read only and force new session
+                 * Read only is set later on in this function.
+                 */
+                options |= kSMBOptionForceNewSession;
+                mntOptions |= kSMBMntForceNewSession;
+                break;
+            }
 			case 'v':
 				errx(EX_OK, "version %d.%d.%d", 
 					version / 100000, (version % 10000) / 1000, (version % 1000) / 100);
@@ -218,10 +248,108 @@ int main(int argc, char *argv[])
         mntOptions |= kSMBMDataCacheOffMount;
     }
 
+    /*
+     * Build the mount options dictionary
+     */
+    mOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                         &kCFTypeDictionaryKeyCallBacks,
+                                         &kCFTypeDictionaryValueCallBacks);
+    if (mOptions == NULL) {
+        /* Couldn't create the mount option dictionary, error out */
+        err(EX_OSERR, "CFDictionaryCreateMutable failed for mount options");
+    }
+
+    if (strlen(snapshot_time)) {
+        /*
+         * Snapshot mounts are always read only and force new session
+         * Force new session was set earlier in this function.
+         */
+        mntflags |= MNT_RDONLY;
+
+        strRef = CFStringCreateWithCString(NULL, snapshot_time,
+                                           kCFStringEncodingUTF8);
+        if (strRef != NULL) {
+            CFDictionarySetValue (mOptions, kSnapshotTimeKey, strRef);
+            CFRelease(strRef);
+            strRef = NULL;
+        }
+    }
+
+    numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mntflags);
+    if (numRef) {
+        /* Put the mount flags into the dictionary */
+        CFDictionarySetValue (mOptions, kNetFSMountFlagsKey, numRef);
+        CFRelease(numRef);
+    }
+
+    if (mntOptions & kSMBMntOptionNoStreams) {
+        /* Don't use NTFS Streams even if they are supported by the server.  */
+        CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanFalse);
+    }
+
+    if (mntOptions & kSMBMntOptionNoNotifcations) {
+        /* Don't use Remote Notifications even if they are supported by the server. */
+        CFDictionarySetValue (mOptions, kNotifyOffMountKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBMntOptionSoftMount) {
+        /* Mount the volume soft, return time out error durring reconnect. */
+        CFDictionarySetValue (mOptions, kNetFSSoftMountKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBReservedTMMount) {
+        /* Mount the volume as a Time Machine mount. */
+        CFDictionarySetValue (mOptions, kTimeMachineMountKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBMntForceNewSession) {
+        /* Force a new session */
+        CFDictionarySetValue (mOptions, kNetFSForceNewSessionKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBHighFidelityMount) {
+        /* High Fidelity mount */
+        CFDictionarySetValue (mOptions, kHighFidelityMountKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBDataCacheOffMount) {
+        /* Disable data caching */
+        CFDictionarySetValue (mOptions, kDataCacheOffMountKey, kCFBooleanTrue);
+    }
+
+    if (mntOptions & kSMBMDataCacheOffMount) {
+        /* Disable meta data caching */
+        CFDictionarySetValue (mOptions, kMDataCacheOffMountKey, kCFBooleanTrue);
+    }
+
+    /*
+     * Specify permissions that should be assigned to files and directories. The
+     * value must be specified as an octal numbers. A value of zero means use the
+     * default values. Not setting these in the dictionary will force the default
+     * values to be used.
+     */
+    if (fileMode || dirMode) {
+        if (fileMode) {
+            numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &fileMode);
+            if (numRef) {
+                CFDictionarySetValue (mOptions, kfileModeKey, numRef);
+                CFRelease(numRef);
+            }
+        }
+        if (dirMode) {
+            numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &dirMode);
+            if (numRef) {
+                CFDictionarySetValue (mOptions, kdirModeKey, numRef);
+                CFRelease(numRef);
+            }
+        }
+    }
+
 	status = SMBOpenServerEx(url, &serverConnection, options);
 	if (NT_SUCCESS(status)) {
-		status = SMBMountShareEx(serverConnection, NULL, mountPoint, mntflags, 
-								 mntOptions, fileMode, dirMode, setNetworkAccountSID, NULL);
+		status = SMBMountShareExDict(serverConnection, NULL, mountPoint,
+                                     mOptions, NULL,
+                                     setNetworkAccountSID, NULL);
 	}
 
 	/* 
@@ -259,8 +387,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* We are done clean up anything left around */
-	if (serverConnection)
+    if (serverConnection) {
 		SMBReleaseServer(serverConnection);
+    }
+
 	return 0;
 }
 
@@ -268,7 +398,7 @@ static void
 usage(void)
 {
 	fprintf(stderr, "%s\n",
-	"usage: mount_smbfs [-N] [-o options] [-d mode] [-f mode] [-h] [-s] [-v]\n"
+	"usage: mount_smbfs [-N] [-o options] [-d mode] [-f mode] [-h] [-s] [-v] [-t \"@GMT token\"] \n"
 	"                   //"
 	"[domain;][user[:password]@]server[/share]"
 	" path");

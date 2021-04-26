@@ -30,12 +30,11 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class _WKInspectorDebuggableInfo;
+@protocol _WKDiagnosticLoggingDelegate;
 
 @interface _WKRemoteWebInspectorViewController (WKPrivate)
 
 @property (nonatomic, weak, setter=_setDiagnosticLoggingDelegate:) id<_WKDiagnosticLoggingDelegate> _diagnosticLoggingDelegate;
-
-- (void)loadForDebuggable:(_WKInspectorDebuggableInfo *)debuggableInfo backendCommandsURL:(NSURL *)backendCommandsURL;
 
 @end
 

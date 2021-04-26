@@ -30,9 +30,12 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
         let detailsSidebarPanelConstructors = [
             WI.RulesStyleDetailsSidebarPanel,
             WI.ComputedStyleDetailsSidebarPanel,
-            WI.ChangesDetailsSidebarPanel,
-            WI.DOMNodeDetailsSidebarPanel,
+
         ];
+        // COMPATIBILITY (iOS 14.0): `CSS.getFontDataForNode` did not exist yet.
+        if (InspectorBackend.hasCommand("CSS.getFontDataForNode"))
+            detailsSidebarPanelConstructors.push(WI.FontDetailsSidebarPanel);
+        detailsSidebarPanelConstructors.push(WI.ChangesDetailsSidebarPanel, WI.DOMNodeDetailsSidebarPanel);
         if (InspectorBackend.hasDomain("LayerTree"))
             detailsSidebarPanelConstructors.push(WI.LayerTreeDetailsSidebarPanel);
 
@@ -96,9 +99,9 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
         cookie.nodeToSelect = undefined;
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         if (!this.contentBrowser.currentContentView)
             this._showDOMTreeContentView();
@@ -108,8 +111,13 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
     {
         super.closed();
 
-        WI.networkManager.removeEventListener(null, null, this);
-        WI.Frame.removeEventListener(null, null, this);
+        WI.networkManager.removeEventListener(WI.NetworkManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
+        WI.Frame.removeEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+    }
+
+    get allowMultipleDetailSidebars()
+    {
+        return true;
     }
 
     // Private

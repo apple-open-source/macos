@@ -145,7 +145,7 @@ id{
         IL{"Israel"}
         IM{"Pulau Man"}
         IN{"India"}
-        IO{"Wilayah Inggris di Samudra Hindia"}
+        IO{"Kepulauan Chagos"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Islandia"}

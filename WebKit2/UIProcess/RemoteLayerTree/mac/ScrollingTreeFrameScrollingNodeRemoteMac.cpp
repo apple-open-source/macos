@@ -55,10 +55,10 @@ void ScrollingTreeFrameScrollingNodeRemoteMac::commitStateBeforeChildren(const S
     const auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(stateNode);
 
     // FIXME: Push to ScrollingTreeScrollingNodeDelegateMac?
-    if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::VerticalScrollbarLayer))
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
         m_scrollerPair->verticalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.verticalScrollbarLayer()));
 
-    if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HorizontalScrollbarLayer))
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
         m_scrollerPair->horizontalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.horizontalScrollbarLayer()));
 
     m_scrollerPair->updateValues();
@@ -72,9 +72,9 @@ void ScrollingTreeFrameScrollingNodeRemoteMac::repositionRelatedLayers()
         m_scrollerPair->updateValues();
 }
 
-WheelEventHandlingResult ScrollingTreeFrameScrollingNodeRemoteMac::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
+WheelEventHandlingResult ScrollingTreeFrameScrollingNodeRemoteMac::handleWheelEvent(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting)
 {
-    ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(wheelEvent);
+    ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(wheelEvent, eventTargeting);
 
     return WheelEventHandlingResult::result(m_scrollerPair->handleWheelEvent(wheelEvent));
 }

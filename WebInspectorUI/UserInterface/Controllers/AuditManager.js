@@ -103,7 +103,7 @@ WI.AuditManager = class AuditManager extends WI.Object
 
             let disabledDefaultTests = [];
             let saveDisabledDefaultTest = (test) => {
-                if (test.disabled)
+                if (test.supported && test.disabled)
                     disabledDefaultTests.push(test.name);
 
                 if (test instanceof WI.AuditTestGroup) {
@@ -113,7 +113,7 @@ WI.AuditManager = class AuditManager extends WI.Object
             };
 
             for (let test of this._tests) {
-                if (test.__default)
+                if (test.default)
                     saveDisabledDefaultTest(test);
                 else
                     WI.objectStores.audits.putObject(test);
@@ -141,6 +141,8 @@ WI.AuditManager = class AuditManager extends WI.Object
         let mainResource = WI.networkManager.mainFrame.mainResource;
 
         this._runningState = WI.AuditManager.RunningState.Active;
+        this.dispatchEventToListeners(WI.AuditManager.Event.RunningStateChanged);
+
         this._runningTests = tests;
         for (let test of this._runningTests)
             test.clearResult();
@@ -156,10 +158,10 @@ WI.AuditManager = class AuditManager extends WI.Object
             if (target.hasDomain("Audit"))
                 await target.AuditAgent.setup();
 
-            let topLevelTest = this._topLevelTestForTest(test);
+            let topLevelTest = test.topLevelTest;
             console.assert(topLevelTest || window.InspectorTest, "No matching top-level test found", test);
             if (topLevelTest)
-                await topLevelTest.setup();
+                await topLevelTest.runSetup();
 
             await test.start();
 
@@ -170,6 +172,8 @@ WI.AuditManager = class AuditManager extends WI.Object
         let result = this._runningTests.map((test) => test.result).filter((result) => !!result);
 
         this._runningState = WI.AuditManager.RunningState.Inactive;
+        this.dispatchEventToListeners(WI.AuditManager.Event.RunningStateChanged);
+
         this._runningTests = [];
 
         this._addResult(result);
@@ -190,6 +194,7 @@ WI.AuditManager = class AuditManager extends WI.Object
             return;
 
         this._runningState = WI.AuditManager.RunningState.Stopping;
+        this.dispatchEventToListeners(WI.AuditManager.Event.RunningStateChanged);
 
         for (let test of this._runningTests)
             test.stop();
@@ -218,7 +223,7 @@ WI.AuditManager = class AuditManager extends WI.Object
             return;
 
         if (object instanceof WI.AuditTestBase) {
-            this._addTest(object);
+            this.addTest(object);
             WI.objectStores.audits.putObject(object);
         } else if (object instanceof WI.AuditTestResultBase)
             this._addResult(object);
@@ -257,14 +262,30 @@ WI.AuditManager = class AuditManager extends WI.Object
                 const key = null;
                 WI.objectStores.audits.associateObject(test, key, payload);
 
-                this._addTest(test);
+                this.addTest(test);
             }
         });
     }
 
+    addTest(test)
+    {
+        console.assert(test instanceof WI.AuditTestBase, test);
+        console.assert(!this._tests.includes(test), test);
+
+        this._tests.push(test);
+
+        this.dispatchEventToListeners(WI.AuditManager.Event.TestAdded, {test});
+    }
+
     removeTest(test)
     {
-        if (test.__default) {
+        console.assert(this.editing);
+        console.assert(test instanceof WI.AuditTestBase, test);
+        console.assert(this._tests.includes(test) || test.default, test);
+
+        if (test.default) {
+            test.clearResult();
+
             if (test.disabled) {
                 InspectorFrontendHost.beep();
                 return;
@@ -279,6 +300,8 @@ WI.AuditManager = class AuditManager extends WI.Object
             return;
         }
 
+        console.assert(test.editable, test);
+
         this._tests.remove(test);
 
         this.dispatchEventToListeners(WI.AuditManager.Event.TestRemoved, {test});
@@ -287,13 +310,6 @@ WI.AuditManager = class AuditManager extends WI.Object
     }
 
     // Private
-
-    _addTest(test)
-    {
-        this._tests.push(test);
-
-        this.dispatchEventToListeners(WI.AuditManager.Event.TestAdded, {test});
-    }
 
     _addResult(result)
     {
@@ -306,28 +322,6 @@ WI.AuditManager = class AuditManager extends WI.Object
             result,
             index: this._results.length - 1,
         });
-    }
-
-    _topLevelTestForTest(test)
-    {
-        function walk(group) {
-            if (group === test)
-                return true;
-            if (group instanceof WI.AuditTestGroup) {
-                for (let subtest of group.tests) {
-                    if (walk(subtest))
-                        return true;
-                }
-            }
-            return false;
-        }
-
-        for (let topLevelTest of this._tests) {
-            if (walk(topLevelTest))
-                return topLevelTest;
-        }
-
-        return null;
     }
 
     _handleFrameMainResourceDidChange(event)
@@ -458,6 +452,10 @@ WI.AuditManager = class AuditManager extends WI.Object
             let resources = WebInspectorAudit.Resources.getResources();
             let mainResource = resources.find((resource) => resource.url === window.location.href);
             return {level: "pass", mainResource, resourceContent: WebInspectorAudit.Resources.getResourceContent(mainResource.id)};
+        };
+
+        const unsupported = function() {
+            throw Error("this test should not be supported.");
         };
 
         const testMenuRoleForRequiredChildren = function() {
@@ -998,7 +996,7 @@ WI.AuditManager = class AuditManager extends WI.Object
         };
 
         function removeWhitespace(func) {
-            return func.toString().replace(/\s+/g, " ");
+            return WI.AuditTestCase.stringifyFunction(func, 8);
         }
 
         const defaultTests = [
@@ -1015,30 +1013,31 @@ WI.AuditManager = class AuditManager extends WI.Object
                     new WI.AuditTestCase("data-domAttributes", removeWhitespace(dataDOMAttributes), {description: WI.UIString("This is an example of how result DOM attributes are highlighted on any returned DOM nodes. It will pass with all elements with an id attribute.")}),
                     new WI.AuditTestCase("data-errors", removeWhitespace(dataErrors), {description: WI.UIString("This is an example of how errors are shown. The error was thrown manually, but execution errors will appear in the same way.")}),
                     new WI.AuditTestCase("data-custom", removeWhitespace(dataCustom), {description: WI.UIString("This is an example of how custom result data is shown."), supports: 3}),
-                ], {description: WI.UIString("These are all of the different types of data that can be returned with the test result.")}),
+                ], {description: WI.UIString("These are example tests that demonstrate all of the different types of data that can be returned with the test result.")}),
                 new WI.AuditTestGroup(WI.UIString("Specially Exposed Data"), [
                     new WI.AuditTestGroup(WI.UIString("Accessibility"), [
-                        new WI.AuditTestCase("getElementsByComputedRole", removeWhitespace(getElementsByComputedRole), {description: WI.UIString("This test will pass with all DOM nodes that have a computed role of \u0022link\u0022."), supports: 1}),
-                        new WI.AuditTestCase("getActiveDescendant", removeWhitespace(getActiveDescendant), {description: WI.UIString("This test will pass with the active descendant (\u0022%s\u0022) of the <body> element, if it exists.").format(WI.unlocalizedString("aria-activedescendant")), supports: 1}),
-                        new WI.AuditTestCase("getChildNodes", removeWhitespace(getChildNodes), {description: WI.UIString("This test will pass with all of the child nodes of the <body> element in the accessibility tree."), supports: 1}),
-                        new WI.AuditTestCase("getComputedProperties", removeWhitespace(getComputedProperties), {description: WI.UIString("This test will pass with a variety of accessibility information about the <body> element."), supports: 3}),
-                        new WI.AuditTestCase("getControlledNodes", removeWhitespace(getControlledNodes), {description: WI.UIString("This test will pass with all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist.").format(WI.unlocalizedString("aria-controls")), supports: 1}),
-                        new WI.AuditTestCase("getFlowedNodes", removeWhitespace(getFlowedNodes), {description: WI.UIString("This test will pass with all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist.").format(WI.unlocalizedString("aria-flowto")), supports: 1}),
-                        new WI.AuditTestCase("getMouseEventNode", removeWhitespace(getMouseEventNode), {description: WI.UIString("This test will pass with the node that would handle mouse events for the <body> element, if applicable."), supports: 1}),
-                        new WI.AuditTestCase("getOwnedNodes", removeWhitespace(getOwnedNodes), {description: WI.UIString("This test will pass with all nodes owned (\u0022%s\u0022) by the <body> element, if any exist.").format(WI.unlocalizedString("aria-owns")), supports: 1}),
-                        new WI.AuditTestCase("getParentNode", removeWhitespace(getParentNode), {description: WI.UIString("This test will pass with the parent node of the <body> element in the accessibility tree."), supports: 1}),
-                        new WI.AuditTestCase("getSelectedChildNodes", removeWhitespace(getSelectedChildNodes), {description: WI.UIString("This test will pass with all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree.").format(WI.unlocalizedString("aria-selected")), supports: 1}),
-                    ], {description: WI.UIString("These tests demonstrate how to use %s to get information about the accessibility tree.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility")), supports: 1}),
+                        new WI.AuditTestCase("getElementsByComputedRole", removeWhitespace(getElementsByComputedRole), {description: WI.UIString("This is an example test that uses %s to find elements with a computed role of \u0022link\u0022.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getElementsByComputedRole")), supports: 1}),
+                        new WI.AuditTestCase("getActiveDescendant", removeWhitespace(getActiveDescendant), {description: WI.UIString("This is an example test that uses %s to find any element that meets criteria for active descendant (\u0022%s\u0022) of the <body> element, if it exists.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getActiveDescendant"), WI.unlocalizedString("aria-activedescendant")), supports: 1}),
+                        new WI.AuditTestCase("getChildNodes", removeWhitespace(getChildNodes), {description: WI.UIString("This is an example test that uses %s to find child nodes of the <body> element in the accessibility tree.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getChildNodes")), supports: 1}),
+                        new WI.AuditTestCase("getComputedProperties", removeWhitespace(getComputedProperties), {description: WI.UIString("This is an example test that uses %s to find a variety of accessibility information about the <body> element.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getComputedProperties")), supports: 3}),
+                        new WI.AuditTestCase("getControlledNodes", removeWhitespace(getControlledNodes), {description: WI.UIString("This is an example test that uses %s to find all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getControlledNodes"), WI.unlocalizedString("aria-controls")), supports: 1}),
+                        new WI.AuditTestCase("getFlowedNodes", removeWhitespace(getFlowedNodes), {description: WI.UIString("This is an example test that uses %s to find all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getFlowedNodes"), WI.unlocalizedString("aria-flowto")), supports: 1}),
+                        new WI.AuditTestCase("getMouseEventNode", removeWhitespace(getMouseEventNode), {description: WI.UIString("This is an example test that uses %s to find the node that would handle mouse events for the <body> element, if applicable.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getMouseEventNode")), supports: 1}),
+                        new WI.AuditTestCase("getOwnedNodes", removeWhitespace(getOwnedNodes), {description: WI.UIString("This is an example test that uses %s to find all nodes owned (\u0022%s\u0022) by the <body> element, if any exist.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getOwnedNodes"), WI.unlocalizedString("aria-owns")), supports: 1}),
+                        new WI.AuditTestCase("getParentNode", removeWhitespace(getParentNode), {description: WI.UIString("This is an example test that uses %s to find the parent node of the <body> element in the accessibility tree.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getParentNode")), supports: 1}),
+                        new WI.AuditTestCase("getSelectedChildNodes", removeWhitespace(getSelectedChildNodes), {description: WI.UIString("This is an example test that uses %s to find all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getSelectedChildNodes"), WI.unlocalizedString("aria-selected")), supports: 1}),
+                    ], {description: WI.UIString("These are example tests that demonstrate how to use %s to get information about the accessibility tree.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility")), supports: 1}),
                     new WI.AuditTestGroup(WI.UIString("DOM"), [
-                        new WI.AuditTestCase("hasEventListeners", removeWhitespace(hasEventListeners), {description: WI.UIString("This test will pass with data indicating whether the <body> element has any event listeners."), supports: 3}),
-                        new WI.AuditTestCase("hasEventListeners-click", removeWhitespace(hasEventListenersClick), {description: WI.UIString("This test will pass with data indicating whether the <body> element has any click event listeners."), supports: 3}),
-                    ], {description: WI.UIString("These tests demonstrate how to use %s to get information about DOM nodes.").format(WI.unlocalizedString("WebInspectorAudit.DOM")), supports: 1}),
+                        new WI.AuditTestCase("hasEventListeners", removeWhitespace(hasEventListeners), {description: WI.UIString("This is an example test that uses %s to find data indicating whether the <body> element has any event listeners.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.hasEventListeners")), supports: 3}),
+                        new WI.AuditTestCase("hasEventListeners-click", removeWhitespace(hasEventListenersClick), {description: WI.UIString("This is an example test that uses %s to find data indicating whether the <body> element has any click event listeners.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.hasEventListenersClick")), supports: 3}),
+                    ], {description: WI.UIString("These are example tests that demonstrate how to use %s to get information about DOM nodes.").format(WI.unlocalizedString("WebInspectorAudit.DOM")), supports: 1}),
                     new WI.AuditTestGroup(WI.UIString("Resources"), [
-                        new WI.AuditTestCase("getResources", removeWhitespace(getResources), {description: WI.UIString("This test will pass with some basic information about each resource."), supports: 3}),
-                        new WI.AuditTestCase("getResourceContent", removeWhitespace(getResourceContent), {description: WI.UIString("This test will pass with the contents of the main resource."), supports: 3}),
-                    ], {description: WI.UIString("These tests demonstrate how to use %s to get information about loaded resources.").format(WI.unlocalizedString("WebInspectorAudit.Resources")), supports: 2}),
-                ], {description: WI.UIString("These tests demonstrate how to use %s to access information not normally available to JavaScript.").format(WI.unlocalizedString("WebInspectorAudit")), supports: 1}),
-            ], {description: WI.UIString("These tests serve as a demonstration of the functionality and structure of audits.")}),
+                        new WI.AuditTestCase("getResources", removeWhitespace(getResources), {description: WI.UIString("This is an example test that uses %s to find basic information about each resource.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getResources")), supports: 3}),
+                        new WI.AuditTestCase("getResourceContent", removeWhitespace(getResourceContent), {description: WI.UIString("This is an example test that uses %s to find the contents of the main resource.").format(WI.unlocalizedString("WebInspectorAudit.Accessibility.getResourceContent")), supports: 3}),
+                    ], {description: WI.UIString("These are example tests that demonstrate how to use %s to get information about loaded resources.").format(WI.unlocalizedString("WebInspectorAudit.Resources")), supports: 2}),
+                ], {description: WI.UIString("These are example tests that demonstrate how to use %s to access information not normally available to JavaScript.").format(WI.unlocalizedString("WebInspectorAudit")), supports: 1}),
+                new WI.AuditTestCase("unsupported", removeWhitespace(unsupported), {description: WI.UIString("This is an example of a test that will not run because it is unsupported."), supports: Infinity}),
+            ], {description: WI.UIString("These are example tests that demonstrate the functionality and structure of audits.")}),
             new WI.AuditTestGroup(WI.UIString("Accessibility"), [
                 new WI.AuditTestCase("testMenuRoleForRequiredChildren", removeWhitespace(testMenuRoleForRequiredChildren), {description: WI.UIString("Ensure that elements of role \u0022%s\u0022 and \u0022%s\u0022 have required owned elements in accordance with WAI-ARIA.").format(WI.unlocalizedString("menu"), WI.unlocalizedString("menubar")), supports: 1}),
                 new WI.AuditTestCase("testGridRoleForRequiredChildren", removeWhitespace(testGridRoleForRequiredChildren), {description: WI.UIString("Ensure that elements of role \u0022%s\u0022 have required owned elements in accordance with WAI-ARIA.").format(WI.unlocalizedString("grid")), supports: 1}),
@@ -1066,6 +1065,8 @@ WI.AuditManager = class AuditManager extends WI.Object
         ];
 
         let checkDisabledDefaultTest = (test) => {
+            test.markAsDefault();
+
             if (this._disabledDefaultTestsSetting.value.includes(test.name))
                 test.disabled = true;
 
@@ -1078,8 +1079,7 @@ WI.AuditManager = class AuditManager extends WI.Object
         for (let test of defaultTests) {
             checkDisabledDefaultTest(test);
 
-            test.__default = true;
-            this._addTest(test);
+            this.addTest(test);
         }
     }
 };
@@ -1093,6 +1093,7 @@ WI.AuditManager.RunningState = {
 
 WI.AuditManager.Event = {
     EditingChanged: "audit-manager-editing-changed",
+    RunningStateChanged: "audit-manager-running-state-changed",
     TestAdded: "audit-manager-test-added",
     TestCompleted: "audit-manager-test-completed",
     TestRemoved: "audit-manager-test-removed",

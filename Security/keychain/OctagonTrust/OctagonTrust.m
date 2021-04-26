@@ -23,6 +23,8 @@
 
 #if __OBJC2__
 
+#import <objc/runtime.h>
+
 #import "OctagonTrust.h"
 #import <Security/OTClique+Private.h>
 #import <utilities/debugging.h>

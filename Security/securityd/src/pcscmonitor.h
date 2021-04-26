@@ -84,7 +84,7 @@ private:
 		Watcher(Server &server, TokenCache &tokenCache, ReaderMap& readers);
 
 	protected:
-		void action();
+		void threadAction();
 
 	private:
 		Server &mServer;

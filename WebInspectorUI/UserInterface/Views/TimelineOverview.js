@@ -83,7 +83,6 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         this._timelineRuler.addEventListener(WI.TimelineRuler.Event.TimeRangeSelectionChanged, this._timeRangeSelectionChanged, this);
         this.addSubview(this._timelineRuler);
 
-        this._stoppingTimeMarker = null;
         this._currentTimeMarker = new WI.TimelineMarker(0, WI.TimelineMarker.Type.CurrentTime);
         this._timelineRuler.addMarker(this._currentTimeMarker);
 
@@ -347,42 +346,38 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
     {
         let height = 0;
         for (let overviewGraph of this._overviewGraphsByTypeMap.values()) {
-            if (overviewGraph.visible)
+            if (!overviewGraph.hidden)
                 height += overviewGraph.height;
         }
         return height;
     }
 
-    get visible()
+    attached()
     {
-        return this._visible;
-    }
-
-    shown()
-    {
-        this._visible = true;
+        super.attached();
 
         for (let [type, overviewGraph] of this._overviewGraphsByTypeMap) {
             if (this._canShowTimelineType(type))
-                overviewGraph.shown();
+                overviewGraph.hidden = false;
         }
 
-        this.updateLayout(WI.View.LayoutReason.Resize);
+        this.needsLayout(WI.View.LayoutReason.Resize);
     }
 
-    hidden()
+    detached()
     {
-        this._visible = false;
-
         for (let overviewGraph of this._overviewGraphsByTypeMap.values())
-            overviewGraph.hidden();
+            overviewGraph.hidden = true;
 
         this.hideScanner();
+
+        super.detached();
     }
 
     closed()
     {
-        WI.timelineManager.removeEventListener(null, null, this);
+        WI.timelineManager.removeEventListener(WI.TimelineManager.Event.CapturingStateChanged, this._handleTimelineCapturingStateChanged, this);
+        WI.timelineManager.removeEventListener(WI.TimelineManager.Event.RecordingImported, this._recordingImported, this);
 
         super.closed();
     }
@@ -410,7 +405,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         if (!overviewGraph)
             return;
 
-        console.assert(overviewGraph.visible, "Record filtered in hidden overview graph", record);
+        console.assert(!overviewGraph.hidden, "Record filtered in hidden overview graph", record);
 
         overviewGraph.recordWasFiltered(record, filtered);
     }
@@ -422,7 +417,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         if (!overviewGraph)
             return;
 
-        console.assert(overviewGraph.visible, "Record selected in hidden overview graph", record);
+        console.assert(!overviewGraph.hidden, "Record selected in hidden overview graph", record);
 
         overviewGraph.selectedRecord = record;
     }
@@ -447,7 +442,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         this._timelineRuler.updateLayoutIfNeeded(layoutReason);
 
         for (let overviewGraph of this._overviewGraphsByTypeMap.values()) {
-            if (overviewGraph.visible)
+            if (!overviewGraph.hidden)
                 overviewGraph.updateLayoutIfNeeded(layoutReason);
         }
     }
@@ -510,7 +505,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         }
 
         for (let overviewGraph of this._overviewGraphsByTypeMap.values()) {
-            if (!overviewGraph.visible)
+            if (overviewGraph.hidden)
                 continue;
 
             overviewGraph.zeroTime = startTime;
@@ -670,7 +665,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         treeElement.element.style.height = overviewGraph.height + "px";
 
         if (!this._canShowTimelineType(timeline.type)) {
-            overviewGraph.hidden();
+            overviewGraph.hidden = true;
             treeElement.hidden = true;
         }
 
@@ -723,7 +718,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
             return;
 
         for (let overviewGraph of this._overviewGraphsByTypeMap.values()) {
-            if (!overviewGraph.visible)
+            if (overviewGraph.hidden)
                 continue;
 
             let graphRect = overviewGraph.element.getBoundingClientRect();
@@ -816,11 +811,6 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
         this._timelineRuler.clearMarkers();
 
         this._timelineRuler.addMarker(this._currentTimeMarker);
-
-        if (this._stoppingTimeMarker) {
-            this._stoppingTimeMarker.time = -1; // Hide the marker.
-            this._timelineRuler.addMarker(this._stoppingTimeMarker);
-        }
     }
 
     _canShowTimelineType(type)
@@ -856,11 +846,9 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
             let treeElement = this._treeElementsByTypeMap.get(type);
             console.assert(treeElement, "Missing tree element for timeline type", type);
 
-            treeElement.hidden = !this._canShowTimelineType(type);
-            if (treeElement.hidden)
-                overviewGraph.hidden();
-            else
-                overviewGraph.shown();
+            let hidden = !this._canShowTimelineType(type);
+            treeElement.hidden = hidden;
+            overviewGraph.hidden = hidden;
         }
 
         this.element.classList.toggle("frames", isRenderingFramesMode);
@@ -1034,22 +1022,9 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
     _handleTimelineCapturingStateChanged(event)
     {
         switch (WI.timelineManager.capturingState) {
-        case WI.TimelineManager.CapturingState.Starting:
-            if (this._stoppingTimeMarker)
-                this._stoppingTimeMarker.time = -1; // Hide the marker when capturing resumes.
-            break;
-
         case WI.TimelineManager.CapturingState.Active:
             this._editInstrumentsButton.enabled = false;
             this._stopEditingInstruments();
-            break;
-
-        case WI.TimelineManager.CapturingState.Stopping:
-            if (!this._stoppingTimeMarker) {
-                this._stoppingTimeMarker = new WI.TimelineMarker(this._currentTime, WI.TimelineMarker.Type.StoppingTime);
-                this._timelineRuler.addMarker(this._stoppingTimeMarker);
-            } else
-                this._stoppingTimeMarker.time = this._currentTime;
             break;
 
         case WI.TimelineManager.CapturingState.Inactive:

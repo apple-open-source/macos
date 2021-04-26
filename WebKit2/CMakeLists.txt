@@ -2,10 +2,6 @@ include(WebKitCommon)
 
 set_property(DIRECTORY . PROPERTY FOLDER "WebKit")
 
-if (PAL_LIBRARY_TYPE MATCHES STATIC)
-    add_definitions(-DSTATICALLY_LINKED_WITH_PAL=1)
-endif ()
-
 set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
 )
@@ -71,6 +67,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/WebAuthentication"
     "${WEBKIT_DIR}/UIProcess/WebAuthentication/Mock"
     "${WEBKIT_DIR}/UIProcess/WebsiteData"
+    "${WEBKIT_DIR}/WebAuthnProcess"
     "${WEBKIT_DIR}/WebProcess"
     "${WEBKIT_DIR}/WebProcess/ApplePay"
     "${WEBKIT_DIR}/WebProcess/ApplicationCache"
@@ -102,6 +99,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Plugins"
     "${WEBKIT_DIR}/WebProcess/Plugins/Netscape"
     "${WEBKIT_DIR}/WebProcess/ResourceCache"
+    "${WEBKIT_DIR}/WebProcess/Speech"
     "${WEBKIT_DIR}/WebProcess/Storage"
     "${WEBKIT_DIR}/WebProcess/UserContent"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport"
@@ -122,9 +120,11 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/GPUConnectionToWebProcess
     GPUProcess/GPUProcess
 
-    GPUProcess/graphics/RemoteRenderingBackendProxy
+    GPUProcess/graphics/RemoteGraphicsContextGL
+    GPUProcess/graphics/RemoteRenderingBackend
 
     GPUProcess/media/RemoteAudioDestinationManager
+    GPUProcess/media/RemoteAudioTrackProxy
     GPUProcess/media/RemoteAudioSessionProxy
     GPUProcess/media/RemoteCDMFactoryProxy
     GPUProcess/media/RemoteCDMInstanceProxy
@@ -133,9 +133,14 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/media/RemoteLegacyCDMFactoryProxy
     GPUProcess/media/RemoteLegacyCDMProxy
     GPUProcess/media/RemoteLegacyCDMSessionProxy
+    GPUProcess/media/RemoteMediaEngineConfigurationFactoryProxy
     GPUProcess/media/RemoteMediaPlayerManagerProxy
     GPUProcess/media/RemoteMediaPlayerProxy
     GPUProcess/media/RemoteMediaResourceManager
+    GPUProcess/media/RemoteMediaSourceProxy
+    GPUProcess/media/RemoteSourceBufferProxy
+    GPUProcess/media/RemoteTextTrackProxy
+    GPUProcess/media/RemoteVideoTrackProxy
 
     GPUProcess/webrtc/LibWebRTCCodecsProxy
     GPUProcess/webrtc/RemoteAudioMediaStreamTrackRenderer
@@ -180,6 +185,8 @@ set(WebKit_MESSAGES_IN_FILES
     Shared/Plugins/NPObjectMessageReceiver
 
     UIProcess/DrawingAreaProxy
+    UIProcess/SpeechRecognitionRemoteRealtimeMediaSourceManager
+    UIProcess/SpeechRecognitionServer
     UIProcess/VisitedLinkStore
     UIProcess/WebCookieManagerProxy
     UIProcess/WebFullScreenManagerProxy
@@ -214,14 +221,17 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/GPU/GPUProcessConnection
 
-    WebProcess/GPU/graphics/RemoteRenderingBackend
+    WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy
+    WebProcess/GPU/graphics/RemoteRenderingBackendProxy
 
     WebProcess/GPU/media/MediaPlayerPrivateRemote
-    WebProcess/GPU/media/RemoteAudioDestinationProxy
+    WebProcess/GPU/media/MediaSourcePrivateRemote
     WebProcess/GPU/media/RemoteAudioSession
+    WebProcess/GPU/media/RemoteAudioSourceProviderManager
+    WebProcess/GPU/media/RemoteCDMInstance
     WebProcess/GPU/media/RemoteCDMInstanceSession
     WebProcess/GPU/media/RemoteLegacyCDMSession
-    WebProcess/GPU/media/RemoteMediaPlayerManager
+    WebProcess/GPU/media/SourceBufferPrivateRemote
 
     WebProcess/GPU/webrtc/LibWebRTCCodecs
     WebProcess/GPU/webrtc/SampleBufferDisplayLayer
@@ -249,10 +259,14 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/Plugins/PluginProcessConnectionManager
     WebProcess/Plugins/PluginProxy
 
+    WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager
+
     WebProcess/Storage/WebSWClientConnection
     WebProcess/Storage/WebSWContextManagerConnection
 
     WebProcess/UserContent/WebUserContentController
+
+    WebProcess/WebCoreSupport/WebSpeechRecognitionConnection
 
     WebProcess/WebPage/DrawingArea
     WebProcess/WebPage/EventDispatcher
@@ -262,24 +276,20 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/WebStorage/StorageAreaMap
 )
 
-# FIXME: https://bugs.webkit.org/show_bug.cgi?id=210366
-set(WebKit_LIBRARIES WebKit::WebCore)
-
-set(WebProcess_LIBRARIES
-    WebKit
+set(WebKit_FRAMEWORKS
+    JavaScriptCore
+    PAL
+    WTF
+    WebCore
 )
+if (NOT USE_SYSTEM_MALLOC)
+    list(APPEND WebKit_FRAMEWORKS bmalloc)
+endif ()
 
-set(NetworkProcess_LIBRARIES
-    WebKit
-)
-
-set(GPUProcess_LIBRARIES
-    WebKit
-)
-
-set(PluginProcess_LIBRARIES
-    WebKit
-)
+set(WebProcess_LIBRARIES WebKit)
+set(NetworkProcess_LIBRARIES WebKit)
+set(GPUProcess_LIBRARIES WebKit)
+set(PluginProcess_LIBRARIES WebKit)
 
 if (ENABLE_ENCRYPTED_MEDIA AND ENABLE_OPENCDM)
   list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
@@ -287,46 +297,44 @@ if (ENABLE_ENCRYPTED_MEDIA AND ENABLE_OPENCDM)
   )
 endif ()
 
-if (ENABLE_GRAPHICS_CONTEXT_GL)
-    # For platforms that want to use system-provided OpenGL (ES) / EGL headers,
-    # these include directories, libraries or definitions need to be
-    # added before the ANGLE directories.
-    if (USE_LIBEPOXY)
+# For platforms that want to use system-provided OpenGL (ES) / EGL headers,
+# these include directories, libraries or definitions need to be
+# added before the ANGLE directories.
+if (USE_LIBEPOXY)
+    list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+        ${LIBEPOXY_INCLUDE_DIRS}
+    )
+    list(APPEND WebKit_PRIVATE_LIBRARIES
+        ${LIBEPOXY_LIBRARIES}
+    )
+    add_definitions(${LIBEPOXY_DEFINITIONS})
+else ()
+    if (USE_OPENGL)
         list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-            ${LIBEPOXY_INCLUDE_DIRS}
+            ${OPENGL_INCLUDE_DIRS}
         )
         list(APPEND WebKit_PRIVATE_LIBRARIES
-            ${LIBEPOXY_LIBRARIES}
+            ${OPENGL_LIBRARIES}
         )
-        add_definitions(${LIBEPOXY_DEFINITIONS})
-    else ()
-        if (USE_OPENGL)
-            list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-                ${OPENGL_INCLUDE_DIRS}
-            )
-            list(APPEND WebKit_PRIVATE_LIBRARIES
-                ${OPENGL_LIBRARIES}
-            )
-            add_definitions(${OPENGL_DEFINITIONS})
-        elseif (USE_OPENGL_ES)
-            list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-                ${OPENGLES2_INCLUDE_DIRS}
-            )
-            list(APPEND WebKit_PRIVATE_LIBRARIES
-                ${OPENGLES2_LIBRARIES}
-            )
-            add_definitions(${OPENGLES2_DEFINITIONS})
-        endif ()
+        add_definitions(${OPENGL_DEFINITIONS})
+    elseif (USE_OPENGL_ES)
+        list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+            ${OPENGLES2_INCLUDE_DIRS}
+        )
+        list(APPEND WebKit_PRIVATE_LIBRARIES
+            ${OPENGLES2_LIBRARIES}
+        )
+        add_definitions(${OPENGLES2_DEFINITIONS})
+    endif ()
 
-        if (USE_EGL)
-            list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-                ${EGL_INCLUDE_DIRS}
-            )
-            list(APPEND WebKit_PRIVATE_LIBRARIES
-                ${EGL_LIBRARIES}
-            )
-            add_definitions(${EGL_DEFINITIONS})
-        endif ()
+    if (USE_EGL)
+        list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+            ${EGL_INCLUDE_DIRS}
+        )
+        list(APPEND WebKit_PRIVATE_LIBRARIES
+            ${EGL_LIBRARIES}
+        )
+        add_definitions(${EGL_DEFINITIONS})
     endif ()
 endif ()
 
@@ -429,6 +437,7 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
 
     add_custom_command(
         OUTPUT
+            ${WebKit_DERIVED_SOURCES_DIR}/MessageArgumentDescriptions.cpp
             ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp
             ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.h
             ${_outputs}
@@ -501,17 +510,26 @@ set(WebKit_WEB_PREFERENCES_TEMPLATES
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPageUpdatePreferences.cpp.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesExperimentalFeatures.cpp.erb
+    ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesGetterSetters.cpp.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesInternalDebugFeatures.cpp.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesKeys.cpp.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesKeys.h.erb
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesStoreDefaultsMap.cpp.erb
 )
 
+set(WebKit_WEB_PREFERENCES
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml
+)
+
+set_source_files_properties(${WebKit_WEB_PREFERENCES} PROPERTIES GENERATED TRUE)
+
 add_custom_command(
-    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebPageUpdatePreferences.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesExperimentalFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesInternalDebugFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesStoreDefaultsMap.cpp
-    MAIN_DEPENDENCY ${WEBKIT_DIR}/Shared/WebPreferences.yaml
-    DEPENDS ${WebKit_WEB_PREFERENCES_TEMPLATES}
-    COMMAND ${RUBY_EXECUTABLE} ${WEBKIT_DIR}/Scripts/GeneratePreferences.rb --input ${WEBKIT_DIR}/Shared/WebPreferences.yaml --outputDir "${WebKit_DERIVED_SOURCES_DIR}"
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebPageUpdatePreferences.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesExperimentalFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesGetterSetters.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesInternalDebugFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesStoreDefaultsMap.cpp
+    DEPENDS ${WebKit_WEB_PREFERENCES_TEMPLATES} ${WebKit_WEB_PREFERENCES} WTF_CopyPreferences
+    COMMAND ${RUBY_EXECUTABLE} ${WTF_SCRIPTS_DIR}/GeneratePreferences.rb --frontend WebKit --base ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml --debug ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml --experimental ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml --internal ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml --outputDir "${WebKit_DERIVED_SOURCES_DIR}" --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPageUpdatePreferences.cpp.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesExperimentalFeatures.cpp.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesGetterSetters.cpp.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesInternalDebugFeatures.cpp.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesKeys.cpp.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesKeys.h.erb --template ${WEBKIT_DIR}/Scripts/PreferencesTemplates/WebPreferencesStoreDefaultsMap.cpp.erb
     VERBATIM)
 
 list(APPEND WebKit_HEADERS
@@ -522,6 +540,7 @@ list(APPEND WebKit_HEADERS
 list(APPEND WebKit_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/WebPageUpdatePreferences.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesExperimentalFeatures.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesGetterSetters.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesInternalDebugFeatures.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesStoreDefaultsMap.cpp
@@ -534,22 +553,22 @@ WEBKIT_FRAMEWORK(WebKit)
 WEBKIT_FRAMEWORK_TARGET(WebKit)
 ADD_WEBKIT_PREFIX_HEADER(WebKit)
 
-list(APPEND WebProcess_PRIVATE_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+list(APPEND WebProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
 WEBKIT_EXECUTABLE(WebProcess)
 ADD_WEBKIT_PREFIX_HEADER(WebProcess)
 
-list(APPEND NetworkProcess_PRIVATE_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+list(APPEND NetworkProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
 WEBKIT_EXECUTABLE(NetworkProcess)
 ADD_WEBKIT_PREFIX_HEADER(NetworkProcess)
 
 if (ENABLE_GPU_PROCESS)
-    list(APPEND GPUProcess_PRIVATE_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+    list(APPEND GPUProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
     WEBKIT_EXECUTABLE(GPUProcess)
     ADD_WEBKIT_PREFIX_HEADER(GPUProcess)
 endif ()
 
 if (ENABLE_PLUGIN_PROCESS)
-    list(APPEND PluginProcess_PRIVATE_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+    list(APPEND PluginProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
     WEBKIT_EXECUTABLE(PluginProcess)
     ADD_WEBKIT_PREFIX_HEADER(PluginProcess)
 endif ()

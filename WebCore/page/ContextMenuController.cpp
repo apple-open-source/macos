@@ -460,6 +460,14 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagTextDirectionRightToLeft:
         frame->editor().command("MakeTextWritingDirectionRightToLeft").execute();
         break;
+#if ENABLE(APP_HIGHLIGHTS)
+    case ContextMenuItemTagAddHighlightToCurrentGroup:
+        // FIXME: Add Highlight Logic
+        break;
+    case ContextMenuItemTagAddHighlightToNewGroup:
+        // FIXME: Add Highlight Logic
+        break;
+#endif
 #if PLATFORM(COCOA)
     case ContextMenuItemTagSearchInSpotlight:
         m_client.searchWithSpotlight();
@@ -797,6 +805,10 @@ void ContextMenuController::populate()
     ContextMenuItem SearchSpotlightItem(ActionType, ContextMenuItemTagSearchInSpotlight, 
         contextMenuItemTagSearchInSpotlight());
 #endif
+#if ENABLE(APP_HIGHLIGHTS)
+    ContextMenuItem AddHighlightItem(ActionType, ContextMenuItemTagAddHighlightToCurrentGroup, contextMenuItemTagAddHighlightToCurrentGroup());
+    ContextMenuItem AddHighlightToNewGroupItem(ActionType, ContextMenuItemTagAddHighlightToNewGroup, contextMenuItemTagAddHighlightToNewGroup());
+#endif
 #if !PLATFORM(GTK)
     ContextMenuItem SearchWebItem(ActionType, ContextMenuItemTagSearchWeb, contextMenuItemTagSearchWeb());
 #endif
@@ -919,6 +931,16 @@ void ContextMenuController::populate()
                 appendItem(CopyItem, m_contextMenu.get());
 #if PLATFORM(COCOA)
                 appendItem(*separatorItem(), m_contextMenu.get());
+
+#if ENABLE(APP_HIGHLIGHTS)
+                if (auto* page = frame->page()) {
+                    if (page->settings().appHighlightsEnabled()) {
+                        appendItem(AddHighlightToNewGroupItem, m_contextMenu.get());
+                        appendItem(AddHighlightItem, m_contextMenu.get());
+                        appendItem(*separatorItem(), m_contextMenu.get());
+                    }
+                }
+#endif
 
                 appendItem(ShareMenuItem, m_contextMenu.get());
                 appendItem(*separatorItem(), m_contextMenu.get());
@@ -1110,8 +1132,8 @@ void ContextMenuController::populate()
             createAndAppendWritingDirectionSubMenu(WritingDirectionMenuItem);
             appendItem(WritingDirectionMenuItem, m_contextMenu.get());
             if (Page* page = frame->page()) {
-                bool includeTextDirectionSubmenu = page->settings().textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAlwaysIncluded
-                    || (page->settings().textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAutomaticallyIncluded && frame->editor().hasBidiSelection());
+                bool includeTextDirectionSubmenu = page->settings().textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuInclusionBehavior::AlwaysIncluded
+                    || (page->settings().textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuInclusionBehavior::AutomaticallyIncluded && frame->editor().hasBidiSelection());
                 if (includeTextDirectionSubmenu) {
                     ContextMenuItem TextDirectionMenuItem(SubmenuType, ContextMenuItemTagTextDirectionMenu, contextMenuItemTagTextDirectionMenu());
                     createAndAppendTextDirectionSubMenu(TextDirectionMenuItem);
@@ -1275,6 +1297,14 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagCheckSpellingWhileTyping:
             shouldCheck = frame->editor().isContinuousSpellCheckingEnabled();
             break;
+#if ENABLE(APP_HIGHLIGHTS)
+        case ContextMenuItemTagAddHighlightToCurrentGroup:
+            shouldEnable = frame->selection().isRange();
+            break;
+        case ContextMenuItemTagAddHighlightToNewGroup:
+            shouldEnable = frame->selection().isRange();
+            break;
+#endif
 #if PLATFORM(COCOA)
         case ContextMenuItemTagSubstitutionsMenu:
         case ContextMenuItemTagTransformationsMenu:
@@ -1294,6 +1324,7 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
             break;
         case ContextMenuItemTagCorrectSpellingAutomatically:
             shouldCheck = frame->editor().isAutomaticSpellingCorrectionEnabled();
+            shouldEnable = frame->editor().canEnableAutomaticSpellingCorrection();
             break;
         case ContextMenuItemTagSmartCopyPaste:
             shouldCheck = frame->editor().smartInsertDeleteEnabled();

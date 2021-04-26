@@ -43,6 +43,7 @@
 #import "UIKitSPI.h"
 #import "WKActionSheetAssistant.h"
 #import "WKAirPlayRoutePicker.h"
+#import "WKContactPicker.h"
 #import "WKDeferringGestureRecognizer.h"
 #import "WKFileUploadPanel.h"
 #import "WKFormPeripheral.h"
@@ -79,6 +80,8 @@ class Color;
 class FloatQuad;
 class IntSize;
 class SelectionRect;
+struct ContactInfo;
+struct ContactsRequestData;
 struct PromisedAttachmentInfo;
 struct ShareDataWithParsedURL;
 enum class DOMPasteAccessResponse : uint8_t;
@@ -102,7 +105,6 @@ class WebPageProxy;
 @class WKActionSheetAssistant;
 @class WKContextMenuElementInfo;
 @class WKDateTimeInputControl;
-@class WKDrawingCoordinator;
 @class WKFocusedFormControlView;
 @class WKFormInputSession;
 @class WKHighlightLongPressGestureRecognizer;
@@ -111,10 +113,14 @@ class WebPageProxy;
 @class WKTextRange;
 @class _WKTextInputContext;
 
+@class UIPointerInteraction;
 @class UITargetedPreview;
-@class _UICursorInteraction;
 @class _UILookupGestureRecognizer;
 @class _UIHighlightView;
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditionsBefore.h>
+#endif
 
 typedef void (^UIWKAutocorrectionCompletionHandler)(UIWKAutocorrectionRects *rectsForInput);
 typedef void (^UIWKAutocorrectionContextHandler)(UIWKAutocorrectionContext *autocorrectionContext);
@@ -195,6 +201,32 @@ struct WKAutoCorrectionData {
     CGRect textLastRect;
 };
 
+class SuppressInteractionToken {
+    WTF_MAKE_NONCOPYABLE(SuppressInteractionToken); WTF_MAKE_FAST_ALLOCATED;
+public:
+    SuppressInteractionToken(WKContentView *view, NSObject<UIInteraction> *interaction)
+        : m_view(view)
+        , m_interaction(interaction)
+    {
+        ASSERT(view);
+        ASSERT(interaction);
+        if (interaction)
+            [view removeInteraction:interaction];
+    }
+
+    ~SuppressInteractionToken()
+    {
+        if (!m_view || !m_interaction)
+            return;
+
+        [m_view addInteraction:m_interaction.get().get()];
+    }
+
+private:
+    WeakObjCPtr<WKContentView> m_view;
+    WeakObjCPtr<NSObject<UIInteraction>> m_interaction;
+};
+
 }
 
 @class WKFocusedElementInfo;
@@ -210,9 +242,9 @@ struct WKAutoCorrectionData {
 
 @interface WKContentView () {
 #if ENABLE(IOS_TOUCH_EVENTS)
-    RetainPtr<WKDeferringGestureRecognizer> _deferringGestureRecognizerForImmediatelyResettableGestures;
-    RetainPtr<WKDeferringGestureRecognizer> _deferringGestureRecognizerForDelayedResettableGestures;
-    RetainPtr<WKDeferringGestureRecognizer> _deferringGestureRecognizerForSyntheticTapGestures;
+    RetainPtr<WKDeferringGestureRecognizer> _touchStartDeferringGestureRecognizerForImmediatelyResettableGestures;
+    RetainPtr<WKDeferringGestureRecognizer> _touchStartDeferringGestureRecognizerForDelayedResettableGestures;
+    RetainPtr<WKDeferringGestureRecognizer> _touchStartDeferringGestureRecognizerForSyntheticTapGestures;
 #endif
     RetainPtr<UIWebTouchEventsGestureRecognizer> _touchEventGestureRecognizer;
 
@@ -228,7 +260,6 @@ struct WKAutoCorrectionData {
     RetainPtr<UITapGestureRecognizer> _doubleTapGestureRecognizerForDoubleClick;
     RetainPtr<UITapGestureRecognizer> _twoFingerDoubleTapGestureRecognizer;
     RetainPtr<UITapGestureRecognizer> _twoFingerSingleTapGestureRecognizer;
-    RetainPtr<UITapGestureRecognizer> _stylusSingleTapGestureRecognizer;
     RetainPtr<WKInspectorNodeSearchGestureRecognizer> _inspectorNodeSearchGestureRecognizer;
 
     RetainPtr<WKTouchActionGestureRecognizer> _touchActionGestureRecognizer;
@@ -246,10 +277,14 @@ struct WKAutoCorrectionData {
     WebCore::MouseEventPolicy _mouseEventPolicy;
 #endif
 
-#if HAVE(UI_CURSOR_INTERACTION)
-    RetainPtr<_UICursorInteraction> _cursorInteraction;
-    BOOL _hasOutstandingCursorInteractionRequest;
-    Optional<std::pair<WebKit::InteractionInformationRequest, BlockPtr<void(_UICursorRegion *)>>> _deferredCursorInteractionRequest;
+#if HAVE(PENCILKIT_TEXT_INPUT)
+    RetainPtr<UIIndirectScribbleInteraction> _scribbleInteraction;
+#endif
+
+#if HAVE(UI_POINTER_INTERACTION)
+    RetainPtr<UIPointerInteraction> _pointerInteraction;
+    BOOL _hasOutstandingPointerInteractionRequest;
+    Optional<std::pair<WebKit::InteractionInformationRequest, BlockPtr<void(UIPointerRegion *)>>> _deferredPointerInteractionRequest;
 #endif
 
     RetainPtr<UIWKTextInteractionAssistant> _textInteractionAssistant;
@@ -272,6 +307,9 @@ struct WKAutoCorrectionData {
     WebKit::FrameInfoData _frameInfoForFileUploadPanel;
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     RetainPtr<WKShareSheet> _shareSheet;
+#endif
+#if HAVE(CONTACTSUI)
+    RetainPtr<WKContactPicker> _contactPicker;
 #endif
     RetainPtr<UIGestureRecognizer> _previewGestureRecognizer;
     RetainPtr<UIGestureRecognizer> _previewSecondaryGestureRecognizer;
@@ -337,10 +375,6 @@ struct WKAutoCorrectionData {
 #if ENABLE(DATALIST_ELEMENT)
     RetainPtr<UIView <WKFormControl>> _dataListTextSuggestionsInputView;
     RetainPtr<NSArray<UITextSuggestion *>> _dataListTextSuggestions;
-#endif
-
-#if HAVE(PENCILKIT)
-    RetainPtr<WKDrawingCoordinator> _drawingCoordinator;
 #endif
 
     BOOL _isEditable;
@@ -420,20 +454,34 @@ struct WKAutoCorrectionData {
 #endif
 
     Vector<BlockPtr<void()>> _actionsToPerformAfterResettingSingleTapGestureRecognizer;
+
+#if ENABLE(IMAGE_EXTRACTION)
+    RetainPtr<WKImageExtractionGestureRecognizer> _imageExtractionGestureRecognizer;
+    RetainPtr<UILongPressGestureRecognizer> _imageExtractionTimeoutGestureRecognizer;
+    WebKit::ImageExtractionState _imageExtractionState;
+    CGRect _imageExtractionInteractionBounds;
+    Vector<BlockPtr<void()>> _actionsToPerformAfterPendingImageExtraction;
+    std::unique_ptr<WebKit::SuppressInteractionToken> _suppressImageExtractionToken;
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditionsAfter.h>
+#endif
 }
 
 @end
 
 @interface WKContentView (WKInteraction) <UIGestureRecognizerDelegate, UITextAutoscrolling, UITextInputMultiDocument, UITextInputPrivate, UIWebFormAccessoryDelegate, UIWebTouchEventsGestureRecognizerDelegate, UIWKInteractionViewProtocol, WKActionSheetAssistantDelegate, WKFileUploadPanelDelegate, WKKeyboardScrollViewAnimatorDelegate, WKDeferringGestureRecognizerDelegate
+#if HAVE(CONTACTSUI)
+    , WKContactPickerDelegate
+#endif
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     , WKShareSheetDelegate
 #endif
 #if ENABLE(DRAG_SUPPORT)
     , UIDragInteractionDelegate, UIDropInteractionDelegate
 #endif
-#if PLATFORM(IOS_FAMILY)
     , WKTouchActionGestureRecognizerDelegate
-#endif
 >
 
 @property (nonatomic, readonly) CGPoint lastInteractionLocation;
@@ -491,7 +539,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_webTouchEvent:(const WebKit::NativeWebTouchEvent&)touchEvent preventsNativeGestures:(BOOL)preventsDefault;
 #endif
 #if ENABLE(IOS_TOUCH_EVENTS)
-- (void)_doneDeferringNativeGestures:(BOOL)preventNativeGestures;
+- (void)_doneDeferringTouchStart:(BOOL)preventNativeGestures;
 #endif
 - (void)_commitPotentialTapFailed;
 - (void)_didNotHandleTapAsClick:(const WebCore::IntPoint&)point;
@@ -522,6 +570,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const WebCore::IntRect&)elementRect routeSharingPolicy:(WebCore::RouteSharingPolicy)policy routingContextUID:(NSString *)contextUID;
 - (void)_showRunOpenPanel:(API::OpenPanelParameters*)parameters frameInfo:(const WebKit::FrameInfoData&)frameInfo resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
 - (void)_showShareSheet:(const WebCore::ShareDataWithParsedURL&)shareData inRect:(WTF::Optional<WebCore::FloatRect>)rect completionHandler:(WTF::CompletionHandler<void(bool)>&&)completionHandler;
+- (void)_showContactPicker:(const WebCore::ContactsRequestData&)requestData completionHandler:(WTF::CompletionHandler<void(Optional<Vector<WebCore::ContactInfo>>&&)>&&)completionHandler;
 - (void)dismissFilePicker;
 - (void)_didHandleKeyEvent:(::WebEvent *)event eventWasHandled:(BOOL)eventWasHandled;
 - (Vector<WebKit::OptionItem>&) focusedSelectElementOptions;
@@ -583,10 +632,6 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)updateTextSuggestionsForInputDelegate;
 #endif
 
-#if HAVE(PENCILKIT)
-- (WKDrawingCoordinator *)_drawingCoordinator;
-#endif
-
 - (void)_requestTextInputContextsInRect:(CGRect)rect completionHandler:(void (^)(NSArray<_WKTextInputContext *> *))completionHandler;
 - (void)_focusTextInputContext:(_WKTextInputContext *)context placeCaretAt:(CGPoint)point completionHandler:(void (^)(UIResponder<UITextInput> *))completionHandler;
 - (void)_willBeginTextInteractionInTextInputContext:(_WKTextInputContext *)context;
@@ -633,6 +678,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem;
 - (void)_doAfterResettingSingleTapGesture:(dispatch_block_t)action;
 - (void)_doAfterReceivingEditDragSnapshotForTesting:(dispatch_block_t)action;
+- (void)_dismissContactPickerWithContacts:(NSArray *)contacts;
 
 @property (nonatomic, readonly) NSString *textContentTypeForTesting;
 @property (nonatomic, readonly) NSString *selectFormPopoverTitle;
@@ -651,9 +697,5 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_unregisterPreview;
 @end
 #endif
-
-@interface WKContentView (WKFileUploadPanel)
-+ (Class)_fileUploadPanelClass;
-@end
 
 #endif // PLATFORM(IOS_FAMILY)

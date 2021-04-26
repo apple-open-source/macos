@@ -75,14 +75,14 @@ public:
 
     IntSize frameSizeAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const final;
     bool frameIsCompleteAtIndex(size_t) const final;
-    ImageOrientation frameOrientationAtIndex(size_t) const final;
+    ImageDecoder::FrameMetadata frameMetadataAtIndex(size_t) const final;
 
     Seconds frameDurationAtIndex(size_t) const final;
     bool frameHasAlphaAtIndex(size_t) const final;
     bool frameAllowSubsamplingAtIndex(size_t) const final;
     unsigned frameBytesAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const final;
 
-    NativeImagePtr createFrameImageAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = DecodingOptions(DecodingMode::Synchronous)) final;
+    PlatformImagePtr createFrameImageAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = DecodingOptions(DecodingMode::Synchronous)) final;
 
     void setExpectedContentSize(long long) final;
     void setData(SharedBuffer&, bool allDataReceived) final;

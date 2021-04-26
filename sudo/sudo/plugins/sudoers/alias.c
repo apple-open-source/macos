@@ -29,16 +29,9 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRING_H */
-#include <unistd.h>
+#include <string.h>
 #include <errno.h>
 
 #include "sudoers.h"
@@ -55,7 +48,7 @@ alias_compare(const void *v1, const void *v2)
     const struct alias *a1 = (const struct alias *)v1;
     const struct alias *a2 = (const struct alias *)v2;
     int res;
-    debug_decl(alias_compare, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_compare, SUDOERS_DEBUG_ALIAS);
 
     if (a1 == NULL)
 	res = -1;
@@ -78,7 +71,7 @@ alias_get(struct sudoers_parse_tree *parse_tree, const char *name, int type)
     struct alias key;
     struct rbnode *node;
     struct alias *a = NULL;
-    debug_decl(alias_get, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_get, SUDOERS_DEBUG_ALIAS);
 
     if (parse_tree->aliases == NULL)
 	debug_return_ptr(NULL);
@@ -109,7 +102,7 @@ alias_get(struct sudoers_parse_tree *parse_tree, const char *name, int type)
 void
 alias_put(struct alias *a)
 {
-    debug_decl(alias_put, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_put, SUDOERS_DEBUG_ALIAS);
     a->used = false;
     debug_return;
 }
@@ -117,46 +110,40 @@ alias_put(struct alias *a)
 /*
  * Add an alias to the aliases redblack tree.
  * Note that "file" must be a reference-counted string.
- * Returns NULL on success and an error string on failure.
+ * Returns true on success and false on failure, setting errno.
  */
-const char *
+bool
 alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type,
-    char *file, int lineno, struct member *members)
+    char *file, int line, int column, struct member *members)
 {
-    static char errbuf[512];
     struct alias *a;
-    debug_decl(alias_add, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_add, SUDOERS_DEBUG_ALIAS);
 
     if (parse_tree->aliases == NULL) {
-	if ((parse_tree->aliases = alloc_aliases()) == NULL) {
-	    strlcpy(errbuf, N_("unable to allocate memory"), sizeof(errbuf));
-	    debug_return_str(errbuf);
-	}
+	if ((parse_tree->aliases = alloc_aliases()) == NULL)
+	    debug_return_bool(false);
     }
 
     a = calloc(1, sizeof(*a));
-    if (a == NULL) {
-	strlcpy(errbuf, N_("unable to allocate memory"), sizeof(errbuf));
-	debug_return_str(errbuf);
-    }
+    if (a == NULL)
+	debug_return_bool(false);
     a->name = name;
     a->type = type;
     /* a->used = false; */
     a->file = rcstr_addref(file);
-    a->lineno = lineno;
+    a->line = line;
+    a->column = column;
     HLTQ_TO_TAILQ(&a->members, members, entries);
     switch (rbinsert(parse_tree->aliases, a, NULL)) {
     case 1:
-	(void)snprintf(errbuf, sizeof(errbuf),
-	    N_("Alias \"%s\" already defined"), name);
 	alias_free(a);
-	debug_return_str(errbuf);
+	errno = EEXIST;
+	debug_return_bool(false);
     case -1:
-	(void)strlcpy(errbuf, N_("unable to allocate memory"), sizeof(errbuf));
 	alias_free(a);
-	debug_return_str(errbuf);
+	debug_return_bool(false);
     }
-    debug_return_str(NULL);
+    debug_return_bool(true);
 }
 
 /*
@@ -187,7 +174,7 @@ alias_apply(struct sudoers_parse_tree *parse_tree,
     void *cookie)
 {
     struct alias_apply_closure closure;
-    debug_decl(alias_apply, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_apply, SUDOERS_DEBUG_ALIAS);
 
     if (parse_tree->aliases != NULL) {
 	closure.parse_tree = parse_tree;
@@ -205,7 +192,7 @@ alias_apply(struct sudoers_parse_tree *parse_tree,
 bool
 no_aliases(struct sudoers_parse_tree *parse_tree)
 {
-    debug_decl(no_aliases, SUDOERS_DEBUG_ALIAS)
+    debug_decl(no_aliases, SUDOERS_DEBUG_ALIAS);
     debug_return_bool(parse_tree->aliases == NULL ||
 	rbisempty(parse_tree->aliases));
 }
@@ -217,7 +204,7 @@ void
 alias_free(void *v)
 {
     struct alias *a = (struct alias *)v;
-    debug_decl(alias_free, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_free, SUDOERS_DEBUG_ALIAS);
 
     if (a != NULL) {
 	free(a->name);
@@ -237,7 +224,7 @@ alias_remove(struct sudoers_parse_tree *parse_tree, char *name, int type)
 {
     struct rbnode *node;
     struct alias key;
-    debug_decl(alias_remove, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_remove, SUDOERS_DEBUG_ALIAS);
 
     if (parse_tree->aliases != NULL) {
 	key.name = name;
@@ -252,7 +239,7 @@ alias_remove(struct sudoers_parse_tree *parse_tree, char *name, int type)
 struct rbtree *
 alloc_aliases(void)
 {
-    debug_decl(alloc_aliases, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alloc_aliases, SUDOERS_DEBUG_ALIAS);
 
     debug_return_ptr(rbcreate(alias_compare));
 }
@@ -260,7 +247,7 @@ alloc_aliases(void)
 void
 free_aliases(struct rbtree *aliases)
 {
-    debug_decl(free_aliases, SUDOERS_DEBUG_ALIAS)
+    debug_decl(free_aliases, SUDOERS_DEBUG_ALIAS);
 
     if (aliases != NULL)
 	rbdestroy(aliases, alias_free);
@@ -287,7 +274,7 @@ alias_remove_recursive(struct sudoers_parse_tree *parse_tree, char *name,
     struct member *m;
     struct alias *a;
     bool ret = true;
-    debug_decl(alias_remove_recursive, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_remove_recursive, SUDOERS_DEBUG_ALIAS);
 
     if ((a = alias_remove(parse_tree, name, type)) != NULL) {
 	TAILQ_FOREACH(m, &a->members, entries) {
@@ -308,7 +295,7 @@ alias_find_used_members(struct sudoers_parse_tree *parse_tree,
 {
     struct member *m;
     int errors = 0;
-    debug_decl(alias_find_used_members, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_find_used_members, SUDOERS_DEBUG_ALIAS);
 
     if (members != NULL) {
 	TAILQ_FOREACH(m, members, entries) {
@@ -334,7 +321,7 @@ alias_find_used(struct sudoers_parse_tree *parse_tree, struct rbtree *used_alias
     struct defaults *d;
     struct member *m;
     int errors = 0;
-    debug_decl(alias_find_used, SUDOERS_DEBUG_ALIAS)
+    debug_decl(alias_find_used, SUDOERS_DEBUG_ALIAS);
 
     /* Move referenced aliases to used_aliases. */
     TAILQ_FOREACH(us, &parse_tree->userspecs, entries) {

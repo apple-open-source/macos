@@ -26,7 +26,12 @@
 
 #import <XCTest/XCTest.h>
 
+/* Use this one to "be" the daemon, after intialization */
 @interface TrustDaemonTestCase : XCTestCase
+@end
+
+/* Use this one to test the initialization of the daemon */
+@interface TrustDaemonInitializationTestCase : XCTestCase
 @end
 
 #endif /* _TRUSTTESTS_DAEMON_TESTCASE_H_ */

@@ -271,6 +271,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_WeakKeySize                 SecStringWithDefaultValue("Certificate is using a broken key size", "Trust", 0, "Certificate is using a broken key size", "Error for weak keys")
 #define SEC_TRUST_ERROR_WeakSignature               SecStringWithDefaultValue("Certificate is using a broken signature algorithm", "Trust", 0, "Certificate is using a broken signature algorithm", "Error for weak signatures")
 #define SEC_TRUST_ERROR_KeyUsage                    SecStringWithDefaultValue("Key usage does not match certificate usage", "Trust", 0, "Key usage does not match certificate usage", "Error for key usage mismatch")
+#define SEC_TRUST_ERROR_KeyUsageReportOnly          SecStringWithDefaultValue("Key usage does not match certificate usage", "Trust", 0, "Key usage does not match certificate usage", "Error for key usage mismatch")
 #define SEC_TRUST_ERROR_ExtendedKeyUsage            SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_SubjectCommonName           SecStringWithDefaultValue("Common Name does not match expected name", "Trust", 0, "Common Name does not match expected name", "Error for subject common name mismatch")
 #define SEC_TRUST_ERROR_SubjectCommonNamePrefix     SecStringWithDefaultValue("Common Name does not match expected name", "Trust", 0, "Common Name does not match expected name", "Error for subject common name prefix mismatch")

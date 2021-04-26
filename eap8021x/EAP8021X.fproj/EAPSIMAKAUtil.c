@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -616,6 +616,9 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
     CFStringRef				oob_pseudonym = NULL;
     Boolean 				isOOBPseudonymSupported = FALSE;
     CFBooleanRef 			b;
+    CFStringRef 			realm = NULL;
+    CFStringRef 			configured_realm = NULL;
+    CFDictionaryRef 			info = NULL;
 
     *is_privacy_protection_enabled = TRUE;
     b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
@@ -625,14 +628,14 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
 	return NULL;
     }
     EAPLOG_FL(LOG_INFO, "The carrier supports privacy protection");
+    configured_realm = isA_CFString(CFDictionaryGetValue(properties,
+					      kEAPClientPropEAPSIMAKARealm));
     if (static_config) {
-	CFStringRef realm = isA_CFString(CFDictionaryGetValue(properties,
-							      kEAPClientPropEAPSIMAKARealm));
 	oob_pseudonym = isA_CFString(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAOutOfBandPseudonym));
 	if (oob_pseudonym != NULL) {
-	    if (realm) {
+	    if (configured_realm) {
 		oob_pseudonym =
-		    CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"), oob_pseudonym, realm);
+		    CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"), oob_pseudonym, configured_realm);
 	    } else {
 		CFRetain(oob_pseudonym);
 	    }
@@ -652,7 +655,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
 	} else {
 	    CFRetain(anonymous_username);
 	}
-	if (realm != NULL) {
+	if (configured_realm != NULL) {
 	    anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
 							  anonymous_username, realm);
 	    my_CFRelease(&anonymous_username);
@@ -662,39 +665,38 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
 	goto done;
     }
 #if TARGET_OS_IPHONE
-    CFStringRef realm = SIMCopyRealm(NULL);
+    /* use PLMN(MCC+MNC) based nai realm for EAP-AKA or EAP-SIM authentications */
+    realm = SIMCopyRealm(NULL);
     /* check if encrypted identity or oob pseudonym supported */
     if (!SIMIsOOBPseudonymSupported(&isOOBPseudonymSupported)) {
 	/* something went wrong */
 	EAPLOG_FL(LOG_INFO, "check for OOB pseudonym support failed");
-	return NULL;
+	goto done;
     }
     if (isOOBPseudonymSupported) {
 	EAPLOG_FL(LOG_INFO, "The carrier supports OOB pseudonym");
 	oob_pseudonym = SIMCopyOOBPseudonym();
 	if (oob_pseudonym == NULL) {
 	    EAPLOG_FL(LOG_INFO, "failed to get OOB pseudonym");
-	    return NULL;
+	    goto done;
 	}
 	if (realm) {
 	    CFStringRef temp_oob_pseudonym =
 		CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"), oob_pseudonym, realm);
 	    my_CFRelease(&oob_pseudonym);
-	    my_CFRelease(&realm);
 	    oob_pseudonym = temp_oob_pseudonym;
 	}
 	goto done;
     }
-    CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(type);
+    info = SIMCopyEncryptedIMSIInfo(type);
     if (info == NULL) {
 	EAPLOG_FL(LOG_INFO, "failed to get encrypted idenity");
-	return NULL;
+	goto done;
     }
-    /* encrypted_identity = "\0|<base64<encryption<IMSI>>>|<nai realm>" */
+    /* encrypted_identity = "\0|<base64<encryption<permanent identity>>" */
     encrypted_identity = isA_CFData(CFDictionaryGetValue(info, kCTEncryptedIdentity));
     if (encrypted_identity == NULL) {
-	my_CFRelease(&info);
-	return NULL;
+	goto done;
     }
     CFRetain(encrypted_identity);
     anonymous_username = isA_CFString(CFDictionaryGetValue(info, kCTIdentityAnonymousUserName));
@@ -703,7 +705,14 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
     } else {
 	CFRetain(anonymous_username);
     }
-    if (realm != NULL) {
+    if (configured_realm != NULL) {
+	/* use configured nai realm in EAP-Response/Identity packet only */
+	anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
+						      anonymous_username,
+						      configured_realm);
+	my_CFRelease(&anonymous_username);
+    } else if (realm != NULL) {
+	/* use configured nai realm in EAP-Response/Identity packet only */
 	anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
 						      anonymous_username,
 						      realm);
@@ -711,24 +720,20 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
     } else {
 	anonymous_identity = anonymous_username;
     }
-    my_CFRelease(&realm);
-    my_CFRelease(&info);
 #endif /* TARGET_OS_IPHONE */
 
 done:
-    encrypted_identity_info = (EAPSIMAKAEncryptedIdentityInfoRef)malloc(sizeof(*encrypted_identity_info));
-    if (encrypted_identity_info == NULL) {
-	my_CFRelease(&encrypted_identity);
-	my_CFRelease(&anonymous_identity);
-	my_CFRelease(&oob_pseudonym);
-	return NULL;
-    }
-    bzero(encrypted_identity_info, sizeof(*encrypted_identity_info));
-    if (isOOBPseudonymSupported) {
-	encrypted_identity_info->oob_pseudonym = oob_pseudonym;
-    } else {
-	encrypted_identity_info->encrypted_identity = encrypted_identity;
-	encrypted_identity_info->anonymous_identity = anonymous_identity;
+    my_CFRelease(&info);
+    my_CFRelease(&realm);
+    if (oob_pseudonym != NULL || encrypted_identity != NULL) {
+	encrypted_identity_info = (EAPSIMAKAEncryptedIdentityInfoRef)malloc(sizeof(*encrypted_identity_info));
+	bzero(encrypted_identity_info, sizeof(*encrypted_identity_info));
+	if (isOOBPseudonymSupported) {
+	    encrypted_identity_info->oob_pseudonym = oob_pseudonym;
+	} else {
+	    encrypted_identity_info->encrypted_identity = encrypted_identity;
+	    encrypted_identity_info->anonymous_identity = anonymous_identity;
+	}
     }
     return encrypted_identity_info;
 }

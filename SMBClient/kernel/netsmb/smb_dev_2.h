@@ -181,6 +181,12 @@ struct smbioc_client_interface {
     uint32_t ioc_errno;
 };
 
+int get_client_interfaces( struct smbioc_client_interface *client_interface_update);
+
+struct smbioc_notifier_pid {
+    pid_t pid;
+};
+
 /*
  * Device IOCTLs
  */
@@ -193,8 +199,12 @@ struct smbioc_client_interface {
 #define	SMB2IOC_GET_DFS_REFERRAL    _IOWR('n', 124, struct smb2ioc_get_dfs_referral)
 #define SMBIOC_SHARE_PROPERTIES	_IOWR('n', 125, struct smbioc_share_properties)
 #define	SMB2IOC_QUERY_DIR       _IOWR('n', 126, struct smb2ioc_query_dir)
-#define SMBIOC_UPDATE_CLIENT_INTERFACES  _IOW('n', 127, struct smbioc_client_interface)
 
+/* MC SMBIOC */
+#define SMBIOC_UPDATE_CLIENT_INTERFACES   _IOW('n', 127, struct smbioc_client_interface)
+#define SMBIOC_UPDATE_NOTIFIER_PID        _IOW('n', 128, struct smbioc_notifier_pid)
+#define SMBIOC_GET_NOTIFIER_PID           _IOR('n', 129, struct smbioc_notifier_pid)
+#define SMBIOC_NOTIFIER_UPDATE_INTERFACES _IOW('n', 130, struct smbioc_client_interface)
 
 #ifdef _KERNEL
 

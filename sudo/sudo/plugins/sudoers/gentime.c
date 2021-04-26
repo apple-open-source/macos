@@ -23,7 +23,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STDBOOL_H
@@ -31,12 +30,7 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <ctype.h>
 #include <time.h>
 
@@ -60,7 +54,7 @@ parse_gentime(const char *timestr)
     size_t len;
     int items, tzoff = 0;
     bool islocal = false;
-    debug_decl(parse_gentime, SUDOERS_DEBUG_PARSER)
+    debug_decl(parse_gentime, SUDOERS_DEBUG_PARSER);
 
     /* Make a copy of the time without time zone for easy parsing. */
     len = strspn(timestr, "0123456789.,");

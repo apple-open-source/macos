@@ -23,16 +23,8 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 
 #include "sudo_compat.h"
 #include "sudo_debug.h"
@@ -48,7 +40,7 @@ sudo_new_key_val_v1(const char *key, const char *val)
     size_t key_len = strlen(key);
     size_t val_len = strlen(val);
     char *cp, *str;
-    debug_decl(sudo_new_key_val, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_new_key_val, SUDO_DEBUG_UTIL);
 
     cp = str = malloc(key_len + 1 + val_len + 1);
     if (cp != NULL) {

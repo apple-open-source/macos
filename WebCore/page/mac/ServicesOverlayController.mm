@@ -121,7 +121,7 @@ void ServicesOverlayController::Highlight::notifyFlushRequired(const GraphicsLay
     if (!m_controller)
         return;
 
-    m_controller->page().renderingUpdateScheduler().scheduleTimedRenderingUpdate();
+    m_controller->page().scheduleRenderingUpdate(RenderingUpdateStep::LayerFlush);
 }
 
 void ServicesOverlayController::Highlight::paintContents(const GraphicsLayer*, GraphicsContext& graphicsContext, const FloatRect&, GraphicsLayerPaintBehavior)
@@ -630,7 +630,7 @@ ServicesOverlayController::Highlight* ServicesOverlayController::findTelephoneNu
         return nullptr;
 
     for (auto& highlight : m_potentialHighlights) {
-        if (highlight->type() == Highlight::TelephoneNumberType && createLiveRange(highlight->range())->contains(createLiveRange(*selectionRange)))
+        if (highlight->type() == Highlight::TelephoneNumberType && contains<ComposedTree>(highlight->range(), *selectionRange))
             return highlight.get();
     }
 

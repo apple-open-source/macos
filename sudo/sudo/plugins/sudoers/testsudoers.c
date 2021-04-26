@@ -30,24 +30,16 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
 #include <unistd.h>
-#ifdef HAVE_NETGROUP_H
-# include <netgroup.h>
-#endif /* HAVE_NETGROUP_H */
-#include <time.h>
-#include <ctype.h>
 #include <errno.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include "tsgetgrpw.h"
 #include "sudoers.h"
@@ -107,7 +99,7 @@ extern char *malloc_options;
 extern int sudoersdebug;
 #endif
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 int
 main(int argc, char *argv[])
@@ -121,7 +113,7 @@ main(int argc, char *argv[])
     int match, host_match, runas_match, cmnd_match;
     int ch, dflag, exitcode = EXIT_FAILURE;
     struct sudo_lbuf lbuf;
-    debug_decl(main, SUDOERS_DEBUG_MAIN)
+    debug_decl(main, SUDOERS_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
     malloc_options = "S";
@@ -263,7 +255,7 @@ main(int argc, char *argv[])
 
     /* Initialize default values. */
     if (!init_defaults())
-	sudo_fatalx(U_("unable to initialize sudoers default values"));
+	sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
 
     /* Set group_plugin callback. */
     sudo_defs_table[I_GROUP_PLUGIN].callback = cb_group_plugin;
@@ -277,7 +269,7 @@ main(int argc, char *argv[])
     /* Load ip addr/mask for each interface. */
     if (get_net_ifs(&p) > 0) {
 	if (!set_interfaces(p))
-	    sudo_fatal(U_("unable to parse network address list"));
+	    sudo_fatal("%s", U_("unable to parse network address list"));
     }
 
     /* Allocate space for data structures in the parser. */
@@ -298,30 +290,23 @@ main(int argc, char *argv[])
     sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, NULL);
     switch (input_format) {
     case format_ldif:
-        if (!sudoers_parse_ldif(&parsed_policy, stdin, NULL, true))
-	    (void) printf("Parse error in LDIF");
-	else
-	    (void) fputs("Parses OK", stdout);
+        if (!sudoers_parse_ldif(&parsed_policy, stdin, NULL, true)) {
+	    (void) puts("Parse error in LDIF");
+	    parse_error = true;
+	}
         break;
     case format_sudoers:
-	if (sudoersparse() != 0 || parse_error) {
+	if (sudoersparse() != 0 || parse_error)
 	    parse_error = true;
-	    if (errorlineno != -1)
-		(void) printf("Parse error in %s near line %d",
-		    errorfile, errorlineno);
-	    else
-		(void) printf("Parse error in %s", errorfile);
-	} else {
-	    (void) fputs("Parses OK", stdout);
-	}
         break;
     default:
         sudo_fatalx("error: unhandled input %d", input_format);
     }
+    if (!parse_error)
+	(void) puts("Parses OK");
 
     if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
-	(void) fputs(" (problem with defaults entries)", stdout);
-    puts(".");
+	(void) puts("Problem with defaults entries");
 
     if (dflag) {
 	(void) putchar('\n');
@@ -351,7 +336,8 @@ main(int argc, char *argv[])
 			cs->runasuserlist, cs->runasgrouplist, NULL, NULL);
 		    if (runas_match == ALLOW) {
 			puts("\trunas matched");
-			cmnd_match = cmnd_matches(&parsed_policy, cs->cmnd);
+			cmnd_match = cmnd_matches(&parsed_policy, cs->cmnd,
+			    cs->runchroot, NULL);
 			if (cmnd_match != UNSPEC)
 			    match = cmnd_match;
 			printf("\tcmnd  %s\n", match == ALLOW ? "allowed" :
@@ -385,7 +371,7 @@ static void
 set_runaspw(const char *user)
 {
     struct passwd *pw = NULL;
-    debug_decl(set_runaspw, SUDOERS_DEBUG_UTIL)
+    debug_decl(set_runaspw, SUDOERS_DEBUG_UTIL);
 
     if (*user == '#') {
 	const char *errstr;
@@ -409,7 +395,7 @@ static void
 set_runasgr(const char *group)
 {
     struct group *gr = NULL;
-    debug_decl(set_runasgr, SUDOERS_DEBUG_UTIL)
+    debug_decl(set_runasgr, SUDOERS_DEBUG_UTIL);
 
     if (*group == '#') {
 	const char *errstr;
@@ -454,37 +440,39 @@ sudo_endspent(void)
 }
 
 FILE *
-open_sudoers(const char *sudoers, bool doedit, bool *keepopen)
+open_sudoers(const char *file, bool doedit, bool *keepopen)
 {
     struct stat sb;
     FILE *fp = NULL;
-    char *sudoers_base;
-    debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL)
+    const char *base;
+    debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL);
 
-    sudoers_base = strrchr(sudoers, '/');
-    if (sudoers_base != NULL)
-	sudoers_base++;
+    base = strrchr(file, '/');
+    if (base != NULL)
+	base++;
+    else
+	base = file;
 
-    switch (sudo_secure_file(sudoers, sudoers_uid, sudoers_gid, &sb)) {
+    switch (sudo_secure_file(file, sudoers_uid, sudoers_gid, &sb)) {
 	case SUDO_PATH_SECURE:
-	    fp = fopen(sudoers, "r");
+	    fp = fopen(file, "r");
 	    break;
 	case SUDO_PATH_MISSING:
-	    sudo_warn("unable to stat %s", sudoers_base);
+	    sudo_warn("unable to stat %s", base);
 	    break;
 	case SUDO_PATH_BAD_TYPE:
-	    sudo_warnx("%s is not a regular file", sudoers_base);
+	    sudo_warnx("%s is not a regular file", base);
 	    break;
 	case SUDO_PATH_WRONG_OWNER:
 	    sudo_warnx("%s should be owned by uid %u",
-		sudoers_base, (unsigned int) sudoers_uid);
+		base, (unsigned int) sudoers_uid);
 	    break;
 	case SUDO_PATH_WORLD_WRITABLE:
-	    sudo_warnx("%s is world writable", sudoers_base);
+	    sudo_warnx("%s is world writable", base);
 	    break;
 	case SUDO_PATH_GROUP_WRITABLE:
 	    sudo_warnx("%s should be owned by gid %u",
-		sudoers_base, (unsigned int) sudoers_gid);
+		base, (unsigned int) sudoers_gid);
 	    break;
 	default:
 	    /* NOTREACHED */
@@ -512,11 +500,23 @@ restore_perms(void)
     return true;
 }
 
+void
+init_eventlog_config(void)
+{
+    return;
+}
+
+int
+set_cmnd_path(const char *runchroot)
+{
+    return FOUND;
+}
+
 static bool
 print_defaults(struct sudo_lbuf *lbuf)
 {
     struct defaults *def, *next;
-    debug_decl(print_defaults, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_defaults, SUDOERS_DEBUG_UTIL);
 
     TAILQ_FOREACH_SAFE(def, &parsed_policy.defaults, entries, next)
 	sudoers_format_default_line(lbuf, &parsed_policy, def, &next, false);
@@ -529,7 +529,7 @@ print_alias(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
 {
     struct sudo_lbuf *lbuf = v;
     struct member *m;
-    debug_decl(print_alias, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_alias, SUDOERS_DEBUG_UTIL);
 
     sudo_lbuf_append(lbuf, "%s %s = ", alias_type_to_string(a->type),
 	a->name);
@@ -546,7 +546,7 @@ print_alias(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
 static bool
 print_aliases(struct sudo_lbuf *lbuf)
 {
-    debug_decl(print_aliases, SUDOERS_DEBUG_UTIL)
+    debug_decl(print_aliases, SUDOERS_DEBUG_UTIL);
 
     alias_apply(&parsed_policy, print_alias, lbuf);
 
@@ -556,7 +556,7 @@ print_aliases(struct sudo_lbuf *lbuf)
 static void
 dump_sudoers(struct sudo_lbuf *lbuf)
 {
-    debug_decl(dump_sudoers, SUDOERS_DEBUG_UTIL)
+    debug_decl(dump_sudoers, SUDOERS_DEBUG_UTIL);
 
     /* Print Defaults */
     if (!print_defaults(lbuf))
@@ -606,5 +606,5 @@ static void
 usage(void)
 {
     (void) fprintf(stderr, "usage: %s [-dt] [-G sudoers_gid] [-g group] [-h host] [-i input_format] [-P grfile] [-p pwfile] [-U sudoers_uid] [-u user] <user> <command> [args]\n", getprogname());
-    exit(1);
+    exit(EXIT_FAILURE);
 }

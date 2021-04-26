@@ -92,6 +92,7 @@ struct __OpaqueSecDb {
     CFMutableArrayRef idleWriteConnections;     // up to kSecDbMaxWriters of them (currently 1, requires locking change for >1)
     CFMutableArrayRef idleReadConnections;      // up to kSecDbMaxReaders of them
     pthread_mutex_t writeMutex;
+    pthread_mutexattr_t writeMutexAttrs;
     // TODO: Replace after we have rdar://problem/60961964
     dispatch_semaphore_t readSemaphore;
 
@@ -263,9 +264,20 @@ SecDbCreate(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, b
     });
     CFReleaseNull(commitQueueStr);
     db->readSemaphore = dispatch_semaphore_create(kSecDbMaxReaders);
-    if (pthread_mutex_init(&(db->writeMutex), NULL) != 0) {
+
+    bool mutexAttrSuccess =  (0 == pthread_mutexattr_init(&(db->writeMutexAttrs)));
+    if(mutexAttrSuccess) {
+        mutexAttrSuccess = (0 == pthread_mutexattr_setpolicy_np(&(db->writeMutexAttrs), PTHREAD_MUTEX_POLICY_FAIRSHARE_NP));
+    }
+
+    if(!mutexAttrSuccess) {
+        seccritical("SecDb: SecDbCreate failed to create attributes for the write mutex; fairness properties are no longer present");
+    }
+
+    if (pthread_mutex_init(&(db->writeMutex), (mutexAttrSuccess ? &(db->writeMutexAttrs) : NULL)) != 0) {
         seccritical("SecDb: SecDbCreate failed to init the write mutex, this will end badly");
     }
+
     db->idleWriteConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     db->idleReadConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     db->opened = opened ? Block_copy(opened) : NULL;
@@ -799,7 +811,10 @@ bool SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error,
 
 bool SecDbCheckpoint(SecDbConnectionRef dbconn, CFErrorRef *error)
 {
-    return SecDbConnectionCheckCode(dbconn, sqlite3_wal_checkpoint(dbconn->handle, NULL), error, CFSTR("wal_checkpoint"));
+    return SecDbConnectionCheckCode(dbconn,
+                                    sqlite3_wal_checkpoint_v2(dbconn->handle, NULL, SQLITE_CHECKPOINT_FULL, NULL, NULL),
+                                    error,
+                                    CFSTR("wal_checkpoint(FULL)"));
 }
 
 static sqlite3 *_SecDbOpenV2(const char *path,
@@ -1034,7 +1049,12 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
     }
 
     CFStringPerformWithCString(dbconn->db->db_path, ^(const char *db_path) {
-        int flags = (dbconn->db->readWrite) ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
+#if TARGET_OS_IPHONE
+        int flags = SQLITE_OPEN_FILEPROTECTION_NONE;
+#else
+        int flags = 0;
+#endif
+        flags |= (dbconn->db->readWrite) ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
         ok = created && SecDbOpenV2(dbconn, db_path, flags, NULL);
         if (!ok) {
             ok = true;
@@ -1055,7 +1075,11 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
             }
             // if the enclosing directory is ok, try to create the database.
             // this forces us to open it read-write, so we'll need to be the owner here.
-            ok = ok && SecDbOpenV2(dbconn, db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, error);
+            flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+#if TARGET_OS_IPHONE
+            flags |= SQLITE_OPEN_FILEPROTECTION_NONE;
+#endif
+            ok = ok && SecDbOpenV2(dbconn, db_path, flags, error);
             if (ok) {
                 chmod(db_path, dbconn->db->mode); // default: 0600 (S_IRUSR | S_IWUSR)
                 if (created)

@@ -574,9 +574,7 @@ static void logResourceLoaded(Frame* frame, CachedResource::Type type)
         resourceType = DiagnosticLoggingKeys::scriptKey();
         break;
     case CachedResource::Type::FontResource:
-#if ENABLE(SVG_FONTS)
     case CachedResource::Type::SVGFontResource:
-#endif
         resourceType = DiagnosticLoggingKeys::fontKey();
         break;
     case CachedResource::Type::Beacon:
@@ -844,10 +842,12 @@ void SubresourceLoader::notifyDone(LoadCompletionType type)
     if (m_state == CancelledWhileInitializing)
         shouldPerformPostLoadActions = false;
 #endif
-    m_documentLoader->cachedResourceLoader().loadDone(type, shouldPerformPostLoadActions);
+    if (m_documentLoader)
+        m_documentLoader->cachedResourceLoader().loadDone(type, shouldPerformPostLoadActions);
     if (reachedTerminalState())
         return;
-    m_documentLoader->removeSubresourceLoader(type, this);
+    if (m_documentLoader)
+        m_documentLoader->removeSubresourceLoader(type, this);
 }
 
 void SubresourceLoader::releaseResources()
@@ -865,9 +865,6 @@ void SubresourceLoader::releaseResources()
 
 void SubresourceLoader::reportResourceTiming(const NetworkLoadMetrics& networkLoadMetrics)
 {
-    if (!RuntimeEnabledFeatures::sharedFeatures().resourceTimingEnabled())
-        return;
-
     if (!ResourceTimingInformation::shouldAddResourceTiming(*m_resource))
         return;
 

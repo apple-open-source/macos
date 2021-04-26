@@ -127,12 +127,8 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
         for (let propertyView of this._propertyViews)
             propertyView.detached();
-    }
 
-    hidden()
-    {
-        for (let propertyView of this._propertyViews)
-            propertyView.hidden();
+        super.detached();
     }
 
     get style()
@@ -229,6 +225,9 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
             properties = this._style.visibleProperties;
         else
             properties = this._style.properties;
+
+        if (this._style.inherited)
+            properties = properties.filter((property) => property.inherited);
 
         if (this._sortPropertiesByName)
             properties.sort((a, b) => a.name.extendedLocaleCompare(b.name));

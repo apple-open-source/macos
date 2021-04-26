@@ -454,6 +454,72 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.wait(for: [updateTrustExpectation], timeout: 10)
     }
 
+    func testHandleFailureUpgradingPeerToHaveUserSyncableViewsOpinion() throws {
+        self.mockSOSAdapter.safariViewEnabled = true
+
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+
+        #if os(tvOS) || os(watchOS)
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        #else
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+        #endif
+
+        // Now, fake that the peer no longer has this opinion:
+        do {
+            let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName,
+                                                            context: self.cuttlefishContext.contextID)
+
+            let (_, newSyncingPolicy, updateError) = container.updateSync(test: self,
+                                                                          syncUserControllableViews: .UNKNOWN)
+            XCTAssertNil(updateError, "Should be no error performing update")
+            XCTAssertNotNil(newSyncingPolicy, "Should have a syncing policy")
+            XCTAssertEqual(newSyncingPolicy?.syncUserControllableViews, .UNKNOWN, "Should now have 'unknown' user controlled views setting")
+
+            self.injectedManager?.setCurrentSyncingPolicy(newSyncingPolicy)
+
+            try self.cuttlefishContext.accountMetadataStore.persistAccountChanges { metadata in
+                metadata.setTPSyncingPolicy(newSyncingPolicy)
+                return metadata
+            }
+        }
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+
+        // Upon daemon restart, Octagon should notice and attempt to update its opinion
+        // But, that fails the first time
+        let fastUpdateTrustExpectation = self.expectation(description: "fast updateTrust")
+        let retriedUpdateTrustExpectation = self.expectation(description: "retried updateTrust")
+        let restartAt = Date()
+
+        self.fakeCuttlefishServer.updateListener = { _ in
+            let now = Date()
+
+            // Entering this block twice will fail the test.
+            // The rate limiter in OTCuttlefishContext is set to retry after 10seconds,
+            // so 7s was chosen to allow for some slop in timing/slow restarts.
+            // If update() is called twice within 7s, the test will fail.
+            if restartAt.distance(to: now) < 7 {
+                fastUpdateTrustExpectation.fulfill()
+                return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .testGeneratedFailure)
+            } else {
+                retriedUpdateTrustExpectation.fulfill()
+                return nil;
+            }
+        }
+
+        self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
+        self.wait(for: [fastUpdateTrustExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+
+        self.wait(for: [retriedUpdateTrustExpectation], timeout: 20)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+    }
+
     func testAssistCKKSTLKUploadWhenMissingFromOctagon() throws {
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -483,6 +549,38 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
         self.wait(for: [fetchExpectation], timeout: 10)
     }
+
+    func testSignInWithDelayedHSA2StatusAndAttemptFetchUserControllableViewsSyncingStatus() throws {
+        self.startCKAccountStatusMock()
+
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        // Device is signed out
+        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.hsa2 = false
+
+        // With no account, Octagon should go directly into 'NoAccount'
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
+
+        // Sign in occurs, but HSA2 status isn't here yet
+        let newAltDSID = UUID().uuidString
+        self.mockAuthKit.altDSID = newAltDSID
+        XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
+
+        // Octagon should go into 'waitforhsa2'
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+
+        let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
+        self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertFalse(isSyncing, "should not be syncing with non hsa2 account")
+            fetchExpectation.fulfill()
+        }
+        self.wait(for: [fetchExpectation], timeout: 2)
+    }
+
 }
 
 #endif // OCTAGON

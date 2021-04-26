@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -183,7 +183,7 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 						SC_log(level, "    Service %2ld : %@, %2d (%@%s%@%s%@)",
 						       orderIndex + 1,
 						       serviceID,
-						       __SCNetworkInterfaceOrder(SCNetworkServiceGetInterface(service)),	// temp?
+						       __SCNetworkInterfaceOrder(interface),	// temp?
 						       serviceName,
 						       bsdName != NULL ? ", " : "",
 						       bsdName != NULL ? bsdName : CFSTR(""),
@@ -192,7 +192,7 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 					} else {
 						SC_log(level, "    Service    : %@, %2d (%@%s%@%s%@)",
 						       serviceID,
-						       __SCNetworkInterfaceOrder(SCNetworkServiceGetInterface(service)),	// temp?
+						       __SCNetworkInterfaceOrder(interface),	// temp?
 						       serviceName,
 						       bsdName != NULL ? ", " : "",
 						       bsdName != NULL ? bsdName : CFSTR(""),

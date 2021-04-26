@@ -29,7 +29,6 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "DrawingArea.h"
-#import "EditableImageControllerMessages.h"
 #import "InteractionInformationAtPosition.h"
 #import "InteractionInformationRequest.h"
 #import "UIKitSPI.h"
@@ -154,35 +153,11 @@ RefPtr<Icon> WebChromeClient::createIconForFiles(const Vector<String>& filenames
 
     // FIXME: We should generate an icon showing multiple files here, if applicable. Currently, if there are multiple
     // files, we only use the first URL to generate an icon.
-    return Icon::createIconForImage(iconForFile([NSURL fileURLWithPath:filenames[0] isDirectory:NO]).get().CGImage);
-}
+    NSURL *url = [NSURL fileURLWithPath:filenames[0] isDirectory:NO];
+    if (!url)
+        return nullptr;
 
-void WebChromeClient::associateEditableImageWithAttachment(GraphicsLayer::EmbeddedViewID embeddedViewID, const String& attachmentID)
-{
-#if HAVE(PENCILKIT)
-    m_page.send(Messages::EditableImageController::AssociateWithAttachment(embeddedViewID, attachmentID));
-#else
-    UNUSED_PARAM(embeddedViewID);
-    UNUSED_PARAM(attachmentID);
-#endif
-}
-
-void WebChromeClient::didCreateEditableImage(GraphicsLayer::EmbeddedViewID embeddedViewID)
-{
-#if HAVE(PENCILKIT)
-    m_page.send(Messages::EditableImageController::DidCreateEditableImage(embeddedViewID));
-#else
-    UNUSED_PARAM(embeddedViewID);
-#endif
-}
-
-void WebChromeClient::didDestroyEditableImage(GraphicsLayer::EmbeddedViewID embeddedViewID)
-{
-#if HAVE(PENCILKIT)
-    m_page.send(Messages::EditableImageController::DidDestroyEditableImage(embeddedViewID));
-#else
-    UNUSED_PARAM(embeddedViewID);
-#endif
+    return Icon::createIconForImage(iconForFile(url).get().CGImage);
 }
 
 bool WebChromeClient::shouldUseMouseEventForSelection(const WebCore::PlatformMouseEvent& event)

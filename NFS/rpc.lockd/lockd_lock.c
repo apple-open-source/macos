@@ -1010,6 +1010,7 @@ split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
 			debuglog("Unable to allocate resource for split 1\n");
 			if (*left_lock != NULL) {
 				deallocate_file_lock(*left_lock);
+				*left_lock = NULL;
 			}
 			return SPL_RESERR;
 		}
@@ -1514,8 +1515,6 @@ lock_partialfilelock(struct file_lock *fl)
 	enum hwlock_status hwstatus;
 
 	debuglog("Entering lock_partialfilelock\n");
-
-	retval = PFL_DENIED;
 
 	/*
 	 * Execute the NFS lock first, if possible, as it is significantly

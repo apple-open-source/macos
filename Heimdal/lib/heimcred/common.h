@@ -51,6 +51,21 @@ typedef enum {
 
 struct HeimMech;
 
+#if HEIMCRED_SERVER
+struct HeimCredEventContext_s {
+    CFRuntimeBase runtime;
+    HeimCredRef cred;
+    HEIMDAL_MUTEX cred_mutex;  //protects the cred
+};
+
+typedef struct HeimCredEventContext_s *HeimCredEventContextRef;
+
+CFTypeID HeimCredEventContextGetTypeID(void);
+
+HeimCredEventContextRef HeimCredEventContextCreateItem(HeimCredRef cred);
+
+#endif
+
 struct HeimCred_s {
     CFRuntimeBase runtime;
     CFUUIDRef uuid;
@@ -66,6 +81,9 @@ struct HeimCred_s {
     heim_event_t expire_event;	//the event for refreshing the cred
     cred_acquire_status acquire_status;	//the refresh status
     uid_t session;		//the session id for events;
+    bool is_acquire_cred;	//used in expire event execution to either notify or acquire a new cred
+    HeimCredEventContextRef renewEventContext;  //protected by event mutex
+    HeimCredEventContextRef expireEventContext;  //protected by event mutex
 #endif
 };
 
@@ -73,6 +91,7 @@ typedef struct {
     dispatch_queue_t queue;
     CFTypeID haid;
 #if HEIMCRED_SERVER
+    CFTypeID heid;
     CFSetRef connections;
     CFMutableDictionaryRef sessions;
     CFMutableDictionaryRef mechanisms;

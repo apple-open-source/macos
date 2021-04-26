@@ -476,6 +476,23 @@ extern const CFStringRef kSecNetworkExtensionAccessGroupSuffix;
 OSStatus SecItemDeleteAll(void);
 
 /*!
+    @function SecItemPersistKeychainWritesAtHighPerformanceCost
+    @abstract Attempts to ensure that all previous writes to the keychain are durably committed to disk.
+            This overrides existing performance and device disk durability tradeoffs, so you should
+            not use this SPI until you have a full understanding of how data loss resulting from power loss
+            impacts your distributed system.
+
+            Note: This SPI is not guaranteed to work on macOS, if the user is in a non-standard hardware configuration
+            or is using network home folders.
+
+            Note: on macOS, this will only affect the data protection keychain. Legacy macOS keychains are untouched.
+    @param error An error returned, if any.
+    @result A result code.
+ */
+OSStatus SecItemPersistKeychainWritesAtHighPerformanceCost(CFErrorRef* CF_RETURNS_RETAINED error)
+    API_AVAILABLE(macos(11.3), ios(14.5), tvos(14.5), watchos(7.4));
+
+/*!
     @function _SecItemAddAndNotifyOnSync
     @abstract Adds an item to the keychain, and calls syncCallback when the item has synced
     @param attributes Attributes dictionary to be passed to SecItemAdd

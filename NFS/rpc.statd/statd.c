@@ -183,6 +183,7 @@ main(int argc, char **argv)
 	signal(SIGQUIT, cleanup);
 
 	openlog("rpc.statd", LOG_PID | LOG_CONS, LOG_DAEMON);
+	config.verbose = MAX(config.verbose, 0); // Make sure verbose contains positive value
 	setlogmask(LOG_UPTO(LOG_LEVEL));
 
 	if (notify_only) {

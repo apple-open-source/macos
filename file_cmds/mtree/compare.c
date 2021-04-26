@@ -534,11 +534,18 @@ typeerr:		LABEL;
 		int supported;
 		struct timespec ptimespec = ptime(p->fts_accpath, &supported);
 		if (!supported) {
-			LABEL;
-			(void)printf("%stime added to parent folder expected %.24s.%09ld found that it is not supported\n",
-					tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
-			tab = "\t";
-		} else if (supported && ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
+			if (mflag) {
+				ptimespec.tv_sec = 0;
+				ptimespec.tv_nsec = 0;
+				supported = 1;
+			} else {
+				LABEL;
+				(void)printf("%stime added to parent folder expected %.24s.%09ld found that it is not supported\n",
+					     tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
+				tab = "\t";
+			}
+		}
+		if (supported && ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
 			   (s->st_ptimespec.tv_nsec != ptimespec.tv_nsec))) {
 			if (!mflag) {
 				LABEL;

@@ -61,6 +61,7 @@ public:
 		nested = 0x04,					// nested code (recursively signed)
 		exclusion = 0x10,				// overriding exclusion (stop looking)
 		softTarget = 0x20,				// valid symlink target even though omitted/excluded
+		user_controlled = 0x40,			// whether the rule was read from a user controlled file
 	};
 	
 	typedef unsigned int Weight;
@@ -84,6 +85,7 @@ public:
 	
 	typedef void (^Scanner)(FTSENT *ent, uint32_t flags, const std::string relpath, Rule *rule);
 	void scan(Scanner next);
+	void scan(Scanner next, Scanner unhandled);
 	bool includes(string path) const;
 	Rule *findRule(string path) const;
 

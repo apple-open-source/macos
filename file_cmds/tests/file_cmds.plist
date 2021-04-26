@@ -12,6 +12,42 @@
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
+				<string>cp.sh</string>
+			</array>
+			<key>AsRoot</key>
+			<false/>
+			<key>TestName</key>
+			<string>cp</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/file_cmds</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>touch.sh</string>
+			</array>
+			<key>AsRoot</key>
+			<false/>
+			<key>TestName</key>
+			<string>touch</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/file_cmds</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
 				<string>chgrp.sh</string>
 			</array>
 			<key>AsRoot</key>

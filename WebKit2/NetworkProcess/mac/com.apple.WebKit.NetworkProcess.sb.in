@@ -172,6 +172,7 @@
     (sysctl-name
         "hw.availcpu"
         "hw.ncpu"
+        "hw.memsize"
         "hw.model" ;; Needed for bundle loading
         "kern.hostname"
         "kern.maxfilesperproc"
@@ -185,7 +186,6 @@
         "vm.footprint_suspend")
     (sysctl-name-prefix "kern.proc.pid.")
     (sysctl-name-regex #"^net.routetable")
-    (sysctl-name-prefix "sysctl.oidfmt.") ; Remove when <rdar://problem/64208532> is fixed.
 )
 
 (deny iokit-get-properties)

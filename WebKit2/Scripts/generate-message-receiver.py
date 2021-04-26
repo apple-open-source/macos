@@ -27,13 +27,14 @@ import sys
 
 import webkit.messages
 import webkit.parser
-
+import webkit.model
 
 def main(argv):
     receivers = []
 
     first_arg = True
     second_arg = False
+    receiver_header_files = []
     for parameter in argv:
         if first_arg:
             first_arg = False
@@ -49,14 +50,30 @@ def main(argv):
         with open('%s/%s.messages.in' % (base_dir, parameter)) as source_file:
             receiver = webkit.parser.parse(source_file)
         receivers.append(receiver)
+        if receiver_name != receiver.name:
+            sys.stderr.write("Error: %s defined in file %s/%s.messages.in instead of %s.messages.in\n" % (receiver.name, base_dir, parameter, receiver.name))
+            sys.exit(1)
 
-        with open('%sMessageReceiver.cpp' % receiver_name, "w+") as implementation_output:
+    errors = webkit.model.check_global_model_inputs(receivers)
+    if errors:
+        for e in errors:
+            sys.stderr.write("Error: %s\n" % e)
+        sys.exit(1)
+
+    receivers = webkit.model.generate_global_model(receivers)
+
+    for receiver in receivers:
+        if receiver.has_attribute(webkit.model.BUILTIN_ATTRIBUTE):
+            continue
+        with open('%sMessageReceiver.cpp' % receiver.name, "w+") as implementation_output:
             implementation_output.write(webkit.messages.generate_message_handler(receiver))
 
-        with open('%sMessages.h' % receiver_name, "w+") as header_output:
+        receiver_message_header = '%sMessages.h' % receiver.name
+        receiver_header_files.append(receiver_message_header)
+        with open(receiver_message_header, "w+") as header_output:
             header_output.write(webkit.messages.generate_messages_header(receiver))
 
-        with open('%sMessagesReplies.h' % receiver_name, "w+") as reply_header_output:
+        with open('%sMessagesReplies.h' % receiver.name, "w+") as reply_header_output:
             reply_header_output.write(webkit.messages.generate_messages_reply_header(receiver))
 
     with open('MessageNames.h', "w+") as message_names_header_output:
@@ -64,6 +81,9 @@ def main(argv):
 
     with open('MessageNames.cpp', "w+") as message_names_implementation_output:
         message_names_implementation_output.write(webkit.messages.generate_message_names_implementation(receivers))
+
+    with open('MessageArgumentDescriptions.cpp', "w+") as message_descriptions_implementation_output:
+        message_descriptions_implementation_output.write(webkit.messages.generate_message_argument_description_implementation(receivers, receiver_header_files))
 
     return 0
 

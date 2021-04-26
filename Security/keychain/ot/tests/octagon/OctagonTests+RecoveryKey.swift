@@ -1044,9 +1044,13 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         // Fake that this peer also created some TLKShares for itself
         self.putFakeKeyHierarchiesInCloudKit()
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
-
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
+        let joiningPeerContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecovery(joiningContext: joiningPeerContext, sponsor: establishContext)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Now, create the Recovery Key
         let recoveryKey = try XCTUnwrap(SecRKCreateRecoveryKeyString(nil), "should be able to create a recovery key")
         self.manager.setSOSEnabledForPlatformFlag(true)
 
@@ -1206,6 +1210,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let joiningPeerContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecovery(joiningContext: joiningPeerContext, sponsor: establishContext)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let recoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")

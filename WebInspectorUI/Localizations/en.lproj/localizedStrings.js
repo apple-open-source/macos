@@ -1,6 +1,8 @@
 var localizedStrings = new Object;
 
 localizedStrings[" (Prototype)"] = " (Prototype)";
+/* A range and default value for a single variation axis of a font. */
+localizedStrings[" (Range: %s-%s, Default: %s) @ Font Details Sidebar"] = " (Range: %s-%s, Default: %s)";
 localizedStrings[" (line %s)"] = " (line %s)";
 localizedStrings["${expr} = expression"] = "${expr} = expression";
 localizedStrings["%.0f B"] = "%.0f B";
@@ -52,13 +54,16 @@ localizedStrings["%dpx"] = "%dpx";
 localizedStrings["%dpx\u00B2"] = "%dpx\u00B2";
 localizedStrings["%s (%s)"] = "%s (%s)";
 localizedStrings["%s (%s, %s)"] = "%s (%s, %s)";
-localizedStrings["%s (Case Insensitive)"] = "%s (Case Insensitive)";
+/* Label for case-insensitive URL match pattern of a local override. */
+localizedStrings["%s (Case Insensitive) @ Local Override"] = "%s (Case Insensitive)";
 localizedStrings["%s (default)"] = "%s (default)";
 localizedStrings["%s (hidden)"] = "%s (hidden)";
 localizedStrings["%s Callback"] = "%s Callback";
 localizedStrings["%s Event Dispatched"] = "%s Event Dispatched";
 localizedStrings["%s Fired"] = "%s Fired";
 localizedStrings["%s Prototype"] = "%s Prototype";
+/* Format string for the suggested filename when saving the content for a request local override. */
+localizedStrings["%s Request Data @ Local Override Request Content View"] = "%s Request Data";
 localizedStrings["%s Result"] = "%s Result";
 localizedStrings["%s \u2013 %s"] = "%s \u2013 %s";
 localizedStrings["%s \u2013 %s (%s)"] = "%s \u2013 %s (%s)";
@@ -67,8 +72,11 @@ localizedStrings["%s cannot be modified"] = "%s cannot be modified";
 localizedStrings["%s delay"] = "%s delay";
 localizedStrings["%s eval\n%s async"] = "%s eval\n%s async";
 localizedStrings["%s interval"] = "%s interval";
+localizedStrings["%s requests do not have a body"] = "%s requests do not have a body";
 localizedStrings["%s total"] = "%s total";
 localizedStrings["%s transferred"] = "%s transferred";
+/* A single value expressed as a percentage where the value has already been converted from a number to a string. */
+localizedStrings["%s%% @ Font Details Sidebar"] = "%s%%";
 localizedStrings["%s:"] = "%s:";
 localizedStrings["(%s)"] = "(%s)";
 localizedStrings["(Action %s)"] = "(Action %s)";
@@ -90,7 +98,9 @@ localizedStrings[", "] = ", ";
 localizedStrings["0 Console errors"] = "0 Console errors";
 localizedStrings["0 Console warnings"] = "0 Console warnings";
 localizedStrings["1 match"] = "1 match";
+localizedStrings["1080p"] = "1080p";
 localizedStrings["2D"] = "2D";
+localizedStrings["720p"] = "720p";
 localizedStrings["Accessibility"] = "Accessibility";
 localizedStrings["Action"] = "Action";
 /* Tooltip for a time range bar that represents when a CSS animation/transition is running */
@@ -108,6 +118,8 @@ localizedStrings["Add New Class"] = "Add New Class";
 localizedStrings["Add New Probe Expression"] = "Add New Probe Expression";
 localizedStrings["Add New Watch Expression"] = "Add New Watch Expression";
 localizedStrings["Add Pattern"] = "Add Pattern";
+/* Text of button to add a new audit test case to the currently shown audit group. */
+localizedStrings["Add Test Case @ Audit Tab - Group"] = "Add Test Case";
 localizedStrings["Add a Class"] = "Add a Class";
 localizedStrings["Add new breakpoint action after this action"] = "Add new breakpoint action after this action";
 localizedStrings["Add new rule"] = "Add new rule";
@@ -116,22 +128,33 @@ localizedStrings["Add watch expression"] = "Add watch expression";
 localizedStrings["Additions"] = "Additions";
 localizedStrings["Address"] = "Address";
 localizedStrings["All"] = "All";
-localizedStrings["All Animation Frames"] = "All Animation Frames";
+/* Break (pause) on All animation frames */
+localizedStrings["All Animation Frames @ Event Breakpoint"] = "All Animation Frames";
 localizedStrings["All Changes"] = "All Changes";
-localizedStrings["All Events"] = "All Events";
+/* Break (pause) on all events */
+localizedStrings["All Events @ Event Breakpoint"] = "All Events";
 /* Break (pause) on all exceptions */
-localizedStrings["All Exceptions"] = "All Exceptions";
-localizedStrings["All Intervals"] = "All Intervals";
+localizedStrings["All Exceptions @ JavaScript Breakpoint"] = "All Exceptions";
+/* Break (pause) on all intervals */
+localizedStrings["All Intervals @ Event Breakpoint"] = "All Intervals";
 localizedStrings["All Layers"] = "All Layers";
-localizedStrings["All Microtasks"] = "All Microtasks";
+/* Break (pause) on all microtasks */
+localizedStrings["All Microtasks @ JavaScript Breakpoint"] = "All Microtasks";
+/* Property value for `font-variant-capitals: all-petite-caps`. */
+localizedStrings["All Petite Capitals @ Font Details Sidebar Property Value"] = "All Petite Capitals";
 /* A submenu item of 'Break on' that breaks (pauses) before all network requests */
 localizedStrings["All Requests"] = "All Requests";
+/* Property value for `font-variant-capitals: all-small-caps`. */
+localizedStrings["All Small Capitals @ Font Details Sidebar Property Value"] = "All Small Capitals";
 localizedStrings["All Storage"] = "All Storage";
-localizedStrings["All Timeouts"] = "All Timeouts";
+/* Break (pause) on all timeouts */
+localizedStrings["All Timeouts @ Event Breakpoint"] = "All Timeouts";
 localizedStrings["All items in \u0022%s\u0022 must be error objects"] = "All items in \u0022%s\u0022 must be error objects";
 localizedStrings["All items in \u0022%s\u0022 must be non-empty strings"] = "All items in \u0022%s\u0022 must be non-empty strings";
 localizedStrings["All items in \u0022%s\u0022 must be valid DOM nodes"] = "All items in \u0022%s\u0022 must be valid DOM nodes";
 localizedStrings["Allow Media Capture on Insecure Sites"] = "Allow Media Capture on Insecure Sites";
+/* Property title for `font-variant-alternates`. */
+localizedStrings["Alternate Glyphs @ Font Details Sidebar Property"] = "Alternate Glyphs";
 localizedStrings["An error occurred trying to load the resource."] = "An error occurred trying to load the resource.";
 localizedStrings["An error occurred trying to read the \u201C%s\u201D table."] = "An error occurred trying to read the \u201C%s\u201D table.";
 localizedStrings["An unexpected error %s occurred."] = "An unexpected error %s occurred.";
@@ -159,14 +182,14 @@ localizedStrings["Assertion"] = "Assertion";
 localizedStrings["Assertion Failed"] = "Assertion Failed";
 localizedStrings["Assertion Failed: %s"] = "Assertion Failed: %s";
 /* Break (pause) when console.assert() fails */
-localizedStrings["Assertion Failures"] = "Assertion Failures";
+localizedStrings["Assertion Failures @ JavaScript Breakpoint"] = "Assertion Failures";
 localizedStrings["Assertion with message: %s"] = "Assertion with message: %s";
 localizedStrings["Assertive"] = "Assertive";
 localizedStrings["Associated Data"] = "Associated Data";
 localizedStrings["Async audits are not supported."] = "Async audits are not supported.";
 localizedStrings["Attribute"] = "Attribute";
 /* A submenu item of 'Break On' that breaks (pauses) before DOM attribute is modified */
-localizedStrings["Attribute Modified"] = "Attribute Modified";
+localizedStrings["Attribute Modified @ DOM Breakpoint"] = "Attribute Modified";
 localizedStrings["Attributes"] = "Attributes";
 localizedStrings["Audit Error: %s"] = "Audit Error: %s";
 /* Name of Audit Tab */
@@ -187,6 +210,8 @@ localizedStrings["BMP"] = "BMP";
 localizedStrings["Back (%s)"] = "Back (%s)";
 localizedStrings["Backtrace"] = "Backtrace";
 localizedStrings["Basic"] = "Basic";
+/* Section title for basic font properties. */
+localizedStrings["Basic Properties @ Font Details Sidebar Section"] = "Basic Properties";
 localizedStrings["Beacon"] = "Beacon";
 localizedStrings["Beacons"] = "Beacons";
 localizedStrings["Binary Frame"] = "Binary Frame";
@@ -201,8 +226,6 @@ localizedStrings["Body:"] = "Body:";
 localizedStrings["Boundary"] = "Boundary";
 localizedStrings["Box Model"] = "Box Model";
 localizedStrings["Break on"] = "Break on";
-localizedStrings["Break on events with name:"] = "Break on events with name:";
-localizedStrings["Break on request with URL:"] = "Break on request with URL:";
 localizedStrings["Breakdown"] = "Breakdown";
 localizedStrings["Breakdown of each memory category at the end of the selected time range"] = "Breakdown of each memory category at the end of the selected time range";
 localizedStrings["Breakdown of time spent on the main thread"] = "Breakdown of time spent on the main thread";
@@ -242,6 +265,8 @@ localizedStrings["Canvas %s"] = "Canvas %s";
 localizedStrings["Canvas Context Type Bitmap Renderer"] = "Bitmap Renderer";
 localizedStrings["Canvas Element"] = "Canvas Element";
 localizedStrings["Canvases"] = "Canvases";
+/* Property title for `font-variant-caps`. */
+localizedStrings["Capitals @ Font Details Sidebar Property"] = "Capitals";
 /* Capture screenshot of the selected DOM node */
 localizedStrings["Capture Screenshot"] = "Capture Screenshot";
 localizedStrings["Capturing"] = "Capturing";
@@ -267,6 +292,8 @@ localizedStrings["Clamp to sRGB"] = "Clamp to sRGB";
 localizedStrings["Classes"] = "Classes";
 localizedStrings["Clear Cookies"] = "Clear Cookies";
 localizedStrings["Clear Filters"] = "Clear Filters";
+/* Text for button that will clear both text filters and time range filters. */
+localizedStrings["Clear Filters @ Heap Allocations Timeline View"] = "Clear Filters";
 localizedStrings["Clear Local Storage"] = "Clear Local Storage";
 localizedStrings["Clear Log"] = "Clear Log";
 localizedStrings["Clear Network Items (%s)"] = "Clear Network Items (%s)";
@@ -300,6 +327,8 @@ localizedStrings["Collapse All"] = "Collapse All";
 localizedStrings["Collapse columns"] = "Collapse columns";
 localizedStrings["Collect garbage"] = "Collect garbage";
 localizedStrings["Comment"] = "Comment";
+/* Property value for `font-variant-ligatures: common-ligatures`. */
+localizedStrings["Common @ Font Details Sidebar Property Value"] = "Common";
 localizedStrings["Compare snapshots"] = "Compare snapshots";
 localizedStrings["Comparison of total memory size at the end of the selected time range to the maximum memory size in this recording"] = "Comparison of total memory size at the end of the selected time range to the maximum memory size in this recording";
 /* Composite phase timeline records, where graphic layers are combined */
@@ -331,6 +360,8 @@ localizedStrings["Console opened at %s"] = "Console opened at %s";
 localizedStrings["Console prompt"] = "Console prompt";
 localizedStrings["Containing"] = "Containing";
 localizedStrings["Content Security Policy violation of directive: %s"] = "Content Security Policy violation of directive: %s";
+/* Property value for `font-variant-ligatures: contextual`. */
+localizedStrings["Contextual Alternates @ Font Details Sidebar Property Value"] = "Contextual Alternates";
 localizedStrings["Continuation Frame"] = "Continuation Frame";
 localizedStrings["Continue script execution (%s or %s)"] = "Continue script execution (%s or %s)";
 localizedStrings["Continue to Here"] = "Continue to Here";
@@ -354,9 +385,14 @@ localizedStrings["Could not capture screenshot"] = "Could not capture screenshot
 localizedStrings["Could not fetch properties. Object may no longer exist."] = "Could not fetch properties. Object may no longer exist.";
 localizedStrings["Count"] = "Count";
 localizedStrings["Create %s Rule"] = "Create %s Rule";
+/* Title of button that creates a new audit. */
+localizedStrings["Create @ Audit Tab Navigation Sidebar"] = "Create";
 localizedStrings["Create Breakpoint"] = "Create Breakpoint";
 localizedStrings["Create Local Override"] = "Create Local Override";
+localizedStrings["Create Request Local Override"] = "Create Request Local Override";
 localizedStrings["Create Resource"] = "Create Resource";
+localizedStrings["Create Response Local Override"] = "Create Response Local Override";
+localizedStrings["Create audit:"] = "Create audit:";
 localizedStrings["Cross-Origin Restrictions"] = "Cross-Origin Restrictions";
 localizedStrings["Current"] = "Current";
 localizedStrings["Current State"] = "Current State";
@@ -379,7 +415,8 @@ localizedStrings["Databases"] = "Databases";
 localizedStrings["Date"] = "Date";
 localizedStrings["Debug: "] = "Debug: ";
 localizedStrings["Debugger Statement"] = "Debugger Statement";
-localizedStrings["Debugger Statements"] = "Debugger Statements";
+/* Break (pause) on debugger statements */
+localizedStrings["Debugger Statements @ JavaScript Breakpoint"] = "Debugger Statements";
 localizedStrings["Debugger disabled during Audit"] = "Debugger disabled during Audit";
 localizedStrings["Debugger disabled during Timeline recording"] = "Debugger disabled during Timeline recording";
 localizedStrings["Debugging:"] = "Debugging:";
@@ -390,6 +427,7 @@ localizedStrings["Deferred pause from blackboxed script"] = "Deferred pause from
 /* Tooltip for a time range bar that represents when a CSS animation/transition is delayed */
 localizedStrings["Delay"] = "Delay";
 localizedStrings["Delete"] = "Delete";
+localizedStrings["Delete Audit"] = "Delete Audit";
 localizedStrings["Delete Blackbox"] = "Delete Blackbox";
 localizedStrings["Delete Breakpoint"] = "Delete Breakpoint";
 localizedStrings["Delete Breakpoints"] = "Delete Breakpoints";
@@ -403,10 +441,17 @@ localizedStrings["Demo Audit"] = "Demo Audit";
 localizedStrings["Detach into separate window"] = "Detach into separate window";
 localizedStrings["Detached"] = "Detached";
 localizedStrings["Details"] = "Details";
+/* Label for the details sidebar. */
+localizedStrings["Details @ Sidebar"] = "Details";
+/* Category label for detail sidebar settings. */
+localizedStrings["Details Sidebars: @ Settings Elements Pane"] = "Details Sidebars:";
 localizedStrings["Device %d"] = "Device %d";
 localizedStrings["Device Settings"] = "Device Settings";
 localizedStrings["Diagnoses common accessibility problems affecting screen readers and other assistive technology."] = "Diagnoses common accessibility problems affecting screen readers and other assistive technology.";
+/* Property value for `font-variant-numeric: diagonal-fractions`. */
+localizedStrings["Diagonal Fractions @ Font Details Sidebar Property Value"] = "Diagonal Fractions";
 localizedStrings["Dimensions"] = "Dimensions";
+localizedStrings["Disable Audit"] = "Disable Audit";
 localizedStrings["Disable Breakpoint"] = "Disable Breakpoint";
 localizedStrings["Disable Breakpoints"] = "Disable Breakpoints";
 localizedStrings["Disable Descendant Breakpoints"] = "Disable Descendant Breakpoints";
@@ -422,8 +467,14 @@ localizedStrings["Disable all breakpoints (%s)"] = "Disable all breakpoints (%s)
 localizedStrings["Disable paint flashing"] = "Disable paint flashing";
 localizedStrings["Disable:"] = "Disable:";
 localizedStrings["Disabled"] = "Disabled";
+/* Property value for `font-variant-ligatures: no-common-ligatures`. */
+localizedStrings["Disabled Common @ Font Details Sidebar Property Value"] = "Disabled Common";
+/* Property value for `font-variant-ligatures: discretionary-ligatures`. */
+localizedStrings["Discretionary @ Font Details Sidebar Property Value"] = "Discretionary";
 localizedStrings["Disk Cache"] = "Disk Cache";
 localizedStrings["Dismiss"] = "Dismiss";
+/* Tooltip for the dismiss button in banner views. */
+localizedStrings["Dismiss @ Banner View"] = "Dismiss";
 localizedStrings["Displayed Columns"] = "Displayed Columns";
 localizedStrings["Do not clear network items on new page loads"] = "Do not clear network items on new page loads";
 localizedStrings["Do not clear the console on new page loads"] = "Do not clear the console on new page loads";
@@ -440,6 +491,7 @@ localizedStrings["Download"] = "Download";
 localizedStrings["Download Web Archive"] = "Download Web Archive";
 localizedStrings["Dropped Element"] = "Dropped Element";
 localizedStrings["Dropped Node"] = "Dropped Node";
+localizedStrings["Duplicate Audit"] = "Duplicate Audit";
 localizedStrings["Duplicate Selector"] = "Duplicate Selector";
 localizedStrings["Duplicate property"] = "Duplicate property";
 localizedStrings["Duration"] = "Duration";
@@ -449,10 +501,13 @@ localizedStrings["Duration: Short"] = "Duration: Short";
 localizedStrings["Dynamically calculated for the parent element"] = "Dynamically calculated for the parent element";
 localizedStrings["Dynamically calculated for the selected element"] = "Dynamically calculated for the selected element";
 localizedStrings["Dynamically calculated for the selected element and did not match"] = "Dynamically calculated for the selected element and did not match";
+/* Property title for `font-variant-east-asian`. */
+localizedStrings["East Asian @ Font Details Sidebar Property"] = "East Asian";
 /* Label for a guide within the color picker */
 localizedStrings["Edge of sRGB color space"] = "Edge of sRGB color space";
 localizedStrings["Edit"] = "Edit";
 localizedStrings["Edit %s"] = "Edit %s";
+localizedStrings["Edit Audit"] = "Edit Audit";
 localizedStrings["Edit Breakpoint\u2026"] = "Edit Breakpoint\u2026";
 localizedStrings["Edit Local Override\u2026"] = "Edit Local Override\u2026";
 localizedStrings["Edit \u201Cbox-shadow\u201D"] = "Edit \u201Cbox-shadow\u201D";
@@ -460,6 +515,8 @@ localizedStrings["Edit \u201Ccubic-bezier\u201D function"] = "Edit \u201Ccubic-b
 localizedStrings["Edit \u201Cspring\u201D function"] = "Edit \u201Cspring\u201D function";
 localizedStrings["Edit configuration"] = "Edit configuration";
 localizedStrings["Edit custom gradient"] = "Edit custom gradient";
+/* Title of icon indiciating that the selected audit is being edited. */
+localizedStrings["Editing Audit @ Audit Tab - Test Case"] = "Editing audit";
 localizedStrings["Editing audits"] = "Editing audits";
 localizedStrings["Element"] = "Element";
 localizedStrings["Element Selection:"] = "Element Selection:";
@@ -494,6 +551,7 @@ localizedStrings["Elements"] = "Elements";
 /* Name of Elements Tab */
 localizedStrings["Elements Tab Name"] = "Elements";
 localizedStrings["Emulate User Gesture"] = "Emulate User Gesture";
+localizedStrings["Enable Audit"] = "Enable Audit";
 localizedStrings["Enable Breakpoint"] = "Enable Breakpoint";
 localizedStrings["Enable Breakpoints"] = "Enable Breakpoints";
 localizedStrings["Enable Descendant Breakpoints"] = "Enable Descendant Breakpoints";
@@ -526,6 +584,8 @@ localizedStrings["Ensure that only one main content section is used on the page.
 localizedStrings["Ensure that values for \u0022%s\u0022 are valid."] = "Ensure that values for \u0022%s\u0022 are valid.";
 localizedStrings["Entire Recording"] = "Entire Recording";
 localizedStrings["Error"] = "Error";
+/* Title of icon indicating that the selected audit threw an error. */
+localizedStrings["Error @ Audit Tab - Test Case"] = "Error";
 localizedStrings["Error: "] = "Error: ";
 localizedStrings["Errors"] = "Errors";
 localizedStrings["Errors:"] = "Errors:";
@@ -540,7 +600,6 @@ localizedStrings["Event Handlers:"] = "Event Handlers:";
 localizedStrings["Event Listeners"] = "Event Listeners";
 localizedStrings["Events"] = "Events";
 localizedStrings["Events:"] = "Events:";
-localizedStrings["Example: \u201C%s\u201D"] = "Example: \u201C%s\u201D";
 localizedStrings["Exception with thrown value: %s"] = "Exception with thrown value: %s";
 localizedStrings["Execution context for %s"] = "Execution context for %s";
 localizedStrings["Expand All"] = "Expand All";
@@ -549,12 +608,13 @@ localizedStrings["Expanded"] = "Expanded";
 localizedStrings["Experimental"] = "Experimental";
 localizedStrings["Export"] = "Export";
 localizedStrings["Export (%s)"] = "Export (%s)";
+localizedStrings["Export Audit"] = "Export Audit";
 localizedStrings["Export HAR"] = "Export HAR";
 localizedStrings["Export Result"] = "Export Result";
-localizedStrings["Export Test"] = "Export Test";
 localizedStrings["Export recording (%s)"] = "Export recording (%s)";
 localizedStrings["Export recording (%s)\nShift-click to export a HTML reduction"] = "Export recording (%s)\nShift-click to export a HTML reduction";
-localizedStrings["Export result (%s)"] = "Export result (%s)";
+/* Tooltip for button that exports the most recent result after running an audit. */
+localizedStrings["Export result (%s) @ Audit Tab"] = "Export result (%s)";
 localizedStrings["Expression"] = "Expression";
 localizedStrings["Extension Scripts"] = "Extension Scripts";
 localizedStrings["Extension Style Sheets"] = "Extension Style Sheets";
@@ -562,8 +622,12 @@ localizedStrings["Extensions"] = "Extensions";
 localizedStrings["Extra Scripts"] = "Extra Scripts";
 localizedStrings["Extra Style Sheets"] = "Extra Style Sheets";
 localizedStrings["Fade unexecuted code"] = "Fade unexecuted code";
+/* Title of icon indicating that the selected audit failed. */
+localizedStrings["Fail @ Audit Tab - Test Case"] = "Fail";
 localizedStrings["Failed to upgrade"] = "Failed to upgrade";
 localizedStrings["Failure status code"] = "Failure status code";
+/* Section title for font feature properties. */
+localizedStrings["Feature Properties @ Font Details Sidebar Section"] = "Feature Properties";
 /* Resource loaded via 'fetch' method */
 localizedStrings["Fetch"] = "Fetch";
 /* Resources loaded via 'fetch' method */
@@ -579,6 +643,8 @@ localizedStrings["Flows"] = "Flows";
 localizedStrings["Focus on Subtree"] = "Focus on Subtree";
 localizedStrings["Focused"] = "Focused";
 localizedStrings["Font"] = "Font";
+/* Title for the Font details sidebar. */
+localizedStrings["Font @ Font Details Sidebar Title"] = "Font";
 localizedStrings["Fonts"] = "Fonts";
 localizedStrings["Force Dark Appearance"] = "Force Dark Appearance";
 localizedStrings["Force Light Appearance"] = "Force Light Appearance";
@@ -601,6 +667,7 @@ localizedStrings["Forward (%s)"] = "Forward (%s)";
 localizedStrings["Fragment"] = "Fragment";
 localizedStrings["Fragment Shader"] = "Fragment Shader";
 localizedStrings["Frame %d"] = "Frame %d";
+localizedStrings["Frame %d \u2014 %s"] = "Frame %d \u2014 %s";
 localizedStrings["Frame URL"] = "Frame URL";
 localizedStrings["Frames"] = "Frames";
 localizedStrings["Frames %d \u2013 %d"] = "Frames %d \u2013 %d";
@@ -610,6 +677,8 @@ localizedStrings["Full Garbage Collection"] = "Full Garbage Collection";
 localizedStrings["Full URL"] = "Full URL";
 localizedStrings["Full-Screen"] = "Full-Screen";
 localizedStrings["Full-Screen from \u201C%s\u201D"] = "Full-Screen from \u201C%s\u201D";
+/* Property value for `font-variant-alternates: full-width`. */
+localizedStrings["Full-Width Variants @ Font Details Sidebar Property Value"] = "Full-Width Variants";
 localizedStrings["Function"] = "Function";
 localizedStrings["Function Name Variable"] = "Function Name Variable";
 localizedStrings["GIF"] = "GIF";
@@ -626,6 +695,8 @@ localizedStrings["Grammar"] = "Grammar";
 /* Name of Graphics Tab */
 localizedStrings["Graphics Tab Name"] = "Graphics";
 localizedStrings["Group"] = "Group";
+/* Dropdown option inside the popover used to creating an audit group. */
+localizedStrings["Group @ Audit Tab Navigation Sidebar"] = "Group";
 localizedStrings["Group By Resource"] = "Group By Resource";
 localizedStrings["Group Media Requests"] = "Group Media Requests";
 /* Group DOM event listeners by DOM event */
@@ -662,6 +733,10 @@ localizedStrings["High @ Network Priority"] = "High";
 /* Energy Impact: High */
 localizedStrings["High @ Timeline Energy Impact"] = "High";
 localizedStrings["Highest: %s"] = "Highest: %s";
+/* Property value for `font-variant-ligatures: historical-ligatures`. */
+localizedStrings["Historical @ Font Details Sidebar Property Value"] = "Historical";
+/* Property value for `font-variant-alternates: historical-forms`. */
+localizedStrings["Historical Forms @ Font Details Sidebar Property Value"] = "Historical Forms";
 localizedStrings["Host"] = "Host";
 localizedStrings["ICO"] = "ICO";
 localizedStrings["IP"] = "IP";
@@ -670,6 +745,8 @@ localizedStrings["ITML Context"] = "ITML Context";
 localizedStrings["ITP Debug Mode"] = "ITP Debug Mode";
 localizedStrings["Identifier"] = "Identifier";
 localizedStrings["Identity"] = "Identity";
+/* Section title for font identity information. */
+localizedStrings["Identity @ Font Details Sidebar Section"] = "Identity";
 localizedStrings["Idle"] = "Idle";
 localizedStrings["If the URL of any script matches one of the regular expression patterns below, any pauses that would have happened in that script will be deferred until execution has continued to outside of that script."] = "If the URL of any script matches one of the regular expression patterns below, any pauses that would have happened in that script will be deferred until execution has continued to outside of that script.";
 localizedStrings["Ignore"] = "Ignore";
@@ -682,9 +759,10 @@ localizedStrings["Images"] = "Images";
 localizedStrings["Images:"] = "Images:";
 localizedStrings["Immediate Pause Requested"] = "Immediate Pause Requested";
 localizedStrings["Import"] = "Import";
-localizedStrings["Import Audit"] = "Import Audit";
+localizedStrings["Import Audit or Result"] = "Import Audit or Result";
 localizedStrings["Import HAR"] = "Import HAR";
 localizedStrings["Import Recording"] = "Import Recording";
+localizedStrings["Import audit or result"] = "Import audit or result";
 localizedStrings["Imported"] = "Imported";
 localizedStrings["Imported - %s"] = "Imported - %s";
 localizedStrings["Imported \u2014 %s"] = "Imported \u2014 %s";
@@ -712,8 +790,18 @@ localizedStrings["Inverted"] = "Inverted";
 localizedStrings["Invisible characters"] = "Invisible characters";
 localizedStrings["Invoke getter"] = "Invoke getter";
 localizedStrings["It is evaluated immediately after the global object is created, before any other content has loaded."] = "It is evaluated immediately after the global object is created, before any other content has loaded.";
+/* Property value for oblique text. */
+localizedStrings["Italic @ Font Details Sidebar Property Value"] = "Italic";
 /* Tooltip for a timestamp marker that represents when a CSS animation/transition iterates */
 localizedStrings["Iteration"] = "Iteration";
+/* Property value for `font-variant-alternates: jis04`. */
+localizedStrings["JIS2004 Forms @ Font Details Sidebar Property Value"] = "JIS2004 Forms";
+/* Property value for `font-variant-alternates: jis78`. */
+localizedStrings["JIS78 Forms @ Font Details Sidebar Property Value"] = "JIS78 Forms";
+/* Property value for `font-variant-alternates: jis83`. */
+localizedStrings["JIS83 Forms @ Font Details Sidebar Property Value"] = "JIS83 Forms";
+/* Property value for `font-variant-alternates: jis90`. */
+localizedStrings["JIS90 Forms @ Font Details Sidebar Property Value"] = "JIS90 Forms";
 localizedStrings["JP2"] = "JP2";
 localizedStrings["JPEG"] = "JPEG";
 localizedStrings["JavaScript"] = "JavaScript";
@@ -734,6 +822,8 @@ localizedStrings["Layout & Rendering"] = "Layout & Rendering";
 /* Layout phase timeline records */
 localizedStrings["Layout @ Timeline record"] = "Layout";
 localizedStrings["Layout Invalidated"] = "Layout Invalidated";
+/* Property title for `font-variant-ligatures`. */
+localizedStrings["Ligatures @ Font Details Sidebar Property"] = "Ligatures";
 /* Label of dropdown item used for forcing Web Inspector to be shown using a light theme */
 localizedStrings["Light @ Settings General Appearance"] = "Light";
 localizedStrings["Line %d"] = "Line %d";
@@ -741,6 +831,8 @@ localizedStrings["Line %d:%d"] = "Line %d:%d";
 localizedStrings["Line Number"] = "Line Number";
 localizedStrings["Line wrapping:"] = "Line wrapping:";
 localizedStrings["Linear Gradient"] = "Linear Gradient";
+/* Property value for `font-variant-numeric: lining-nums`. */
+localizedStrings["Lining Numerals @ Font Details Sidebar Property Value"] = "Lining Numerals";
 localizedStrings["Live"] = "Live";
 localizedStrings["Live Activity"] = "Live Activity";
 localizedStrings["Live Size"] = "Live Size";
@@ -776,6 +868,8 @@ localizedStrings["Low @ Network Priority"] = "Low";
 localizedStrings["Low @ Timeline Energy Impact"] = "Low";
 localizedStrings["Lowest: %s"] = "Lowest: %s";
 localizedStrings["MIME Type"] = "MIME Type";
+/* Label for MIME type input for the local override currently being edited. */
+localizedStrings["MIME Type @ Local Override Popover"] = "MIME Type";
 localizedStrings["MIME Type:"] = "MIME Type:";
 localizedStrings["MSE Logging:"] = "MSE Logging:";
 localizedStrings["Main Thread"] = "Main Thread";
@@ -813,6 +907,10 @@ localizedStrings["Module Code"] = "Module Code";
 localizedStrings["More information is available at <https://webkit.org/web-inspector/inspector-bootstrap-script/>."] = "More information is available at <https://webkit.org/web-inspector/inspector-bootstrap-script/>.";
 localizedStrings["Multi-Entry"] = "Multi-Entry";
 localizedStrings["Name"] = "Name";
+/* Property title for the family name of the font. */
+localizedStrings["Name @ Font Details Sidebar Property"] = "Name";
+/* Label for the navigation sidebar. */
+localizedStrings["Navigation @ Sidebar"] = "Navigation";
 localizedStrings["Network"] = "Network";
 localizedStrings["Network Issue"] = "Network Issue";
 localizedStrings["Network Requests"] = "Network Requests";
@@ -851,6 +949,8 @@ localizedStrings["No Results Found"] = "No Results Found";
 localizedStrings["No Search Results"] = "No Search Results";
 localizedStrings["No Styles"] = "No Styles";
 localizedStrings["No Watch Expressions"] = "No Watch Expressions";
+/* Message shown when there are no additional variation axes to show. */
+localizedStrings["No additional variation axes. @ Font Details Sidebar"] = "No additional variation axes.";
 localizedStrings["No audit selected"] = "No audit selected";
 localizedStrings["No certificate security information."] = "No certificate security information.";
 localizedStrings["No connection security information."] = "No connection security information.";
@@ -866,12 +966,20 @@ localizedStrings["No search results"] = "No search results";
 localizedStrings["No search string"] = "No search string";
 localizedStrings["Node"] = "Node";
 /* A submenu item of 'Break On' that breaks (pauses) before DOM node is removed */
-localizedStrings["Node Removed"] = "Node Removed";
+localizedStrings["Node Removed @ DOM Breakpoint"] = "Node Removed";
 localizedStrings["Nodes"] = "Nodes";
 localizedStrings["None"] = "None";
+/* Property value for any `normal` CSS value. */
+localizedStrings["Normal @ Font Details Sidebar Property Value"] = "Normal";
 localizedStrings["Not found"] = "Not found";
+/* Title of icon indicating that the selected audit has not been run yet. */
+localizedStrings["Not yet run @ Audit Tab - Test Case"] = "Not yet run";
+/* Property title for `font-variant-numeric`. */
+localizedStrings["Numeric @ Font Details Sidebar Property"] = "Numeric";
 localizedStrings["Object Graph"] = "Object Graph";
 localizedStrings["Object Store"] = "Object Store";
+/* Property value for oblique text. */
+localizedStrings["Oblique %ddeg @ Font Details Sidebar Property Value"] = "Oblique %ddeg";
 localizedStrings["Observer Callback"] = "Observer Callback";
 localizedStrings["Observer Handlers:"] = "Observer Handlers:";
 localizedStrings["Observers:"] = "Observers:";
@@ -880,6 +988,8 @@ localizedStrings["Off"] = "Off";
 localizedStrings["Offset X @ Box Shadow Editor"] = "Offset X";
 /* Input label for the y-axis of the offset of a CSS box shadow */
 localizedStrings["Offset Y @ Box Shadow Editor"] = "Offset Y";
+/* Property value for `font-variant-numeric: oldstyle-nums`. */
+localizedStrings["Old-Style Numerals @ Font Details Sidebar Property Value"] = "Old-Style Numerals";
 localizedStrings["Once"] = "Once";
 localizedStrings["Online"] = "Online";
 localizedStrings["Only show resources with issues"] = "Only show resources with issues";
@@ -888,6 +998,8 @@ localizedStrings["Open"] = "Open";
 localizedStrings["Open in New Tab"] = "Open in New Tab";
 localizedStrings["Option-click to show source"] = "Option-click to show source";
 localizedStrings["Options"] = "Options";
+/* Property value for `font-variant-numeric: ordinal`. */
+localizedStrings["Ordinal Letter Forms @ Font Details Sidebar Property Value"] = "Ordinal Letter Forms";
 localizedStrings["Original formatting"] = "Original formatting";
 localizedStrings["Originally %s"] = "Originally %s";
 localizedStrings["Originator"] = "Originator";
@@ -900,7 +1012,6 @@ localizedStrings["Outgoing message"] = "Outgoing message";
 localizedStrings["Output: "] = "Output: ";
 localizedStrings["Over 1 ms"] = "Over 1 ms";
 localizedStrings["Over 15 ms"] = "Over 15 ms";
-localizedStrings["Override"] = "Override";
 localizedStrings["Overview"] = "Overview";
 localizedStrings["Owns"] = "Owns";
 localizedStrings["PDF"] = "PDF";
@@ -916,6 +1027,8 @@ localizedStrings["Paints"] = "Paints";
 localizedStrings["Paints @ Column title"] = "Paints";
 localizedStrings["Parent"] = "Parent";
 localizedStrings["Partial Garbage Collection"] = "Partial Garbage Collection";
+/* Title of icon indicating that the selected audit passed with no issues. */
+localizedStrings["Pass @ Audit Tab - Test Case"] = "Pass";
 localizedStrings["Passive"] = "Passive";
 localizedStrings["Path"] = "Path";
 localizedStrings["Pause Processing"] = "Pause Processing";
@@ -926,6 +1039,8 @@ localizedStrings["Paused"] = "Paused";
 /* The number of tests that passed expressed as a percentage, followed by a literal %. */
 localizedStrings["Percentage (of audits)"] = "%s%%";
 localizedStrings["Periods of high CPU utilization will rapidly drain battery. Strive to keep idle pages under %s average CPU utilization."] = "Periods of high CPU utilization will rapidly drain battery. Strive to keep idle pages under %s average CPU utilization.";
+/* Property value for `font-variant-capitals: petite-caps`. */
+localizedStrings["Petite Capitals @ Font Details Sidebar Property Value"] = "Petite Capitals";
 localizedStrings["Ping"] = "Ping";
 localizedStrings["Ping Frame"] = "Ping Frame";
 localizedStrings["Pings"] = "Pings";
@@ -935,15 +1050,21 @@ localizedStrings["Playing"] = "Playing";
 localizedStrings["Polite"] = "Polite";
 localizedStrings["Pong Frame"] = "Pong Frame";
 localizedStrings["Port"] = "Port";
+/* Property title for `font-variant-position`. */
+localizedStrings["Position @ Font Details Sidebar Property"] = "Position";
 localizedStrings["Power Efficient Playback"] = "Power Efficient Playback";
 localizedStrings["Prefer Shorthands"] = "Prefer Shorthands";
 localizedStrings["Prefer indent using:"] = "Prefer indent using:";
 localizedStrings["Preserve Log"] = "Preserve Log";
-localizedStrings["Press %s to import a test or result file"] = "Press %s to import a test or result file";
+localizedStrings["Press %s to create a new audit."] = "Press %s to create a new audit.";
+localizedStrings["Press %s to enable audits."] = "Press %s to enable audits.";
+localizedStrings["Press %s to import an audit or a result."] = "Press %s to import an audit or a result.";
 localizedStrings["Press %s to load a recording from file."] = "Press %s to load a recording from file.";
-localizedStrings["Press %s to see recent searches"] = "Press %s to see recent searches";
-localizedStrings["Press %s to start running the audit"] = "Press %s to start running the audit";
-localizedStrings["Press %s to stop editing"] = "Press %s to stop editing";
+localizedStrings["Press %s to see recent searches."] = "Press %s to see recent searches.";
+localizedStrings["Press %s to start editing audits."] = "Press %s to start editing audits.";
+localizedStrings["Press %s to start running the audit."] = "Press %s to start running the audit.";
+localizedStrings["Press %s to stop editing audits."] = "Press %s to stop editing audits.";
+localizedStrings["Press %s to stop running."] = "Press %s to stop running.";
 localizedStrings["Pressed"] = "Pressed";
 localizedStrings["Pretty print"] = "Pretty print";
 localizedStrings["Preview"] = "Preview";
@@ -952,6 +1073,7 @@ localizedStrings["Previous Sibling"] = "Previous Sibling";
 localizedStrings["Primary Key"] = "Primary Key";
 localizedStrings["Primary Key \u2014 %s"] = "Primary Key \u2014 %s";
 localizedStrings["Priority"] = "Priority";
+localizedStrings["Private Click Measurement Debug Mode"] = "Private Click Measurement Debug Mode";
 localizedStrings["Probe Expression"] = "Probe Expression";
 localizedStrings["Probe Sample Recorded"] = "Probe Sample Recorded";
 localizedStrings["Probes"] = "Probes";
@@ -959,6 +1081,10 @@ localizedStrings["Processing Instruction"] = "Processing Instruction";
 localizedStrings["Program %d"] = "Program %d";
 localizedStrings["Properties"] = "Properties";
 localizedStrings["Property"] = "Property";
+/* Property value for `font-variant-numeric: proportional-nums`. */
+localizedStrings["Proportional Numerals @ Font Details Sidebar Property Value"] = "Proportional Numerals";
+/* Property value for `font-variant-alternates: proportional-width`. */
+localizedStrings["Proportional-Width Variants @ Font Details Sidebar Property Value"] = "Proportional-Width Variants";
 localizedStrings["Protocol"] = "Protocol";
 localizedStrings["Pseudo-Element"] = "Pseudo-Element";
 localizedStrings["Query Parameters"] = "Query Parameters";
@@ -978,12 +1104,13 @@ localizedStrings["Record first %s frames"] = "Record first %s frames";
 localizedStrings["Recording"] = "Recording";
 localizedStrings["Recording %d"] = "Recording %d";
 localizedStrings["Recording Error: %s"] = "Recording Error: %s";
-localizedStrings["Recording Timeline Data"] = "Recording Timeline Data";
+/* Message for progress of a timeline recording. */
+localizedStrings["Recording Timeline Data @ Timeline Recording Progress"] = "Recording Timeline Data";
 /* A type of canvas recording in the Graphics Tab */
 localizedStrings["Recording Type Canvas Bitmap Renderer"] = "Bitmap Renderer";
 localizedStrings["Recording Warning: %s"] = "Recording Warning: %s";
-localizedStrings["Recording stop requested \u2014 %s"] = "Recording stop requested \u2014 %s";
 localizedStrings["Recordings"] = "Recordings";
+localizedStrings["Redirect"] = "Redirect";
 localizedStrings["Redirect Response"] = "Redirect Response";
 localizedStrings["Redirects"] = "Redirects";
 localizedStrings["Reference Issue"] = "Reference Issue";
@@ -1009,17 +1136,25 @@ localizedStrings["Request"] = "Request";
 localizedStrings["Request & Response"] = "Request & Response";
 localizedStrings["Request (DOM Tree)"] = "Request (DOM Tree)";
 localizedStrings["Request (Object Tree)"] = "Request (Object Tree)";
+/* Text indicating that the local override intercepts the request phase of network activity. */
+localizedStrings["Request @ Local Override Type"] = "Request";
 localizedStrings["Request Cookies"] = "Request Cookies";
 localizedStrings["Request Data"] = "Request Data";
 localizedStrings["Request Headers"] = "Request Headers";
+/* Label indicating that the shown content is from a request local override. */
+localizedStrings["Request Override @ Local Override Content View"] = "Request Override";
 localizedStrings["Requesting: %s"] = "Requesting: %s";
 localizedStrings["Required"] = "Required";
+/* Context menu action for resetting the breakpoint to its initial configuration. */
+localizedStrings["Reset Breakpoint @ Breakpoint Context Menu"] = "Reset Breakpoint";
 localizedStrings["Resource"] = "Resource";
 localizedStrings["Resource Size"] = "Resource Size";
 localizedStrings["Resource Type"] = "Resource Type";
 localizedStrings["Resource does not have timing data"] = "Resource does not have timing data";
 localizedStrings["Resource failed to load."] = "Resource failed to load.";
-localizedStrings["Resource has no content"] = "Resource has no content";
+/* An error message shown when there is no cached content for a HTTP 304 Not Modified resource response. */
+localizedStrings["Resource has no cached content. @ Resource Preview"] = "Resource has no cached content.";
+localizedStrings["Resource has no content."] = "Resource has no content.";
 localizedStrings["Resource has no timing data"] = "Resource has no timing data";
 localizedStrings["Resource was loaded with the \u201Cdata\u201D scheme."] = "Resource was loaded with the \u201Cdata\u201D scheme.";
 localizedStrings["Resource was served from the cache."] = "Resource was served from the cache.";
@@ -1028,8 +1163,14 @@ localizedStrings["Response"] = "Response";
 localizedStrings["Response (DOM Tree)"] = "Response (DOM Tree)";
 localizedStrings["Response (Object Tree)"] = "Response (Object Tree)";
 localizedStrings["Response (Text)"] = "Response (Text)";
+/* Text indicating that the local override will skip all network activity and instead immediately serve the response. */
+localizedStrings["Response (skip network) @ Local Override Type"] = "Response (skip network)";
+/* Text indicating that the local override intercepts the response phase of network activity. */
+localizedStrings["Response @ Local Override Type"] = "Response";
 localizedStrings["Response Cookies"] = "Response Cookies";
 localizedStrings["Response Headers"] = "Response Headers";
+/* Label indicating that the shown content is from a response local override. */
+localizedStrings["Response Override @ Local Override Content View"] = "Response Override";
 localizedStrings["Response:"] = "Response:";
 localizedStrings["Restart (%s)"] = "Restart (%s)";
 localizedStrings["Restart animation"] = "Restart animation";
@@ -1045,6 +1186,8 @@ localizedStrings["Return type for function: %s"] = "Return type for function: %s
 localizedStrings["Return value is not an object, string, or boolean"] = "Return value is not an object, string, or boolean";
 localizedStrings["Reveal"] = "Reveal";
 localizedStrings["Reveal Blackbox Pattern"] = "Reveal Blackbox Pattern";
+localizedStrings["Reveal Breakpoint in Sources Tab"] = "Reveal Breakpoint in Sources Tab";
+localizedStrings["Reveal Breakpoints in Sources Tab"] = "Reveal Breakpoints in Sources Tab";
 localizedStrings["Reveal Descendant Breakpoints"] = "Reveal Descendant Breakpoints";
 localizedStrings["Reveal Local Override"] = "Reveal Local Override";
 /* Open Elements tab and select this node in DOM tree */
@@ -1057,6 +1200,8 @@ localizedStrings["Reveal in Original Resource"] = "Reveal in Original Resource";
 localizedStrings["Reveal in Sources Tab"] = "Reveal in Sources Tab";
 localizedStrings["Reveal in Style Sheet"] = "Reveal in Style Sheet";
 localizedStrings["Role"] = "Role";
+/* Property value for `font-variant-alternates: ruby`. */
+localizedStrings["Ruby Glyphs @ Font Details Sidebar Property Value"] = "Ruby Glyphs";
 localizedStrings["Run %d"] = "Run %d";
 localizedStrings["Run console commands as if inside a user gesture"] = "Run console commands as if inside a user gesture";
 localizedStrings["Running the \u201C%s\u201D audit"] = "Running the \u201C%s\u201D audit";
@@ -1075,6 +1220,7 @@ localizedStrings["Scheme"] = "Scheme";
 localizedStrings["Scope"] = "Scope";
 localizedStrings["Scope Chain"] = "Scope Chain";
 localizedStrings["Screen Shot %s-%s-%s at %s.%s.%s"] = "Screen Shot %s-%s-%s at %s.%s.%s";
+localizedStrings["Screen size:"] = "Screen size:";
 localizedStrings["Script"] = "Script";
 localizedStrings["Script Element %d"] = "Script Element %d";
 localizedStrings["Script Entries:"] = "Script Entries:";
@@ -1099,6 +1245,8 @@ localizedStrings["Secure"] = "Secure";
 localizedStrings["Security"] = "Security";
 localizedStrings["Security Issue"] = "Security Issue";
 localizedStrings["Security Origin"] = "Security Origin";
+localizedStrings["Select an audit in the navigation sidebar to edit it."] = "Select an audit in the navigation sidebar to edit it.";
+localizedStrings["Select an audit in the navigation sidebar to view its results."] = "Select an audit in the navigation sidebar to view its results.";
 localizedStrings["Select baseline snapshot"] = "Select baseline snapshot";
 localizedStrings["Select comparison snapshot"] = "Select comparison snapshot";
 localizedStrings["Selected"] = "Selected";
@@ -1150,6 +1298,8 @@ localizedStrings["Show all resources"] = "Show all resources";
 localizedStrings["Show compositing borders"] = "Show compositing borders";
 localizedStrings["Show full certificate"] = "Show full certificate";
 localizedStrings["Show hidden tabs"] = "Show hidden tabs";
+/* Settings tab checkbox label for whether the independent styles sidebar should be shown */
+localizedStrings["Show independent Styles sidebar @ Settings Elements Pane"] = "Show independent Styles sidebar";
 localizedStrings["Show jump to effective property button"] = "Show jump to effective property button";
 localizedStrings["Show jump to variable declaration button"] = "Show jump to variable declaration button";
 localizedStrings["Show only for selected node"] = "Show only for selected node";
@@ -1163,10 +1313,20 @@ localizedStrings["Show transparency grid (settings label)"] = "Show transparency
 localizedStrings["Show transparency grid (tooltip)"] = "Show transparency grid";
 localizedStrings["Show type information"] = "Show type information";
 localizedStrings["Show:"] = "Show:";
+/* Property value for `font-variant-alternates: simplified`. */
+localizedStrings["Simplified Forms @ Font Details Sidebar Property Value"] = "Simplified Forms";
 localizedStrings["Site-specific Hacks"] = "Site-specific Hacks";
 localizedStrings["Size"] = "Size";
+/* Property title for `font-size`. */
+localizedStrings["Size @ Font Details Sidebar Property"] = "Size";
 localizedStrings["Size of current object plus all objects it keeps alive"] = "Size of current object plus all objects it keeps alive";
 localizedStrings["Sizes"] = "Sizes";
+/* Label for checkbox that controls whether the local override will actually perform a network request or skip it to immediately serve the response. */
+localizedStrings["Skip Network @ Local Override Popover Options"] = "Skip Network";
+/* Property value for `font-variant-numeric: slashed-zero`. */
+localizedStrings["Slashed Zeros @ Font Details Sidebar Property Value"] = "Slashed Zeros";
+/* Property value for `font-variant-capitals: small-caps`. */
+localizedStrings["Small Capitals @ Font Details Sidebar Property Value"] = "Small Capitals";
 localizedStrings["Snapshot %d"] = "Snapshot %d";
 localizedStrings["Snapshot %d \u2014 %s"] = "Snapshot %d \u2014 %s";
 localizedStrings["Snapshot Comparison (%d and %d)"] = "Snapshot Comparison (%d and %d)";
@@ -1189,9 +1349,12 @@ localizedStrings["Specificity: No value for selected element"] = "Specificity: N
 localizedStrings["Spelling"] = "Spelling";
 /* Input label for the spread radius of a CSS box shadow */
 localizedStrings["Spread @ Box Shadow Editor"] = "Spread";
+/* Property value for `font-variant-numeric: stacked-fractions`. */
+localizedStrings["Stacked Fractions @ Font Details Sidebar Property Value"] = "Stacked Fractions";
 localizedStrings["Staging:"] = "Staging:";
 localizedStrings["Stalled"] = "Stalled";
 localizedStrings["Start"] = "Start";
+localizedStrings["Start Audit"] = "Start Audit";
 localizedStrings["Start Time"] = "Start Time";
 localizedStrings["Start element selection (%s)"] = "Start element selection (%s)";
 localizedStrings["Start recording (%s)\nCreate new recording (%s)"] = "Start recording (%s)\nCreate new recording (%s)";
@@ -1200,6 +1363,8 @@ localizedStrings["Start to Finish"] = "Start to Finish";
 localizedStrings["State"] = "State";
 localizedStrings["Statistics"] = "Statistics";
 localizedStrings["Status"] = "Status";
+/* Label for the HTTP status code input for the local override currently being edited. */
+localizedStrings["Status @ Local Override Popover"] = "Status";
 localizedStrings["Step"] = "Step";
 localizedStrings["Step (%s or %s)"] = "Step (%s or %s)";
 localizedStrings["Step into (%s or %s)"] = "Step into (%s or %s)";
@@ -1214,10 +1379,17 @@ localizedStrings["Stop recording"] = "Stop recording";
 localizedStrings["Stop recording (%s)"] = "Stop recording (%s)";
 localizedStrings["Stop recording canvas actions"] = "Stop recording canvas actions";
 localizedStrings["Stop recording once page loads"] = "Stop recording once page loads";
+/* Message for progress of stopping a timeline recording. */
+localizedStrings["Stopping Timeline Recording @ Timeline Recording Progress"] = "Stopping Timeline Recording";
+localizedStrings["Stopping recording"] = "Stopping recording";
 localizedStrings["Stopping the \u201C%s\u201D audit"] = "Stopping the \u201C%s\u201D audit";
 localizedStrings["Storage"] = "Storage";
 /* Name of Storage Tab */
 localizedStrings["Storage Tab Name"] = "Storage";
+/* Property title for `font-stretch`. */
+localizedStrings["Stretch @ Font Details Sidebar Property"] = "Stretch";
+/* Property title for `font-style`. */
+localizedStrings["Style @ Font Details Sidebar Property"] = "Style";
 /* CSS properties defined via HTML style attribute */
 localizedStrings["Style Attribute"] = "Style Attribute";
 localizedStrings["Style Sheet"] = "Style Sheet";
@@ -1230,20 +1402,28 @@ localizedStrings["Styles \u2014 Computed"] = "Styles \u2014 Computed";
 localizedStrings["Styles \u2014 Rules"] = "Styles \u2014 Rules";
 localizedStrings["Styles:"] = "Styles:";
 localizedStrings["Subject"] = "Subject";
+/* Property value for `font-variant-position: sub`. */
+localizedStrings["Subscript @ Font Details Sidebar Property Value"] = "Subscript";
 /* A submenu item of 'Break On' that breaks (pauses) before child DOM node is modified */
-localizedStrings["Subtree Modified"] = "Subtree Modified";
+localizedStrings["Subtree Modified @ DOM Breakpoint"] = "Subtree Modified";
 localizedStrings["Summary"] = "Summary";
+/* Property value for `font-variant-position: super`. */
+localizedStrings["Superscript @ Font Details Sidebar Property Value"] = "Superscript";
 /* Label of dropdown item used for forcing Web Inspector to be shown using the system's theme */
 localizedStrings["System @ Settings General Appearance"] = "System";
 localizedStrings["TCP"] = "TCP";
 localizedStrings["TIFF"] = "TIFF";
 localizedStrings["Tab width:"] = "Tab width:";
 localizedStrings["Tabs"] = "Tabs";
+/* Property value for `font-variant-numeric: tabular-nums`. */
+localizedStrings["Tabular Numerals @ Font Details Sidebar Property Value"] = "Tabular Numerals";
 /* A submenu item of 'Edit' to change DOM element's tag name */
 localizedStrings["Tag"] = "Tag";
 localizedStrings["Take snapshot"] = "Take snapshot";
 localizedStrings["Target"] = "Target";
 localizedStrings["Template Content"] = "Template Content";
+/* Dropdown option inside the popover used to creating an audit test case. */
+localizedStrings["Test Case @ Audit Tab Navigation Sidebar"] = "Test Case";
 localizedStrings["Text"] = "Text";
 localizedStrings["Text Frame"] = "Text Frame";
 localizedStrings["Text Node"] = "Text Node";
@@ -1257,24 +1437,41 @@ localizedStrings["The \u201C%s\u201D\ntable is empty."] = "The \u201C%s\u201D\nt
 localizedStrings["The contents and enabled state will be preserved across Web Inspector sessions."] = "The contents and enabled state will be preserved across Web Inspector sessions.";
 localizedStrings["The page's content has changed"] = "The page's content has changed";
 localizedStrings["The resource was requested insecurely."] = "The resource was requested insecurely.";
+/* Message displayed in a banner when one or more snapshots that the user has not yet seen are being filtered. */
+localizedStrings["There are new snapshots that have been filtered @ Heap Allocations Timeline View"] = "There are new snapshots that have been filtered";
 localizedStrings["There are unread messages that have been filtered"] = "There are unread messages that have been filtered";
 localizedStrings["There is an incurred energy penalty each time the page enters script. This commonly happens with timers, event handlers, and observers."] = "There is an incurred energy penalty each time the page enters script. This commonly happens with timers, event handlers, and observers.";
 localizedStrings["These are all of the different test result levels."] = "These are all of the different test result levels.";
-localizedStrings["These are all of the different types of data that can be returned with the test result."] = "These are all of the different types of data that can be returned with the test result.";
-localizedStrings["These tests demonstrate how to use %s to access information not normally available to JavaScript."] = "These tests demonstrate how to use %s to access information not normally available to JavaScript.";
-localizedStrings["These tests demonstrate how to use %s to get information about DOM nodes."] = "These tests demonstrate how to use %s to get information about DOM nodes.";
-localizedStrings["These tests demonstrate how to use %s to get information about loaded resources."] = "These tests demonstrate how to use %s to get information about loaded resources.";
-localizedStrings["These tests demonstrate how to use %s to get information about the accessibility tree."] = "These tests demonstrate how to use %s to get information about the accessibility tree.";
-localizedStrings["These tests serve as a demonstration of the functionality and structure of audits."] = "These tests serve as a demonstration of the functionality and structure of audits.";
+localizedStrings["These are example tests that demonstrate all of the different types of data that can be returned with the test result."] = "These are example tests that demonstrate all of the different types of data that can be returned with the test result.";
+localizedStrings["These are example tests that demonstrate how to use %s to access information not normally available to JavaScript."] = "These are example tests that demonstrate how to use %s to access information not normally available to JavaScript.";
+localizedStrings["These are example tests that demonstrate how to use %s to get information about DOM nodes."] = "These are example tests that demonstrate how to use %s to get information about DOM nodes.";
+localizedStrings["These are example tests that demonstrate how to use %s to get information about loaded resources."] = "These are example tests that demonstrate how to use %s to get information about loaded resources.";
+localizedStrings["These are example tests that demonstrate how to use %s to get information about the accessibility tree."] = "These are example tests that demonstrate how to use %s to get information about the accessibility tree.";
+localizedStrings["These are example tests that demonstrate the functionality and structure of audits."] = "These are example tests that demonstrate the functionality and structure of audits.";
 localizedStrings["This action causes no visual change"] = "This action causes no visual change";
 localizedStrings["This action moves the path outside the visible area"] = "This action moves the path outside the visible area";
 localizedStrings["This animation has no duration."] = "This animation has no duration.";
 localizedStrings["This animation has no keyframes."] = "This animation has no keyframes.";
 localizedStrings["This audit is not supported"] = "This audit is not supported";
+localizedStrings["This is an example of a test that will not run because it is unsupported."] = "This is an example of a test that will not run because it is unsupported.";
 localizedStrings["This is an example of how custom result data is shown."] = "This is an example of how custom result data is shown.";
 localizedStrings["This is an example of how errors are shown. The error was thrown manually, but execution errors will appear in the same way."] = "This is an example of how errors are shown. The error was thrown manually, but execution errors will appear in the same way.";
 localizedStrings["This is an example of how result DOM attributes are highlighted on any returned DOM nodes. It will pass with all elements with an id attribute."] = "This is an example of how result DOM attributes are highlighted on any returned DOM nodes. It will pass with all elements with an id attribute.";
 localizedStrings["This is an example of how result DOM nodes are shown. It will pass with the <body> element."] = "This is an example of how result DOM nodes are shown. It will pass with the <body> element.";
+localizedStrings["This is an example test that uses %s to find a variety of accessibility information about the <body> element."] = "This is an example test that uses %s to find a variety of accessibility information about the <body> element.";
+localizedStrings["This is an example test that uses %s to find all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree."] = "This is an example test that uses %s to find all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree.";
+localizedStrings["This is an example test that uses %s to find all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist."] = "This is an example test that uses %s to find all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist.";
+localizedStrings["This is an example test that uses %s to find all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist."] = "This is an example test that uses %s to find all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist.";
+localizedStrings["This is an example test that uses %s to find all nodes owned (\u0022%s\u0022) by the <body> element, if any exist."] = "This is an example test that uses %s to find all nodes owned (\u0022%s\u0022) by the <body> element, if any exist.";
+localizedStrings["This is an example test that uses %s to find any element that meets criteria for active descendant (\u0022%s\u0022) of the <body> element, if it exists."] = "This is an example test that uses %s to find any element that meets criteria for active descendant (\u0022%s\u0022) of the <body> element, if it exists.";
+localizedStrings["This is an example test that uses %s to find basic information about each resource."] = "This is an example test that uses %s to find basic information about each resource.";
+localizedStrings["This is an example test that uses %s to find child nodes of the <body> element in the accessibility tree."] = "This is an example test that uses %s to find child nodes of the <body> element in the accessibility tree.";
+localizedStrings["This is an example test that uses %s to find data indicating whether the <body> element has any click event listeners."] = "This is an example test that uses %s to find data indicating whether the <body> element has any click event listeners.";
+localizedStrings["This is an example test that uses %s to find data indicating whether the <body> element has any event listeners."] = "This is an example test that uses %s to find data indicating whether the <body> element has any event listeners.";
+localizedStrings["This is an example test that uses %s to find elements with a computed role of \u0022link\u0022."] = "This is an example test that uses %s to find elements with a computed role of \u0022link\u0022.";
+localizedStrings["This is an example test that uses %s to find the contents of the main resource."] = "This is an example test that uses %s to find the contents of the main resource.";
+localizedStrings["This is an example test that uses %s to find the node that would handle mouse events for the <body> element, if applicable."] = "This is an example test that uses %s to find the node that would handle mouse events for the <body> element, if applicable.";
+localizedStrings["This is an example test that uses %s to find the parent node of the <body> element in the accessibility tree."] = "This is an example test that uses %s to find the parent node of the <body> element in the accessibility tree.";
 localizedStrings["This is what the result of a failing test with no data looks like."] = "This is what the result of a failing test with no data looks like.";
 localizedStrings["This is what the result of a passing test with no data looks like."] = "This is what the result of a passing test with no data looks like.";
 localizedStrings["This is what the result of a test that threw an error with no data looks like."] = "This is what the result of a test that threw an error with no data looks like.";
@@ -1287,20 +1484,6 @@ localizedStrings["This resource was loaded from a local override"] = "This resou
 localizedStrings["This resource was loaded from a service worker"] = "This resource was loaded from a service worker";
 localizedStrings["This resource was loaded from the disk cache"] = "This resource was loaded from the disk cache";
 localizedStrings["This resource was loaded from the memory cache"] = "This resource was loaded from the memory cache";
-localizedStrings["This test will pass with a variety of accessibility information about the <body> element."] = "This test will pass with a variety of accessibility information about the <body> element.";
-localizedStrings["This test will pass with all DOM nodes that have a computed role of \u0022link\u0022."] = "This test will pass with all DOM nodes that have a computed role of \u0022link\u0022.";
-localizedStrings["This test will pass with all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree."] = "This test will pass with all child nodes that are selected (\u0022%s\u0022) of the <body> element in the accessibility tree.";
-localizedStrings["This test will pass with all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist."] = "This test will pass with all nodes controlled (\u0022%s\u0022) by the <body> element, if any exist.";
-localizedStrings["This test will pass with all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist."] = "This test will pass with all nodes flowed to (\u0022%s\u0022) from the <body> element, if any exist.";
-localizedStrings["This test will pass with all nodes owned (\u0022%s\u0022) by the <body> element, if any exist."] = "This test will pass with all nodes owned (\u0022%s\u0022) by the <body> element, if any exist.";
-localizedStrings["This test will pass with all of the child nodes of the <body> element in the accessibility tree."] = "This test will pass with all of the child nodes of the <body> element in the accessibility tree.";
-localizedStrings["This test will pass with data indicating whether the <body> element has any click event listeners."] = "This test will pass with data indicating whether the <body> element has any click event listeners.";
-localizedStrings["This test will pass with data indicating whether the <body> element has any event listeners."] = "This test will pass with data indicating whether the <body> element has any event listeners.";
-localizedStrings["This test will pass with some basic information about each resource."] = "This test will pass with some basic information about each resource.";
-localizedStrings["This test will pass with the active descendant (\u0022%s\u0022) of the <body> element, if it exists."] = "This test will pass with the active descendant (\u0022%s\u0022) of the <body> element, if it exists.";
-localizedStrings["This test will pass with the contents of the main resource."] = "This test will pass with the contents of the main resource.";
-localizedStrings["This test will pass with the node that would handle mouse events for the <body> element, if applicable."] = "This test will pass with the node that would handle mouse events for the <body> element, if applicable.";
-localizedStrings["This test will pass with the parent node of the <body> element in the accessibility tree."] = "This test will pass with the parent node of the <body> element in the accessibility tree.";
 localizedStrings["This text resource could benefit from compression"] = "This text resource could benefit from compression";
 localizedStrings["Threads"] = "Threads";
 localizedStrings["Time"] = "Time";
@@ -1320,6 +1503,8 @@ localizedStrings["Timer Removed"] = "Timer Removed";
 localizedStrings["Timers:"] = "Timers:";
 localizedStrings["Timestamp \u2014 %s"] = "Timestamp \u2014 %s";
 localizedStrings["Timing"] = "Timing";
+/* Property value for `font-variant-capitals: titling-caps`. */
+localizedStrings["Titling Capitals @ Font Details Sidebar Property Value"] = "Titling Capitals";
 localizedStrings["To improve CPU utilization reduce or batch workloads when the page is not visible or during times when the page is not being interacted with."] = "To improve CPU utilization reduce or batch workloads when the page is not visible or during times when the page is not being interacted with.";
 localizedStrings["Toggle Classes"] = "Toggle Classes";
 localizedStrings["Toggle Visibility"] = "Toggle Visibility";
@@ -1333,6 +1518,8 @@ localizedStrings["Totals:"] = "Totals:";
 localizedStrings["Trace"] = "Trace";
 localizedStrings["Trace: %s"] = "Trace: %s";
 localizedStrings["Traces:"] = "Traces:";
+/* Property value for `font-variant-alternates: traditional`. */
+localizedStrings["Traditional Forms @ Font Details Sidebar Property Value"] = "Traditional Forms";
 /* Amount of data sent over the network for a single resource */
 localizedStrings["Transfer Size"] = "Transfer Size";
 localizedStrings["Transferred"] = "Transferred";
@@ -1350,12 +1537,16 @@ localizedStrings["Unable to show certificate for \u201C%s\u201D"] = "Unable to s
 localizedStrings["Unblackbox Script"] = "Unblackbox Script";
 localizedStrings["Unblackbox script to include it when debugging"] = "Unblackbox script to include it when debugging";
 /* Break (pause) on uncaught (unhandled) exceptions */
-localizedStrings["Uncaught Exceptions"] = "Uncaught Exceptions";
+localizedStrings["Uncaught Exceptions @ JavaScript Breakpoint"] = "Uncaught Exceptions";
 localizedStrings["Undefined custom element"] = "Undefined custom element";
+/* Property value for `font-variant-capitals: unicase`. */
+localizedStrings["Unicase @ Font Details Sidebar Property Value"] = "Unicase";
 localizedStrings["Unique"] = "Unique";
 localizedStrings["Unknown Location"] = "Unknown Location";
 localizedStrings["Unknown error"] = "Unknown error";
 localizedStrings["Unknown node"] = "Unknown node";
+/* Title of icon indicating that the selected audit is not able to be run (i.e. unsupported). */
+localizedStrings["Unsupported @ Audit Tab - Test Case"] = "Unsupported";
 localizedStrings["Unsupported property name"] = "Unsupported property name";
 localizedStrings["Unsupported property value"] = "Unsupported property value";
 localizedStrings["Untitled"] = "Untitled";
@@ -1375,6 +1566,8 @@ localizedStrings["Valid From"] = "Valid From";
 localizedStrings["Valid Until"] = "Valid Until";
 localizedStrings["Value"] = "Value";
 localizedStrings["Variables"] = "Variables";
+/* Section title for font variation properties. */
+localizedStrings["Variation Properties @ Font Details Sidebar Section"] = "Variation Properties";
 localizedStrings["Verbose"] = "Verbose";
 localizedStrings["Version"] = "Version";
 localizedStrings["Vertex"] = "Vertex";
@@ -1393,6 +1586,8 @@ localizedStrings["Waiting for animations created by JavaScript."] = "Waiting for
 localizedStrings["Waiting for canvas contexts created by script or CSS."] = "Waiting for canvas contexts created by script or CSS.";
 localizedStrings["Waiting for frames\u2026"] = "Waiting for frames\u2026";
 localizedStrings["Waiting for transitions created by CSS."] = "Waiting for transitions created by CSS.";
+/* Title of icon indicating that the selected audit passed with issues (i.e. warnings). */
+localizedStrings["Warn @ Audit Tab - Test Case"] = "Warn";
 localizedStrings["Warning: "] = "Warning: ";
 localizedStrings["Warnings"] = "Warnings";
 localizedStrings["Watch Expressions"] = "Watch Expressions";
@@ -1455,6 +1650,8 @@ localizedStrings["WebP"] = "WebP";
 localizedStrings["WebRTC"] = "WebRTC";
 localizedStrings["WebRTC Logging:"] = "WebRTC Logging:";
 localizedStrings["WebSocket Connection Established"] = "WebSocket Connection Established";
+/* Property title for `font-weight`. */
+localizedStrings["Weight @ Font Details Sidebar Property"] = "Weight";
 localizedStrings["Whitespace characters"] = "Whitespace characters";
 localizedStrings["Width"] = "Width";
 localizedStrings["With Object Properties"] = "With Object Properties";
@@ -1479,8 +1676,8 @@ localizedStrings["\u0022%s\u0022 has a non-string \u0022%s\u0022 value"] = "\u00
 localizedStrings["\u0022%s\u0022 has an invalid \u0022%s\u0022 value"] = "\u0022%s\u0022 has an invalid \u0022%s\u0022 value";
 localizedStrings["\u0022%s\u0022 is not JSON serializable"] = "\u0022%s\u0022 is not JSON serializable";
 localizedStrings["\u0022%s\u0022 is not valid for %s"] = "\u0022%s\u0022 is not valid for %s";
+localizedStrings["\u0022%s\u0022 is too new to run in the inspected page"] = "\u0022%s\u0022 is too new to run in the inspected page";
 localizedStrings["\u0022%s\u0022 is too new to run in this Web Inspector"] = "\u0022%s\u0022 is too new to run in this Web Inspector";
-localizedStrings["\u0022%s\u0022 is too new to run on this inspected page"] = "\u0022%s\u0022 is too new to run on this inspected page";
 localizedStrings["\u0022%s\u0022 must be a %s"] = "\u0022%s\u0022 must be a %s";
 localizedStrings["\u0022%s\u0022 must be an %s"] = "\u0022%s\u0022 must be an %s";
 localizedStrings["\u0022%s\u0022 threw an error"] = "\u0022%s\u0022 threw an error";
@@ -1512,6 +1709,10 @@ localizedStrings["spaces"] = "spaces";
 localizedStrings["time before stopping"] = "time before stopping";
 localizedStrings["times before stopping"] = "times before stopping";
 localizedStrings["toggle"] = "toggle";
+/* Warning text shown if the version number in the 'supports' input is too new. */
+localizedStrings["too new to run in the inspected page @ Audit Tab"] = "too new to run in the inspected page";
+/* Warning text shown if the version number in the 'supports' input is too new. */
+localizedStrings["too new to run in this Web Inspector @ Audit Tab"] = "too new to run in this Web Inspector";
 localizedStrings["unknown %s \u0022%s\u0022"] = "unknown %s \u0022%s\u0022";
 localizedStrings["unsupported %s"] = "unsupported %s";
 localizedStrings["unsupported HAR version"] = "unsupported HAR version";

@@ -32,9 +32,18 @@ install_headers()
 
     find "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2" -type f -name *.h -print0 | \
         xargs -0I % unifdef -t ${COPY_HEADERS_UNIFDEF_FLAGS} -o "%" "%"
+}
+
+install_modulemaps()
+{
+    mkdir -p "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
+    cp "${SRCROOT}/$1/"*.modulemap "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
+
     find "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2" -type f -name *.modulemap -print0 | \
         xargs -0I % unifdef -t ${COPY_HEADERS_UNIFDEF_FLAGS} -o "%" "%"
 }
 
 install_headers "include/sys" "/usr/include"
 install_headers "private/sys" "/usr/local/include"
+
+install_modulemaps "include" "/usr/include"

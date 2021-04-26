@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <notify.h>
+#include <time.h>
 #include <mach/mach.h>
 #include <mach/mach_port.h>
 #include <mach/mach_time.h>
@@ -176,6 +177,8 @@ static void btr_recordFDREvent(int eventType, bool checkStandbyStatus);
 #define kUnMitigatedFccDaySampleAvg "fccDaySampleAvgAlt"
 #define kWaitForFCState "waitFc"
 
+static int64_t pfStatusOverrideValue = -1;
+
 enum vactMode {
     vactModeDisabled = 0,
     vactModeEnabled,
@@ -186,6 +189,14 @@ enum vactMode {
 #define CAPACITY_FCC_CHANGE  (1 << 0)
 #define CAPACITY_NCC_CHANGE  (1 << 1)
 #define CAPACITY_SAMPLING_EPOCH_CHANGE  (1 << 2)
+#define CAPACITY_SEED_CHANGE  (1 << 3)
+
+#define FCC_SAMPLE_DROPPED_ZERO  (1 << 0)
+#define FCC_SAMPLE_DROPPED_DUPLICATE  (1 << 1)
+#define FCC_SAMPLE_DROPPED_TEMP  (1 << 2)
+#define FCC_SAMPLE_DROPPED_DIS  (1 << 3)
+#define FCC_SAMPLE_DROPPED_MASK (FCC_SAMPLE_DROPPED_ZERO | FCC_SAMPLE_DROPPED_DUPLICATE | FCC_SAMPLE_DROPPED_TEMP | FCC_SAMPLE_DROPPED_DIS)
+#define NEGATIVE_TS (1 << 4)
 
 #define SECONDS_IN_WEEK     (7 * 24 * 60 * 60)
 #define NVRAM_DEVICE_PATH "IODeviceTree:/options"
@@ -205,7 +216,7 @@ enum vactMode {
 #define NCC_CURRENT_THRESH  (40)
 #define NCC_CURRENT_THRESH_SCALE  (100)
 #define NCC_GAMMA_SCALE  (1000)
-#define NCC_GAMMA  (984)   // 10.5 day time constant = exp(-4(hrs)/10.5(days)/24(hrs/day))*NCC_GAMMA_SCALE = 984
+#define NCC_GAMMA  (909)   // 11.5 day time constant, 24hr calendar time epoch
 
 struct capacitySample {
     // inputs
@@ -234,7 +245,9 @@ struct nominalCapacityParams {
     // output
     unsigned int significantChange;
     unsigned int error;
+    unsigned int debug;
     int cycleCount;
+    uint64_t ts;
 };
 
 static const CFStringRef capacityKeys[vactModesCount][3] = {
@@ -363,24 +376,33 @@ enum {
     kInvalidWakeSecsDefault = 16
 };
 
+/*
+ * Valid only for non Apple Silicon devices. A previous/legacy service recommendation doesn't mean anything for AS macs that start their
+ * life with new algorithm present.
+ */
 static IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
                              boolean_t *hasLowCapRatio,
                              time_t *since)
 {
     IOReturn                    ret         = kIOReturnError;
 
-#if !TARGET_OS_IPHONE
+#if !TARGET_OS_IPHONE && !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     CFNumberRef                 num         = NULL;
     CFDictionaryRef             dict        = NULL;
 
     _internal_dispatch_assert_queue_barrier(batteryTimeRemainingQ);
 
-    if (!hasLowCapRatio || !since || !isA_CFString(batterySerialNumber)) {
+    if (!hasLowCapRatio || !since) {
         return ret;
     }
 
+    // return defaults if batterySerial appears to be missing/invalid
     *hasLowCapRatio = false;
     *since = 0;
+
+    if (!isA_CFString(batterySerialNumber)) {
+        return ret;
+    }
 
     if (cachedKeyPresence) {
         *hasLowCapRatio = cachedHasLowCap;
@@ -413,7 +435,7 @@ exit:
         CFRelease(dict);
     }
 
-#endif
+#endif // !TARGET_OS_IPHONE && !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     return ret;
 }
 
@@ -1025,7 +1047,7 @@ __private_extern__ void BatteryTimeRemaining_finish(void)
  * Make sure we don't publish a time remaining estimate at all
  * until a given period has elapsed.
  */
-static void _discontinuityOccurred(bool isWake)
+static void _discontinuityOccurred(bool isWake, bool percentageDiscontinuity)
 {
     _internal_dispatch_assert_queue_barrier(batteryTimeRemainingQ);
 
@@ -1033,7 +1055,7 @@ static void _discontinuityOccurred(bool isWake)
         bzero(slew, sizeof(SlewStruct));
     }
     control.lastDiscontinuity = CFAbsoluteTimeGetCurrent();
-    control.percentageDiscontinuity = true;
+    control.percentageDiscontinuity = percentageDiscontinuity;
 
 #if TARGET_OS_WATCH
     if (isWake) {
@@ -1054,7 +1076,7 @@ BatteryTimeRemainingWakeNotification(void)
         control.warningsShouldResetForSleep = true;
         control.readACAdapterAgain = true;
 
-        _discontinuityOccurred(true);
+        _discontinuityOccurred(true, true);
     });
 }
 
@@ -1388,6 +1410,18 @@ __private_extern__ int batteryTimeRemaining_getPercentRemaining(void)
     return currentPercentRemaining;
 }
 
+__private_extern__ bool batteryTimeRemaining_isOBCEngaged(void)
+{
+    __block bool ret = false;
+    dispatch_sync(batteryTimeRemainingQ, ^() {
+        IOPMBattery **b = _batteries();
+        if (b && b[0] && b[0]->isPresent) {
+            ret = !!b[0]->obcEngaged;
+        }
+    });
+    return ret;
+}
+
 static void publish_IOPSGetPercentRemaining(
     int         percentRemaining,
     bool        isExternal,
@@ -1455,6 +1489,7 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
 
     static int  _lastExternalConnected = -1;
     static int  _lastPercentRemaining = 100;
+    static int  _lastIsCharging = -1;
     int         _nowExternalConnected = 0;
     int         percentRemaining = 0;
     IOPMBattery **_batts = _batteries();
@@ -1480,8 +1515,10 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
     _nowExternalConnected = (b->externalConnected ? 1 : 0) | (b->rawExternalConnected ? 1 : 0);
     if (_lastExternalConnected != _nowExternalConnected) {
         // If AC has changed, we must invalidate time remaining.
-        _discontinuityOccurred(false);
+        _discontinuityOccurred(false, true);
         control.needsNotifyAC = true;
+    } else if (_lastIsCharging != b->isCharging) {
+        _discontinuityOccurred(false, false);
     }
 
     readAndPublishACAdapter(b->externalConnected,
@@ -1514,6 +1551,7 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
     b->swCalculatedPR = percentRemaining;
     _lastPercentRemaining = percentRemaining;
     _lastExternalConnected = _nowExternalConnected;
+    _lastIsCharging = b->isCharging;
 
     /************************************************************************
      *
@@ -2552,6 +2590,13 @@ static void _setBatteryHealthData(
 }
 
 #elif TARGET_OS_OSX // TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH
+static uint64_t getTimeInSecsSinceEpoch(void)
+{
+    struct timespec timeSpec = {0, 0};
+    clock_gettime(CLOCK_REALTIME, &timeSpec);
+    return timeSpec.tv_sec;
+}
+
 static CFStringRef getBatteryHealthPath(void)
 {
     static CFMutableStringRef nvramBatteryHealthPath = NULL;
@@ -2680,9 +2725,6 @@ static CFMutableDictionaryRef createPersistentStorage(IOPMBattery *b, IOPSBatter
     CFDictionaryRef batteryProps = nil;
     IOPSBatteryHealthServiceFlags svcFlags = kBatteryHealthCurrentVersion;
     IOPSBatteryHealthServiceFlags sticky = flags & kBHSvcFlagStickyBits;
-    IOReturn ret;
-    boolean_t hasLowCapRatio = false;
-    time_t since;
 
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
 
@@ -2732,17 +2774,14 @@ static CFMutableDictionaryRef createPersistentStorage(IOPMBattery *b, IOPSBatter
     CFDictionarySetIntValue(dict, CFSTR(kUnMitigatedNominalCapacityAvg), val);
     val = (NVRAM_BATTERY_HEALTH_VER_MAJOR << 16) | NVRAM_BATTERY_HEALTH_VER_MINOR;
     CFDictionarySetIntValue(dict, CFSTR("version"), val);
+    uint64_t ts = getTimeInSecsSinceEpoch();
+    CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
 
     if ((flags & kBHSvcFlagNewBattery)) {
         svcFlags |= kBHSvcFlagNewBattery;
         sticky = 0;
-    } else {
-        ret = _getLowCapRatioTime(battPropsSerial, &hasLowCapRatio, &since);
-        if (ret == kIOReturnSuccess && hasLowCapRatio) {
-            svcFlags |= (kBHSvcFlagNCC | kBHSvcFlagPrevService);
-            INFO_LOG("Detected previous service:%d\n", svcFlags);
-        }
     }
+
     svcFlags |= sticky;
     CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthServiceFlagsKey), svcFlags);
 
@@ -2831,31 +2870,23 @@ out:
 
 /*
  * Test if the sampling time expiration has crossed the pre defined limit.
- * If so, reset the base sampling time to arm for next expiry
  *
- * @return value: true if limit crossed, false otherwise
+ * @return value: current time if limit crossed, 0 otherwise.
  */
-static bool hasSamplingTimeExpired(void)
+static uint64_t hasSamplingTimeExpired(uint64_t baseTime)
 {
-    static uint64_t baseTime = 0;
     uint64_t currentTime, timeDelta;
-    bool expired = false;
 
-    /*
-     * Quirk to set the baseTime for the very first time (after every boot).
-     */
-    if (baseTime == 0) {
-        baseTime = getMonotonicContinuousTime();
-    }
-
-    currentTime = getMonotonicContinuousTime();
+    currentTime = getTimeInSecsSinceEpoch();
     timeDelta = currentTime - baseTime;
 
-    if(timeDelta > battReadTimeDelta) {
-        baseTime = currentTime;
-        expired = true;
+    if ((int64_t) timeDelta < 0) {
+        return -1;
+    } else if (timeDelta > battReadTimeDelta) {
+        return currentTime;
+    } else {
+        return 0;
     }
-    return expired;
 }
 
 /*
@@ -2863,6 +2894,7 @@ static bool hasSamplingTimeExpired(void)
  */
 void calculateNominalCapacity(struct nominalCapacityParams *params) {
     unsigned int significantChange = CAPACITY_NO_CHANGE;
+    unsigned int debug = 0;
     unsigned int fccDaySampleCount = params->fccDaySampleCount;
     unsigned int fccAvgHistoryCount = params->fccAvgHistoryCount;
     int fccGG = params->fcc;
@@ -2890,6 +2922,7 @@ void calculateNominalCapacity(struct nominalCapacityParams *params) {
                 ncc[k] = params->sample[k].fcc + kSmartBattReserve_mAh;
             }
             INFO_LOG("Seed value for nominal capacity: %d", ncc[k]);
+            significantChange |= CAPACITY_SEED_CHANGE;
         }
         significantChange |= CAPACITY_NCC_CHANGE;
     }
@@ -2899,31 +2932,47 @@ void calculateNominalCapacity(struct nominalCapacityParams *params) {
     // last FCC reading != current reading, last FCC reading was non-zero == AP was ON
     if ((fccGG != fccLast) && (fccLast != 0) && (temperature > NCC_TEMP_THRESH) && (abs(current) < currentThreshold)) {
         fccDaySampleCount = fccDaySampleCount < UINT32_MAX ? (fccDaySampleCount + 1) : UINT32_MAX;
+        DEBUG_LOG("Qualified sample fcc: %d fccLast: %d temp: %d current: %d\n", fccGG, fccLast, temperature, current);
         for (int k = 0; k < vactModesCount; k++) {
             fccDaySampleAvg[k] = ((fccDaySampleCount - 1) * fccDaySampleAvg[k] + params->sample[k].fcc) / fccDaySampleCount;
         }
         significantChange |= CAPACITY_FCC_CHANGE;
+    } else {
+        if (fccGG == fccLast)
+            debug |= FCC_SAMPLE_DROPPED_DUPLICATE;
+        if (fccLast == 0)
+            debug |= FCC_SAMPLE_DROPPED_ZERO;
+        if (temperature <= NCC_TEMP_THRESH)
+            debug |= FCC_SAMPLE_DROPPED_TEMP;
+        if (abs(current) >= currentThreshold)
+            debug |= FCC_SAMPLE_DROPPED_DIS;
     }
+
     // If the BHUI algorithm samples FCC before the gas gauge resimulates FCC at the lower discharge rate, it will effectively use the high discharge rate FCC in the average,
     // hence cahce the last sampled FCC for duplicacy checks regardless of it was qualified or not.
     fccLast = fccGG;
 
     // Step 3. Check if one epoch is over
-    if (hasSamplingTimeExpired() && fccDaySampleCount) {
+    uint64_t ts = hasSamplingTimeExpired(params->ts);
+    if (ts > 0)
         significantChange |= CAPACITY_SAMPLING_EPOCH_CHANGE;
 
+    if (ts == -1)
+        debug |= NEGATIVE_TS;
+
+    if (ts > 0 && fccDaySampleCount) {
         // Step 4: iir filter the fcc average for the day to get the ncc
         for (int k = 0; k < vactModesCount; k++) {
-            int nccPrev = ncc[k];
             ncc[k] = (gamma * ncc[k] + (NCC_GAMMA_SCALE - gamma) * fccDaySampleAvg[k]) / NCC_GAMMA_SCALE;
             fccDaySampleAvg[k] = 0;
-            if (ncc[k] < nccPrev) {
-                significantChange |= CAPACITY_NCC_CHANGE;
-            }
+            significantChange |= CAPACITY_NCC_CHANGE;
             INFO_LOG("Recalculated NCC: %d\n", ncc[k]);
         }
         fccDaySampleCount = 0;
         fccAvgHistoryCount = fccAvgHistoryCount < UINT32_MAX ? (fccAvgHistoryCount + 1) : UINT32_MAX;
+        params->ts = ts;
+    } else if (ts) {
+        INFO_LOG("No samples for the day found");
     }
 
     params->fccDaySampleCount = fccDaySampleCount;
@@ -2933,6 +2982,7 @@ void calculateNominalCapacity(struct nominalCapacityParams *params) {
         params->sample[k].ncc = ncc[k];
     }
     params->significantChange = significantChange;
+    params->debug = debug;
     return;
 }
 
@@ -3039,6 +3089,17 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         params.sample[vactModeEnabled].fcc, cycleCount);
 
     params.cycleCount = cycleCount;
+    uint64_t ts = 0;
+    CFDictionaryGetInt64Value(dict, CFSTR("ts"), ts);
+    if (ts == 0) {
+        ts = getTimeInSecsSinceEpoch();
+        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
+        INFO_LOG("init health ts with %llu\n", ts);
+    } else {
+        INFO_LOG("stored ts %llu, current ts %llu\n", ts, getTimeInSecsSinceEpoch());
+    }
+    params.ts = ts;
+
     calculateNominalCapacity(&params);
     if (params.significantChange) {
         for (int i = 0; i < vactModesCount; i++) {
@@ -3052,6 +3113,27 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
                 }
             }
         }
+    }
+
+    if (params.significantChange & CAPACITY_SEED_CHANGE) {
+        INFO_LOG("Seed change detected: %d %d\n", params.sample[0].ncc, params.sample[1].ncc);
+        CFDictionarySetIntValue(dict, CFSTR("seed0"), params.sample[0].ncc);
+        CFDictionarySetIntValue(dict, CFSTR("seed1"), params.sample[1].ncc);
+        CFDictionarySetIntValue(dict, CFSTR("seedTs"), params.ts);
+    }
+
+    if (params.significantChange & CAPACITY_SAMPLING_EPOCH_CHANGE) {
+        CFDictionarySetInt64Value(dict, CFSTR("tsPrev"), ts);
+        ts = params.ts;
+        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
+        INFO_LOG("new epoch start: %llu\n", ts);
+    }
+
+    if (params.debug & NEGATIVE_TS) {
+        uint64_t ts;
+        ts = getTimeInSecsSinceEpoch();
+        ERROR_LOG("Negative time delta encountered (%llu), reset clock (%llu)\n", params.ts, ts);
+        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
     }
     
     if (!IS_IN_NOMINAL_RANGE(params.sample[vactModeEnabled].nccpMonotonic) && !IS_IN_NOMINAL_RANGE(params.sample[vactModeDisabled].nccpMonotonic)) {
@@ -3084,7 +3166,7 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         INFO_LOG("Nominal Capacity percentage(%d) is less than the threshold(%d)\n", params.sample[vactModeEnabled].ncc, kNominalCapacityPercentageThreshold);
     }
 
-    DEBUG_LOG("nccService: %d capacityUI:%d nccU:%d nccM:%d vactMode:%d waitForFC:%d\n", nccService, capacityUI, params.sample[vactModeDisabled].nccpMonotonic, params.sample[vactModeEnabled].nccpMonotonic, getVactState(), waitForFC);
+    DEBUG_LOG("nccService: %d capacityUI:%d nccU:%d nccM:%d vactMode:%d waitForFC:%d sigChange:0x%x\n", nccService, capacityUI, params.sample[vactModeDisabled].nccpMonotonic, params.sample[vactModeEnabled].nccpMonotonic, getVactState(), waitForFC, params.significantChange);
 out:
     return;
 }
@@ -3145,8 +3227,30 @@ exit:
     return ret;
 }
 
+// Battery health is maintained at the lowest level seen
+static const char *batteryHealth = kIOPSGoodValue;
+static const char *batteryHealthCond = "";
+
+#if TARGET_CPU_ARM64
+// Indicates a prior service recommendation triggered by legacy FCC based battey health algorithm
+// No-op for AS portables
+static bool isPrevServiceRecommended(void)
+{
+    DEBUG_LOG("Skipping prevService check (%s)", batteryHealth);
+    return false;
+}
+#else
+// A string of Poor, Fair, Check from the legacy algorithm should be treated as service state for the new algorithm to pick up.
+// Conditional check on customBatteryProps to aid testing.
+static bool isPrevServiceRecommended(void)
+{
+    return (!customBatteryProps) && (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue)) == 0 || strncmp(batteryHealth, kIOPSFairValue, sizeof(kIOPSFairValue)) == 0 || strncmp(batteryHealth, kIOPSCheckBatteryValue, sizeof(kIOPSCheckBatteryValue)) == 0);
+}
+#endif
+
 static void updateBatteryHealth(CFMutableDictionaryRef outDict, IOPMBattery *b)
 {
+    int epochCount = -1;
     CFMutableDictionaryRef dict = nil;
     IOPSBatteryHealthServiceFlags svcFlags = kBatteryHealthCurrentVersion;
 
@@ -3165,6 +3269,18 @@ static void updateBatteryHealth(CFMutableDictionaryRef outDict, IOPMBattery *b)
     if (0 != b->pfStatus) {
         svcFlags |= kBHSvcFlagPermanentFault;
     }
+
+    CFDictionaryGetIntValue(dict, CFSTR(kFccAvgHistoryCount), epochCount);
+    if (epochCount == -1) {
+        ERROR_LOG("Invalid epoch count in persistent storage\n");
+    }
+
+    // Consider service recommendation from legacy algorithm only for the first epoch of the new algorithm, else ignore.
+    if (epochCount == 0 && isPrevServiceRecommended()) {
+        svcFlags |= kBHSvcFlagNCC | kBHSvcFlagPrevService;
+        INFO_LOG("Detected previous service:%s (%d)\n", batteryHealth, svcFlags);
+    }
+
     checkNominalCapacity(batteryProps, dict, &svcFlags);
     updateBatteryServiceState(batteryProps, dict, svcFlags);
     if(!writeBatteryHealthPersistentData(dict)) {
@@ -3190,12 +3306,17 @@ static void _setBatteryHealthData(
     if(!outDict || !b || !b->isPresent)
         return;
 
+    if(pfStatusOverrideValue != -1) {
+        b->pfStatus = (uint32_t) pfStatusOverrideValue;
+    }
+
     initBatteryHealthData();
     updateBatteryHealth(outDict, b);
 
     /** Report any failure status from the PFStatus register                          **/
     /***********************************************************************************/
     /***********************************************************************************/
+
     if ( 0!= b->pfStatus) {
         permanentFailures = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
         if (!permanentFailures)
@@ -3245,10 +3366,6 @@ static void _setBatteryHealthData(
         CFDictionarySetValue( outDict, CFSTR(kIOPSBatteryFailureModesKey), permanentFailures);
         CFRelease(permanentFailures);
     }
-
-    // Battery health is maintained at the lowest level seen
-    static const char *batteryHealth = kIOPSGoodValue;
-    static const char *batteryHealthCond = "";
 
     // Permanent failure -> Poor health
     if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey))) {
@@ -3802,7 +3919,7 @@ __private_extern__ void getBatteryHealthPersistentData(xpc_object_t remoteConnec
             CFMutableDictionaryRef dict = readBatteryHealthPersistentData();
             respData = _CFXPCCreateXPCObjectFromCFObject(dict);
 
-            xpc_dictionary_set_value(respMsg, "readBatteryHealthPersistentData", respData);
+            xpc_dictionary_set_value(respMsg, kReadPersistentBHData, respData);
             DEBUG_LOG("Returned battery health persistent data %{public}@\n", dict);
             if (respData) {
                 xpc_release(respData);
@@ -3816,6 +3933,49 @@ __private_extern__ void getBatteryHealthPersistentData(xpc_object_t remoteConnec
         xpc_connection_send_message(remoteConnection, respMsg);
         xpc_release(respMsg);
     });
+}
+
+__private_extern__ void setPermFaultStatus(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+    int64_t pfStatus = 0;
+
+    if (!msg) {
+        ERROR_LOG("Invalid message\n");
+        return;
+    }
+    xpc_object_t respMsg = xpc_dictionary_create_reply(msg);
+    if (respMsg == NULL) {
+        ERROR_LOG("Failed to create response message\n");
+        return;
+    }
+
+    if (!isSenderEntitled(remoteConnection, CFSTR("com.apple.private.iokit.batteryTester"), true)) {
+        ERROR_LOG("Ignoring custom battery properties message from unprivileged sender\n");
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnNotPrivileged);
+        goto exit;
+    }
+
+    pfStatus = xpc_dictionary_get_int64(msg, kSetPermFaultStatus);
+    if ((pfStatus < -1) || (pfStatus > UINT32_MAX)) {
+        ERROR_LOG("Received invalid permanent battery failure status %lld\n", pfStatus);
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnBadArgument);
+        goto exit;
+    }
+
+    pfStatusOverrideValue = pfStatus;
+    if (pfStatusOverrideValue != -1)
+    {
+        INFO_LOG("Set permanent battery failure status to %u\n", (uint32_t)pfStatusOverrideValue);
+    }
+    else
+    {
+        INFO_LOG("Disabled permanent battery failure status override\n");
+    }
+    xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnSuccess);
+
+exit:
+    xpc_connection_send_message(remoteConnection, respMsg);
+    xpc_release(respMsg);
 }
 #endif // TARGET_OS_OSX
 

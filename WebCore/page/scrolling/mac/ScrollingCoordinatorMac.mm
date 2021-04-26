@@ -73,7 +73,7 @@ void ScrollingCoordinatorMac::pageDestroyed()
     });
 }
 
-bool ScrollingCoordinatorMac::handleWheelEvent(FrameView&, const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNode)
+bool ScrollingCoordinatorMac::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNodeID, Optional<WheelScrollGestureState> gestureState)
 {
     ASSERT(isMainThread());
     ASSERT(m_page);
@@ -81,21 +81,29 @@ bool ScrollingCoordinatorMac::handleWheelEvent(FrameView&, const PlatformWheelEv
     if (scrollingTree()->willWheelEventStartSwipeGesture(wheelEvent))
         return false;
 
-    LOG_WITH_STREAM(Scrolling, stream << "ScrollingCoordinatorMac::handleWheelEvent - sending event to scrolling thread");
-    
-    // FIXME: Over on the scrolling thread, we'll hit-test the layers and possibly send the event to a node
-    // which we've already discounted on the main thread. This needs to target a specific node.
+    LOG_WITH_STREAM(Scrolling, stream << "ScrollingCoordinatorMac::handleWheelEventForScrolling " << wheelEvent << " - sending event to scrolling thread, node " << targetNodeID << " gestureState " << gestureState);
+
+    auto deferrer = WheelEventTestMonitorCompletionDeferrer { m_page->wheelEventTestMonitor().get(), reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(targetNodeID), WheelEventTestMonitor::PostMainThreadWheelEventHandling };
 
     RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
-    ScrollingThread::dispatch([threadedScrollingTree, wheelEvent, targetNode] {
-        threadedScrollingTree->handleWheelEventAfterMainThread(wheelEvent, targetNode);
+    ScrollingThread::dispatch([threadedScrollingTree, wheelEvent, targetNodeID, gestureState, deferrer = WTFMove(deferrer)] {
+        threadedScrollingTree->handleWheelEventAfterMainThread(wheelEvent, targetNodeID, gestureState);
     });
     return true;
 }
 
+void ScrollingCoordinatorMac::wheelEventWasProcessedByMainThread(const PlatformWheelEvent& wheelEvent, Optional<WheelScrollGestureState> gestureState)
+{
+    LOG_WITH_STREAM(Scrolling, stream << "ScrollingCoordinatorMac::wheelEventWasProcessedByMainThread " << gestureState);
+
+    RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
+    threadedScrollingTree->wheelEventWasProcessedByMainThread(wheelEvent, gestureState);
+}
+
 void ScrollingCoordinatorMac::scheduleTreeStateCommit()
 {
-    m_page->scheduleRenderingUpdate();
+    // FIXME: This one needs work.
+    m_page->scheduleRenderingUpdate(RenderingUpdateStep::ScrollingTreeUpdate);
 }
 
 void ScrollingCoordinatorMac::commitTreeStateIfNeeded()

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2019 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,6 +62,7 @@
 #include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_read_write.h>
 #include <netsmb/smb_conn_2.h>
+#include <netsmb/smb2_mc_support.h>
 
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
@@ -148,6 +149,11 @@ lck_grp_attr_t *hash_lck_grp_attr;
 lck_grp_t *hash_lck_grp;
 lck_attr_t *hash_lck_attr;
 
+lck_grp_attr_t *mc_notifier_lck_grp_attr;
+lck_grp_t *mc_notifier_lck_grp;
+lck_attr_t *mc_notifier_lck_attr;
+lck_mtx_t mc_notifier_lck;
+
 struct smbmnt_carg {
 	vfs_context_t context;
 	struct mount *mp;
@@ -200,6 +206,8 @@ int g_registered_for_low_memory = 0;
 extern lck_mtx_t global_Lease_hash_lock;
 extern u_long g_lease_hash_len;
 extern struct g_lease_hash_head *g_lease_hash;
+
+extern pid_t mc_notifier_pid;
 
 static void
 smbfs_lock_init()
@@ -317,6 +325,11 @@ smbnet_lock_init()
 	dev_lck_grp = lck_grp_alloc_init("smb-dev", dev_lck_grp_attr);
 
 	dev_rw_lck = lck_rw_alloc_init(dev_lck_grp, dev_lck_attr);
+
+    mc_notifier_lck_attr = lck_attr_alloc_init();
+    mc_notifier_lck_grp_attr = lck_grp_attr_alloc_init();
+    mc_notifier_lck_grp = lck_grp_alloc_init("smb-mc-notifier", mc_notifier_lck_grp_attr);
+    lck_mtx_init(&mc_notifier_lck, mc_notifier_lck_grp, mc_notifier_lck_attr);
 }
 
 static void 
@@ -417,12 +430,18 @@ smbfs_down(struct smb_share *share, int timeToNotify)
 {
 	struct smbmount *smp;
 	int treenct = 1;
-	
+    struct smbiod *iod = NULL;
+
 	smp = share->ss_mount;
 	/* We have already unmounted or we are being force unmount, we are done */
 	if ((smp == NULL) || (vfs_isforce(smp->sm_mp))) {
 		return 0;
 	}
+
+    if (smb_iod_get_main_iod(SS_TO_SESSION(share), &iod, __FUNCTION__)) { // TBD: Do we need a for loop on all iods?
+        SMBERROR("Invalid iod\n");
+        return EINVAL;
+    }
 
 	/* 
 	 * They are attempted to unmount it so don't count this one. 
@@ -437,7 +456,7 @@ smbfs_down(struct smb_share *share, int timeToNotify)
 		!(smp->sm_status & SM_STATUS_REMOUNT)) {
 		smp->sm_status |= SM_STATUS_REMOUNT;
 		/* Never do Dfs failover if the share is FAT or doing Unix Extensions */
-		if ((IPC_PORT_VALID(SS_TO_SESSION(share)->session_gss.gss_mp)) && 
+		if ((IPC_PORT_VALID(iod->iod_session->gss_mp)) &&
 			(share->ss_fstype != SMB_FS_FAT) && !(UNIX_CAPS(share))) {
 			
 			/* Call autofs with the fsid to start the remount */
@@ -445,7 +464,7 @@ smbfs_down(struct smb_share *share, int timeToNotify)
 					 share->ss_name);
 			if (SMBRemountServer(&(vfs_statfs(smp->sm_mp))->f_fsid, 
 								 sizeof(vfs_statfs(smp->sm_mp)->f_fsid),
-								 SS_TO_SESSION(share)->session_gss.gss_asid)) {
+								 iod->iod_gss.gss_asid)) {
 				/* Something went wrong try again next time */
 				SMBERROR("Something went wrong with remounting %s/%s\n", 
 						 SS_TO_SESSION(share)->session_srvname, share->ss_name);
@@ -469,6 +488,7 @@ smbfs_down(struct smb_share *share, int timeToNotify)
 		}
 		smp->sm_status |= SM_STATUS_DOWN;
 	}
+    smb_iod_rel(iod, NULL, __FUNCTION__);
 	return treenct;
 }
 
@@ -578,7 +598,13 @@ smbfs_remountInfo(struct mount *mp, struct smb_share *share,
 				  struct smb_remount_info *info)
 {
     size_t len;
-    
+
+    struct smbiod *iod;
+    if (smb_iod_get_main_iod(SS_TO_SESSION(share), &iod, __FUNCTION__)) { // TBD: Do we need a for loop on all iods?
+        SMBERROR("Invalid iod\n");
+        return EINVAL;
+    }
+
 #ifdef SMBDEBUG_REMOUNT
 	/* Used for testing only, pretend we are in reconnect. */
 	share->ss_flags |= SMBS_RECONNECTING;
@@ -602,7 +628,7 @@ smbfs_remountInfo(struct mount *mp, struct smb_share *share,
 
 	strlcpy(info->mntURL, vfs_statfs(mp)->f_mntfromname, sizeof(info->mntURL));
 
-    len = SS_TO_SESSION(share)->session_gss.gss_cpn_len;
+    len = iod->iod_gss.gss_cpn_len;
     if (len >= sizeof(info->mntClientPrincipalName)) {
         SMBERROR("session_gss.gss_cpn_len too big %zu >= %lu \n",
                  len,
@@ -610,10 +636,11 @@ smbfs_remountInfo(struct mount *mp, struct smb_share *share,
         len = sizeof(info->mntClientPrincipalName) - 1;
     }
     memcpy(info->mntClientPrincipalName,
-           (char *)SS_TO_SESSION(share)->session_gss.gss_cpn,
+           (char *)iod->iod_gss.gss_cpn,
            len);
     
-	info->mntClientPrincipalNameType  = SS_TO_SESSION(share)->session_gss.gss_client_nt;
+	info->mntClientPrincipalNameType  = iod->iod_gss.gss_client_nt;
+    smb_iod_rel(iod, NULL, __FUNCTION__);
 	return 0;
 }
 
@@ -831,12 +858,17 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	smp->sm_share = share;
 	lck_rw_unlock_exclusive(&smp->sm_rw_sharelock);
 	smp->sm_rvp = NULL;
+
 	/* Save any passed in arguments that we may need */
 	smp->sm_args.altflags = args->altflags;
 	smp->sm_args.uid = args->uid;
     smp->sm_args.gid = args->gid;
-
     smp->sm_args.ip_QoS = args->ip_QoS;
+    if (smp->sm_args.altflags & SMBFS_MNT_SNAPSHOT) {
+        strlcpy(SS_TO_SESSION(share)->snapshot_time, args->snapshot_time,
+                sizeof(SS_TO_SESSION(share)->snapshot_time));
+        SS_TO_SESSION(share)->snapshot_local_time = args->snapshot_local_time;
+    }
 
 	/* Get the user's uuid */
 	error = kauth_cred_uid2guid(smp->sm_args.uid, &smp->sm_args.uuid);
@@ -942,7 +974,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
      * check for whether the session needs to be validated or not.
      */
     if (!(smp->sm_args.altflags & SMBFS_MNT_VALIDATE_NEG_OFF)) {
-        if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
+        if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+            !(SS_TO_SESSION(share)->session_flags & SMBV_SMB311)) {
             error = smb2fs_smb_validate_neg_info(share, context);
             if (error) {
                 SMBERROR("smb2fs_smb_validate_neg_info failed %d \n", error);
@@ -954,7 +987,20 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         SMBWARNING("Validate Negotiate is off in preferences\n");
     }
     
-	/*
+    /*
+     * [MS-SMB2] 4.8 The diagram shows that the query server network interfaces
+     * comes after the Validate Negotiate.
+     * 
+     * For multichannel, see if its time to query the server interfaces
+     */
+    if (SS_TO_SESSION(share)->session_flags & SMBV_MULTICHANNEL_ON) {
+        error = smb_session_query_net_if(SS_TO_SESSION(share));
+        if (error) {
+            SMBERROR("smb_session_query_net_if: error = %d\n", error);
+        }
+    }
+
+    /*
 	 * This call should be done from mount() in vfs layer. Not sure why each 
 	 * file system has to do it here, but go ahead and make an internal call to 
 	 * fill in the default values.
@@ -1132,7 +1178,12 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		smbfs_unix_whoami(share, smp, context);
 	}
 
-    if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+    /*
+     * Only check HiFi if we are NOT forcing HiFi mode. There is a later
+     * check to verify if HiFi requests work or not.
+     */
+    if (!(smp->sm_args.altflags & SMBFS_MNT_HIGH_FIDELITY) &&
+        (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY)) {
         /*
          * Verify that the server supports high fidelity
          * 1. Has to be SMB 2/3
@@ -1149,6 +1200,18 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
             error = EINVAL;
             goto bad;
         }
+    }
+
+    if (smp->sm_args.altflags & SMBFS_MNT_SNAPSHOT) {
+        /*
+         * Snapshot mounts are read only and all creates have the time warp
+         * token set
+         */
+        SMBWARNING("%s mounted using Snapshot of <%s> \n",
+                   vfs_statfs(mp)->f_mntfromname,
+                   SS_TO_SESSION(share)->snapshot_time);
+
+        SS_TO_SESSION(share)->session_misc_flags |= SMBV_MNT_SNAPSHOT;
     }
 
     /*
@@ -1492,7 +1555,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         SMBWARNING("Setting custom IP Qos to <%d> for %s volume\n",
                    smp->sm_args.ip_QoS, (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
         option = smp->sm_args.ip_QoS;
-        error = smb_iod_set_qos(SS_TO_SESSION(share), &option);
+        error = smb_iod_set_qos(SS_TO_SESSION(share)->session_iod, &option);
         if (error) {
             SMBERROR("smb_iod_set_qos failed %d \n", error);
         }
@@ -1618,6 +1681,28 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
     }
 
     /*
+     * <74384840> needs to wait/cancel the alt channel establishment before
+     * proceeding with the unmount. o.w we might still have uncompleted requests
+     * when unmount code is done.
+     */
+    if (sessionp->session_flags & SMBV_MULTICHANNEL_ON) {
+        SMB_LOG_MC("pause trials before proceeding with the unmount\n");
+        smb2_mc_pause_trials(&sessionp->session_interface_table);
+        while (smb2_mc_check_for_active_trials(&sessionp->session_interface_table))
+        {
+            SMB_LOG_MC("still have ongoing trials\n");
+            smb2_mc_abort_trials(&sessionp->session_interface_table);
+            struct timespec sleeptime;
+            sleeptime.tv_sec = 1;
+            sleeptime.tv_nsec = 0;
+            msleep(&sessionp->session_iod->iod_flags, 0, PWAIT,
+                   "unmount wait for ongiong trials", &sleeptime);
+        }
+    }
+
+    SMB_LOG_MC("no more ongoing trials \n");
+
+    /*
      * The vflush will cause all the vnodes associated with this
      * mount to get reclaimed.
      */
@@ -1633,10 +1718,10 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
         error = EBUSY;
 		goto done;
 	}
-    
+
 	SMB_LOG_UNIT_TEST("FileLeaseUnitTest - total def close count <%lld> on <%s> \n",
 					  share->ss_total_def_close_cnt, share->ss_name);
-	
+
 	smp->sm_rvp = NULL;	/* We no longer have a reference so clear it out */
 	vnode_rele(vp);	/* to drop ref taken by smbfs_mount */
 	vnode_put(vp);	/* to drop ref taken by VFS_ROOT above */
@@ -1709,6 +1794,17 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	vfs_clearflags(mp, MNT_LOCAL);
 	mount_cnt--;
     
+    lck_mtx_lock(&mc_notifier_lck);
+    if (!mount_cnt) {
+
+        /* Signal the mc_notifier to kill itself*/
+        if (mc_notifier_pid != -1) {
+            proc_signal(mc_notifier_pid, SIGTERM);
+            mc_notifier_pid = -1;
+        }
+    }
+    lck_mtx_unlock(&mc_notifier_lck);
+
     error = 0;
     
 done:
@@ -2566,8 +2662,12 @@ done:
 static int
 smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 {
-	struct smbfs_sync_cargs args;
-	
+    struct smbfs_sync_cargs args = {0};
+    int error;
+    struct smbmount *smp = VFSTOSMBFS(mp);
+    struct smb_share *share = NULL;
+    struct smb_session *sessionp = NULL;
+
     SMB_LOG_KTRACE(SMB_DBG_SYNC | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     /* Check for reclaimed dirs in the cache */
@@ -2576,6 +2676,7 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
     args.context = context;
 	args.waitfor = waitfor;
 	args.error = 0;
+
 	/*
 	 * Force stale buffer cache information to be flushed.
 	 *
@@ -2584,6 +2685,41 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 	 * properly referenced and unreferenced around the callback
 	 */
 	vnode_iterate(mp, VNODE_ITERATE_ACTIVE, smbfs_sync_callback, (void *)&args);
+
+    /* See if its time to requery the server interfaces */
+    if (smp == NULL) {
+        SMBERROR("smp == NULL? \n");
+        args.error = EINVAL;
+        goto done;
+    }
+
+    share = smb_get_share_with_reference(smp);
+    if (share == NULL) {
+        SMBERROR("share == NULL? \n");
+        args.error = EINVAL;
+        goto done;
+    }
+
+    sessionp = SS_TO_SESSION(share);
+    if (sessionp == NULL) {
+        SMBERROR("sessionp == NULL? \n");
+        args.error = EINVAL;
+        goto done;
+    }
+
+    /* For multichannel, see if its time to query the server interfaces */
+    if (sessionp->session_flags & SMBV_MULTICHANNEL_ON) {
+        error = smb_session_query_net_if(sessionp);
+        if (error) {
+            SMBERROR("smb_session_query_net_if failed %d\n", error);
+        }
+    }
+
+done:
+    /* We only have a share if we took a reference, release it */
+    if (share) {
+        smb_share_rele(share, context);
+    }
 
     SMB_LOG_KTRACE(SMB_DBG_SYNC | DBG_FUNC_END, args.error, 0, 0, 0, 0);
 	return (args.error);
@@ -2836,7 +2972,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 {
 #pragma unused(oldlenp, newp, newlen)
 	int error = 0;
-	struct sysctl_req *req;
+	struct sysctl_req *req = NULL;
 	struct mount *mp = NULL;
 	struct smbmount *smp = NULL;
 	struct vfsquery vq;
@@ -2992,17 +3128,18 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 
 				/* Get a reference on the share */
 				share = smb_get_share_with_reference(smp);
-			
-				if (SS_TO_SESSION(share)->session_saddr->sa_family == AF_NETBIOS) {
-					/* NetBIOS sockaddr get the real IPv4 sockaddr */
-					saddr = (struct sockaddr *) 
+
+                /* <72239144> Return original server IP address that was used */
+                if (SS_TO_SESSION(share)->session_saddr->sa_family == AF_NETBIOS) {
+                    /* NetBIOS sockaddr get the real IPv4 sockaddr */
+                    saddr = (struct sockaddr *)
                         &((struct sockaddr_nb *) SS_TO_SESSION(share)->session_saddr)->snb_addrin;
-				} 
+                }
                 else {
-					/* IPv4 or IPv6 sockaddr */
-					saddr = SS_TO_SESSION(share)->session_saddr;
-				}
-                
+                    /* IPv4 or IPv6 sockaddr */
+                    saddr = SS_TO_SESSION(share)->session_saddr;
+                }
+
 				/* Just to be safe, make sure we have a safe length */
 				len = (saddr->sa_len > sizeof(storage)) ? sizeof(storage) : saddr->sa_len;
 				memcpy(&storage, saddr, len);
@@ -3354,6 +3491,7 @@ int smbfs_module_stop(kmod_info_t *ki, void *data)
     /* Halt and free the read/write threads/queue */
     smb_rw_cleanup();
 
+	lck_mtx_destroy(&mc_notifier_lck, mc_notifier_lck_grp);
     /* Free all the mutexes */
 	smbfs_lock_uninit();	/* Free up the file system locks */
 	smbnet_lock_uninit();	/* Free up the network locks */

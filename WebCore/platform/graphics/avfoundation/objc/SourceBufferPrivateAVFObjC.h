@@ -27,6 +27,7 @@
 
 #if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
 
+#include "GenericTaskQueue.h"
 #include "SourceBufferParser.h"
 #include "SourceBufferPrivate.h"
 #include <dispatch/group.h>
@@ -60,6 +61,7 @@ namespace WebCore {
 class CDMInstance;
 class CDMInstanceFairPlayStreamingAVFObjC;
 class CDMSessionMediaSourceAVFObjC;
+class MediaPlayerPrivateMediaSourceAVFObjC;
 class MediaSourcePrivateAVFObjC;
 class TimeRanges;
 class AudioTrackPrivate;
@@ -81,9 +83,6 @@ public:
 class SourceBufferPrivateAVFObjC final
     : public SourceBufferPrivate
     , public CanMakeWeakPtr<SourceBufferPrivateAVFObjC>
-#if !RELEASE_LOG_DISABLED
-    , private LoggerHelper
-#endif
 {
 public:
     static Ref<SourceBufferPrivateAVFObjC> create(MediaSourcePrivateAVFObjC*, Ref<SourceBufferParser>&&);
@@ -94,15 +93,12 @@ public:
     void willProvideContentKeyRequestInitializationDataForTrackID(uint64_t trackID);
     void didProvideContentKeyRequestInitializationDataForTrackID(Ref<Uint8Array>&&, uint64_t trackID, Box<BinarySemaphore>);
 
-    bool hasVideo() const;
     bool hasSelectedVideo() const;
-    bool hasAudio() const;
 
     void trackDidChangeSelected(VideoTrackPrivate&, bool selected);
     void trackDidChangeEnabled(AudioTrackPrivate&, bool enabled);
 
     void willSeek();
-    MediaTime fastSeekTimeForMediaTime(const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold);
     FloatSize naturalSize();
 
     uint64_t protectedTrackID() const { return m_protectedTrackID; }
@@ -143,13 +139,12 @@ public:
 private:
     explicit SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC*, Ref<SourceBufferParser>&&);
 
-    using InitializationSegment = SourceBufferParser::InitializationSegment;
+    using InitializationSegment = SourceBufferPrivateClient::InitializationSegment;
     void didParseInitializationData(InitializationSegment&&);
     void didEncounterErrorDuringParsing(int32_t);
-    void didProvideMediaDataForTrackID(Ref<MediaSample>&&, uint64_t trackID, const String& mediaType);
+    void didProvideMediaDataForTrackId(Ref<MediaSample>&&, uint64_t trackId, const String& mediaType);
 
     // SourceBufferPrivate overrides
-    void setClient(SourceBufferPrivateClient*) final;
     void append(Vector<unsigned char>&&) final;
     void abort() final;
     void resetParserState() final;
@@ -159,12 +154,17 @@ private:
     void flush(const AtomString& trackID) final;
     void enqueueSample(Ref<MediaSample>&&, const AtomString& trackID) final;
     bool isReadyForMoreSamples(const AtomString& trackID) final;
+    MediaTime timeFudgeFactor() const final;
     void setActive(bool) final;
+    bool isActive() const final;
     void notifyClientWhenReadyForMoreSamples(const AtomString& trackID) final;
     bool canSetMinimumUpcomingPresentationTime(const AtomString&) const override;
     void setMinimumUpcomingPresentationTime(const AtomString&, const MediaTime&) override;
     void clearMinimumUpcomingPresentationTime(const AtomString&) override;
     bool canSwitchToType(const ContentType&) final;
+    bool isSeeking() const final;
+    MediaTime currentMediaTime() const final;
+    MediaTime duration() const final;
 
     void didBecomeReadyForMoreSamples(uint64_t trackID);
     void appendCompleted();
@@ -174,8 +174,10 @@ private:
 
     void flushVideo();
     ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
-    void flush(AVSampleBufferAudioRenderer *);
+    void flushAudio(AVSampleBufferAudioRenderer *);
     ALLOW_NEW_API_WITHOUT_GUARDS_END
+
+    MediaPlayerPrivateMediaSourceAVFObjC* player() const;
 
     Vector<RefPtr<VideoTrackPrivate>> m_videoTracks;
     Vector<RefPtr<AudioTrackPrivate>> m_audioTracks;
@@ -184,6 +186,11 @@ private:
     WeakPtrFactory<SourceBufferPrivateAVFObjC> m_appendWeakFactory;
 
     Ref<SourceBufferParser> m_parser;
+    bool m_initializationSegmentIsHandled { false };
+    bool m_hasPendingAppendCompletedCallback { false };
+    Vector<std::pair<uint64_t, Ref<MediaSample>>> m_mediaSamples;
+    GenericTaskQueue<Timer> m_mediaSampleTaskQueue;
+
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
     ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     HashMap<uint64_t, RetainPtr<AVSampleBufferAudioRenderer>, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_audioRenderers;
@@ -196,7 +203,7 @@ private:
     RefPtr<WebCoreDecompressionSession> m_decompressionSession;
 
     MediaSourcePrivateAVFObjC* m_mediaSource;
-    SourceBufferPrivateClient* m_client { nullptr };
+    bool m_isActive { false };
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<Uint8Array> m_initData;
     WeakPtr<CDMSessionMediaSourceAVFObjC> m_session { nullptr };

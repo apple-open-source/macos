@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 1994-1996, 1998-2005, 2007-2019
+.\" Copyright (c) 1994-1996, 1998-2005, 2007-2021
 .\"	Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -24,7 +24,7 @@
 .nr BA @BAMAN@
 .nr LC @LCMAN@
 .nr PS @PSMAN@
-.Dd December 9, 2019
+.Dd January 8, 2020
 .Dt SUDOERS @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -69,6 +69,7 @@ to use the
 .Nm
 plugin, the following configuration can be used.
 .Bd -literal -offset indent
+Plugin sudoers_audit sudoers.so
 Plugin sudoers_policy sudoers.so
 Plugin sudoers_io sudoers.so
 .Ed
@@ -80,17 +81,47 @@ Starting with
 plugin in the
 .Xr sudo.conf @mansectform@
 file.
-These arguments, if present, should be listed after the path to the plugin
+Plugin arguments, if any, should be listed after the path to the plugin
 (i.e., after
 .Pa sudoers.so ) .
+The arguments are only effective for the plugin that opens (and parses) the
+.Em sudoers
+file.
+.Pp
+For
+.Nm sudo
+version 1.9.1 and higher, this is the
+.Em sudoers_audit
+plugin.
+For older versions, it is the
+.Em sudoers_policy
+plugin.
 Multiple arguments may be specified, separated by white space.
 For example:
 .Bd -literal -offset indent
-Plugin sudoers_policy sudoers.so sudoers_mode=0400
+Plugin sudoers_audit sudoers.so sudoers_mode=0400 error_recovery=false
 .Ed
 .Pp
 The following plugin arguments are supported:
 .Bl -tag -width 8n
+.It error_recovery=bool
+The
+.Em error_recovery
+argument can be used to control whether
+.Nm
+should attempt to recover from syntax errors in the
+.Em sudoers
+file.
+If set to
+.Em true
+(the default),
+.Nm
+will try to recover from a syntax error by discarding the portion
+of the line that contains the error until the end of the line.
+A value of
+.Em false
+will disable error recovery.
+Prior to version 1.9.3, no error recovery was performed.
 .It ldap_conf=pathname
 The
 .Em ldap_conf
@@ -273,6 +304,13 @@ command tags.
 See
 .Sx "I/O LOG FILES"
 for details on how I/O log files are stored.
+.Pp
+Starting with version 1.9, the
+.Em log_servers
+setting may be used to send event and I/O log data to a remote server running
+.Nm sudo_logsrvd
+or another service that implements the protocol described by
+.Xr sudo_logsrv.proto @mansectform@ .
 .Ss Command environment
 Since environment variables can influence program behavior,
 .Nm
@@ -327,7 +365,6 @@ are preserved from the invoking user's environment if permitted by the
 or
 .Em env_keep
 options.
-This is effectively a whitelist for environment variables.
 A few environment variables are treated specially.
 If the
 .Ev PATH
@@ -369,13 +406,8 @@ explicitly denied by the
 .Em env_check
 and
 .Em env_delete
-options are
+options are allowed and their values are
 inherited from the invoking process.
-In this case,
-.Em env_check
-and
-.Em env_delete
-behave like a blacklist.
 Prior to version 1.8.21, environment variables with a value beginning with
 .Li ()
 were always removed.
@@ -385,7 +417,7 @@ is used to match
 .Sy bash
 shell functions instead.
 Since it is not possible
-to blacklist all potentially dangerous environment variables, use
+to block all potentially dangerous environment variables, use
 of the default
 .Em env_reset
 behavior is encouraged.
@@ -603,11 +635,19 @@ There are four kinds of aliases:
 .Li Host_Alias
 and
 .Li Cmnd_Alias .
+Beginning with
+.Nm sudo
+1.9.0,
+.Li Cmd_Alias
+may be used in place of
+.Li Cmnd_Alias
+if desired.
 .Bd -literal
 Alias ::= 'User_Alias'  User_Alias_Spec (':' User_Alias_Spec)* |
           'Runas_Alias' Runas_Alias_Spec (':' Runas_Alias_Spec)* |
           'Host_Alias'  Host_Alias_Spec (':' Host_Alias_Spec)* |
-          'Cmnd_Alias'  Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)*
+          'Cmnd_Alias'  Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)* |
+          'Cmd_Alias'   Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)*
 
 User_Alias ::= NAME
 
@@ -844,6 +884,9 @@ Digest_Spec ::= "sha224" ':' digest |
 		"sha384" ':' digest |
 		"sha512" ':' digest
 
+Digest_List ::= Digest_Spec |
+                Digest_Spec ',' Digest_List
+
 Cmnd_List ::= Cmnd |
               Cmnd ',' Cmnd_List
 
@@ -851,9 +894,11 @@ command name ::= file name |
                  file name args |
                  file name '""'
 
-Cmnd ::= Digest_Spec? '!'* command name |
+Edit_Spec ::= "sudoedit" file name+
+
+Cmnd ::= Digest_List? '!'* command name |
          '!'* directory |
-         '!'* "sudoedit" |
+         '!'* Edit_Spec |
          '!'* Cmnd_Alias
 .Ed
 .Pp
@@ -923,12 +968,21 @@ A fully-qualified path for
 is treated as an error by
 .Nm visudo .
 .Pp
-If a
+A
 .Li command name
-is prefixed with a
-.Li Digest_Spec ,
-the command will only match successfully if it can be verified
-using the specified SHA-2 digest.
+may be preceded by a
+.Li Digest_List ,
+a comma-separated list of one or more
+.Li Digest_Spec
+entries.
+If a
+.Li Digest_List
+is present, the command will only match successfully if it can be verified
+using one of the SHA-2 digests in the list.
+Starting with version 1.9.0, the
+.Sy ALL
+reserved word can be used in conjunction with a
+.Li Digest_List .
 The following digest formats are supported: sha224, sha256, sha384 and sha512.
 The string may be specified in either hex or base64 format
 (base64 is more compact).
@@ -1048,12 +1102,12 @@ Cmnd_Spec ::= Runas_Spec? Option_Spec* Tag_Spec* Cmnd
 Runas_Spec ::= '(' Runas_List? (':' Runas_List)? ')'
 
 .ie \n(SL \{\
-.ie \n(PS Option_Spec ::= (SELinux_Spec | Solaris_Priv_Spec | Date_Spec | Timeout_Spec)
-.el Option_Spec ::= (SELinux_Spec | Date_Spec | Timeout_Spec)
+.ie \n(PS Option_Spec ::= (SELinux_Spec | Solaris_Priv_Spec | Date_Spec | Timeout_Spec | Chdir_Spec | Chroot_Spec)
+.el Option_Spec ::= (SELinux_Spec | Date_Spec | Timeout_Spec | Chdir_Spec | Chroot_Spec)
 .\}
 .el \{\
-.ie \n(PS Option_Spec ::= (Solaris_Priv_Spec | Date_Spec | Timeout_Spec)
-.el Option_Spec ::= (Date_Spec | Timeout_Spec)
+.ie \n(PS Option_Spec ::= (Solaris_Priv_Spec | Date_Spec | Timeout_Spec | Chdir_Spec | Chroot_Spec)
+.el Option_Spec ::= (Date_Spec | Timeout_Spec | Chdir_Spec | Chroot_Spec)
 .\}
 
 .if \n(SL \{\
@@ -1067,6 +1121,10 @@ Solaris_Priv_Spec ::= ('PRIVS=privset' | 'LIMITPRIVS=privset')
 Date_Spec ::= ('NOTBEFORE=timestamp' | 'NOTAFTER=timestamp')
 
 Timeout_Spec ::= 'TIMEOUT=timeout'
+
+Chdir_Spec ::= 'CWD=directory'
+
+Chroot_Spec ::= 'CHROOT=directory'
 
 Tag_Spec ::= ('EXEC:' | 'NOEXEC:' | 'FOLLOW:' | 'NOFOLLOW' |
               'LOG_INPUT:' | 'NOLOG_INPUT:' | 'LOG_OUTPUT:' |
@@ -1256,6 +1314,10 @@ subsequent
 in the
 .Li Cmnd_Spec_List ,
 inherit that option unless it is overridden by another option.
+Note that the option names are reserved words in
+.Em sudoers .
+This means that none of the valid option names (see below) can be used
+when declaring an alias.
 .if \n(SL \{\
 .Ss SELinux_Spec
 On systems with SELinux support,
@@ -1374,6 +1436,70 @@ timeout values:
 .Li 1d2d3h .
 .Pp
 This setting is only supported by version 1.8.20 or higher.
+.Ss Chdir_Spec
+The working directory that the command will be run in can be specified
+using the
+.Li CWD
+setting.
+The
+.Fa directory
+must be a fully-qualified path name beginning with a
+.Sq /
+or
+.Sq ~
+character, or the special value
+.Dq * .
+A value of
+.Dq *
+indicates that the user may specify the working directory by running
+.Nm sudo
+with the
+.Fl D
+option.
+By default, commands are run from the invoking user's current working
+directory, unless the
+.Fl i
+option is given.
+Path names of the form
+.Li ~user/path/name
+are interpreted as being relative to the named user's home directory.
+If the user name is omitted, the path will be relative to the runas
+user's home directory.
+.Pp
+This setting is only supported by version 1.9.3 or higher.
+.Ss Chroot_Spec
+The root directory that the command will be run in can be specified
+using the
+.Li CHROOT
+setting.
+The
+.Fa directory
+must be a fully-qualified path name beginning with a
+.Sq /
+or
+.Sq ~
+character, or the special value
+.Dq * .
+A value of
+.Dq *
+indicates that the user may specify the root directory by running
+.Nm sudo
+with the
+.Fl R
+option.
+This setting can be used to run the command in a
+.Xr chroot 2
+.Dq sandbox
+similar to the
+.Xr chroot @mansectsu@
+utility.
+Path names of the form
+.Li ~user/path/name
+are interpreted as being relative to the named user's home directory.
+If the user name is omitted, the path will be relative to the runas
+user's home directory.
+.Pp
+This setting is only supported by version 1.9.3 or higher.
 .Ss Tag_Spec
 A command may have zero or more tags associated with it.
 The following tag values are supported:
@@ -1731,12 +1857,17 @@ It is possible to include other
 files from within the
 .Em sudoers
 file currently being parsed using the
+.Li @include
+and
+.Li @includedir
+directives.
+For compatibility with sudo versions prior to 1.9.1,
 .Li #include
 and
 .Li #includedir
-directives.
+are also accepted.
 .Pp
-This can be used, for example, to keep a site-wide
+An include file can be used, for example, to keep a site-wide
 .Em sudoers
 file in addition to a local, per-machine file.
 For the sake of this example the site-wide
@@ -1749,11 +1880,10 @@ To include
 .Pa /etc/sudoers.local
 from within
 .Pa /etc/sudoers
-we would use the
-following line in
+one would use the following line in
 .Pa /etc/sudoers :
 .Bd -literal -offset 4n
-#include /etc/sudoers.local
+@include /etc/sudoers.local
 .Ed
 .Pp
 When
@@ -1771,6 +1901,16 @@ Files that are included may themselves include other files.
 A hard limit of 128 nested include files is enforced to prevent include
 file loops.
 .Pp
+The path to the include file may contain white space if it is
+escaped with a backslash
+.Pq Ql \e .
+Alternately, the entire path may be enclosed in double quotes
+.Pq \&"" ,
+in which case no escaping is necessary.
+To include a literal backslash in the path,
+.Ql \e\e
+should be used.
+.Pp
 If the path to the include file is not fully-qualified (does not
 begin with a
 .Ql / ) ,
@@ -1780,7 +1920,7 @@ For example, if
 .Pa /etc/sudoers
 contains the line:
 .Bd -literal -offset 4n
-.Li #include sudoers.local
+.Li @include sudoers.local
 .Ed
 .Pp
 the file that will be included is
@@ -1793,7 +1933,7 @@ In other words, if the machine's host name is
 .Dq xerxes ,
 then
 .Bd -literal -offset 4n
-#include /etc/sudoers.%h
+@include /etc/sudoers.%h
 .Ed
 .Pp
 will cause
@@ -1802,7 +1942,7 @@ to include the file
 .Pa /etc/sudoers.xerxes .
 .Pp
 The
-.Li #includedir
+.Li @includedir
 directive can be used to create a
 .Pa sudoers.d
 directory that the system package manager can drop
@@ -1810,7 +1950,7 @@ directory that the system package manager can drop
 file rules into as part of package installation.
 For example, given:
 .Bd -literal -offset 4n
-#includedir /etc/sudoers.d
+@includedir /etc/sudoers.d
 .Ed
 .Pp
 .Nm sudo
@@ -1836,14 +1976,14 @@ Using a consistent number of leading zeroes in the file names can be used
 to avoid such problems.
 After parsing the files in the directory, control returns to the
 file that contained the
-.Li #includedir
+.Li @includedir
 directive.
 .Pp
 Note that unlike files included via
-.Li #include ,
+.Li @include ,
 .Nm visudo
 will not edit the files in a
-.Li #includedir
+.Li @includedir
 directory unless one of them contains a syntax error.
 It is still possible to run
 .Nm visudo
@@ -1874,16 +2014,37 @@ It can be used wherever one might otherwise use a
 .Li Runas_Alias ,
 or
 .Li Host_Alias .
-You should not try to define your own
+Attempting to define an
 .Em alias
-called
+named
 .Sy ALL
-as the built-in alias will be used in preference to your own.
+will result in a syntax error.
 Please note that using
 .Sy ALL
 can be dangerous since in a command context, it allows the user to run
 .Em any
 command on the system.
+.Pp
+The following option names permitted in an
+.Li Option_Spec
+are also considered reserved words:
+.Li CHROOT ,
+.if \n(PS \{\
+.Li PRIVS ,
+.Li LIMITPRIVS ,
+.\}
+.if \n(SL \{\
+.Li ROLE ,
+.Li TYPE ,
+.\}
+.Li TIMEOUT ,
+.Li CWD ,
+.Li NOTBEFORE
+and
+.Li NOTAFTER .
+Attempting to define an
+.Em alias
+with the same name as one of the options will result in a syntax error.
 .Pp
 An exclamation point
 .Pq Ql \&!
@@ -2320,7 +2481,7 @@ by default.
 .It ignore_iolog_errors
 Allow commands to be run even if
 .Nm
-cannot write to the I/O log.
+cannot write to the I/O log (local or remote).
 If enabled, an I/O log write failure is not treated as a fatal error.
 If disabled, the command will be terminated if the I/O log cannot be written to.
 This flag is
@@ -2439,6 +2600,33 @@ section.
 This flag is
 .Em off
 by default.
+.It log_server_keepalive
+If set,
+.Nm sudo
+will enable the TCP keepalive socket option on the connection to the log server.
+This enables the periodic transmission of keepalive messages to the server.
+If the server does not respond to a message, the connection will
+be closed and the running command will be terminated unless the
+.Em ignore_iolog_errors
+flag (I/O logging enabled) or the
+.Em ignore_log_errors
+flag (I/O logging disabled) is set.
+This flag is
+.Em on
+by default.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
+.It log_server_verify
+If set, the server certificate received during the TLS handshake
+must be valid and it must contain either the server name (from
+.Em log_servers )
+or its IP address.
+If either of these conditions is not met, the TLS handshake will fail.
+This flag is
+.Em on
+by default.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
 .It log_year
 If set, the four-digit year will be logged in the (non-syslog)
 .Nm sudo
@@ -2627,6 +2815,39 @@ This flag is
 by default.
 .Pp
 This setting is only supported by version 1.8.28 or higher.
+.It pam_rhost
+On systems that use PAM for authentication,
+.Nm sudo
+will set the PAM remote host value to the name of the local host
+when the
+.Em pam_rhost
+flag is enabled.
+On Linux systems, enabling
+.Em pam_rhost
+may result in DNS lookups of the local host name when PAM is initialized.
+On Solaris versions prior to Solaris 8,
+.Em pam_rhost
+must be enabled if
+.Em pam_ruser
+is also enabled to avoid a crash in the Solaris PAM implementation.
+.Pp
+This flag is
+.Em off
+by default on systems other than Solaris.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
+.It pam_ruser
+On systems that use PAM for authentication,
+.Nm sudo
+will set the PAM remote user value to the name of the user that invoked sudo
+when the
+.Em pam_ruser
+flag is enabled.
+This flag is
+.Em on
+by default.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
 .It pam_session
 On systems that use PAM for authentication,
 .Nm sudo
@@ -2653,7 +2874,9 @@ If
 .Em pam_setcred ,
 and
 .Em use_pty
-are disabled and I/O logging has not been configured,
+are disabled,
+.Em log_servers
+has not been set and I/O logging has not been configured,
 .Nm sudo
 will execute the command directly instead of running it as a child
 process.
@@ -2673,7 +2896,9 @@ If
 .Em pam_setcred ,
 and
 .Em use_pty
-are disabled and I/O logging has not been configured,
+are disabled,
+.Em log_servers
+has not been set and I/O logging has not been configured,
 .Nm sudo
 will execute the command directly instead of running it as a child
 process.
@@ -2826,6 +3051,15 @@ when running a command or editing a file.
 This flag is
 .Em off
 by default.
+.if \n(SL \{\
+.It selinux
+If enabled, the user may specify an SELinux role and/or type to use
+when running the command, as permitted by the SELinux policy.
+If SELinux is disabled on the system, this flag has no effect.
+This flag is
+.Em on
+by default.
+.\}
 .It set_home
 If enabled and
 .Nm sudo
@@ -3159,6 +3393,15 @@ See the
 section for a description of the timeout syntax.
 .Pp
 This setting is only supported by version 1.8.20 or higher.
+.It log_server_timeout
+The maximum amount of time to wait when connecting to a log server
+or waiting for a server response.
+See the
+.Li Timeout_Spec
+section for a description of the timeout syntax.
+The default value is 30 seconds.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
 .It maxseq
 The maximum sequence number that will be substituted for the
 .Dq Li %{seq}
@@ -3517,6 +3760,30 @@ This option is only available if
 .Nm
 is built on Solaris 10 or higher.
 .\}
+.It log_server_cabundle
+The path to a certificate authority bundle file, in PEM format,
+to use instead of the system's default certificate authority database
+when authenticating the log server.
+The default is to use the system's default certificate authority database.
+This setting has no effect unless
+.Em log_servers
+is set and the remote log server is secured with TLS.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
+.It log_server_peer_cert
+The path to the client's certificate file, in PEM format.
+This setting is required when
+.Em log_servers
+is set and the remote log server is secured with TLS.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
+.It log_server_peer_key
+The path to the client's private key file, in PEM format.
+This setting is required when
+.Em log_servers
+is set and the remote log server is secured with TLS.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
 .It mailsub
 Subject of the mail sent to the
 .Em mailto
@@ -3745,7 +4012,7 @@ Entries in this file should either be of the form
 .Dq Li VARIABLE=value
 or
 .Dq Li export VARIABLE=value .
-The value may optionally be surrounded by single or double quotes.
+The value may optionally be enclosed in single or double quotes.
 Variables in this file are only added if the variable does not already
 exist in the environment.
 This file is considered to be part of the security policy,
@@ -3892,6 +4159,30 @@ Negating the option results in a value of
 being used.
 The default value is
 .Em any .
+.It log_format
+The event log format.
+Supported log formats are:
+.Bl -tag -width 8n
+.It json
+Logs in JSON format.
+JSON log entries contain the full user details as well as the execution
+environment if the command was allowed.
+Due to limitations of the protocol, JSON events sent via
+.Em syslog
+may be truncated.
+.It sudo
+Traditional sudo-style logs, see
+.Sx "LOG FORMAT"
+for a description of the log file format.
+.El
+.Pp
+This setting affects logs sent via
+.Xr syslog 3
+as well as the file specified by the
+.Em logfile
+setting, if any.
+The default value is
+.Em sudo .
 .It logfile
 Path to the
 .Nm sudo
@@ -3941,7 +4232,7 @@ Entries in this file should either be of the form
 .Dq Li VARIABLE=value
 or
 .Dq Li export VARIABLE=value .
-The value may optionally be surrounded by single or double quotes.
+The value may optionally be enclosed in single or double quotes.
 Variables in this file are only added if the variable does not already
 exist in the environment.
 Unlike
@@ -3966,6 +4257,46 @@ In either case, the contents of
 .Em restricted_env_file
 are processed before the contents of
 .Em env_file .
+.It runchroot
+If set,
+.Nm sudo
+will use this value for the root directory when running a command.
+The special value
+.Dq *
+will allow the user to specify the root directory via
+.Nm sudo Ns 's
+.Fl R
+option.
+See the
+.Sx Chroot_Spec
+section for more details.
+.Pp
+It is only possible to use
+.Em runchroot
+as a command-specific Defaults setting if the command exists with
+the same path both inside and outside the chroot jail.
+This restriction does not apply to generic, host or user-based
+Defaults settings or to a
+.Em Cmnd_Spec
+that includes a
+.Em Chroot_Spec .
+.Pp
+This setting is only supported by version 1.9.3 or higher.
+.It runcwd
+If set,
+.Nm sudo
+will use this value for the working directory when running a command.
+The special value
+.Dq *
+will allow the user to specify the working directory via
+.Nm sudo Ns 's
+.Fl D
+option.
+See the
+.Sx Chdir_Spec
+section for more details.
+.Pp
+This setting is only supported by version 1.9.3 or higher.
 .It secure_path
 If set,
 .Nm sudo
@@ -4199,6 +4530,53 @@ should run
 .Nm sudo Fl e )
 to get their accustomed editor configuration instead of
 invoking the editor directly.
+.It log_servers
+A list of one or more servers to use for remote event and I/O log storage,
+separated by white space.
+Log servers must be running
+.Nm sudo_logsrvd
+or another service that implements the protocol described by
+.Xr sudo_logsrv.proto @mansectform@ .
+.Pp
+Server addresses should be of the form
+.Dq host Ns Oo : Ns port Oc Ns Op (tls) .
+The host portion may be a host name, an IPv4 address, or an IPv6 address
+in square brackets.
+.Pp
+If the optional
+.Em tls
+flag is present, the connection will be secured
+with Transport Layer Security (TLS) version 1.2 or 1.3.
+Versions of TLS prior to 1.2 are not supported.
+.Pp
+If a port is specified, it may either be a port number or a well-known
+service name as defined by the system service name database.
+If no port is specified, port 30343 will be used for plaintext
+connections and port 30344 will be used for TLS connections.
+.Pp
+When
+.Em log_servers
+is set, event log data will be logged both locally (see the
+.Em syslog
+and
+.Em log_file
+settings) as well as remotely, but I/O log data will only be logged remotely.
+If multiple hosts are specified, they will be attempted in reverse order.
+If no log servers are available, the user will not be able to run
+a command unless either the
+.Em ignore_iolog_errors
+flag (I/O logging enabled) or the
+.Em ignore_log_errors
+flag (I/O logging disabled) is set.
+Likewise, if the connection to the log server is interrupted while
+.Nm sudo
+is running, the command will be terminated unless the
+.Em ignore_iolog_errors
+flag (I/O logging enabled) or the
+.Em ignore_log_errors
+flag (I/O logging disabled) is set.
+.Pp
+This setting is only supported by version 1.9.0 or higher.
 .El
 .Sh GROUP PROVIDER PLUGINS
 The
@@ -4257,9 +4635,19 @@ The group provider plugin API is described in detail in
 .Xr sudo_plugin @mansectform@ .
 .Sh LOG FORMAT
 .Nm
-can log events using either
-.Xr syslog 3
-or a simple log file.
+can log events in either JSON or
+.Em sudo
+format,
+this section describes the
+.Em sudo
+log format.
+Depending on
+.Em sudoers
+configuration,
+.Nm
+can log events via
+.Xr syslog 3 ,
+to a local log file, or both.
 The log format is almost identical in both cases.
 .Ss Accepted command log entries
 Commands that sudo runs are logged using the following format (split
@@ -4578,7 +4966,8 @@ When I/O logging is enabled,
 .Nm sudo
 will run the command in a pseudo-terminal and log all user input and/or output,
 depending on which options are enabled.
-I/O is logged to the directory specified by the
+I/O can be logged either to the local machine or to a remote log server.
+For local logs, I/O is logged to the directory specified by the
 .Em iolog_dir
 option
 .Po
@@ -4592,9 +4981,15 @@ log line, prefixed with
 The
 .Em iolog_file
 option may be used to control the format of the session ID.
+For remote logs, the
+.Em log_servers
+setting is used to specify one or more log servers running
+.Nm sudo_logsrvd
+or another server that implements the protocol described by
+.Xr sudo_logsrv.proto @mansectform@ .
 .Pp
-Each I/O log is stored in a separate directory that contains the
-following files:
+For both local and remote I/O logs, each log is stored in a separate
+directory that contains the following files:
 .Bl -tag -width 8n
 .It Pa log
 A text file containing information about the command.
@@ -4609,6 +5004,71 @@ was run from, and the number of lines and columns of the terminal.
 The second and third lines contain the working directory the command
 was run from and the path name of the command itself (with arguments
 if present).
+.It Pa log.json
+A JSON-formatted file containing information about the command.
+This is similar to the
+.Pa log
+file but contains additional information and is easily extensible.
+The
+.Pa log.json
+file will be used by
+.Xr sudoreplay @mansectsu@
+in preference to the
+.Pa log
+file if it exists.
+The file may contain the following elements:
+.Bl -tag -width 8n
+.It timestamp
+A JSON object containing time the command was run.
+It consists of two values,
+.Em seconds
+and
+.Em nanoseconds .
+.It columns
+The number of columns of the terminal the command ran on, or zero
+if no terminal was present.
+.It command
+The fully-qualified path of the command that was run.
+.It lines
+The number of lines of the terminal the command ran on, or zero
+if no terminal was present.
+.It runargv
+A JSON array representing the command's argument vector as passed to the
+.Xr execve 2
+system call.
+.It runenv
+A JSON array representing the command's environment as passed to the
+.Xr execve 2
+system call.
+.It rungid
+The group ID the command ran as.
+This element is only present when the user specifies a group on the
+command line.
+.It rungroup
+The name of the group the command ran as.
+This element is only present when the user specifies a group on the
+command line.
+.It runuid
+The user ID the command ran as.
+.It runuser
+The name of the user the command ran as.
+.It submitcwd
+The current working directory at the time
+.Nm sudo
+was run.
+.It submithost
+The name of the host the command was run on.
+.It submituser
+The name of the user who ran the command via
+.Nm sudo .
+.It ttyname
+The path name of the terminal the user invoked
+.Nm sudo
+from.
+If the command was run in a pseudo-terminal,
+.Em ttyname
+will be different from the terminal the command actually ran in.
+.El
 .It Pa timing
 Timing information used to replay the session.
 Each line consists of the I/O log entry type and amount of time
@@ -4737,7 +5197,7 @@ Defaults env_keep += "DISPLAY HOME"
 # User alias specification
 User_Alias	FULLTIMERS = millert, mikef, dowdy
 User_Alias	PARTTIMERS = bostley, jwfox, crawl
-User_Alias	WEBMASTERS = will, wendy, wim
+User_Alias	WEBADMIN = will, wendy, wim
 
 # Runas alias specification
 Runas_Alias	OP = root, operator
@@ -4751,7 +5211,7 @@ Host_Alias	SPARC = bigtime, eclipse, moet, anchor :\e
 		HPPA = boa, nag, python
 Host_Alias	CUNETS = 128.138.0.0/255.255.0.0
 Host_Alias	CSNETS = 128.138.243.0, 128.138.204.0/24, 128.138.242.0
-Host_Alias	SERVERS = master, mail, www, ns
+Host_Alias	SERVERS = primary, mail, www, ns
 Host_Alias	CDROM = orion, perseus, hercules
 
 # Cmnd alias specification
@@ -4778,12 +5238,19 @@ to log via
 .Xr syslog 3
 using the
 .Em auth
-facility in all cases.
+facility in all cases and for commands to be run with
+the target user's home directory as the working directory.
 We don't want to subject the full time staff to the
 .Nm sudo
-lecture, user
+lecture and we want to allow them to run commands in a
+.Xr chroot 2
+.Dq sandbox
+via the
+.Fl R
+option.
+User
 .Sy millert
-need not give a password, and we don't want to reset the
+need not provide a password and we don't want to reset the
 .Ev LOGNAME
 or
 .Ev USER
@@ -4807,9 +5274,9 @@ Note that this will not effectively constrain users with
 privileges.
 .Bd -literal
 # Override built-in defaults
-Defaults		syslog=auth
+Defaults		syslog=auth,runcwd=~
 Defaults>root		!set_logname
-Defaults:FULLTIMERS	!lecture
+Defaults:FULLTIMERS	!lecture,runchroot=*
 Defaults:millert	!authenticate
 Defaults@SERVERS	log_year, logfile=/var/log/sudo.log
 Defaults!PAGERS		noexec
@@ -5033,7 +5500,7 @@ The user
 may run any command on any machine except for those in the
 .Em SERVERS
 .Li Host_Alias
-(master, mail, www and ns).
+(primary, mail, www and ns).
 .Bd -literal
 jill		SERVERS = /usr/bin/, !SU, !SHELLS
 .Ed
@@ -5075,11 +5542,11 @@ On his personal workstation, valkyrie,
 .Sy matt
 needs to be able to kill hung processes.
 .Bd -literal
-WEBMASTERS	www = (www) ALL, (root) /usr/bin/su www
+WEBADMIN	www = (www) ALL, (root) /usr/bin/su www
 .Ed
 .Pp
 On the host www, any user in the
-.Em WEBMASTERS
+.Em WEBADMIN
 .Li User_Alias
 (will, wendy, and wim), may run any command as user www (which owns the
 web pages) or simply
@@ -5196,9 +5663,9 @@ On such systems,
 functionality can be used to prevent a program run by
 .Nm sudo
 from executing any other programs.
-Note, however, that this applies only to native dynamically-linked
+Note, however, that this applies only to dynamically-linked
 executables.
-Statically-linked executables and foreign executables
+Statically-linked executables and executables
 running under binary emulation are not affected.
 .Pp
 The
@@ -5537,15 +6004,23 @@ file should
 .Sy always
 be edited by the
 .Nm visudo
-command which locks the file and does grammatical checking.
-It is
-imperative that the
+utility which locks the file and checks for syntax errors.
+If
 .Em sudoers
-file be free of syntax errors since
+contains syntax errors,
 .Nm sudo
-will not run with a syntactically incorrect
+may refuse to run, which is a serious problem if
+.Nm sudo
+is your only method of obtaining superuser privileges.
+Recent versions of
+.Nm
+will attempt to recover after a syntax error by ignoring the rest of
+the line after encountering an error.
+Older versions of
+.Nm sudo
+will not run if
 .Em sudoers
-file.
+contains a syntax error.
 .Pp
 When using netgroups of machines (as opposed to users), if you
 store fully qualified host name in the netgroup (as is usually the

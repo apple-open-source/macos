@@ -967,7 +967,7 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 */
 	res = posix_spawn(&child_pid, path, NULL, &spawn_attr, newargv, spawn_environ);
 	if (res) {
-		syslog(LOG_ERR, "Could not spawn mount subprocess: %s[%d] - %d", strerror(errno), errno, res);
+		syslog(LOG_ERR, "Failed to launch mount command %s, posix_spawn() returned %d", path, res);
 		goto done_dealloc;
 	}
 

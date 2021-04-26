@@ -86,7 +86,9 @@ static void tests(void)
             is(sqlite3_open(keychain_path, &db), SQLITE_OK, "create keychain");
             is(sqlite3_exec(db, create_db_sql, NULL, NULL, NULL), SQLITE_OK,
                "populate keychain");
-            
+
+            is(sqlite3_close_v2(db), SQLITE_OK,
+               "Should be able to close db");;
         });
         
         CFReleaseSafe(keychain_path_cf);
@@ -116,13 +118,12 @@ static void tests(void)
     CFReleaseSafe(pwdata);
     CFReleaseSafe(query);
 
-
-    
+    secd_test_teardown_delete_temp_keychain("secd_30_keychain_upgrade");
 }
 
 int secd_30_keychain_upgrade(int argc, char *const *argv)
 {
-	plan_tests(6 + kSecdTestSetupTestCount);
+	plan_tests(7 + kSecdTestSetupTestCount);
 
 	tests();
 

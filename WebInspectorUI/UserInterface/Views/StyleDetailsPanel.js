@@ -36,7 +36,6 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
         this._navigationInfo = {identifier, label};
 
         this._nodeStyles = null;
-        this._visible = false;
     }
 
     // Public
@@ -57,24 +56,17 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
         return false;
     }
 
-    shown()
+    get supportsToggleCSSClass()
     {
-        if (this._visible)
-            return;
-
-        this._visible = true;
-
-        this._refreshNodeStyles();
-
-        // FIXME: remove once <https://webkit.org/b/150741> is fixed.
-        this.updateLayoutIfNeeded();
+        // Overriden by subclasses if needed.
+        return true;
     }
 
-    hidden()
+    attached()
     {
-        this._visible = false;
+        super.attached();
 
-        this.cancelLayout();
+        this._refreshNodeStyles();
     }
 
     markAsNeedsRefresh(domNode)
@@ -103,7 +95,7 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
             this._forceSignificantChange = true;
         }
 
-        if (this._visible)
+        if (this.isAttached)
             this._refreshNodeStyles();
     }
 
@@ -116,13 +108,8 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 
     nodeStylesRefreshed(event)
     {
-        if (this._visible)
+        if (this.isAttached)
             this._refreshPreservingScrollPosition(event.data.significantChange);
-    }
-
-    filterDidChange(filterBar)
-    {
-        // Implemented by subclasses.
     }
 
     // Private
@@ -163,7 +150,7 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 
     _nodeStylesNeedsRefreshed(event)
     {
-        if (this._visible)
+        if (this.isAttached)
             this._refreshNodeStyles();
     }
 };

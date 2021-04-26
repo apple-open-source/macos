@@ -54,6 +54,7 @@
 #include <dispatch/private.h>
 #include <CommonCrypto/CommonDigest.h>
 #include "trust/trustd/SecPinningDb.h"
+#include "trust/trustd/trustdFileLocations.h"
 #import <ipc/securityd_client.h>
 
 #if !TARGET_OS_BRIDGE
@@ -88,28 +89,6 @@ static inline bool isNSDate(id nsType) {
 
 static inline bool isNSData(id nsType) {
     return nsType && [nsType isKindOfClass:[NSData class]];
-}
-
-#define SECURITYD_ROLE_ACCOUNT 64
-#define ROOT_ACCOUNT 0
-
-bool SecOTAPKIIsSystemTrustd() {
-    static bool result = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-#ifdef NO_SERVER
-        // Test app running as trustd
-#elif TARGET_OS_IPHONE
-        if (getuid() == SECURITYD_ROLE_ACCOUNT ||
-            (getuid() == ROOT_ACCOUNT && gTrustd)) // Test app running as trustd
-#else
-        if (getuid() == ROOT_ACCOUNT)
-#endif
-        {
-                result = true;
-        }
-    });
-    return result;
 }
 
 dispatch_queue_t SecTrustServerGetWorkloop(void) {
@@ -385,18 +364,19 @@ static BOOL ShouldUpdateWithAsset(NSString *assetType, NSNumber *asset_version) 
 
 // MARK: File management functions
 static bool verify_create_path(const char *path) {
-    int ret = mkpath_np(path, 0755);
-    if (!(ret == 0 || ret ==  EEXIST)) {
-        secerror("could not create path: %s (%s)", path, strerror(ret));
-        return false;
+    if (SecOTAPKIIsSystemTrustd()) {
+        int ret = mkpath_np(path, 0755);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+            return false;
+        }
+        chmod(path, 0755);
     }
     return true;
 }
 
 static NSURL *GetAssetFileURL(NSString *filename) {
-    /* Make sure the /Library/Keychains directory is there */
-    NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(nil));
-    NSURL *directory = [keychainsDirectory URLByAppendingPathComponent:@"SupplementalsAssets/" isDirectory:YES];
+    NSURL *directory = CFBridgingRelease(SecCopyURLForFileInProtectedTrustdDirectory(CFSTR("SupplementalsAssets")));
     if (!verify_create_path([directory fileSystemRepresentation])) {
         return nil;
     }
@@ -422,7 +402,12 @@ static BOOL UpdateOTAContextOnDisk(NSString *key, id value, NSError **error) {
     if (SecOTAPKIIsSystemTrustd()) {
         /* Get current context, if applicable, and update/add key/value */
         NSURL *otaContextFile = GetAssetFileURL(kOTATrustContextFilename);
-        NSDictionary *currentContext = [NSDictionary dictionaryWithContentsOfURL:otaContextFile];
+        NSDictionary *currentContext = nil;
+        if (otaContextFile) {
+            currentContext = [NSDictionary dictionaryWithContentsOfURL:otaContextFile];
+        } else {
+            return NO;
+        }
         NSMutableDictionary *newContext = nil;
         if (currentContext) {
             newContext = [currentContext mutableCopy];
@@ -432,7 +417,7 @@ static BOOL UpdateOTAContextOnDisk(NSString *key, id value, NSError **error) {
         newContext[key] = value;
 
         /* Write dictionary to disk */
-        if (![newContext writeToURL:otaContextFile error:error]) {
+        if (![newContext writeToClassDURL:otaContextFile permissions:0644 error:error]) {
             secerror("OTATrust: unable to write OTA Context to disk: %@", error ? *error : nil);
             LogRemotely(OTATrustLogLevelError, error);
             return NO;
@@ -488,6 +473,19 @@ static bool ChangeFileProtectionToClassD(NSURL *fileURL, NSError **error) {
 }
 #endif
 
+static bool ChangeFilePermissions(NSURL *fileURL, mode_t permissions, NSError **error) {
+    const char *path = [fileURL fileSystemRepresentation];
+    int ret = chmod(path, permissions);
+    if (!(ret == 0)) {
+        int localErrno = errno;
+        secerror("failed to change permissions of %s: %s", path, strerror(localErrno));
+        MakeOTATrustError(OTATrustMobileAssetType, error, OTATrustLogLevelError, NSPOSIXErrorDomain, errno,
+                          @"failed to change permissions of %s: %s", path, strerror(localErrno));
+        return NO;
+    }
+    return YES;
+}
+
 static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL, NSError **error) {
     if (SecOTAPKIIsSystemTrustd()) {
         NSURL *toFileURL = GetAssetFileURL(filename);
@@ -501,11 +499,11 @@ static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL, NSError **error)
                               @"copyfile error for asset %d: %s", errno, strerror(errno));
             return NO;
         } else {
-            /* make sure we can read this file before first unlock */
+            /* make sure all processes can read this file before first unlock */
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-            return ChangeFileProtectionToClassD(toFileURL, error);
+            return ChangeFilePermissions(toFileURL, 0644, error) && ChangeFileProtectionToClassD(toFileURL, error);
 #else
-            return YES;
+            return ChangeFilePermissions(toFileURL, 0644, error);
 #endif
         }
     }
@@ -2145,7 +2143,7 @@ NSNumber *SecOTAPKIGetSamplingRateForEvent(SecOTAPKIRef otapkiRef, NSString *eve
 
     if (otapkiRef->_eventSamplingRates) {
         CFTypeRef value = CFDictionaryGetValue(otapkiRef->_eventSamplingRates, (__bridge CFStringRef)eventName);
-        if (isNumberOfType(value, kCFNumberSInt64Type)) {
+        if (isNumberOfType(value, kCFNumberSInt64Type) || isNumberOfType(value, kCFNumberSInt32Type)) {
             return (__bridge NSNumber *)value;
         }
     }

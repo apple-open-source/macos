@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if TARGET_DARWINOS
+#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -166,7 +166,7 @@ void securityd_init_server(void) {
 
 void securityd_init(CFURLRef home_path) {
     if (home_path) {
-        SetCustomHomeURL(home_path);
+        SecSetCustomHomeURL(home_path);
     }
 
     securityd_init_server();

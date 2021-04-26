@@ -1,3 +1,4 @@
+#include <System/sys/proc.h>
 #include <sys/param.h>
 #include <sys/user.h>
 #include <sys/time.h>
@@ -22,8 +23,9 @@
 
 #include "ps.h"
 #include <mach/shared_memory_server.h>
+#include <mach/mach_vm.h>
 
-extern kern_return_t task_for_pid(task_port_t task, pid_t pid, task_port_t *target);
+extern kern_return_t task_read_for_pid(task_port_t task, pid_t pid, task_port_t *target);
 
 #define STATE_MAX       7 
                 
@@ -96,7 +98,11 @@ int get_task_info (KINFO *ki)
 	ki->state = STATE_MAX;
 
 	pid = KI_PROC(ki)->p_pid;
-	if (task_for_pid(mach_task_self(), pid, &ki->task) != KERN_SUCCESS) {
+    error = task_read_for_pid(mach_task_self(), pid, &ki->task);
+	if (error != KERN_SUCCESS) {
+#ifdef DEBUG
+        mach_error("Error calling task_read_for_pid()", error);
+#endif
                 return(1);
 	}
 	info_count = TASK_BASIC_INFO_COUNT;
@@ -110,8 +116,8 @@ int get_task_info (KINFO *ki)
 	}
 	{
 	        vm_region_basic_info_data_64_t    b_info;
-		vm_address_t	                  address = GLOBAL_SHARED_TEXT_SEGMENT;
-		vm_size_t		          size;
+		mach_vm_address_t	          address = GLOBAL_SHARED_TEXT_SEGMENT;
+		mach_vm_size_t		          size;
 		mach_port_t		          object_name;
 
 		/*
@@ -120,7 +126,7 @@ int get_task_info (KINFO *ki)
 		 * the 2 segments that are used for split libraries
 		 */
 		info_count = VM_REGION_BASIC_INFO_COUNT_64;
-		error = vm_region_64(ki->task, &address, &size, VM_REGION_BASIC_INFO,
+		error = mach_vm_region(ki->task, &address, &size, VM_REGION_BASIC_INFO,
 				     (vm_region_info_t)&b_info, &info_count, &object_name);
 	        if (error == KERN_SUCCESS) {
 		        if (b_info.reserved && size == (SHARED_TEXT_REGION_SIZE) &&

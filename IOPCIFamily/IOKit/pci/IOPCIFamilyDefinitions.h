@@ -60,6 +60,27 @@
 
 #define kIOPCIDeviceMemoryArrayKey       "IODeviceMemory"
 
+
+// IOPCIDevice matching property names
+#define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
+#define kIOPCITunnelledKey              "IOPCITunnelled"
+#define kIOPCITunnelL1EnableKey         "IOPCITunnelL1Enable"
+
+#define kIOPCITunnelRootDeviceModelIDKey  "IOPCITunnelRootDeviceModelID"
+#define kIOPCITunnelRootDeviceVendorIDKey "IOPCITunnelRootDeviceVendorID"
+
+#define kIOPCIPauseCompatibleKey        "IOPCIPauseCompatible"
+
+// Properties that can be set on the IOPCIDevice
+// property to control PCI default config space save on sleep.
+// If false, config space will not be save/restored on power state transitions
+#define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
+// property to disable express link on sleep
+#define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
+// property to issue a secondary bus reset on sleep
+#define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
+
+
 /*  bits getInterruptType result */
 enum
 {

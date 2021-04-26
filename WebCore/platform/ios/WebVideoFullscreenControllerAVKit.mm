@@ -28,20 +28,20 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "FrameView.h"
+#import "HTMLVideoElement.h"
 #import "Logging.h"
 #import "MediaSelectionOption.h"
 #import "PlaybackSessionInterfaceAVKit.h"
 #import "PlaybackSessionModelMediaElement.h"
+#import "RenderVideo.h"
 #import "TimeRanges.h"
 #import "VideoFullscreenChangeObserver.h"
 #import "VideoFullscreenInterfaceAVKit.h"
 #import "VideoFullscreenModelVideoElement.h"
+#import "WebCoreThreadRun.h"
 #import <QuartzCore/CoreAnimation.h>
 #import <UIKit/UIView.h>
-#import <WebCore/FrameView.h>
-#import <WebCore/HTMLVideoElement.h>
-#import <WebCore/RenderVideo.h>
-#import <WebCore/WebCoreThreadRun.h>
 #import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 
@@ -124,13 +124,11 @@ private:
     void requestVideoContentLayer() final;
     void returnVideoContentLayer() final;
     void didSetupFullscreen() final;
-    void didEnterFullscreen() final { }
+    void didEnterFullscreen(const FloatSize&) final { }
     void willExitFullscreen() final;
     void didExitFullscreen() final;
     void didCleanupFullscreen() final;
-    void prepareToExitFullscreen() final { }
-    void fullscreenMayReturnToInline() final { }
-    void fullscreenWillReturnToInline() final;
+    void fullscreenMayReturnToInline() final;
 
     // VideoFullscreenModelClient
     void hasVideoChanged(bool) override;
@@ -361,7 +359,7 @@ void VideoFullscreenControllerContext::didCleanupFullscreen()
     });
 }
 
-void VideoFullscreenControllerContext::fullscreenWillReturnToInline()
+void VideoFullscreenControllerContext::fullscreenMayReturnToInline()
 {
     ASSERT(isUIThread());
     WebThreadRun([protectedThis = makeRefPtr(this), this] () mutable {
@@ -996,7 +994,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
 
         m_videoFullscreenView = adoptNS([PAL::allocUIViewInstance() init]);
 
-        m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, videoDimensions, viewRef.get(), mode, allowsPictureInPicture, false);
+        m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, videoDimensions, viewRef.get(), mode, allowsPictureInPicture, false, false);
     });
 }
 

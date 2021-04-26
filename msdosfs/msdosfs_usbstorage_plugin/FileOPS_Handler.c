@@ -900,11 +900,17 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
         }
     }
 
+    // raise the write counter
+    psFileRecord->sExtraData.sFileData.uWriteCounter++;
+
     MultiReadSingleWrite_FreeWrite( &psFileRecord->sRecordData.sRecordLck);
 
     *actuallyWritten = RAWFILE_write(psFileRecord, offset, uLengthToBeWrriten, (void*) buf, &iError);
 
     MultiReadSingleWrite_LockWrite( &psFileRecord->sRecordData.sRecordLck);
+
+    // reduce the write counter
+    psFileRecord->sExtraData.sFileData.uWriteCounter--;
 
     // In case the write failed -> return the file to it's original size
     if ( iError || (*actuallyWritten == 0) )
@@ -1573,7 +1579,7 @@ FILEOPS_PreAllocateClusters(NodeRecord_s* psNodeRecord, LIFilePreallocateArgs_t*
     int iErr = 0;
     psPreAllocRes->bytesallocated = 0;
     /* Cannot change size of a directory or symlink! */
-    if ( IS_DIR(psNodeRecord) || IS_SYMLINK(psNodeRecord) )
+    if (psNodeRecord->sRecordData.eRecordID != RECORD_IDENTIFIER_FILE)
     {
         MSDOS_LOG(LEVEL_ERROR, "FILEOPS_PreAllocateClusters: Cannot change size of a directory or symlink\n");
         return EPERM;
@@ -1684,7 +1690,7 @@ exit:
 
 void FILEOPS_FreeUnusedPreAllocatedClusters(NodeRecord_s* psNodeRecord)
 {
-    if (IS_DIR(psNodeRecord) || IS_SYMLINK(psNodeRecord))
+    if (psNodeRecord->sRecordData.eRecordID != RECORD_IDENTIFIER_FILE)
         return;
     
     if (!psNodeRecord->sExtraData.sFileData.bIsPreAllocated)

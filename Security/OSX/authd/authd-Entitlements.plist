@@ -10,5 +10,7 @@
 	<true/>
 	<key>com.apple.keystore.filevault</key>
 	<true/>
+	<key>com.apple.rootless.volume.Preboot</key>
+	<true/>
 </dict>
 </plist>

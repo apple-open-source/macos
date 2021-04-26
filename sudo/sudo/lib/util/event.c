@@ -32,12 +32,7 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
@@ -86,7 +81,7 @@ static void
 sudo_ev_deactivate_all(struct sudo_event_base *base)
 {
     struct sudo_event *ev;
-    debug_decl(sudo_ev_deactivate_all, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_deactivate_all, SUDO_DEBUG_EVENT);
 
     while ((ev = TAILQ_FIRST(&base->active)) != NULL)
 	sudo_ev_deactivate(base, ev);
@@ -104,7 +99,7 @@ sudo_ev_activate_sigevents(struct sudo_event_base *base)
     struct sudo_event *ev;
     sigset_t set, oset;
     int i;
-    debug_decl(sudo_ev_activate_sigevents, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_activate_sigevents, SUDO_DEBUG_EVENT);
 
     /*
      * We treat this as a critical section since the signal handler
@@ -148,7 +143,7 @@ signal_pipe_cb(int fd, int what, void *v)
     struct sudo_event_base *base = v;
     unsigned char ch;
     ssize_t nread;
-    debug_decl(signal_pipe_cb, SUDO_DEBUG_EVENT)
+    debug_decl(signal_pipe_cb, SUDO_DEBUG_EVENT);
 
     /*
      * Drain signal_pipe, the signal handler updated base->signals_pending.
@@ -174,7 +169,7 @@ static int
 sudo_ev_base_init(struct sudo_event_base *base)
 {
     int i;
-    debug_decl(sudo_ev_base_init, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_init, SUDO_DEBUG_EVENT);
 
     TAILQ_INIT(&base->events);
     TAILQ_INIT(&base->timeouts);
@@ -204,7 +199,7 @@ struct sudo_event_base *
 sudo_ev_base_alloc_v1(void)
 {
     struct sudo_event_base *base;
-    debug_decl(sudo_ev_base_alloc, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_alloc, SUDO_DEBUG_EVENT);
 
     base = calloc(1, sizeof(*base));
     if (base == NULL) {
@@ -224,7 +219,7 @@ sudo_ev_base_free_v1(struct sudo_event_base *base)
 {
     struct sudo_event *ev, *next;
     int i;
-    debug_decl(sudo_ev_base_free, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_free, SUDO_DEBUG_EVENT);
 
     if (base == NULL)
 	debug_return;
@@ -236,10 +231,12 @@ sudo_ev_base_free_v1(struct sudo_event_base *base)
     /* Remove any existing events before freeing the base. */
     TAILQ_FOREACH_SAFE(ev, &base->events, entries, next) {
 	sudo_ev_del(base, ev);
+	ev->base = NULL;
     }
     for (i = 0; i < NSIG; i++) {
 	TAILQ_FOREACH_SAFE(ev, &base->signals[i], entries, next) {
 	    sudo_ev_del(base, ev);
+	    ev->base = NULL;
 	}
 	free(base->siginfo[i]);
 	free(base->orig_handlers[i]);
@@ -255,7 +252,7 @@ sudo_ev_base_free_v1(struct sudo_event_base *base)
 void
 sudo_ev_base_setdef_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_base_setdef, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_base_setdef, SUDO_DEBUG_EVENT);
 
     default_base = base;
 
@@ -269,12 +266,11 @@ static void
 sudo_ev_init(struct sudo_event *ev, int fd, short events,
     sudo_ev_callback_t callback, void *closure)
 {
-    debug_decl(sudo_ev_init, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_init, SUDO_DEBUG_EVENT);
 
-    /* XXX - sanity check events value */
     memset(ev, 0, sizeof(*ev));
     ev->fd = fd;
-    ev->events = events;
+    ev->events = events & SUDO_EV_MASK;
     ev->pfd_idx = -1;
     ev->callback = callback;
     ev->closure = closure;
@@ -282,18 +278,16 @@ sudo_ev_init(struct sudo_event *ev, int fd, short events,
     debug_return;
 }
 
-struct sudo_event *
-sudo_ev_alloc_v1(int fd, short events, sudo_ev_callback_t callback, void *closure)
+/*
+ * Set a pre-allocated struct sudo_event.
+ * Allocates space for siginfo_t for SUDO_EV_SIGINFO as needed.
+ */
+int
+sudo_ev_set_v1(struct sudo_event *ev, int fd, short events,
+    sudo_ev_callback_t callback, void *closure)
 {
-    struct sudo_event *ev;
-    debug_decl(sudo_ev_alloc, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_set, SUDO_DEBUG_EVENT);
 
-    ev = malloc(sizeof(*ev));
-    if (ev == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "%s: unable to allocate event", __func__);
-	debug_return_ptr(NULL);
-    }
     /* For SUDO_EV_SIGINFO we use a container to store closure + siginfo_t */
     if (ISSET(events, SUDO_EV_SIGINFO)) {
 	struct sudo_ev_siginfo_container *container =
@@ -301,21 +295,39 @@ sudo_ev_alloc_v1(int fd, short events, sudo_ev_callback_t callback, void *closur
 	if (container == NULL) {
 	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 		"%s: unable to allocate siginfo container", __func__);
-	    free(ev);
-	    debug_return_ptr(NULL);
+	    debug_return_int(-1);
 	}
 	container->closure = closure;
 	closure = container;
     }
     sudo_ev_init(ev, fd, events, callback, closure);
 
+    debug_return_int(0);
+}
+
+struct sudo_event *
+sudo_ev_alloc_v1(int fd, short events, sudo_ev_callback_t callback, void *closure)
+{
+    struct sudo_event *ev;
+    debug_decl(sudo_ev_alloc, SUDO_DEBUG_EVENT);
+
+    ev = malloc(sizeof(*ev));
+    if (ev == NULL) {
+	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+	    "%s: unable to allocate event", __func__);
+	debug_return_ptr(NULL);
+    }
+    if (sudo_ev_set(ev, fd, events, callback, closure) == -1) {
+	free(ev);
+	debug_return_ptr(NULL);
+    }
     debug_return_ptr(ev);
 }
 
 void
 sudo_ev_free_v1(struct sudo_event *ev)
 {
-    debug_decl(sudo_ev_free, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_free, SUDO_DEBUG_EVENT);
 
     if (ev == NULL)
 	debug_return;
@@ -358,7 +370,7 @@ sudo_ev_add_signal(struct sudo_event_base *base, struct sudo_event *ev,
     bool tohead)
 {
     const int signo = ev->fd;
-    debug_decl(sudo_ev_add_signal, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_add_signal, SUDO_DEBUG_EVENT);
 
     sudo_debug_printf(SUDO_DEBUG_INFO,
 	"%s: adding event %p to base %p, signal %d, events %d",
@@ -437,7 +449,7 @@ sudo_ev_add_signal(struct sudo_event_base *base, struct sudo_event *ev,
 
 int
 sudo_ev_add_v1(struct sudo_event_base *base, struct sudo_event *ev,
-    struct timeval *timo, bool tohead)
+    const struct timeval *timo, bool tohead)
 {
     struct timespec tsbuf, *ts = NULL;
 
@@ -451,9 +463,9 @@ sudo_ev_add_v1(struct sudo_event_base *base, struct sudo_event *ev,
 
 int
 sudo_ev_add_v2(struct sudo_event_base *base, struct sudo_event *ev,
-    struct timespec *timo, bool tohead)
+    const struct timespec *timo, bool tohead)
 {
-    debug_decl(sudo_ev_add, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_add, SUDO_DEBUG_EVENT);
 
     /* If no base specified, use existing or default base. */
     if (base == NULL) {
@@ -529,7 +541,7 @@ sudo_ev_add_v2(struct sudo_event_base *base, struct sudo_event *ev,
 int
 sudo_ev_del_v1(struct sudo_event_base *base, struct sudo_event *ev)
 {
-    debug_decl(sudo_ev_del, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_del, SUDO_DEBUG_EVENT);
 
     /* Make sure event is really in the queue. */
     if (!ISSET(ev->flags, SUDO_EVQ_INSERTED)) {
@@ -620,7 +632,7 @@ sudo_ev_loop_v1(struct sudo_event_base *base, int flags)
     struct timespec now;
     struct sudo_event *ev;
     int nready, rc = 0;
-    debug_decl(sudo_ev_loop, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_loop, SUDO_DEBUG_EVENT);
 
     /*
      * If sudo_ev_loopexit() was called when events were not running
@@ -644,7 +656,7 @@ rescan:
 	nready = sudo_ev_scan_impl(base, flags);
 	switch (nready) {
 	case -1:
-	    if (errno == ENOMEM)
+	    if (errno == ENOMEM || errno == EAGAIN)
 		continue;
 	    if (errno == EINTR) {
 		/* Interrupted by signal, check for sigevents. */
@@ -724,7 +736,7 @@ done:
 void
 sudo_ev_loopexit_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_loopexit, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_loopexit, SUDO_DEBUG_EVENT);
 
     if (base == NULL) {
 	if ((base = default_base) == NULL)
@@ -743,7 +755,7 @@ sudo_ev_loopexit_v1(struct sudo_event_base *base)
 void
 sudo_ev_loopbreak_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_loopbreak, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_loopbreak, SUDO_DEBUG_EVENT);
 
     if (base == NULL) {
 	if ((base = default_base) == NULL)
@@ -759,7 +771,7 @@ sudo_ev_loopbreak_v1(struct sudo_event_base *base)
 void
 sudo_ev_loopcontinue_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_loopcontinue, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_loopcontinue, SUDO_DEBUG_EVENT);
 
     if (base == NULL) {
 	if ((base = default_base) == NULL)
@@ -776,7 +788,7 @@ sudo_ev_loopcontinue_v1(struct sudo_event_base *base)
 bool
 sudo_ev_got_exit_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_got_exit, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_got_exit, SUDO_DEBUG_EVENT);
 
     if (base == NULL) {
 	if ((base = default_base) == NULL)
@@ -788,7 +800,7 @@ sudo_ev_got_exit_v1(struct sudo_event_base *base)
 bool
 sudo_ev_got_break_v1(struct sudo_event_base *base)
 {
-    debug_decl(sudo_ev_got_break, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_got_break, SUDO_DEBUG_EVENT);
 
     if (base == NULL) {
 	if ((base = default_base) == NULL)
@@ -812,17 +824,39 @@ sudo_ev_get_timeleft_v1(struct sudo_event *ev, struct timeval *tv)
 int
 sudo_ev_get_timeleft_v2(struct sudo_event *ev, struct timespec *ts)
 {
-    struct timespec now;
-    debug_decl(sudo_ev_get_timeleft, SUDO_DEBUG_EVENT)
+    debug_decl(sudo_ev_get_timeleft, SUDO_DEBUG_EVENT);
 
-    if (!ISSET(ev->flags, SUDO_EVQ_TIMEOUTS)) {
-	sudo_timespecclear(ts);
+    sudo_timespecclear(ts);
+    if (sudo_ev_pending_v1(ev, SUDO_EV_TIMEOUT, ts) != SUDO_EV_TIMEOUT)
 	debug_return_int(-1);
+    debug_return_int(0);
+}
+
+int
+sudo_ev_pending_v1(struct sudo_event *ev, short events, struct timespec *ts)
+{
+    int ret;
+    debug_decl(sudo_ev_pending, SUDO_DEBUG_EVENT);
+
+    sudo_debug_printf(SUDO_DEBUG_INFO, "%s: event %p, flags 0x%x, events 0x%x",
+	__func__, ev, ev->flags, ev->events);
+
+    if (!ISSET(ev->flags, SUDO_EVQ_INSERTED))
+	debug_return_int(0);
+
+    ret = ev->events & events;
+    CLR(ret, SUDO_EV_TIMEOUT);
+    if (ISSET(ev->flags, SUDO_EVQ_TIMEOUTS) && ISSET(events, SUDO_EV_TIMEOUT)) {
+	ret |= SUDO_EV_TIMEOUT;
+	if (ts != NULL) {
+	    struct timespec now;
+
+	    sudo_gettime_mono(&now);
+	    sudo_timespecsub(&ev->timeout, &now, ts);
+	    if (ts->tv_sec < 0)
+		sudo_timespecclear(ts);
+	}
     }
 
-    sudo_gettime_mono(&now);
-    sudo_timespecsub(&ev->timeout, &now, ts);
-    if (ts->tv_sec < 0)
-	sudo_timespecclear(ts);
-    debug_return_int(0);
+    debug_return_int(ret);
 }

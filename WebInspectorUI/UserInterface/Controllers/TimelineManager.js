@@ -67,6 +67,8 @@ WI.TimelineManager = class TimelineManager extends WI.Object
 
     activateExtraDomain(domain)
     {
+        // COMPATIBILITY (iOS 14.0): Inspector.activateExtraDomains was removed in favor of a declared debuggable type
+
         console.assert(domain === "Timeline");
 
         for (let target of WI.targets)
@@ -443,12 +445,17 @@ WI.TimelineManager = class TimelineManager extends WI.Object
         if (this._capturingState === TimelineManager.CapturingState.Inactive)
             return;
 
-        WI.DOMNode.removeEventListener(null, null, this);
-        WI.memoryManager.removeEventListener(null, null, this);
-        WI.heapManager.removeEventListener(null, null, this);
+        WI.DOMNode.removeEventListener(WI.DOMNode.Event.DidFireEvent, this._handleDOMNodeDidFireEvent, this);
+        WI.DOMNode.removeEventListener(WI.DOMNode.Event.PowerEfficientPlaybackStateChanged, this._handleDOMNodePowerEfficientPlaybackStateChanged, this);
+
+        WI.heapManager.removeEventListener(WI.HeapManager.Event.GarbageCollected, this._garbageCollected, this);
+
+        WI.memoryManager.removeEventListener(WI.MemoryManager.Event.MemoryPressure, this._memoryPressure, this);
+
         WI.Target.removeEventListener(WI.Target.Event.ResourceAdded, this._resourceWasAdded, this);
         WI.Frame.removeEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
-        WI.settings.timelinesAutoStop.removeEventListener(null, null, this);
+
+        WI.settings.timelinesAutoStop.removeEventListener(WI.Setting.Event.Changed, this._handleTimelinesAutoStopSettingChanged, this);
 
         this._activeRecording.capturingStopped(this._capturingEndTime);
 
@@ -845,7 +852,7 @@ WI.TimelineManager = class TimelineManager extends WI.Object
             if (!recordPayload.children || !recordPayload.children.length)
                 return null;
 
-            return new WI.RenderingFrameTimelineRecord(startTime, endTime);
+            return new WI.RenderingFrameTimelineRecord(startTime, endTime, recordPayload.data.name);
 
         case InspectorBackend.Enum.Timeline.EventType.EvaluateScript:
             if (!sourceCodeLocation) {
@@ -945,10 +952,14 @@ WI.TimelineManager = class TimelineManager extends WI.Object
             }
             break;
 
-        case InspectorBackend.Enum.Timeline.EventType.ProbeSample:
+        case InspectorBackend.Enum.Timeline.EventType.ProbeSample: {
+            let probe = WI.debuggerManager.probeForIdentifier(recordPayload.data.probeId);
+            if (probe.breakpoint instanceof WI.JavaScriptBreakpoint)
+                sourceCodeLocation = probe.breakpoint.sourceCodeLocation;
+
             // Pass the startTime as the endTime since this record type has no duration.
-            sourceCodeLocation = WI.debuggerManager.probeForIdentifier(recordPayload.data.probeId).breakpoint.sourceCodeLocation;
             return new WI.ScriptTimelineRecord(WI.ScriptTimelineRecord.EventType.ProbeSampleRecorded, startTime, startTime, callFrames, sourceCodeLocation, recordPayload.data.probeId);
+        }
 
         case InspectorBackend.Enum.Timeline.EventType.TimerInstall:
             console.assert(isNaN(endTime));

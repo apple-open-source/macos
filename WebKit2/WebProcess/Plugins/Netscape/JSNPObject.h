@@ -44,7 +44,7 @@ class NPRuntimeObjectMap;
 class JSNPObject final : public JSC::JSDestructibleObject {
 public:
     using Base = JSC::JSDestructibleObject;
-    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::OverridesGetOwnPropertySlot | JSC::OverridesAnyFormOfGetPropertyNames | JSC::OverridesGetCallData;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetOwnPropertyNames | JSC::OverridesGetCallData | JSC::GetOwnPropertySlotMayBeWrongAboutDontEnum;
 
     template<typename CellType, JSC::SubspaceAccess>
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
@@ -75,6 +75,7 @@ public:
     DECLARE_INFO;
 
     NPObject* npObject() const { return m_npObject; }
+    NPRuntimeObjectMap* objectMap() const { return m_objectMap; }
 
 private:
     static JSC::IsoSubspace* subspaceForImpl(JSC::VM&);
@@ -98,11 +99,7 @@ private:
 
     bool deleteProperty(JSC::JSGlobalObject*, NPIdentifier propertyName);
 
-    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::EnumerationMode);
-
-    static JSC::EncodedJSValue propertyGetter(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-    static JSC::EncodedJSValue methodGetter(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
-    static JSC::Exception* throwInvalidAccessError(JSC::JSGlobalObject*, JSC::ThrowScope&);
+    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::DontEnumPropertiesMode);
 
     NPRuntimeObjectMap* m_objectMap;
     NPObject* m_npObject;

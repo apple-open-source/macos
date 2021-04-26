@@ -55,6 +55,7 @@
 #import <CoreCDP/CDPAccount.h>
 
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSKeychainView.h"
 
@@ -95,6 +96,7 @@ NS_ASSUME_NONNULL_BEGIN
                        authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                       ckksViewManager:(CKKSViewManager* _Nullable)viewManager
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+                  reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
              deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
@@ -199,6 +201,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
+- (void)rpcResetAccountCDPContents:(void (^)(NSError* _Nullable error))reply;
 
 - (void)clearCKKSViewManager;
 
@@ -209,7 +212,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
-- (NSNumber* _Nullable)numberOfPeersInModelWithMachineID:(NSString*)machineID error:(NSError**)error;
+- (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
 
 @end
 

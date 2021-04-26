@@ -84,6 +84,11 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
         varname = "GPU_PROCESS_CMD_PREFIX";
         break;
 #endif
+#if ENABLE(WEB_AUTHN)
+    case ProcessLauncher::ProcessType::WebAuthn:
+        varname = "WEBAUTHN_PROCESS_CMD_PREFIX";
+        break;
+#endif
     }
     const char* processCmdPrefix = getenv(varname);
     if (processCmdPrefix && *processCmdPrefix)
@@ -103,6 +108,8 @@ void AuxiliaryProcessProxy::connect()
 
 void AuxiliaryProcessProxy::terminate()
 {
+    RELEASE_LOG(Process, "AuxiliaryProcessProxy::terminate: PID: %d", processIdentifier());
+
 #if PLATFORM(COCOA)
     if (m_connection && m_connection->kill())
         return;

@@ -65,6 +65,13 @@
 #define kIOHIDServiceEjectDelayKey                  "EjectDelay"
 
 /*!
+ * @define      kIOHIDServiceLockKeyDelayKey
+ *
+ * @abstract    CFNumber containing the delay (in ms) before the lock key is activated.
+ */
+#define kIOHIDServiceLockKeyDelayKey				 "LockKeyDelay"
+
+/*!
  * @define      kIOHIDServiceInitialKeyRepeatDelayKey
  *
  * @abstract    CFNumber containing the delay (in ns) before the initial key repeat.

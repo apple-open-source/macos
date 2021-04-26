@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ExtensionsGLOpenGL.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_GL) && USE(OPENGL)
+#if ENABLE(WEBGL) && USE(OPENGL)
 
 #include "GraphicsContextGLOpenGL.h"
 
@@ -48,19 +48,27 @@ ExtensionsGLOpenGL::ExtensionsGLOpenGL(GraphicsContextGLOpenGL* context, bool us
 ExtensionsGLOpenGL::~ExtensionsGLOpenGL() = default;
 
 
-void ExtensionsGLOpenGL::blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter)
+void ExtensionsGLOpenGL::blitFramebufferANGLE(GCGLint srcX0, GCGLint srcY0, GCGLint srcX1, GCGLint srcY1, GCGLint dstX0, GCGLint dstY0, GCGLint dstX1, GCGLint dstY1, GCGLbitfield mask, GCGLenum filter)
 {
+    if (!m_context->makeContextCurrent())
+        return;
+
     ::glBlitFramebufferEXT(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 }
 
-void ExtensionsGLOpenGL::renderbufferStorageMultisample(unsigned long target, unsigned long samples, unsigned long internalformat, unsigned long width, unsigned long height)
+void ExtensionsGLOpenGL::renderbufferStorageMultisampleANGLE(GCGLenum target, GCGLsizei samples, GCGLenum internalformat, GCGLsizei width, GCGLsizei height)
 {
+    if (!m_context->makeContextCurrent())
+        return;
+
     ::glRenderbufferStorageMultisampleEXT(target, samples, internalformat, width, height);
 }
 
 PlatformGLObject ExtensionsGLOpenGL::createVertexArrayOES()
 {
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return 0;
+
     GLuint array = 0;
 #if PLATFORM(GTK) || PLATFORM(WIN)
     if (isVertexArrayObjectSupported())
@@ -76,7 +84,9 @@ void ExtensionsGLOpenGL::deleteVertexArrayOES(PlatformGLObject array)
     if (!array)
         return;
 
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return;
+
 #if PLATFORM(GTK) || PLATFORM(WIN)
     if (isVertexArrayObjectSupported())
         glDeleteVertexArrays(1, &array);
@@ -90,7 +100,9 @@ GCGLboolean ExtensionsGLOpenGL::isVertexArrayOES(PlatformGLObject array)
     if (!array)
         return GL_FALSE;
 
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return GL_FALSE;
+
 #if PLATFORM(GTK) || PLATFORM(WIN)
     if (isVertexArrayObjectSupported())
         return glIsVertexArray(array);
@@ -102,7 +114,9 @@ GCGLboolean ExtensionsGLOpenGL::isVertexArrayOES(PlatformGLObject array)
 
 void ExtensionsGLOpenGL::bindVertexArrayOES(PlatformGLObject array)
 {
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return;
+
 #if PLATFORM(GTK) || PLATFORM(WIN)
     if (isVertexArrayObjectSupported())
         glBindVertexArray(array);
@@ -194,20 +208,25 @@ bool ExtensionsGLOpenGL::supportsExtension(const String& name)
     return m_availableExtensions.contains(name);
 }
 
-void ExtensionsGLOpenGL::drawBuffersEXT(GCGLsizei n, const GCGLenum* bufs)
+void ExtensionsGLOpenGL::drawBuffersEXT(GCGLSpan<const GCGLenum> bufs)
 {
+    if (!m_context->makeContextCurrent())
+        return;
+
     //  FIXME: implement support for other platforms.
 #if PLATFORM(GTK)
-    ::glDrawBuffers(n, bufs);
+    ::glDrawBuffers(bufs.bufSize, bufs.data);
 #else
     UNUSED_PARAM(n);
     UNUSED_PARAM(bufs);
 #endif
 }
 
-void ExtensionsGLOpenGL::drawArraysInstanced(GCGLenum mode, GCGLint first, GCGLsizei count, GCGLsizei primcount)
+void ExtensionsGLOpenGL::drawArraysInstancedANGLE(GCGLenum mode, GCGLint first, GCGLsizei count, GCGLsizei primcount)
 {
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return;
+
 #if PLATFORM(GTK)
     ::glDrawArraysInstanced(mode, first, count, primcount);
 #else
@@ -218,9 +237,11 @@ void ExtensionsGLOpenGL::drawArraysInstanced(GCGLenum mode, GCGLint first, GCGLs
 #endif
 }
 
-void ExtensionsGLOpenGL::drawElementsInstanced(GCGLenum mode, GCGLsizei count, GCGLenum type, long long offset, GCGLsizei primcount)
+void ExtensionsGLOpenGL::drawElementsInstancedANGLE(GCGLenum mode, GCGLsizei count, GCGLenum type, GCGLvoidptr offset, GCGLsizei primcount)
 {
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return;
+
 #if PLATFORM(GTK)
     ::glDrawElementsInstanced(mode, count, type, reinterpret_cast<GLvoid*>(static_cast<intptr_t>(offset)), primcount);
 #else
@@ -232,9 +253,11 @@ void ExtensionsGLOpenGL::drawElementsInstanced(GCGLenum mode, GCGLsizei count, G
 #endif
 }
 
-void ExtensionsGLOpenGL::vertexAttribDivisor(GCGLuint index, GCGLuint divisor)
+void ExtensionsGLOpenGL::vertexAttribDivisorANGLE(GCGLuint index, GCGLuint divisor)
 {
-    m_context->makeContextCurrent();
+    if (!m_context->makeContextCurrent())
+        return;
+
 #if PLATFORM(GTK)
     ::glVertexAttribDivisor(index, divisor);
 #else
@@ -259,4 +282,4 @@ bool ExtensionsGLOpenGL::isVertexArrayObjectSupported()
 
 } // namespace WebCore
 
-#endif // ENABLE(GRAPHICS_CONTEXT_GL) && USE(OPENGL)
+#endif // ENABLE(WEBGL) && USE(OPENGL)

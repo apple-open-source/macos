@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -419,7 +419,8 @@
 			outputFiles = (
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}.h",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -cepv -client none -server none -no_mepv out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -cepv -client none -server none -no_mepv out ${SHARED_DERIVED_FILE_DIR}/dce ${INPUT_FILE_PATH}\n";
 		};
 		DD10F4D8106D259A005F1EF3 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -432,7 +433,8 @@
 			outputFiles = (
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}_cstub.c",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -cepv -server none out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce/ &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_cstub.c ${SHARED_DERIVED_FILE_DIR}/dce/\n";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -cepv -server none out ${SHARED_DERIVED_FILE_DIR}/dce/ ${INPUT_FILE_PATH}\n";
 		};
 		DD10F5F7106D3629005F1EF3 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -446,7 +448,8 @@
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE)_cstub.c",
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE)_sstub.c",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -cepv out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce/ &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_cstub.c ${SHARED_DERIVED_FILE_DIR}/dce/ &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_sstub.c ${SHARED_DERIVED_FILE_DIR}/dce/\n";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -cepv out ${SHARED_DERIVED_FILE_DIR}/dce ${INPUT_FILE_PATH}\n";
 		};
 		DDD41A42107261620002C71D /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -460,7 +463,8 @@
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}_cstub.c",
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}.h",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -server none out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce/ &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_cstub.c ${SHARED_DERIVED_FILE_DIR}/dce/\n";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -no_cpp -v -no_mepv -server none out ${SHARED_DERIVED_FILE_DIR}/dce ${INPUT_FILE_PATH}\n";
 		};
 		DDD80A261075636F00956CF0 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -473,7 +477,8 @@
 			outputFiles = (
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE).h",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -D_IDL -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -v -no_mepv -cepv -client none -server none out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce/\n";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -D_IDL -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -v -no_mepv -cepv -client none -server none out ${SHARED_DERIVED_FILE_DIR}/dce${INPUT_FILE_PATH}\n";
 		};
 		DDD80A581075669300956CF0 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -487,7 +492,8 @@
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE).h",
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE)_sstub.c",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -D_IDL -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -v -no_mepv -cepv -client none out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR}/dce/ &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_sstub.c ${SHARED_DERIVED_FILE_DIR}/dce/\n";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -D_IDL -I ${SOURCE_ROOT}/dcerpc/include -keep c_source -v -no_mepv -cepv -client none out ${SHARED_DERIVED_FILE_DIR}/dce ${INPUT_FILE_PATH}\n";
 		};
 		DDD80ABA10756A9D00956CF0 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
@@ -502,7 +508,8 @@
 				"$(SHARED_DERIVED_FILE_DIR)/$(INPUT_FILE_BASE)_cstub.c",
 				"$(SHARED_DERIVED_FILE_DIR)/$(INPUT_FILE_BASE)_sstub.c",
 			);
-			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source out ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH} ${INPUT_FILE_PATH} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h ${SHARED_DERIVED_FILE_DIR} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_cstub.c ${SHARED_DERIVED_FILE_DIR} &&\nmv -n ${OBJECT_FILE_DIR_normal}/${CURRENT_ARCH}/${INPUT_FILE_BASE}_sstub.c ${SHARED_DERIVED_FILE_DIR}";
+			runOncePerArchitecture = 0;
+			script = "${SRCROOT}/BuildConfig/idl-compiler -D_SOCKADDR_LEN -D_GNU_SOURCE -D_REENTRANT -D_POSIX_C_SOURCE=3 -I ${SOURCE_ROOT}/dcerpc/include -keep c_source out ${SHARED_DERIVED_FILE_DIR} ${INPUT_FILE_PATH}\n";
 		};
 /* End PBXBuildRule section */
 
@@ -3787,15 +3794,14 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CURRENT_PROJECT_VERSION = 71;
+				CURRENT_PROJECT_VERSION = 71.100.1;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_VERSION = "";
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = "";
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -3822,13 +3828,12 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CURRENT_PROJECT_VERSION = 71;
+				CURRENT_PROJECT_VERSION = 71.100.1;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_VERSION = "";
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				ONLY_ACTIVE_ARCH = NO;
-				SDKROOT = "";
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -3857,7 +3862,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 71;
+				DYLIB_CURRENT_VERSION = 71.100.1;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
@@ -3884,7 +3889,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 71;
+				DYLIB_CURRENT_VERSION = 71.100.1;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";

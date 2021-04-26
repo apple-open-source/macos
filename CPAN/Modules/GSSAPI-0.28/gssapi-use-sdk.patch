@@ -1,0 +1,12 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 0e88489..0af7566 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -140,6 +140,7 @@ if (exists $options{gssapi_libs} || exists $options{gssapi_inc} || exists $optio
+          push @LDDLFLAGS, 'LDDLFLAGS', $lddflagstring ;
+       }
+       #--------------------------------------
++      push @GSSLIBS, '-L@SDKROOT@/usr/lib ';
+       push @GSSLIBS,  join ' ', @{$gsslibs};
+     }
+ 

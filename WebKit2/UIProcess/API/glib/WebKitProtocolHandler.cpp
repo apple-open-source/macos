@@ -252,8 +252,8 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
             "  <td><div class=\"titlename\">WPE version</div></td>"
             "  <td>%d.%d.%d (using fdo backend %d.%d.%d)</td>"
             " </tbody></tr>",
-            WPE_FDO_MAJOR_VERSION, WPE_FDO_MINOR_VERSION, WPE_FDO_MICRO_VERSION,
-            WPE_MAJOR_VERSION, WPE_MINOR_VERSION, WPE_MICRO_VERSION);
+            WPE_MAJOR_VERSION, WPE_MINOR_VERSION, WPE_MICRO_VERSION,
+            WPE_FDO_MAJOR_VERSION, WPE_FDO_MINOR_VERSION, WPE_FDO_MICRO_VERSION);
     }
 #endif
 #endif
@@ -346,7 +346,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         " </tbody></tr>",
         hardwareAccelerationPolicy(request));
 
-#if ENABLE(GRAPHICS_CONTEXT_GL)
+#if ENABLE(WEBGL)
     g_string_append_printf(html,
         " <tbody><tr>"
         "  <td><div class=\"titlename\">WebGL enabled</div></td>"
@@ -480,7 +480,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
             eglQueryString(eglDisplay, EGL_EXTENSIONS));
     }
 #endif
-#endif // ENABLE(GRAPHICS_CONTEXT_GL)
+#endif // ENABLE(WEBGL)
 
     g_string_append(html, "<table>");
 

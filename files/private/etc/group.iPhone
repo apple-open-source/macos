@@ -1,6 +1,6 @@
 ##
 # Group Database
-# 
+#
 # This file is the authoritative user database.
 ##
 nobody:*:-2:
@@ -88,5 +88,6 @@ _iconservices:*:276:
 _fud:*:278:
 _knowledgegraphd:*:279:
 _coreml:*:280:
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices
+_trustd:*:282:_trustd
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd
 mobile:*:501:mobile

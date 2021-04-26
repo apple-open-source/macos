@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2020-05-30</string>
+		<string>2020-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,9 +12,9 @@
 		<key>OpenSourceProject</key>
 		<string>vim</string>
 		<key>OpenSourceURL</key>
-		<string>https://github.com/vim/vim/archive/v8.2.0850.tar.gz</string>
+		<string>https://github.com/vim/vim/archive/v8.2.2029.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>8.2.0850</string>
+		<string>8.2.2029</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 		<key>OpenSourceModifications</key>
@@ -25,7 +25,6 @@
 			<string>patch 8.1.0704: building with Ruby 2.6 gives compiler warnings</string>
 			<string>54351200 - locale test fixes</string>
 			<string>54054432 - revert 617e8df8a7509121f9b0a563b95e4f81287ff720</string>
-			<string>71467751 - upstream patch 8.2.1972 to fix buffer overflow</string>
 		</array>
 	</dict>
 </array>

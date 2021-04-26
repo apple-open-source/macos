@@ -41,9 +41,11 @@
 #include "SecTrustServer.h"
 #include "SecOCSPRequest.h"
 #include "SecOCSPResponse.h"
+#include "trustdFileLocations.h"
 
 #import "SecTrustLoggingServer.h"
 #import "TrustURLSessionDelegate.h"
+#import "trust/trustd/TrustURLSessionCache.h"
 
 #import "SecRevocationNetworking.h"
 
@@ -54,10 +56,6 @@ static CFStringRef kUpdateBackgroundKey = CFSTR("ValidUpdateBackground");
 
 extern CFAbsoluteTime gUpdateStarted;
 extern CFAbsoluteTime gNextUpdate;
-
-static int checkBasePath(const char *basePath) {
-    return mkpath_np((char*)basePath, 0755);
-}
 
 static uint64_t systemUptimeInSeconds() {
     struct timeval boottime;
@@ -180,9 +178,6 @@ didReceiveResponse:(NSURLResponse *)response
             session, dataTask, (long)[(NSHTTPURLResponse *)response statusCode],
             [response MIMEType], [response expectedContentLength]);
 
-    WithPathInRevocationInfoDirectory(NULL, ^(const char *utf8String) {
-        (void)checkBasePath(utf8String);
-    });
     CFURLRef updateFileURL = SecCopyURLForFileInRevocationInfoDirectory(CFSTR("update-current"));
     self->_currentUpdateFileURL = (updateFileURL) ? CFBridgingRelease(updateFileURL) : nil;
     const char *updateFilePath = [self->_currentUpdateFileURL fileSystemRepresentation];
@@ -317,7 +312,7 @@ static ValidUpdateRequest *request = nil;
         config.discretionary = NO;
     }
 
-    config.HTTPAdditionalHeaders = @{ @"User-Agent" : @"com.apple.trustd/2.0",
+    config.HTTPAdditionalHeaders = @{ @"User-Agent" : TrustdUserAgent,
                                       @"Accept" : @"*/*",
                                       @"Accept-Encoding" : @"gzip,deflate,br"};
 
@@ -505,19 +500,19 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
 @end
 
 @implementation OCSPFetchDelegate
-- (BOOL)fetchNext:(NSURLSession *)session {
-    SecORVCRef orvc = (SecORVCRef)self.context;
+- (BOOL)fetchNext:(NSURLSession *)session context:(TrustURLSessionContext *)urlContext   {
+    SecORVCRef orvc = (SecORVCRef)urlContext.context;
     TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
 
     BOOL result = true;
-    if ((result = [super fetchNext:session])) {
+    if ((result = [super fetchNext:session context:urlContext])) {
         /* no fetch scheduled */
         orvc->done = true;
     } else {
-        if (self.URIix > 0) {
-            orvc->responder = (__bridge CFURLRef)self.URIs[self.URIix - 1];
+        if (urlContext.URIix > 0) {
+            orvc->responder = (__bridge CFURLRef)urlContext.URIs[urlContext.URIix - 1];
         } else {
-            orvc->responder = (__bridge CFURLRef)self.URIs[0];
+            orvc->responder = (__bridge CFURLRef)urlContext.URIs[0];
         }
         if (analytics) {
             analytics->ocsp_fetches++;
@@ -530,9 +525,17 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
     /* call the superclass's method to set expiration */
     [super URLSession:session task:task didCompleteWithError:error];
 
-    __block SecORVCRef orvc = (SecORVCRef)self.context;
+    NSUUID *taskId = [task.originalRequest taskId];
+    TrustURLSessionContext *urlContext = [self contextForTask:taskId];
+    if (!urlContext) {
+        secerror("failed to find context for %@", taskId);
+        return;
+    }
+
+    __block SecORVCRef orvc = (SecORVCRef)urlContext.context;
     if (!orvc || !orvc->builder) {
         /* We already returned to the PathBuilder state machine. */
+        [self removeTask:taskId];
         return;
     }
 
@@ -544,9 +547,9 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
             analytics->ocsp_fetch_failed++;
         }
     } else {
-        SecOCSPResponseRef ocspResponse = SecOCSPResponseCreate((__bridge CFDataRef)self.response);
+        SecOCSPResponseRef ocspResponse = SecOCSPResponseCreate((__bridge CFDataRef)urlContext.response);
         if (ocspResponse) {
-            SecORVCConsumeOCSPResponse(orvc, ocspResponse, self.expiration, true, false);
+            SecORVCConsumeOCSPResponse(orvc, ocspResponse, urlContext.expiration, true, false);
             if (analytics && !orvc->done) {
                 /* We got an OCSP response that didn't pass validation */
                 analytics->ocsp_validation_failed = true;
@@ -560,15 +563,14 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
 
     /* If we didn't get a valid OCSP response, try the next URI */
     if (!orvc->done) {
-        (void)[self fetchNext:session];
+        (void)[self fetchNext:session context:urlContext];
     }
 
     /* We got a valid OCSP response or couldn't schedule any more fetches.
      * Close the session, update the PVCs, decrement the async count, and callback if we're all done.  */
     if (orvc->done) {
         secdebug("rvc", "builder %p, done with OCSP fetches for cert: %ld", orvc->builder, orvc->certIX);
-        self.context = nil;
-        [session invalidateAndCancel];
+        urlContext.context = nil;
         SecORVCUpdatePVC(orvc);
         if (0 == SecPathBuilderDecrementAsyncJobCount(orvc->builder)) {
             /* We're the last async job to finish, jump back into the state machine */
@@ -578,10 +580,12 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
             });
         }
     }
+    // We've either kicked off a new task or returned to the builder, so we're done with this task.
+    [self removeTask:taskId];
 }
 
-- (NSURLRequest *)createNextRequest:(NSURL *)uri {
-    SecORVCRef orvc = (SecORVCRef)self.context;
+- (NSURLRequest *)createNextRequest:(NSURL *)uri context:(TrustURLSessionContext *)urlContext {
+    SecORVCRef orvc = (SecORVCRef)urlContext.context;
     CFDataRef ocspDER = CFRetainSafe(SecOCSPRequestGetDER(orvc->ocspRequest));
     NSData *nsOcspDER = CFBridgingRelease(ocspDER);
     NSString *ocspBase64 = [nsOcspDER base64EncodedStringWithOptions:0];
@@ -609,10 +613,10 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
         /* Use a GET */
         NSString *requestString = [NSString stringWithFormat:@"%@/%@", [uri absoluteString], escapedRequest];
         NSURL *requestURL = [NSURL URLWithString:requestString];
-        request = [NSURLRequest requestWithURL:requestURL];
+        request = [super createNextRequest:requestURL context:urlContext];
     } else {
         /* Use a POST */
-        NSMutableURLRequest *mutableRequest = [NSMutableURLRequest requestWithURL:uri];
+        NSMutableURLRequest *mutableRequest = [[super createNextRequest:uri context:urlContext] mutableCopy];
         mutableRequest.HTTPMethod = @"POST";
         mutableRequest.HTTPBody = nsOcspDER;
         request = mutableRequest;
@@ -622,8 +626,15 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)taskMetrics {
+    NSUUID *taskId = [task.originalRequest taskId];
+    TrustURLSessionContext *urlContext = [self contextForTask:taskId];
+    if (!urlContext) {
+        secerror("failed to find context for %@", taskId);
+        return;
+    }
+
     secdebug("rvc", "got metrics with task interval %f", taskMetrics.taskInterval.duration);
-    SecORVCRef orvc = (SecORVCRef)self.context;
+    SecORVCRef orvc = (SecORVCRef)urlContext.context;
     if (orvc && orvc->builder) {
         TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
         if (analytics) {
@@ -645,30 +656,17 @@ bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert) {
             return true;
         }
 
-        NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-        config.timeoutIntervalForResource = TrustURLSessionGetResourceTimeout();
-        config.HTTPAdditionalHeaders = @{@"User-Agent" : @"com.apple.trustd/2.0"};
+        static TrustURLSessionCache *sessionCache = NULL;
+        static OCSPFetchDelegate *delegate = NULL;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            delegate = [[OCSPFetchDelegate alloc] init];
+            sessionCache = [[TrustURLSessionCache alloc] initWithDelegate:delegate];
+        });
 
         NSData *auditToken = CFBridgingRelease(SecPathBuilderCopyClientAuditToken(orvc->builder));
-        if (auditToken) {
-            config._sourceApplicationAuditTokenData = auditToken;
-        }
-
-        OCSPFetchDelegate *delegate = [[OCSPFetchDelegate alloc] init];
-        delegate.context = orvc;
-        delegate.URIs = nsResponders;
-        delegate.URIix = 0;
-
-        NSOperationQueue *queue = [[NSOperationQueue alloc] init];
-
-        NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
-        secdebug("rvc", "created URLSession for %@", cert);
-
-        bool result = false;
-        if ((result = [delegate fetchNext:session])) {
-            /* no fetch scheduled, close the session */
-            [session invalidateAndCancel];
-        }
-        return result;
+        NSURLSession *session = [sessionCache sessionForAuditToken:auditToken];
+        TrustURLSessionContext *context = [[TrustURLSessionContext alloc] initWithContext:orvc uris:nsResponders];
+        return [delegate fetchNext:session context:context];
     }
 }

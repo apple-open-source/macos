@@ -52,13 +52,6 @@ list(APPEND WebCore_SOURCES
 
     platform/graphics/egl/GLContextEGL.cpp
 
-    platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
-    platform/graphics/opengl/ExtensionsGLOpenGLES.cpp
-    platform/graphics/opengl/GraphicsContextGLOpenGLCommon.cpp
-    platform/graphics/opengl/GraphicsContextGLOpenGLES.cpp
-    platform/graphics/opengl/GraphicsContextGLOpenGLPrivate.cpp
-    platform/graphics/opengl/TemporaryOpenGLSetting.cpp
-
     platform/graphics/opentype/OpenTypeUtilities.cpp
 
     platform/graphics/win/BackingStoreBackendDirect2DImpl.cpp
@@ -74,6 +67,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/FontCacheWin.cpp
     platform/graphics/win/FontCascadeDirect2D.cpp
     platform/graphics/win/FontCustomPlatformData.cpp
+    platform/graphics/win/FontDescriptionWin.cpp
     platform/graphics/win/FontPlatformDataDirect2D.cpp
     platform/graphics/win/FontPlatformDataWin.cpp
     platform/graphics/win/FontWin.cpp
@@ -262,18 +256,5 @@ file(COPY
     DESTINATION
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources
 )
-
-if (EXISTS ${WEBKIT_LIBRARIES_DIR}/etc/ssl/cert.pem)
-    make_directory(${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/certificates)
-    file(COPY
-        ${WEBKIT_LIBRARIES_DIR}/etc/ssl/cert.pem
-        DESTINATION
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/certificates
-    )
-    file(RENAME
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/certificates/cert.pem
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/certificates/cacert.pem
-    )
-endif ()
 
 set(WebCore_OUTPUT_NAME WebCore${DEBUG_SUFFIX})

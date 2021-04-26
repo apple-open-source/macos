@@ -43,15 +43,11 @@
 #import "AccessibilityTableCell.h"
 #import "AccessibilityTableColumn.h"
 #import "AccessibilityTableRow.h"
-#import "Chrome.h"
-#import "ChromeClient.h"
 #import "ColorMac.h"
 #import "ContextMenuController.h"
 #import "Editing.h"
 #import "Font.h"
 #import "FontCascade.h"
-#import "Frame.h"
-#import "FrameLoaderClient.h"
 #import "FrameSelection.h"
 #import "HTMLNames.h"
 #import "LayoutRect.h"
@@ -63,15 +59,11 @@
 #import "ScrollView.h"
 #import "TextCheckerClient.h"
 #import "VisibleUnits.h"
-#import "WebCoreFrameView.h"
 #import <wtf/cocoa/VectorCocoa.h>
 
 #if PLATFORM(MAC)
 #import "WebAccessibilityObjectWrapperMac.h"
-#import <pal/spi/mac/HIServicesSPI.h>
 #else
-#import "WAKView.h"
-#import "WAKWindow.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
 #endif
 
@@ -282,7 +274,7 @@ NSArray *convertToNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVect
 
 @implementation WebAccessibilityObjectWrapperBase
 
-@synthesize identifier=_identifier;
+@synthesize identifier = _identifier;
 
 - (id)initWithAccessibilityObject:(AXCoreObject*)axObject
 {
@@ -345,13 +337,6 @@ NSArray *convertToNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVect
 - (id)attachmentView
 {
     return nil;
-}
-
-// This should be the "visible" text that's actually on the screen if possible.
-// If there's alternative text, that can override the title.
-- (NSString *)baseAccessibilityTitle
-{
-    return self.axBackingObject->titleAttributeValue();
 }
 
 - (WebCore::AXCoreObject*)axBackingObject
@@ -463,66 +448,16 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 
 - (CGRect)convertRectToSpace:(const WebCore::FloatRect&)rect space:(AccessibilityConversionSpace)space
 {
-    if (!self.axBackingObject)
+    auto* backingObject = self.axBackingObject;
+    if (!backingObject)
         return CGRectZero;
-    
-    CGSize size = CGSizeMake(rect.size().width(), rect.size().height());
-    CGPoint point = CGPointMake(rect.x(), rect.y());
-    
-    CGRect cgRect = CGRectMake(point.x, point.y, size.width, size.height);
 
-    // WebKit1 code path... platformWidget() exists.
-    FrameView* frameView = self.axBackingObject->documentFrameView();
-#if PLATFORM(IOS_FAMILY)
-    WAKView* documentView = frameView ? frameView->documentView() : nullptr;
-    if (documentView) {
-        cgRect = [documentView convertRect:cgRect toView:nil];
-        
-        // we need the web document view to give us our final screen coordinates
-        // because that can take account of the scroller
-        id webDocument = [self _accessibilityWebDocumentView];
-        if (webDocument)
-            cgRect = [webDocument convertRect:cgRect toView:nil];
-        return cgRect;
-    }
-#else
-    if (frameView && frameView->platformWidget()) {
-        NSRect nsRect = NSRectFromCGRect(cgRect);
-        NSView* view = frameView->documentView();
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        nsRect = [[view window] convertRectToScreen:[view convertRect:nsRect toView:nil]];
-        ALLOW_DEPRECATED_DECLARATIONS_END
-        return NSRectToCGRect(nsRect);
-    }
-#endif
-    else
-        return static_cast<CGRect>(self.axBackingObject->convertFrameToSpace(rect, space));
+    return backingObject->convertRectToPlatformSpace(rect, space);
 }
 
 - (NSString *)ariaLandmarkRoleDescription
 {
     return self.axBackingObject->ariaLandmarkRoleDescription();
-}
-
-- (void)baseAccessibilitySetFocus:(BOOL)focus
-{
-    // If focus is just set without making the view the first responder, then keyboard focus won't move to the right place.
-    if (focus && !self.axBackingObject->document()->frame()->selection().isFocusedAndActive()) {
-        FrameView* frameView = self.axBackingObject->documentFrameView();
-        Page* page = self.axBackingObject->page();
-        if (page && frameView) {
-            ChromeClient& chromeClient = page->chrome().client();
-            chromeClient.focus();
-
-            // Legacy WebKit1 case.
-            if (frameView->platformWidget())
-                chromeClient.makeFirstResponder(frameView->platformWidget());
-            else
-                chromeClient.assistiveTechnologyMakeFirstResponder();
-        }
-    }
-
-    self.axBackingObject->setFocused(focus);
 }
 
 - (NSString *)accessibilityPlatformMathSubscriptKey
@@ -636,21 +571,19 @@ static NSDictionary *dictionaryRemovingNonSupportedTypes(NSDictionary *dictionar
     }
 }
 
-#ifndef NDEBUG
 - (NSString *)innerHTML
 {
-    if (auto* element = self.axBackingObject->element())
-        return element->innerHTML();
+    if (auto* backingObject = self.axBackingObject)
+        return backingObject->innerHTML();
     return nil;
 }
 
 - (NSString *)outerHTML
 {
-    if (auto* element = self.axBackingObject->element())
-        return element->outerHTML();
+    if (auto* backingObject = self.axBackingObject)
+        return backingObject->outerHTML();
     return nil;
 }
-#endif
 
 #pragma mark Search helpers
 

@@ -183,7 +183,7 @@ verifypw
 	never all any always
 noexec
 	T_FLAG
-	"Preload the dummy exec functions contained in the sudo_noexec library"
+	"Preload the sudo_noexec library which replaces the exec functions"
 ignore_local_sudoers
 	T_FLAG
 	"If LDAP directory is up, do we ignore local sudoers file"
@@ -192,7 +192,7 @@ closefrom
 	"File descriptors >= %d will be closed before executing a command"
 closefrom_override
 	T_FLAG
-	"If set, users may override the value of `closefrom' with the -C option"
+	"If set, users may override the value of "closefrom" with the -C option"
 setenv
 	T_FLAG
 	"Allow users to set arbitrary environment variables"
@@ -201,7 +201,7 @@ env_reset
 	"Reset the environment to a default set of variables"
 env_check
 	T_LIST|T_BOOL
-	"Environment variables to check for sanity:"
+	"Environment variables to check for safety:"
 env_delete
 	T_LIST|T_BOOL
 	"Environment variables to remove:"
@@ -287,8 +287,8 @@ pam_acct_mgmt
 	T_FLAG
 	"Perform PAM account validation management"
 maxseq
-	T_UINT
-	"Maximum I/O log sequence number: %u"
+	T_STR
+	"Maximum I/O log sequence number: %s"
 use_netgroups
 	T_FLAG
 	"Enable sudoers netgroup support"
@@ -366,10 +366,49 @@ log_allowed
 log_denied
 	T_FLAG
 	"Log when a command is denied by sudoers"
+log_servers
+	T_LIST|T_BOOL
+	"Sudo log server(s) to connect to with optional port"
+log_server_timeout
+	T_TIMEOUT|T_BOOL
+	"Sudo log server timeout in seconds: %u"
+log_server_keepalive
+	T_FLAG
+	"Enable SO_KEEPALIVE socket option on the socket connected to the logserver"
+log_server_cabundle
+	T_STR|T_BOOL|T_PATH
+	"Path to the audit server's CA bundle file: %s"
+log_server_peer_cert
+	T_STR|T_BOOL|T_PATH
+	"Path to the sudoers certificate file: %s"
+log_server_peer_key
+	T_STR|T_BOOL|T_PATH
+	"Path to the sudoers private key file: %s"
+log_server_verify
+	T_FLAG
+	"Verify that the log server's certificate is valid"
 runas_allow_unknown_id
 	T_FLAG
 	"Allow the use of unknown runas user and/or group ID"
 runas_check_shell
 	T_FLAG
 	"Only permit running commands as a user with a valid shell"
-
+pam_ruser
+	T_FLAG
+	"Set the pam remote user to the user running sudo"
+pam_rhost
+	T_FLAG
+	"Set the pam remote host to the local host name"
+runcwd
+	T_STR|T_BOOL|T_CHPATH
+	"Working directory to change to before executing the command: %s"
+runchroot
+	T_STR|T_BOOL|T_CHPATH
+	"Root directory to change to before executing the command: %s"
+log_format
+	T_TUPLE
+	"The format of logs to produce: %s"
+	sudo json
+selinux
+	T_FLAG
+	"Enable SELinux RBAC support"

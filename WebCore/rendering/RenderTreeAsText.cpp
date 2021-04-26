@@ -36,7 +36,7 @@
 #include "HTMLNames.h"
 #include "HTMLSpanElement.h"
 #include "InlineTextBox.h"
-#include "LineLayoutTraversal.h"
+#include "LayoutIntegrationRunIterator.h"
 #include "Logging.h"
 #include "PrintContext.h"
 #include "PseudoElement.h"
@@ -203,11 +203,11 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         // many test results.
         const RenderText& text = downcast<RenderText>(o);
         r = IntRect(text.firstRunLocation(), text.linesBoundingBox().size());
-        if (!LineLayoutTraversal::firstTextBoxFor(text))
+        if (!LayoutIntegration::firstTextRunFor(text))
             adjustForTableCells = false;
     } else if (o.isBR()) {
         const RenderLineBreak& br = downcast<RenderLineBreak>(o);
-        IntRect linesBox = br.boundingBoxForRenderTreeDump();
+        IntRect linesBox = br.linesBoundingBox();
         r = IntRect(linesBox.x(), linesBox.y(), linesBox.width(), linesBox.height());
         if (!br.inlineBoxWrapper())
             adjustForTableCells = false;
@@ -272,13 +272,13 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         LayoutUnit borderLeft = box.borderLeft();
         if (box.isFieldset()) {
             const auto& block = downcast<RenderBlock>(box);
-            if (o.style().writingMode() == TopToBottomWritingMode)
+            if (o.style().writingMode() == WritingMode::TopToBottom)
                 borderTop -= block.intrinsicBorderForFieldset();
-            else if (o.style().writingMode() == BottomToTopWritingMode)
+            else if (o.style().writingMode() == WritingMode::BottomToTop)
                 borderBottom -= block.intrinsicBorderForFieldset();
-            else if (o.style().writingMode() == LeftToRightWritingMode)
+            else if (o.style().writingMode() == WritingMode::LeftToRight)
                 borderLeft -= block.intrinsicBorderForFieldset();
-            else if (o.style().writingMode() == RightToLeftWritingMode)
+            else if (o.style().writingMode() == WritingMode::RightToLeft)
                 borderRight -= block.intrinsicBorderForFieldset();
             
         }
@@ -478,32 +478,32 @@ void writeDebugInfo(TextStream& ts, const RenderObject& object, OptionSet<Render
     }
 }
 
-static void writeTextBox(TextStream& ts, const RenderText& o, const LineLayoutTraversal::TextBox& textBox)
-{
-    auto rect = textBox.rect();
-    int x = rect.x();
-    int y = rect.y();
-    // FIXME: Use non-logical width. webkit.org/b/206809.
-    int logicalWidth = ceilf(rect.x() + (textBox.isHorizontal() ? rect.width() : rect.height())) - x;
-    // FIXME: Table cell adjustment is temporary until results can be updated.
-    if (is<RenderTableCell>(*o.containingBlock()))
-        y -= floorToInt(downcast<RenderTableCell>(*o.containingBlock()).intrinsicPaddingBefore());
-        
-    ts << "text run at (" << x << "," << y << ") width " << logicalWidth;
-    if (!textBox.isLeftToRightDirection() || textBox.dirOverride()) {
-        ts << (!textBox.isLeftToRightDirection() ? " RTL" : " LTR");
-        if (textBox.dirOverride())
-            ts << " override";
-    }
-    ts << ": "
-        << quoteAndEscapeNonPrintables(textBox.text());
-    if (textBox.hasHyphen())
-        ts << " + hyphen string " << quoteAndEscapeNonPrintables(o.style().hyphenString().string());
-    ts << "\n";
-}
-
 void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> behavior)
 {
+    auto writeTextRun = [&](auto& textRenderer, auto& textRun)
+    {
+        auto rect = textRun.rect();
+        int x = rect.x();
+        int y = rect.y();
+        // FIXME: Use non-logical width. webkit.org/b/206809.
+        int logicalWidth = ceilf(rect.x() + (textRun.isHorizontal() ? rect.width() : rect.height())) - x;
+        // FIXME: Table cell adjustment is temporary until results can be updated.
+        if (is<RenderTableCell>(*o.containingBlock()))
+            y -= floorToInt(downcast<RenderTableCell>(*o.containingBlock()).intrinsicPaddingBefore());
+
+        ts << "text run at (" << x << "," << y << ") width " << logicalWidth;
+        if (!textRun.isLeftToRightDirection() || textRun.dirOverride()) {
+            ts << (!textRun.isLeftToRightDirection() ? " RTL" : " LTR");
+            if (textRun.dirOverride())
+                ts << " override";
+        }
+        ts << ": "
+            << quoteAndEscapeNonPrintables(textRun.text());
+        if (textRun.hasHyphen())
+            ts << " + hyphen string " << quoteAndEscapeNonPrintables(textRenderer.style().hyphenString().string());
+        ts << "\n";
+    };
+
     if (is<RenderSVGShape>(o)) {
         write(ts, downcast<RenderSVGShape>(o), behavior);
         return;
@@ -546,9 +546,9 @@ void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> be
 
     if (is<RenderText>(o)) {
         auto& text = downcast<RenderText>(o);
-        for (auto& textBox : LineLayoutTraversal::textBoxesFor(text)) {
+        for (auto& run : LayoutIntegration::textRunsFor(text)) {
             ts << indent;
-            writeTextBox(ts, text, textBox);
+            writeTextRun(text, run);
         }
     } else {
         for (auto& child : childrenOfType<RenderObject>(downcast<RenderElement>(o))) {
@@ -795,7 +795,7 @@ static void writeSelection(TextStream& ts, const RenderBox& renderer)
     VisibleSelection selection = frame->selection().selection();
     if (selection.isCaret()) {
         ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().deprecatedNode());
-        if (selection.affinity() == UPSTREAM)
+        if (selection.affinity() == Affinity::Upstream)
             ts << " (upstream affinity)";
         ts << "\n";
     } else if (selection.isRange())
@@ -805,7 +805,7 @@ static void writeSelection(TextStream& ts, const RenderBox& renderer)
 
 static String externalRepresentation(RenderBox& renderer, OptionSet<RenderAsTextFlag> behavior)
 {
-    TextStream ts(TextStream::LineMode::MultipleLine, TextStream::Formatting::SVGStyleRect | TextStream::Formatting::LayoutUnitsAsIntegers);
+    TextStream ts(TextStream::LineMode::MultipleLine, { TextStream::Formatting::SVGStyleRect, TextStream::Formatting::LayoutUnitsAsIntegers });
     if (!renderer.hasLayer())
         return ts.release();
 
@@ -881,7 +881,7 @@ String counterValueForElement(Element* element)
     // Make sure the element is not freed during the layout.
     RefPtr<Element> elementRef(element);
     element->document().updateLayout();
-    TextStream stream(TextStream::LineMode::MultipleLine, TextStream::Formatting::SVGStyleRect | TextStream::Formatting::LayoutUnitsAsIntegers);
+    TextStream stream(TextStream::LineMode::MultipleLine, { TextStream::Formatting::SVGStyleRect, TextStream::Formatting::LayoutUnitsAsIntegers });
     bool isFirstCounter = true;
     // The counter renderers should be children of :before or :after pseudo-elements.
     if (PseudoElement* before = element->beforePseudoElement())

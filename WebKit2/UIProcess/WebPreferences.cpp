@@ -53,7 +53,7 @@ Ref<WebPreferences> WebPreferences::createWithLegacyDefaults(const String& ident
     preferences->registerDefaultBoolValueForKey(WebPreferencesKey::javaEnabledKey(), true);
     preferences->registerDefaultBoolValueForKey(WebPreferencesKey::javaEnabledForLocalFilesKey(), true);
     preferences->registerDefaultBoolValueForKey(WebPreferencesKey::pluginsEnabledKey(), true);
-    preferences->registerDefaultUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey(), WebCore::SecurityOrigin::AllowAllStorage);
+    preferences->registerDefaultUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey(), static_cast<uint32_t>(WebCore::StorageBlockingPolicy::AllowAll));
     return preferences;
 }
 
@@ -76,7 +76,7 @@ WebPreferences::WebPreferences(const WebPreferences& other)
 
 WebPreferences::~WebPreferences()
 {
-    ASSERT(m_pages.isEmpty());
+    ASSERT(m_pages.computesEmpty());
 }
 
 Ref<WebPreferences> WebPreferences::copy() const
@@ -86,20 +86,69 @@ Ref<WebPreferences> WebPreferences::copy() const
 
 void WebPreferences::addPage(WebPageProxy& webPageProxy)
 {
-    ASSERT(!m_pages.contains(&webPageProxy));
-    m_pages.add(&webPageProxy);
+    ASSERT(!m_pages.contains(webPageProxy));
+    m_pages.add(webPageProxy);
 }
 
 void WebPreferences::removePage(WebPageProxy& webPageProxy)
 {
-    ASSERT(m_pages.contains(&webPageProxy));
-    m_pages.remove(&webPageProxy);
+    ASSERT(m_pages.contains(webPageProxy));
+    m_pages.remove(webPageProxy);
 }
 
 void WebPreferences::update()
 {
+    if (m_updateBatchCount) {
+        m_needUpdateAfterBatch = true;
+        return;
+    }
+        
     for (auto& webPageProxy : m_pages)
-        webPageProxy->preferencesDidChange();
+        webPageProxy.preferencesDidChange();
+}
+
+void WebPreferences::startBatchingUpdates()
+{
+    if (!m_updateBatchCount)
+        m_needUpdateAfterBatch = false;
+
+    ++m_updateBatchCount;
+}
+
+void WebPreferences::endBatchingUpdates()
+{
+    ASSERT(m_updateBatchCount > 0);
+    --m_updateBatchCount;
+    if (!m_updateBatchCount && m_needUpdateAfterBatch)
+        update();
+}
+
+void WebPreferences::setBoolValueForKey(const String& key, bool value)
+{
+    if (!m_store.setBoolValueForKey(key, value))
+        return;
+    updateBoolValueForKey(key, value);
+}
+
+void WebPreferences::setDoubleValueForKey(const String& key, double value)
+{
+    if (!m_store.setDoubleValueForKey(key, value))
+        return;
+    updateDoubleValueForKey(key, value);
+}
+
+void WebPreferences::setUInt32ValueForKey(const String& key, uint32_t value)
+{
+    if (!m_store.setUInt32ValueForKey(key, value))
+        return;
+    updateUInt32ValueForKey(key, value);
+}
+
+void WebPreferences::setStringValueForKey(const String& key, const String& value)
+{
+    if (!m_store.setStringValueForKey(key, value))
+        return;
+    updateStringValueForKey(key, value);
 }
 
 void WebPreferences::updateStringValueForKey(const String& key, const String& value)
@@ -117,8 +166,8 @@ void WebPreferences::updateBoolValueForKey(const String& key, bool value)
 void WebPreferences::updateBoolValueForInternalDebugFeatureKey(const String& key, bool value)
 {
     if (key == WebPreferencesKey::processSwapOnCrossSiteNavigationEnabledKey()) {
-        for (auto* page : m_pages)
-            page->process().processPool().configuration().setProcessSwapsOnNavigation(value);
+        for (auto& page : m_pages)
+            page.process().processPool().configuration().setProcessSwapsOnNavigation(value);
 
         return;
     }
@@ -154,30 +203,6 @@ void WebPreferences::deleteKey(const String& key)
     platformDeleteKey(key);
     update(); // FIXME: Only send over the changed key and value.
 }
-
-#define DEFINE_PREFERENCE_GETTER_AND_SETTERS(KeyUpper, KeyLower, TypeName, Type, DefaultValue, HumanReadableName, HumanReadableDescription) \
-    void WebPreferences::set##KeyUpper(const Type& value) \
-    { \
-        if (!m_store.set##TypeName##ValueForKey(WebPreferencesKey::KeyLower##Key(), value)) \
-            return; \
-        update##TypeName##ValueForKey(WebPreferencesKey::KeyLower##Key(), value); \
-    } \
-    \
-    void WebPreferences::delete##KeyUpper() \
-    { \
-        deleteKey(WebPreferencesKey::KeyLower##Key()); \
-    } \
-    \
-    Type WebPreferences::KeyLower() const \
-    { \
-        return m_store.get##TypeName##ValueForKey(WebPreferencesKey::KeyLower##Key()); \
-    } \
-
-FOR_EACH_WEBKIT_PREFERENCE(DEFINE_PREFERENCE_GETTER_AND_SETTERS)
-FOR_EACH_WEBKIT_DEBUG_PREFERENCE(DEFINE_PREFERENCE_GETTER_AND_SETTERS)
-
-#undef DEFINE_PREFERENCE_GETTER_AND_SETTERS
-
 
 void WebPreferences::registerDefaultBoolValueForKey(const String& key, bool value)
 {

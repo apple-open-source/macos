@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2013-2015, 2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2013-2015, 2019-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,24 +23,11 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
 #include <ctype.h>
 #include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-
-#define DEFAULT_TEXT_DOMAIN	"sudo"
-#include "sudo_gettext.h"	/* must be included before sudo_compat.h */
 
 #include "sudo_compat.h"
+#include "sudo_gettext.h"
 #include "sudo_util.h"
 
 enum strtonum_err {
@@ -82,7 +69,7 @@ sudo_strtonumx(const char *str, long long minval, long long maxval, char **endp,
 	break;
     case '+':
 	ch = *cp++;
-	/* FALLTHROUGH */
+	FALLTHROUGH;
     default:
 	sign = '+';
 	break;

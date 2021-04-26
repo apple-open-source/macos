@@ -43,7 +43,11 @@ OSStatus SessionGetInfo(SecuritySessionId requestedSession,
     SecuritySessionId *sessionId,
     SessionAttributeBits *attributes)
 {
-    BEGIN_API
+    BEGIN_API_NO_METRICS
+    if (requestedSession != noSecuritySession && requestedSession != callerSecuritySession) {
+        static dispatch_once_t countToken;
+        countLegacyAPI(&countToken, __FUNCTION__);
+    }
 	CommonCriteria::AuditInfo session;
 	if (requestedSession == callerSecuritySession)
 		session.get();

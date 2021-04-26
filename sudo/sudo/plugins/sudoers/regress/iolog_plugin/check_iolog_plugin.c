@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,26 +18,21 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <errno.h>
 #include <pwd.h>
-#include <time.h>
 #include <unistd.h>
 
 #define SUDO_ERROR_WRAP 0
 
 #include "sudoers.h"
-#include "def_data.c"		/* for iolog_path.c */
+#include "sudo_eventlog.h"
+#include "sudo_iolog.h"
 #include "sudo_plugin.h"
-#include "iolog.h"
+
+#include <def_data.c>		/* for iolog_path.c */
 
 extern struct io_plugin sudoers_io;
 
@@ -46,13 +41,13 @@ struct passwd *list_pw;
 sudo_printf_t sudo_printf;
 sudo_conv_t sudo_conv;
 
-__dso_public int main(int argc, char *argv[], char *envp[]);
+sudo_dso_public int main(int argc, char *argv[], char *envp[]);
 
 static void
 usage(void)
 {
     fprintf(stderr, "usage: %s pathname\n", getprogname());
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 static int
@@ -81,65 +76,80 @@ sudo_printf_int(int msg_type, const char *fmt, ...)
     return len;
 }
 
-bool
-validate_iolog_info(const char *logfile)
+static bool
+validate_iolog_info(const char *log_dir, bool legacy)
 {
+    struct eventlog *evlog;
     time_t now;
-    struct log_info *info;
 
     time(&now);
 
     /* Parse log file. */
-    if ((info = parse_logfile(logfile)) == NULL)
+    if ((evlog = iolog_parse_loginfo(-1, log_dir)) == NULL)
 	return false;
 
-    if (strcmp(info->cwd, "/") != 0) {
-	sudo_warnx("bad cwd: want \"/\", got \"%s\"", info->cwd);
-	return false;
-    }
-
-    if (strcmp(info->user, "nobody") != 0) {
-	sudo_warnx("bad user: want \"nobody\" got \"%s\"", info->user);
+    if (evlog->cwd == NULL || strcmp(evlog->cwd, "/") != 0) {
+	sudo_warnx("bad cwd: want \"/\", got \"%s\"",
+	    evlog->cwd ? evlog->cwd : "NULL");
 	return false;
     }
 
-    if (strcmp(info->runas_user, "root") != 0) {
-	sudo_warnx("bad runas_user: want \"root\" got \"%s\"", info->runas_user);
+    /* No host in the legacy log file. */
+    if (!legacy) {
+	if (evlog->submithost == NULL || strcmp(evlog->submithost, "localhost") != 0) {
+	    sudo_warnx("bad host: want \"localhost\", got \"%s\"",
+		evlog->submithost ? evlog->submithost : "NULL");
+	    return false;
+	}
+    }
+
+    if (evlog->submituser == NULL || strcmp(evlog->submituser, "nobody") != 0) {
+	sudo_warnx("bad user: want \"nobody\" got \"%s\"",
+	    evlog->submituser ? evlog->submituser : "NULL");
 	return false;
     }
 
-    if (info->runas_group != NULL) {
-	sudo_warnx("bad runas_group: want \"\" got \"%s\"", info->runas_user);
+    if (evlog->runuser == NULL || strcmp(evlog->runuser, "root") != 0) {
+	sudo_warnx("bad runuser: want \"root\" got \"%s\"",
+	    evlog->runuser ? evlog->runuser : "NULL");
 	return false;
     }
 
-    if (strcmp(info->tty, "/dev/console") != 0) {
-	sudo_warnx("bad tty: want \"/dev/console\" got \"%s\"", info->tty);
+    /* No runas group specified, should be NULL. */
+    if (evlog->rungroup != NULL) {
+	sudo_warnx("bad rungroup: want \"\" got \"%s\"", evlog->rungroup);
 	return false;
     }
 
-    if (strcmp(info->cmd, "/usr/bin/id") != 0) {
-	sudo_warnx("bad command: want \"/usr/bin/id\" got \"%s\"", info->cmd);
+    if (evlog->ttyname == NULL || strcmp(evlog->ttyname, "/dev/console") != 0) {
+	sudo_warnx("bad tty: want \"/dev/console\" got \"%s\"",
+	    evlog->ttyname ? evlog->ttyname : "NULL");
 	return false;
     }
 
-    if (info->rows != 24) {
-	sudo_warnx("bad rows: want 24 got %d", info->rows);
+    if (evlog->command == NULL || strcmp(evlog->command, "/usr/bin/id") != 0) {
+	sudo_warnx("bad command: want \"/usr/bin/id\" got \"%s\"",
+	    evlog->command ? evlog->command : "NULL");
 	return false;
     }
 
-    if (info->cols != 80) {
-	sudo_warnx("bad cols: want 80 got %d", info->cols);
+    if (evlog->lines != 24) {
+	sudo_warnx("bad lines: want 24 got %d", evlog->lines);
 	return false;
     }
 
-    if (info->tstamp < now - 10 || info->tstamp > now + 10) {
-	sudo_warnx("bad tstamp: want %lld got %lld", (long long)now,
-	    (long long)info->tstamp);
+    if (evlog->columns != 80) {
+	sudo_warnx("bad columns: want 80 got %d", evlog->columns);
 	return false;
     }
 
-    free_log_info(info);
+    if (evlog->submit_time.tv_sec < now - 10 || evlog->submit_time.tv_sec > now + 10) {
+	sudo_warnx("bad submit_time: want %lld got %lld", (long long)now,
+	    (long long)evlog->submit_time.tv_sec);
+	return false;
+    }
+
+    eventlog_free(evlog);
 
     return true;
 }
@@ -149,14 +159,13 @@ validate_timing(FILE *fp, int recno, int type, unsigned int p1, unsigned int p2)
 {
     struct timing_closure timing;
     char buf[LINE_MAX];
-    struct timespec delay;
 
     if (!fgets(buf, sizeof(buf), fp)) {
 	sudo_warn("unable to read timing file");
 	return false;
     }
     buf[strcspn(buf, "\n")] = '\0';
-    if (!parse_timing(buf, &delay, &timing)) {
+    if (!iolog_parse_timing(buf, &timing)) {
 	sudo_warnx("invalid timing file line: %s", buf);
 	return false;
     }
@@ -166,9 +175,9 @@ validate_timing(FILE *fp, int recno, int type, unsigned int p1, unsigned int p2)
 	return false;
     }
     if (type == IO_EVENT_WINSIZE) {
-	if (timing.u.winsize.rows != (int)p1) {
-	    sudo_warnx("record %d: want %u rows, got %u", recno, p1,
-		timing.u.winsize.rows);
+	if (timing.u.winsize.lines != (int)p1) {
+	    sudo_warnx("record %d: want %u lines, got %u", recno, p1,
+		timing.u.winsize.lines);
 	    return false;
 	}
 	if (timing.u.winsize.cols != (int)p2) {
@@ -183,9 +192,9 @@ validate_timing(FILE *fp, int recno, int type, unsigned int p1, unsigned int p2)
 	    return false;
 	}
     }
-    if (delay.tv_sec != 0 || delay.tv_nsec > 10000000) {
+    if (timing.delay.tv_sec != 0) {
 	sudo_warnx("record %d: got excessive delay %lld.%09ld", recno,
-	    (long long)delay.tv_sec, delay.tv_nsec);
+	    (long long)timing.delay.tv_sec, timing.delay.tv_nsec);
 	return false;
     }
 
@@ -200,6 +209,7 @@ void
 test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 {
     int rc, cmnd_argc = 1;
+    const char *errstr = NULL;
     char buf[1024], iolog_path[PATH_MAX];
     char runas_gid[64], runas_uid[64];
     FILE *fp;
@@ -211,6 +221,7 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 	"cols=80",
 	"lines=24",
 	"cwd=/",
+	"host=localhost",
 	"tty=/dev/console",
 	"user=nobody",
 	NULL
@@ -245,7 +256,7 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 
     /* Test open endpoint. */
     rc = sudoers_io.open(SUDO_API_VERSION, NULL, sudo_printf_int, settings,
-	user_info, command_info, cmnd_argc, cmnd_argv, envp, NULL);
+	user_info, command_info, cmnd_argc, cmnd_argv, envp, NULL, &errstr);
     (*ntests)++;
     if (rc != 1) {
 	sudo_warnx("I/O log open endpoint failed");
@@ -253,14 +264,8 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 	return;
     }
 
-    /* Validate I/O log info file. */
-    (*ntests)++;
-    snprintf(iolog_path, sizeof(iolog_path), "%s/log", iolog_dir);
-    if (!validate_iolog_info(iolog_path))
-	(*nerrors)++;
-
     /* Test log_ttyout endpoint. */
-    rc = sudoers_io.log_ttyout(output, strlen(output));
+    rc = sudoers_io.log_ttyout(output, strlen(output), &errstr);
     (*ntests)++;
     if (rc != 1) {
 	sudo_warnx("I/O log_ttyout endpoint failed");
@@ -269,14 +274,14 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
     }
 
     /* Test change_winsize endpoint (twice). */
-    rc = sudoers_io.change_winsize(32, 128);
+    rc = sudoers_io.change_winsize(32, 128, &errstr);
     (*ntests)++;
     if (rc != 1) {
 	sudo_warnx("I/O change_winsize endpoint failed");
 	(*nerrors)++;
 	return;
     }
-    rc = sudoers_io.change_winsize(24, 80);
+    rc = sudoers_io.change_winsize(24, 80, &errstr);
     (*ntests)++;
     if (rc != 1) {
 	sudo_warnx("I/O change_winsize endpoint failed");
@@ -286,6 +291,18 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 
     /* Close the plugin. */
     sudoers_io.close(0, 0);
+
+    /* Validate I/O log info file (json). */
+    (*ntests)++;
+    if (!validate_iolog_info(iolog_dir, false))
+	(*nerrors)++;
+
+    /* Validate I/O log info file (legacy). */
+    snprintf(iolog_path, sizeof(iolog_path), "%s/log.json", iolog_dir);
+    unlink(iolog_path);
+    (*ntests)++;
+    if (!validate_iolog_info(iolog_dir, true))
+	(*nerrors)++;
 
     /* Validate the timing file. */
     snprintf(iolog_path, sizeof(iolog_path), "%s/timing", iolog_dir);
@@ -338,7 +355,7 @@ test_endpoints(int *ntests, int *nerrors, const char *iolog_dir, char *envp[])
 int
 main(int argc, char *argv[], char *envp[])
 {
-    struct passwd pw, rpw, *tpw;
+    struct passwd *tpw;
     int tests = 0, errors = 0;
     const char *iolog_dir;
 
@@ -348,21 +365,20 @@ main(int argc, char *argv[], char *envp[])
 	usage();
     iolog_dir = argv[1];
 
-    /* Bare minimum to link. */
-    memset(&pw, 0, sizeof(pw));
-    memset(&rpw, 0, sizeof(rpw));
+    /* Set runas user. */
     if ((tpw = getpwuid(0)) == NULL) {
 	if ((tpw = getpwnam("root")) == NULL)
 	    sudo_fatalx("unable to look up uid 0 or root");
     }
-    rpw.pw_uid = tpw->pw_uid;
-    rpw.pw_gid = tpw->pw_gid;
-    sudo_user.pw = &pw;
-    sudo_user._runas_pw = &rpw;
+    sudo_user._runas_pw = pw_dup(tpw);
+
+    /* Set invoking user. */
+    if ((tpw = getpwuid(geteuid())) == NULL)
+	sudo_fatalx("unable to look up invoking user's uid");
+    sudo_user.pw = pw_dup(tpw);
 
     /* Set iolog uid/gid to invoking user. */
-    iolog_uid = geteuid();
-    iolog_gid = getegid();
+    iolog_set_owner(sudo_user.pw->pw_uid, sudo_user.pw->pw_gid);
 
     test_endpoints(&tests, &errors, iolog_dir, envp);
 

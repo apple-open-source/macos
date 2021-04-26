@@ -32,6 +32,7 @@
 
 #import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
 #import "keychain/ckks/tests/CKKSMockOctagonAdapter.h"
+#import "keychain/ckks/tests/CKKSMockLockStateProvider.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
@@ -88,8 +89,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSString* apsEnvironment;
 
 @property bool aksLockState;  // The current 'AKS lock state'
+@property CKKSMockLockStateProvider* lockStateProvider;
+
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
-@property (nullable) id mockLockStateTracker;
 
 @property (readonly) CKKSReachabilityTracker *reachabilityTracker;
 
@@ -152,7 +154,17 @@ NS_ASSUME_NONNULL_BEGIN
                            zoneID:(CKRecordZoneID*)zoneID
                         checkItem:(BOOL (^_Nullable)(CKRecord*))checkItem;
 
+- (void)expectCKModifyItemRecords:(NSUInteger)expectedNumberOfModifiedRecords
+                   deletedRecords:(NSUInteger)expectedNumberOfDeletedRecords
+         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
+                           zoneID:(CKRecordZoneID*)zoneID
+                        checkItem:(BOOL (^ _Nullable)(CKRecord*))checkItem
+       expectedOperationGroupName:(NSString* _Nullable)operationGroupName;
+
 - (void)expectCKDeleteItemRecords:(NSUInteger)expectedNumberOfRecords zoneID:(CKRecordZoneID*)zoneID;
+- (void)expectCKDeleteItemRecords:(NSUInteger)expectedNumberOfRecords
+                           zoneID:(CKRecordZoneID*)zoneID
+       expectedOperationGroupName:(NSString* _Nullable)operationGroupName;
 
 - (void)expectCKModifyKeyRecords:(NSUInteger)expectedNumberOfRecords
         currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
@@ -164,11 +176,18 @@ NS_ASSUME_NONNULL_BEGIN
                           zoneID:(CKRecordZoneID*)zoneID
              checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkModifiedRecord;
 
-- (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)expectedRecordTypeCounts
+- (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>* _Nullable) expectedRecordTypeCounts
+      deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>* _Nullable) expectedDeletedRecordTypeCounts
+                       zoneID:(CKRecordZoneID*) zoneID
+          checkModifiedRecord:(BOOL (^ _Nullable)(CKRecord*)) checkModifiedRecord
+         runAfterModification:(void (^ _Nullable) (void))afterModification;
+
+- (void)expectCKModifyRecords:(NSDictionary<NSString*, NSNumber*>* _Nullable)expectedRecordTypeCounts
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>* _Nullable)expectedDeletedRecordTypeCounts
                        zoneID:(CKRecordZoneID*)zoneID
-          checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkRecord
-         runAfterModification:(void (^_Nullable)(void))afterModification;
+          checkModifiedRecord:(BOOL (^ _Nullable)(CKRecord*)) checkModifiedRecord
+        inspectOperationGroup:(void (^ _Nullable)(CKOperationGroup* _Nullable))inspectOperationGroup
+         runAfterModification:(void (^ _Nullable)(void))afterModification;
 
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID;
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID

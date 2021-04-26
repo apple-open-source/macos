@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,21 +23,13 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <ctype.h>
 #include <errno.h>
-#include <pwd.h>
 
 #include "sudoers.h"
 #include "sudo_dso.h"
@@ -60,7 +52,7 @@ group_plugin_load(char *plugin_info)
     char *args, path[PATH_MAX];
     char **argv = NULL;
     int len, rc = -1;
-    debug_decl(group_plugin_load, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_load, SUDOERS_DEBUG_UTIL);
 
     /*
      * Fill in .so path and split out args (if any).
@@ -81,18 +73,20 @@ group_plugin_load(char *plugin_info)
 	goto done;
     }
 
-    /* Sanity check plugin path. */
+    /* Check owner and mode of plugin path. */
     if (stat(path, &sb) != 0) {
 	sudo_warn("%s", path);
 	goto done;
     }
-    if (sb.st_uid != ROOT_UID) {
-	sudo_warnx(U_("%s must be owned by uid %d"), path, ROOT_UID);
-	goto done;
-    }
-    if ((sb.st_mode & (S_IWGRP|S_IWOTH)) != 0) {
-	sudo_warnx(U_("%s must only be writable by owner"), path);
-	goto done;
+    if (!sudo_conf_developer_mode()) {
+        if (sb.st_uid != ROOT_UID) {
+            sudo_warnx(U_("%s must be owned by uid %d"), path, ROOT_UID);
+            goto done;
+        }
+        if ((sb.st_mode & (S_IWGRP|S_IWOTH)) != 0) {
+            sudo_warnx(U_("%s must only be writable by owner"), path);
+            goto done;
+        }
     }
 
     /* Open plugin and map in symbol. */
@@ -168,7 +162,7 @@ done:
 void
 group_plugin_unload(void)
 {
-    debug_decl(group_plugin_unload, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_unload, SUDOERS_DEBUG_UTIL);
 
     if (group_plugin != NULL) {
 	(group_plugin->cleanup)();
@@ -185,7 +179,7 @@ int
 group_plugin_query(const char *user, const char *group,
     const struct passwd *pwd)
 {
-    debug_decl(group_plugin_query, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_query, SUDOERS_DEBUG_UTIL);
 
     if (group_plugin == NULL)
 	debug_return_int(false);
@@ -201,14 +195,14 @@ group_plugin_query(const char *user, const char *group,
 int
 group_plugin_load(char *plugin_info)
 {
-    debug_decl(group_plugin_load, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_load, SUDOERS_DEBUG_UTIL);
     debug_return_int(false);
 }
 
 void
 group_plugin_unload(void)
 {
-    debug_decl(group_plugin_unload, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_unload, SUDOERS_DEBUG_UTIL);
     debug_return;
 }
 
@@ -216,7 +210,7 @@ int
 group_plugin_query(const char *user, const char *group,
     const struct passwd *pwd)
 {
-    debug_decl(group_plugin_query, SUDOERS_DEBUG_UTIL)
+    debug_decl(group_plugin_query, SUDOERS_DEBUG_UTIL);
     debug_return_int(false);
 }
 
@@ -229,7 +223,7 @@ bool
 cb_group_plugin(const union sudo_defs_val *sd_un)
 {
     bool rc = true;
-    debug_decl(cb_group_plugin, SUDOERS_DEBUG_PLUGIN)
+    debug_decl(cb_group_plugin, SUDOERS_DEBUG_PLUGIN);
 
     /* Unload any existing group plugin before loading a new one. */
     group_plugin_unload();

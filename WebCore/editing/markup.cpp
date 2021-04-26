@@ -82,6 +82,10 @@
 #include <wtf/URLParser.h>
 #include <wtf/text/StringBuilder.h>
 
+#if ENABLE(DATA_DETECTION)
+#include "DataDetection.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -180,7 +184,7 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
     auto page = makeUnique<Page>(WTFMove(pageConfiguration));
     page->settings().setMediaEnabled(false);
     page->settings().setScriptEnabled(false);
-    page->settings().setParserScriptingFlagPolicy(SettingsBase::ParserScriptingFlagPolicy::Enabled);
+    page->settings().setHTMLParserScriptingFlagPolicy(HTMLParserScriptingFlagPolicy::Enabled);
     page->settings().setPluginsEnabled(false);
     page->settings().setAcceleratedCompositingEnabled(false);
 
@@ -255,6 +259,15 @@ private:
     String textContentRespectingRange(const Text&);
 
     bool shouldPreserveMSOListStyleForElement(const Element&);
+
+    enum class SpanReplacementType : uint8_t {
+        None,
+        Slot,
+#if ENABLE(DATA_DETECTION)
+        DataDetector,
+#endif
+    };
+    SpanReplacementType spanReplacementForElement(const Element&);
 
     void appendStartTag(StringBuilder& out, const Element&, bool addDisplayInline, RangeFullySelectsNode);
     void appendEndTag(StringBuilder& out, const Element&) override;
@@ -506,11 +519,25 @@ bool StyledMarkupAccumulator::shouldPreserveMSOListStyleForElement(const Element
     return false;
 }
 
+StyledMarkupAccumulator::SpanReplacementType StyledMarkupAccumulator::spanReplacementForElement(const Element& element)
+{
+    if (is<HTMLSlotElement>(element))
+        return SpanReplacementType::Slot;
+
+#if ENABLE(DATA_DETECTION)
+    if (DataDetection::isDataDetectorElement(element))
+        return SpanReplacementType::DataDetector;
+#endif
+
+    return SpanReplacementType::None;
+}
+
 void StyledMarkupAccumulator::appendStartTag(StringBuilder& out, const Element& element, bool addDisplayInline, RangeFullySelectsNode rangeFullySelectsNode)
 {
     const bool documentIsHTML = element.document().isHTMLDocument();
-    const bool isSlotElement = is<HTMLSlotElement>(element);
-    if (UNLIKELY(isSlotElement))
+
+    auto replacementType = spanReplacementForElement(element);
+    if (UNLIKELY(replacementType != SpanReplacementType::None))
         out.append("<span");
     else
         appendOpenTag(out, element, nullptr);
@@ -518,7 +545,7 @@ void StyledMarkupAccumulator::appendStartTag(StringBuilder& out, const Element& 
     appendCustomAttributes(out, element, nullptr);
 
     const bool shouldAnnotateOrForceInline = element.isHTMLElement() && (shouldAnnotate() || addDisplayInline);
-    bool shouldOverrideStyleAttr = (shouldAnnotateOrForceInline || shouldApplyWrappingStyle(element) || isSlotElement) && !shouldPreserveMSOListStyleForElement(element);
+    bool shouldOverrideStyleAttr = (shouldAnnotateOrForceInline || shouldApplyWrappingStyle(element) || replacementType != SpanReplacementType::None) && !shouldPreserveMSOListStyleForElement(element);
     if (element.hasAttributes()) {
         for (const Attribute& attribute : element.attributesIterator()) {
             // We'll handle the style attribute separately, below.
@@ -526,6 +553,10 @@ void StyledMarkupAccumulator::appendStartTag(StringBuilder& out, const Element& 
                 continue;
             if (element.isEventHandlerAttribute(attribute) || element.isJavaScriptURLAttribute(attribute))
                 continue;
+#if ENABLE(DATA_DETECTION)
+            if (replacementType == SpanReplacementType::DataDetector && DataDetection::isDataDetectorAttribute(attribute.name()))
+                continue;
+#endif
             appendAttribute(out, element, attribute, 0);
         }
     }
@@ -540,11 +571,16 @@ void StyledMarkupAccumulator::appendStartTag(StringBuilder& out, const Element& 
         } else
             newInlineStyle = EditingStyle::create();
 
-        if (isSlotElement)
+        if (replacementType == SpanReplacementType::Slot)
             newInlineStyle->addDisplayContents();
 
         if (is<StyledElement>(element) && downcast<StyledElement>(element).inlineStyle())
             newInlineStyle->overrideWithStyle(*downcast<StyledElement>(element).inlineStyle());
+
+#if ENABLE(DATA_DETECTION)
+        if (replacementType == SpanReplacementType::DataDetector && newInlineStyle->style())
+            newInlineStyle->style()->removeProperty(CSSPropertyTextDecorationColor);
+#endif
 
         if (shouldAnnotateOrForceInline) {
             if (shouldAnnotate())
@@ -576,7 +612,7 @@ void StyledMarkupAccumulator::appendStartTag(StringBuilder& out, const Element& 
 
 void StyledMarkupAccumulator::appendEndTag(StringBuilder& out, const Element& element)
 {
-    if (UNLIKELY(is<HTMLSlotElement>(element)))
+    if (UNLIKELY(spanReplacementForElement(element) != SpanReplacementType::None))
         out.append("</span>");
     else
         MarkupAccumulator::appendEndTag(out, element);
@@ -584,7 +620,7 @@ void StyledMarkupAccumulator::appendEndTag(StringBuilder& out, const Element& el
 
 Node* StyledMarkupAccumulator::serializeNodes(const Position& start, const Position& end)
 {
-    ASSERT(comparePositions(start, end) <= 0);
+    ASSERT(start <= end);
     auto startNode = start.firstNode();
     Node* pastEnd = end.computeNodeAfterPosition();
     if (!pastEnd && end.containerNode())
@@ -839,10 +875,10 @@ static String serializePreservingVisualAppearanceInternal(const Position& start,
 {
     static NeverDestroyed<const String> interchangeNewlineString(MAKE_STATIC_STRING_IMPL("<br class=\"" AppleInterchangeNewline "\">"));
 
-    if (!comparePositions(start, end))
+    if (!(start < end))
         return emptyString();
 
-    RefPtr<Node> commonAncestor = commonShadowIncludingAncestor(start, end);
+    auto commonAncestor = commonInclusiveAncestor(start, end);
     if (!commonAncestor)
         return emptyString();
 
@@ -852,7 +888,7 @@ static String serializePreservingVisualAppearanceInternal(const Position& start,
     VisiblePosition visibleStart { start };
     VisiblePosition visibleEnd { end };
 
-    auto body = makeRefPtr(enclosingElementWithTag(firstPositionInNode(commonAncestor.get()), bodyTag));
+    auto body = makeRefPtr(enclosingElementWithTag(firstPositionInNode(commonAncestor), bodyTag));
     RefPtr<Element> fullySelectedRoot;
     // FIXME: Do this for all fully selected blocks, not just the body.
     if (body && VisiblePosition(firstPositionInNode(body.get())) == visibleStart && VisiblePosition(lastPositionInNode(body.get())) == visibleEnd)
@@ -871,7 +907,7 @@ static String serializePreservingVisualAppearanceInternal(const Position& start,
         accumulator.append(interchangeNewlineString.get());
         startAdjustedForInterchangeNewline = visibleStart.next().deepEquivalent();
 
-        if (comparePositions(startAdjustedForInterchangeNewline, end) >= 0)
+        if (!(startAdjustedForInterchangeNewline < end))
             return interchangeNewlineString;
     }
 
@@ -935,7 +971,7 @@ static String serializePreservingVisualAppearanceInternal(const Position& start,
 
 String serializePreservingVisualAppearance(const SimpleRange& range, Vector<Node*>* nodes, AnnotateForInterchange annotate, ConvertBlocksToInlines convertBlocksToInlines, ResolveURLs resolveURLs)
 {
-    return serializePreservingVisualAppearanceInternal(createLegacyEditingPosition(range.start), createLegacyEditingPosition(range.end),
+    return serializePreservingVisualAppearanceInternal(makeDeprecatedLegacyPosition(range.start), makeDeprecatedLegacyPosition(range.end),
         nodes, resolveURLs, SerializeComposedTree::No,
         annotate, convertBlocksToInlines, StandardFontFamilySerializationMode::Keep, MSOListMode::DoNotPreserve);
 }
@@ -1114,13 +1150,13 @@ bool isPlainTextMarkup(Node* node)
 
 static bool contextPreservesNewline(const SimpleRange& context)
 {
-    auto container = VisiblePosition(createLegacyEditingPosition(context.start)).deepEquivalent().containerNode();
+    auto container = VisiblePosition(makeDeprecatedLegacyPosition(context.start)).deepEquivalent().containerNode();
     return container && container->renderer() && container->renderer()->style().preserveNewline();
 }
 
 Ref<DocumentFragment> createFragmentFromText(const SimpleRange& context, const String& text)
 {
-    auto& document = context.start.container->document();
+    auto& document = context.start.document();
     auto fragment = document.createDocumentFragment();
     
     if (text.isEmpty())
@@ -1157,7 +1193,7 @@ Ref<DocumentFragment> createFragmentFromText(const SimpleRange& context, const S
     }
 
     // Break string into paragraphs. Extra line breaks turn into empty paragraphs.
-    auto start = createLegacyEditingPosition(context.start);
+    auto start = makeDeprecatedLegacyPosition(context.start);
     auto block = enclosingBlock(start.firstNode().get());
     bool useClonesOfEnclosingBlock = block
         && !block->hasTagName(bodyTag)
@@ -1208,13 +1244,12 @@ String urlToMarkup(const URL& url, const String& title)
     return markup.toString();
 }
 
-ExceptionOr<Ref<DocumentFragment>> createFragmentForInnerOuterHTML(Element& contextElement, const String& markup, ParserContentPolicy parserContentPolicy)
+enum class DocumentFragmentMode { New, ReuseForInnerOuterHTML };
+static ALWAYS_INLINE ExceptionOr<Ref<DocumentFragment>> createFragmentForMarkup(Element& contextElement, const String& markup, DocumentFragmentMode mode, ParserContentPolicy parserContentPolicy)
 {
-    auto* document = &contextElement.document();
-    if (contextElement.hasTagName(templateTag))
-        document = &document->ensureTemplateDocument();
-    auto fragment = DocumentFragment::create(*document);
-
+    auto document = makeRef(contextElement.hasTagName(templateTag) ? contextElement.document().ensureTemplateDocument() : contextElement.document());
+    auto fragment = mode == DocumentFragmentMode::New ? DocumentFragment::create(document.get()) : document->documentFragmentForInnerOuterHTML();
+    ASSERT(!fragment->hasChildNodes());
     if (document->isHTMLDocument()) {
         fragment->parseHTML(markup, &contextElement, parserContentPolicy);
         return fragment;
@@ -1224,6 +1259,11 @@ ExceptionOr<Ref<DocumentFragment>> createFragmentForInnerOuterHTML(Element& cont
     if (!wasValid)
         return Exception { SyntaxError };
     return fragment;
+}
+
+ExceptionOr<Ref<DocumentFragment>> createFragmentForInnerOuterHTML(Element& contextElement, const String& markup, ParserContentPolicy parserContentPolicy)
+{
+    return createFragmentForMarkup(contextElement, markup, DocumentFragmentMode::ReuseForInnerOuterHTML, parserContentPolicy);
 }
 
 RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDoc, const String& sourceString, const String& sourceMIMEType)
@@ -1292,7 +1332,7 @@ static void removeElementFromFragmentPreservingChildren(DocumentFragment& fragme
 
 ExceptionOr<Ref<DocumentFragment>> createContextualFragment(Element& element, const String& markup, ParserContentPolicy parserContentPolicy)
 {
-    auto result = createFragmentForInnerOuterHTML(element, markup, parserContentPolicy);
+    auto result = createFragmentForMarkup(element, markup, DocumentFragmentMode::New, parserContentPolicy);
     if (result.hasException())
         return result.releaseException();
 
@@ -1308,15 +1348,9 @@ ExceptionOr<Ref<DocumentFragment>> createContextualFragment(Element& element, co
     return fragment;
 }
 
-static inline bool hasOneChild(ContainerNode& node)
-{
-    Node* firstChild = node.firstChild();
-    return firstChild && !firstChild->nextSibling();
-}
-
 static inline bool hasOneTextChild(ContainerNode& node)
 {
-    return hasOneChild(node) && node.firstChild()->isTextNode();
+    return node.hasOneChild() && node.firstChild()->isTextNode();
 }
 
 static inline bool hasMutationEventListeners(const Document& document)
@@ -1357,7 +1391,10 @@ ExceptionOr<void> replaceChildrenWithFragment(ContainerNode& container, Ref<Docu
     }
 
     containerNode->removeChildren();
-    return containerNode->appendChild(fragment);
+    auto result = containerNode->appendChild(fragment);
+    ASSERT(!fragment->hasChildNodes());
+    ASSERT(!fragment->wrapper());
+    return result;
 }
 
 }

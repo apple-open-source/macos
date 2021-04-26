@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,9 +36,14 @@
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/InspectorController.h>
+#include <WebCore/InspectorFrontendHost.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/Settings.h>
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+#include "WebInspectorUIExtensionController.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -59,11 +64,13 @@ void WebInspectorUI::enableFrontendFeatures()
 
 WebInspectorUI::WebInspectorUI(WebPage& page)
     : m_page(page)
-    , m_frontendAPIDispatcher(page)
+    , m_frontendAPIDispatcher(InspectorFrontendAPIDispatcher::create(*page.corePage()))
     , m_debuggableInfo(DebuggableInfoData::empty())
 {
     WebInspectorUI::enableFrontendFeatures();
 }
+
+WebInspectorUI::~WebInspectorUI() = default;
 
 void WebInspectorUI::establishConnection(WebPageProxyIdentifier inspectedPageIdentifier, const DebuggableInfoData& debuggableInfo, bool underTest, unsigned inspectionLevel)
 {
@@ -72,8 +79,12 @@ void WebInspectorUI::establishConnection(WebPageProxyIdentifier inspectedPageIde
     m_underTest = underTest;
     m_inspectionLevel = inspectionLevel;
 
-    m_frontendAPIDispatcher.reset();
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    if (!m_extensionController)
+        m_extensionController = makeUnique<WebInspectorUIExtensionController>(*this);
+#endif
 
+    m_frontendAPIDispatcher->reset();
     m_frontendController = &m_page.corePage()->inspectorController();
     m_frontendController->setInspectorFrontendClient(this);
 
@@ -90,6 +101,7 @@ void WebInspectorUI::updateConnection()
 #if USE(UNIX_DOMAIN_SOCKETS)
     IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
     IPC::Connection::Identifier connectionIdentifier(socketPair.server);
+    UNUSED_PARAM(connectionIdentifier);
     IPC::Attachment connectionClientPort(socketPair.client);
 #elif OS(DARWIN)
     mach_port_t listeningPort = MACH_PORT_NULL;
@@ -100,6 +112,7 @@ void WebInspectorUI::updateConnection()
         CRASH();
 
     IPC::Connection::Identifier connectionIdentifier(listeningPort);
+    UNUSED_PARAM(connectionIdentifier);
     IPC::Attachment connectionClientPort(listeningPort, MACH_MSG_TYPE_MOVE_SEND);
 #elif PLATFORM(WIN)
     IPC::Connection::Identifier connectionIdentifier, connClient;
@@ -129,7 +142,7 @@ void WebInspectorUI::windowObjectCleared()
 
 void WebInspectorUI::frontendLoaded()
 {
-    m_frontendAPIDispatcher.frontendLoaded();
+    m_frontendAPIDispatcher->frontendLoaded();
 
     // Tell the new frontend about the current dock state. If the window object
     // cleared due to a reload, the dock state won't be resent from UIProcess.
@@ -178,6 +191,10 @@ void WebInspectorUI::closeWindow()
 
     m_inspectedPageIdentifier = { };
     m_underTest = false;
+    
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_extensionController = nullptr;
+#endif
 }
 
 void WebInspectorUI::reopen()
@@ -257,28 +274,26 @@ void WebInspectorUI::setDockSide(DockSide dockSide)
 
     m_dockSide = dockSide;
 
-    m_frontendAPIDispatcher.dispatchCommand("setDockSide"_s, String(dockSideString));
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setDockSide"_s, { JSON::Value::create(String(dockSideString)) });
 }
 
 void WebInspectorUI::setDockingUnavailable(bool unavailable)
 {
     m_dockingUnavailable = unavailable;
 
-    m_frontendAPIDispatcher.dispatchCommand("setDockingUnavailable"_s, unavailable);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setDockingUnavailable"_s, { JSON::Value::create(unavailable) });
 }
 
 void WebInspectorUI::setIsVisible(bool visible)
 {
     m_isVisible = visible;
 
-    m_frontendAPIDispatcher.dispatchCommand("setIsVisible"_s, visible);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setIsVisible"_s, { JSON::Value::create(visible) });
 }
 
 void WebInspectorUI::updateFindString(const String& findString)
 {
-    StringBuilder builder;
-    JSON::Value::escapeString(builder, findString);
-    m_frontendAPIDispatcher.dispatchCommand("updateFindString"_s, builder.toString());
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("updateFindString"_s, { JSON::Value::create(findString) });
 }
 
 void WebInspectorUI::changeAttachedWindowHeight(unsigned height)
@@ -296,12 +311,9 @@ void WebInspectorUI::changeSheetRect(const FloatRect& rect)
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetSheetRect(rect), m_inspectedPageIdentifier);
 }
 
-void WebInspectorUI::openInNewTab(const String& url)
+void WebInspectorUI::openURLExternally(const String& url)
 {
-    if (m_backendConnection) {
-        m_backendConnection->send(Messages::WebInspector::OpenInNewTab(url), 0);
-        WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::BringInspectedPageToFront(), m_inspectedPageIdentifier);
-    }
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::OpenURLExternally(url), m_inspectedPageIdentifier);
 }
 
 void WebInspectorUI::save(const WTF::String& filename, const WTF::String& content, bool base64Encoded, bool forceSaveAs)
@@ -341,68 +353,73 @@ void WebInspectorUI::setDiagnosticLoggingAvailable(bool available)
     ASSERT(!available || supportsDiagnosticLogging());
     m_diagnosticLoggingAvailable = available;
 
-    m_frontendAPIDispatcher.dispatchCommand("setDiagnosticLoggingAvailable"_s, m_diagnosticLoggingAvailable);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setDiagnosticLoggingAvailable"_s, { JSON::Value::create(m_diagnosticLoggingAvailable) });
 }
 #endif
 
 void WebInspectorUI::showConsole()
 {
-    m_frontendAPIDispatcher.dispatchCommand("showConsole"_s);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("showConsole"_s);
 }
 
 void WebInspectorUI::showResources()
 {
-    m_frontendAPIDispatcher.dispatchCommand("showResources"_s);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("showResources"_s);
 }
 
 void WebInspectorUI::showMainResourceForFrame(const String& frameIdentifier)
 {
-    m_frontendAPIDispatcher.dispatchCommand("showMainResourceForFrame"_s, frameIdentifier);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("showMainResourceForFrame"_s, { JSON::Value::create(frameIdentifier) });
 }
 
 void WebInspectorUI::startPageProfiling()
 {
-    m_frontendAPIDispatcher.dispatchCommand("setTimelineProfilingEnabled"_s, true);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setTimelineProfilingEnabled"_s, { JSON::Value::create(true) });
 }
 
 void WebInspectorUI::stopPageProfiling()
 {
-    m_frontendAPIDispatcher.dispatchCommand("setTimelineProfilingEnabled"_s, false);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setTimelineProfilingEnabled"_s, { JSON::Value::create(false) });
 }
 
 void WebInspectorUI::startElementSelection()
 {
-    m_frontendAPIDispatcher.dispatchCommand("setElementSelectionEnabled"_s, true);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setElementSelectionEnabled"_s, { JSON::Value::create(true) });
 }
 
 void WebInspectorUI::stopElementSelection()
 {
-    m_frontendAPIDispatcher.dispatchCommand("setElementSelectionEnabled"_s, false);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setElementSelectionEnabled"_s, { JSON::Value::create(false) });
 }
 
 void WebInspectorUI::didSave(const String& url)
 {
-    m_frontendAPIDispatcher.dispatchCommand("savedURL"_s, url);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("savedURL"_s, { JSON::Value::create(url) });
 }
 
 void WebInspectorUI::didAppend(const String& url)
 {
-    m_frontendAPIDispatcher.dispatchCommand("appendedToURL"_s, url);
+    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("appendedToURL"_s, { JSON::Value::create(url) });
 }
 
 void WebInspectorUI::sendMessageToFrontend(const String& message)
 {
-    m_frontendAPIDispatcher.dispatchMessageAsync(message);
+    m_frontendAPIDispatcher->dispatchMessageAsync(message);
+}
+
+void WebInspectorUI::evaluateInFrontendForTesting(const String& expression)
+{
+    m_frontendAPIDispatcher->evaluateExpressionForTesting(expression);
 }
 
 void WebInspectorUI::pagePaused()
 {
-    m_frontendAPIDispatcher.suspend();
+    m_frontendAPIDispatcher->suspend();
 }
 
 void WebInspectorUI::pageUnpaused()
 {
-    m_frontendAPIDispatcher.unsuspend();
+    m_frontendAPIDispatcher->unsuspend();
 }
 
 void WebInspectorUI::sendMessageToBackend(const String& message)
@@ -424,6 +441,12 @@ String WebInspectorUI::targetProductVersion() const
 {
     return m_debuggableInfo.targetProductVersion;
 }
+
+WebCore::Page* WebInspectorUI::frontendPage()
+{
+    return m_page.corePage();
+}
+
 
 #if !PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN)
 bool WebInspectorUI::canSave()

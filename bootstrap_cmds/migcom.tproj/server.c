@@ -921,6 +921,8 @@ static void
 WriteCheckMsgSize(FILE *file, argument_t *arg)
 {
   routine_t *rt = arg->argRoutine;
+  ipc_type_t *it = arg->argType;
+  ipc_type_t *btype = it->itElement;
 
   if (arg->argCount && !arg->argSameCount)
     WriteRequestNDRConvertIntRepOneArgUse(file, arg->argCount);
@@ -928,7 +930,8 @@ WriteCheckMsgSize(FILE *file, argument_t *arg)
     fprintf(file, "#if\t__MigTypeCheck\n");
 
     /* verify that the user-code-provided count does not exceed the maximum count allowed by the type. */
-    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos,
+	    arg->argCount->argMsgField, it->itNumber/btype->itNumber);
     fputs("\t\t" "return MIG_BAD_ARGUMENTS;\n", file);
     /* ...end... */
 
@@ -955,7 +958,8 @@ WriteCheckMsgSize(FILE *file, argument_t *arg)
     fprintf(file, "#if\t__MigTypeCheck\n");
 
     /* verify that the user-code-provided count does not exceed the maximum count allowed by the type. */
-    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos,
+	  arg->argCount->argMsgField, it->itNumber/btype->itNumber);
     fputs("\t\t" "return MIG_BAD_ARGUMENTS;\n", file);
     /* ...end... */
 

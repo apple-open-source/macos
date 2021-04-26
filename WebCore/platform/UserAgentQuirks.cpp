@@ -93,22 +93,34 @@ static bool urlRequiresFirefoxBrowser(const URL& url)
 {
     String domain = url.host().toString();
 
+    // Red Hat Bugzilla displays a warning page when performing searches with WebKitGTK's standard
+    // user agent.
+    if (domain == "bugzilla.redhat.com")
+        return true;
+
+    return false;
+}
+
+static bool urlRequiresInternetExplorerBrowser(const URL& url)
+{
+    String domain = url.host().toString();
+
     // This quirk actually has nothing to do with YouTube. It's needed to avoid
-    // unsupported browser warnings on Google Docs. After removing this quirk,
-    // to reproduce the warnings you will need to sign out of Google, then click
-    // on a link to a non-public document that requires signing in. The
-    // unsupported browser warning will be displayed after signing in.
+    // unsupported browser warnings on Google Docs. Why do we need this weird
+    // quirk? We cannot use Chrome or Firefox quirks because Google then uses
+    // features that don't work in WebKit. And we can't use our macOS platform
+    // quirk because Google then expects command keys and doesn't support basic
+    // keyboard shortcuts. We could pretend to be Edge, but adding Chromium is
+    // likely to break in the same way as a Chrome quirk. So that leaves us
+    // with IE browser as the final reasonable option. This will break
+    // eventually, but hopefully not for a long time, because we are probably
+    // out of options when it does.
     if (domain == "accounts.youtube.com" || domain == "docs.google.com")
         return true;
 
     // Google Drive shows an unsupported browser warning with WebKitGTK's
     // standard user agent.
     if (domain == "drive.google.com")
-        return true;
-
-    // Red Hat Bugzilla displays a warning page when performing searches with WebKitGTK's standard
-    // user agent.
-    if (domain == "bugzilla.redhat.com")
         return true;
 
     return false;
@@ -143,7 +155,7 @@ static bool urlRequiresMacintoshPlatform(const URL& url)
     // Microsoft Outlook Web App forces users with WebKitGTK's standard user
     // agent to use the light version. Earlier versions even block users from
     // accessing the calendar.
-    if (domain == "outlook.live.com"
+    if (domain == "outlook.office.com"
         || domain == "mail.ntu.edu.tw"
         || domain == "exchange.tu-berlin.de")
         return true;
@@ -151,9 +163,14 @@ static bool urlRequiresMacintoshPlatform(const URL& url)
     return false;
 }
 
+static bool urlRequiresWindowsPlatform(const URL& url)
+{
+    return urlRequiresInternetExplorerBrowser(url);
+}
+
 static bool urlRequiresLinuxDesktopPlatform(const URL& url)
 {
-    return isGoogle(url) && chassisType() != WTF::ChassisType::Mobile;
+    return isGoogle(url) && !urlRequiresInternetExplorerBrowser(url) && chassisType() != WTF::ChassisType::Mobile;
 }
 
 UserAgentQuirks UserAgentQuirks::quirksForURL(const URL& url)
@@ -166,9 +183,13 @@ UserAgentQuirks UserAgentQuirks::quirksForURL(const URL& url)
         quirks.add(UserAgentQuirks::NeedsChromeBrowser);
     else if (urlRequiresFirefoxBrowser(url))
         quirks.add(UserAgentQuirks::NeedsFirefoxBrowser);
+    else if (urlRequiresInternetExplorerBrowser(url))
+        quirks.add(UserAgentQuirks::NeedsInternetExplorerBrowser);
 
     if (urlRequiresMacintoshPlatform(url))
         quirks.add(UserAgentQuirks::NeedsMacintoshPlatform);
+    else if (urlRequiresWindowsPlatform(url))
+        quirks.add(UserAgentQuirks::NeedsWindowsPlatform);
     else if (urlRequiresLinuxDesktopPlatform(url))
         quirks.add(UserAgentQuirks::NeedsLinuxDesktopPlatform);
 
@@ -183,8 +204,12 @@ String UserAgentQuirks::stringForQuirk(UserAgentQuirk quirk)
         return "Chrome/86.0.4208.2"_s;
     case NeedsFirefoxBrowser:
         return "; rv:80.0) Gecko/20100101 Firefox/80.0"_s;
+    case NeedsInternetExplorerBrowser:
+        return "; Trident/7.0; rv:11.0) like Gecko"_s;
     case NeedsMacintoshPlatform:
         return "Macintosh; Intel Mac OS X 10_15"_s;
+    case NeedsWindowsPlatform:
+        return "Windows NT 10.0"_s;
     case NeedsLinuxDesktopPlatform:
         return "X11; Linux x86_64"_s;
     case NumUserAgentQuirks:

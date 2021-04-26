@@ -43,16 +43,18 @@ class ImageBufferShareableBitmapBackend : public WebCore::PlatformImageBufferBac
     WTF_MAKE_ISO_ALLOCATED(ImageBufferShareableBitmapBackend);
     WTF_MAKE_NONCOPYABLE(ImageBufferShareableBitmapBackend);
 public:
-    static std::unique_ptr<ImageBufferShareableBitmapBackend> create(const WebCore::FloatSize& logicalSize, const float resolutionScale, WebCore::ColorSpace, const WebCore::HostWindow*);
-    static std::unique_ptr<ImageBufferShareableBitmapBackend> create(const WebCore::FloatSize& logicalSize, const WebCore::IntSize& internalSize, float resolutionScale, WebCore::ColorSpace, ImageBufferBackendHandle);
+    static std::unique_ptr<ImageBufferShareableBitmapBackend> create(const Parameters&, const WebCore::HostWindow*);
+    static std::unique_ptr<ImageBufferShareableBitmapBackend> create(const Parameters&, ImageBufferBackendHandle);
 
-    ImageBufferShareableBitmapBackend(const WebCore::FloatSize& logicalSize, const WebCore::IntSize& physicalSize, float resolutionScale, WebCore::ColorSpace, RefPtr<ShareableBitmap>&&, std::unique_ptr<WebCore::GraphicsContext>&&);
+    ImageBufferShareableBitmapBackend(const Parameters&, RefPtr<ShareableBitmap>&&, std::unique_ptr<WebCore::GraphicsContext>&&);
 
     ImageBufferBackendHandle createImageBufferBackendHandle() const;
 
     WebCore::GraphicsContext& context() const override { return *m_context; }
+    
+    WebCore::IntSize backendSize() const override;
 
-    WebCore::NativeImagePtr copyNativeImage(WebCore::BackingStoreCopy = WebCore::CopyBackingStore) const override;
+    RefPtr<WebCore::NativeImage> copyNativeImage(WebCore::BackingStoreCopy = WebCore::CopyBackingStore) const override;
     RefPtr<WebCore::Image> copyImage(WebCore::BackingStoreCopy = WebCore::CopyBackingStore, WebCore::PreserveResolution = WebCore::PreserveResolution::No) const override;
 
     Vector<uint8_t> toBGRAData() const override;
@@ -60,10 +62,6 @@ public:
     void putImageData(WebCore::AlphaPremultiplication inputFormat, const WebCore::ImageData&, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, WebCore::AlphaPremultiplication destFormat) override;
 
 private:
-#if PLATFORM(IOS_FAMILY)
-    ColorFormat backendColorFormat() const override { return ColorFormat::BGRA; }
-#endif
-
     RefPtr<ShareableBitmap> m_bitmap;
     std::unique_ptr<WebCore::GraphicsContext> m_context;
 };

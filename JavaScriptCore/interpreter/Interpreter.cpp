@@ -117,7 +117,7 @@ JSValue eval(JSGlobalObject* globalObject, CallFrame* callFrame, ECMAMode ecmaMo
     }
 
     EvalContextType evalContextType;
-    if (callerUnlinkedCodeBlock->parseMode() == SourceParseMode::InstanceFieldInitializerMode)
+    if (callerUnlinkedCodeBlock->parseMode() == SourceParseMode::ClassFieldInitializerMode)
         evalContextType = EvalContextType::InstanceFieldEvalContext;
     else if (isFunctionParseMode(callerUnlinkedCodeBlock->parseMode()))
         evalContextType = EvalContextType::FunctionEvalContext;
@@ -143,9 +143,10 @@ JSValue eval(JSGlobalObject* globalObject, CallFrame* callFrame, ECMAMode ecmaMo
             RETURN_IF_EXCEPTION(scope, JSValue());
         }
         
-        VariableEnvironment variablesUnderTDZ;
-        JSScope::collectClosureVariablesUnderTDZ(callerScopeChain, variablesUnderTDZ);
-        eval = DirectEvalExecutable::create(globalObject, makeSource(programSource, callerCodeBlock->source().provider()->sourceOrigin()), derivedContextType, callerUnlinkedCodeBlock->needsClassFieldInitializer(), isArrowFunctionContext, callerCodeBlock->ownerExecutable()->isInsideOrdinaryFunction(), evalContextType, &variablesUnderTDZ, ecmaMode);
+        TDZEnvironment variablesUnderTDZ;
+        VariableEnvironment privateNames;
+        JSScope::collectClosureVariablesUnderTDZ(callerScopeChain, variablesUnderTDZ, privateNames);
+        eval = DirectEvalExecutable::create(globalObject, makeSource(programSource, callerCodeBlock->source().provider()->sourceOrigin()), derivedContextType, callerUnlinkedCodeBlock->needsClassFieldInitializer(), isArrowFunctionContext, callerCodeBlock->ownerExecutable()->isInsideOrdinaryFunction(), evalContextType, &variablesUnderTDZ, &privateNames, ecmaMode);
         EXCEPTION_ASSERT(!!scope.exception() == !eval);
         if (!eval)
             return jsUndefined();
@@ -1265,6 +1266,10 @@ NEVER_INLINE void Interpreter::debug(CallFrame* callFrame, DebugHookType debugHo
 {
     VM& vm = callFrame->deprecatedVM();
     auto scope = DECLARE_CATCH_SCOPE(vm);
+
+    if (UNLIKELY(Options::debuggerTriggersBreakpointException()) && debugHookType == DidReachDebuggerStatement)
+        WTFBreakpointTrap();
+
     Debugger* debugger = callFrame->lexicalGlobalObject(vm)->debugger();
     if (!debugger)
         return;

@@ -23,7 +23,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <stdio.h>
@@ -33,19 +32,14 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
+#include <string.h>
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
 #include <unistd.h>
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <grp.h>
-#include <pwd.h>
 
 #include "sudo_plugin.h"
 #include "sudo_compat.h"
@@ -77,7 +71,7 @@ sample_init(int version, sudo_printf_t sudo_printf, char *const argv[])
 	return -1;
     }
 
-    /* Sanity check the specified group file. */
+    /* Check that the group file exists and has a safe mode. */
     if (argv == NULL || argv[0] == NULL) {
 	sudo_log(SUDO_CONV_ERROR_MSG,
 	    "group_file: path to group file not specified\n");
@@ -126,7 +120,7 @@ sample_query(const char *user, const char *group, const struct passwd *pwd)
     return false;
 }
 
-__dso_public struct sudoers_group_plugin group_plugin = {
+sudo_dso_public struct sudoers_group_plugin group_plugin = {
     GROUP_API_VERSION,
     sample_init,
     sample_cleanup,

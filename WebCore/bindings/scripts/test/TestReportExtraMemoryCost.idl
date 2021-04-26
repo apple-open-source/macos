@@ -25,6 +25,7 @@
 
 [
     ReportExtraMemoryCost,
-] interface InterfaceName {
+    Exposed=TestGlobalObject
+] interface TestReportExtraMemoryCost {
 };
 

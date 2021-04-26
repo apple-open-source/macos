@@ -69,6 +69,7 @@ ONE_TEST(secd_70_engine_corrupt)
 ONE_TEST(secd_70_engine_smash)
 ONE_TEST(secd_71_engine_save)
 ONE_TEST(secd_155_otr_negotiation_monitor)
+ONE_TEST(secd_231_v0Peers)
 
 DISABLED_ONE_TEST(secd_70_otr_remote)
 ONE_TEST(secd_74_engine_beer_servers)

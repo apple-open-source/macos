@@ -22,6 +22,8 @@
 
 @property OctagonState* stateIfListUpdates;
 
+@property OctagonState* stateIfAuthenticationError;
+
 @property (nullable) OctagonFlag* retryFlag;
 
 // Since we're making callback based async calls, use this operation trick to hold off the ending of this operation
@@ -35,6 +37,7 @@
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                     listUpdatesState:(OctagonState*)stateIfListUpdates
+            authenticationErrorState:(OctagonState*)stateIfNotAuthenticated
                           errorState:(OctagonState*)errorState
                            retryFlag:(OctagonFlag*)retryFlag
 
@@ -45,6 +48,7 @@
         _intendedState = intendedState;
         _nextState = errorState;
         _stateIfListUpdates = stateIfListUpdates;
+        _stateIfAuthenticationError = stateIfNotAuthenticated;
 
         _retryFlag = retryFlag;
     }
@@ -98,7 +102,20 @@
 
         if (error) {
             secerror("octagon-authkit: Unable to fetch machine ID list: %@", error);
-            [self fetchCurrentDeviceListAfterCuttlefishUpdate:isAccountDemo];
+
+            if (self.logForUpgrade) {
+                [[CKKSAnalytics logger] logRecoverableError:error
+                                                   forEvent:OctagonEventUpgradeFetchDeviceIDs
+                                             withAttributes:NULL];
+            }
+            self.error = error;
+
+            if([AKAppleIDAuthenticationErrorDomain isEqualToString:error.domain] && error.code == AKAuthenticationErrorNotPermitted) {
+                self.nextState = self.stateIfAuthenticationError;
+            }
+
+            [self runBeforeGroupFinished:self.finishedOp];
+
         } else if (!machineIDs) {
             secerror("octagon-authkit: empty machine id list");
             if (self.logForUpgrade) {
@@ -115,60 +132,6 @@
             }
             [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
         }
-    }];
-}
-
-- (void)fetchCurrentDeviceListAfterCuttlefishUpdate:(BOOL)isAccountDemo
-{
-    secnotice("octagon-authkit", "beginning update trust fetch");
-
-    WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
-                                                context:self.deps.contextID
-                                             deviceName:nil
-                                           serialNumber:nil
-                                              osVersion:nil
-                                          policyVersion:nil
-                                          policySecrets:nil
-                              syncUserControllableViews:nil
-                                                  reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
-        STRONGIFY(self);
-        if(error) {
-            secerror("octagon-authkit: fetching updates from cuttlefish failed: %@", error);
-            self.error = error;
-
-            if([self.deps.lockStateTracker isLockedError:self.error]) {
-                secnotice("octagon-authkit", "Feching changes from Cuttlefish failed because of lock state, will retry once unlocked: %@", self.error);
-                OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagFetchAuthKitMachineIDList
-                                                                                conditions:OctagonPendingConditionsDeviceUnlocked];
-
-                [self.deps.flagHandler handlePendingFlag:pendingFlag];
-            }
-            
-            [self runBeforeGroupFinished:self.finishedOp];
-            return;
-        }
-        secnotice("octagon-authkit", "re-attempting fetching current device list");
-
-        [self.deps.authKitAdapter fetchCurrentDeviceList:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
-            STRONGIFY(self);
-            if(!machineIDs || error) {
-                secerror("octagon-authkit: STILL unable to fetch machine ID list: %@", error);
-                if (self.logForUpgrade) {
-                    [[CKKSAnalytics logger] logRecoverableError:error
-                                                       forEvent:OctagonEventUpgradeFetchDeviceIDs
-                                                 withAttributes:NULL];
-                }
-                self.error = error;
-                [self runBeforeGroupFinished:self.finishedOp];
-
-            } else {
-                if (self.logForUpgrade) {
-                    [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];
-                }
-                [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
-            }
-        }];
     }];
 }
 

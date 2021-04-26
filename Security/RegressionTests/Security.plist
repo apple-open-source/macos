@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Project</key>
@@ -178,18 +178,43 @@
 			<key>ShowSubtestResults</key>
 			<true/>
 		</dict>
-        <dict>
-            <key>TestName</key>
-            <string>SecStaticCodeAPITest</string>
-            <key>Command</key>
-            <array>
-                <string>/AppleInternal/CoreOS/tests/Security/secsecstaticcodeapitest</string>
-            </array>
-            <key>Disabled</key>
-            <string>BATS_UTD_Disabled_SecStaticCodeAPITest</string>
-            <key>ShowSubtestResults</key>
-            <true/>
-        </dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecStaticCodeAPITest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secsecstaticcodeapitest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecStaticCodeAPITest</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecStaticCodeAPITestUnsigned</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/unsigned_secstaticcodeapitest.sh</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecLegacyCodeRegressions</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/SecLegacyCodeRegressions.xctest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecLegacyCodeRegressions</string>
+		</dict>
 	</array>
 </dict>
 </plist>

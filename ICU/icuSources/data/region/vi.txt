@@ -145,7 +145,7 @@ vi{
         IL{"Israel"}
         IM{"Đảo Man"}
         IN{"Ấn Độ"}
-        IO{"Lãnh thổ Ấn Độ Dương thuộc Anh"}
+        IO{"Quần đảo Chagos"}
         IQ{"Iraq"}
         IR{"Iran"}
         IS{"Iceland"}

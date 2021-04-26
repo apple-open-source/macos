@@ -37,11 +37,9 @@ Ref<AudioHardwareListener> AudioHardwareListener::create(Client& client)
 
 AudioHardwareListener::AudioHardwareListener(Client& client)
     : m_client(client)
-    , m_activity(AudioHardwareActivityType::Unknown)
-    , m_outputDeviceSupportsLowPowerMode(false)
 {
 #if PLATFORM(IOS_FAMILY)
-    m_outputDeviceSupportsLowPowerMode = true;
+    m_supportedBufferSizes = { 32, 4096 };
 #endif
 }
 

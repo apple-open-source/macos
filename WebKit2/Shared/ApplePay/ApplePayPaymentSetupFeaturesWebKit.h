@@ -27,6 +27,7 @@
 
 #if ENABLE(APPLE_PAY)
 
+OBJC_CLASS NSArray;
 OBJC_CLASS PKPaymentSetupFeature;
 
 #include <WebCore/ApplePaySetupFeatureWebCore.h>

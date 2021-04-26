@@ -128,6 +128,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSApplyEmbeddedPolicy
 		| kSecCSSkipRootVolumeExceptions
 		| kSecCSSkipXattrFiles
+		| kSecCSAllowNetworkAccess
 	);
 
 	if (errors)
@@ -158,6 +159,28 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 	END_CSAPI_ERRORS
 }
 
+OSStatus SecStaticCodeValidateResourceWithErrors(SecStaticCodeRef staticCodeRef, CFURLRef resourcePath, SecCSFlags flags, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	checkFlags(flags,
+		  kSecCSCheckAllArchitectures
+		| kSecCSConsiderExpiration
+		| kSecCSEnforceRevocationChecks
+		| kSecCSNoNetworkAccess
+		| kSecCSStrictValidate
+		| kSecCSStrictValidateStructure
+		| kSecCSRestrictSidebandData
+		| kSecCSCheckGatekeeperArchitectures
+		| kSecCSAllowNetworkAccess
+	);
+
+	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
+	code->setValidationFlags(flags);
+	code->staticValidateResource(cfString(resourcePath), flags);
+
+	END_CSAPI_ERRORS
+}
 
 //
 // ====================================================================================
@@ -339,6 +362,24 @@ CFDataRef SecCodeCopyComponent(SecCodeRef codeRef, int slot, CFDataRef hash)
 	END_CSAPI1(NULL)
 }
 
+//
+// Updates the flags to indicate whether this object wants to enable online notarization checks.
+//
+OSStatus SecStaticCodeEnableOnlineNotarizationCheck(SecStaticCodeRef codeRef, Boolean enable)
+{
+	BEGIN_CSAPI
+
+	SecStaticCode* code = SecStaticCode::requiredStatic(codeRef);
+	SecCSFlags flags = code->getFlags();
+	if (enable) {
+		flags = addFlags(flags, kSecCSForceOnlineNotarizationCheck);
+	} else {
+		flags = clearFlags(flags, kSecCSForceOnlineNotarizationCheck);
+	}
+	code->setFlags(flags);
+
+	END_CSAPI
+}
 
 //
 // Validate a single plain file's resource seal against a memory copy.

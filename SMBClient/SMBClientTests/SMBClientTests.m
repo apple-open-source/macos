@@ -30,10 +30,21 @@
 
 #ifndef FAKE_XC_TEST
     #import <XCTest/XCTest.h>
-    /* Microsoft Protocols Test Suite standard login */
+
+#if 0
+    char g_test_url1[1024] = "smb://smbtest:storageSW0@127.0.0.1/SMBBasic";
+    char g_test_url2[1024] = "smb://smbtest2:storageSW0@127.0.0.1/SMBBasic";
+    char g_test_url3[1024] = "cifs://smbtest2:storageSW0@127.0.0.1/SMBBasic";
+#elsif 1
     char g_test_url1[1024] = "smb://Administrator:Password01!@192.168.1.30/SMBBasic";
     char g_test_url2[1024] = "smb://adbrad:Password01!@192.168.1.30/SMBBasic";
-    char g_test_url3[1024] = "cifs://Administrator:Password01!@192.168.1.30/SMBBasic";
+    char g_test_url3[1024] = "cifs://adbrad:Password01!@192.168.1.30/SMBBasic";
+#else
+    char g_test_url1[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.1:12345tgB@192.168.10.3/win_share_1";
+    char g_test_url2[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
+    char g_test_url3[1024] = "cifs://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
+#endif
+
 #else
     /* BATS support */
     #import "FakeXCTest.h"
@@ -3556,7 +3567,7 @@ done:
     if (write_size != sizeof(buffer)) {
         XCTFail("data write failed %zd != %zd \n",
                 write_size, sizeof(buffer));
-        error = EINVAL;
+        //error = EINVAL;
         goto done;
     }
     printf("Initial write passes \n");
@@ -3684,7 +3695,7 @@ done:
     if (write_size != sizeof(buffer)) {
         XCTFail("data write failed %zd != %zd \n",
                 write_size, sizeof(buffer));
-        error = EINVAL;
+        //error = EINVAL;
         goto done;
     }
     printf("Initial write passes \n");
@@ -3696,7 +3707,7 @@ done:
         goto done;
     }
     else {
-        fd = -1;
+        //fd = -1;
         printf("File closed \n");
     }
 
@@ -3721,7 +3732,7 @@ done:
     if (write_size != sizeof(buffer2)) {
         XCTFail("data write failed %zd != %zd \n",
                 write_size, sizeof(buffer2));
-        error = EINVAL;
+        //error = EINVAL;
         goto done;
     }
     printf("Second write passes \n");

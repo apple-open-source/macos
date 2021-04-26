@@ -48,6 +48,7 @@ __used static const char sccsid[] = "@(#)touch.c	8.1 (Berkeley) 6/6/93";
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/attr.h>
 
 #include <err.h>
 #include <errno.h>
@@ -59,10 +60,15 @@ __used static const char sccsid[] = "@(#)touch.c	8.1 (Berkeley) 6/6/93";
 #include <time.h>
 #include <unistd.h>
 
+typedef struct {
+	struct timespec mtime;
+	struct timespec atime;
+} set_ts;
+
 int	rw(char *, struct stat *, int);
-void	stime_arg1(char *, struct timeval *);
-void	stime_arg2(char *, int, struct timeval *);
-void	stime_file(char *, struct timeval *);
+void	stime_arg1(char *, set_ts *);
+void	stime_arg2(char *, int, set_ts *);
+void	stime_file(char *, set_ts *);
 int	timeoffset(char *);
 void	usage(char *);
 
@@ -70,19 +76,24 @@ int
 main(int argc, char *argv[])
 {
 	struct stat sb;
-	struct timeval tv[2];
 	int (*stat_f)(const char *, struct stat *);
 	int (*utimes_f)(const char *, const struct timeval *);
 	int Aflag, aflag, cflag, fflag, mflag, ch, fd, len, rval, timeset;
 	char *p;
 	char *myname;
+	struct attrlist ts_req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME,
+	};
+	set_ts ts_struct = {};
 
 	myname = basename(argv[0]);
 	Aflag = aflag = cflag = fflag = mflag = timeset = 0;
 	stat_f = stat;
 	utimes_f = utimes;
-	if (gettimeofday(&tv[0], NULL))
-		err(1, "gettimeofday");
+	if (clock_gettime(CLOCK_REALTIME, &ts_struct.mtime))
+		err(1, "clock_gettime");
+	ts_struct.atime = ts_struct.mtime;
 
 	while ((ch = getopt(argc, argv, "A:acfhmr:t:")) != -1)
 		switch(ch) {
@@ -108,11 +119,11 @@ main(int argc, char *argv[])
 			break;
 		case 'r':
 			timeset = 1;
-			stime_file(optarg, tv);
+			stime_file(optarg, &ts_struct);
 			break;
 		case 't':
 			timeset = 1;
-			stime_arg1(optarg, tv);
+			stime_arg1(optarg, &ts_struct);
 			break;
 		case '?':
 		default:
@@ -132,9 +143,9 @@ main(int argc, char *argv[])
 			 * that time once and for all here.
 			 */
 			if (aflag)
-				tv[0].tv_sec += Aflag;
+				ts_struct.atime.tv_sec += Aflag;
 			if (mflag)
-				tv[1].tv_sec += Aflag;
+				ts_struct.mtime.tv_sec += Aflag;
 			Aflag = 0;		/* done our job */
 		}
 	} else {
@@ -148,11 +159,9 @@ main(int argc, char *argv[])
 			len = p - argv[0];
 			if (*p == '\0' && (len == 8 || len == 10)) {
 				timeset = 1;
-				stime_arg2(*argv++, len == 10, tv);
+				stime_arg2(*argv++, len == 10, &ts_struct);
 			}
 		}
-		/* Both times default to the same. */
-		tv[1] = tv[0];
 	}
 
 	if (*argv == NULL)
@@ -187,9 +196,9 @@ main(int argc, char *argv[])
 		}
 
 		if (!aflag)
-			TIMESPEC_TO_TIMEVAL(&tv[0], &sb.st_atimespec);
+			ts_struct.atime = sb.st_atimespec;
 		if (!mflag)
-			TIMESPEC_TO_TIMEVAL(&tv[1], &sb.st_mtimespec);
+			ts_struct.mtime = sb.st_mtimespec;
 
 		/*
 		 * We're adjusting the times based on the file times, not a
@@ -197,17 +206,17 @@ main(int argc, char *argv[])
 		 */
 		if (Aflag) {
 			if (aflag) {
-				TIMESPEC_TO_TIMEVAL(&tv[0], &sb.st_atimespec);
-				tv[0].tv_sec += Aflag;
+				ts_struct.atime = sb.st_atimespec;
+				ts_struct.atime.tv_sec += Aflag;
 			}
 			if (mflag) {
-				TIMESPEC_TO_TIMEVAL(&tv[1], &sb.st_mtimespec);
-				tv[1].tv_sec += Aflag;
+				ts_struct.mtime = sb.st_mtimespec;
+				ts_struct.mtime.tv_sec += Aflag;
 			}
 		}
 
-		/* Try utimes(2). */
-		if (!utimes_f(*argv, tv))
+		/* Try setattrlist(2). */
+		if (!setattrlist(*argv, &ts_req, &ts_struct, sizeof(ts_struct), 0))
 			continue;
 
 		/* If the user specified a time, nothing else we can do. */
@@ -241,14 +250,14 @@ main(int argc, char *argv[])
 #define	ATOI2(ar)	((ar)[0] - '0') * 10 + ((ar)[1] - '0'); (ar) += 2;
 
 void
-stime_arg1(char *arg, struct timeval *tvp)
+stime_arg1(char *arg, set_ts *tsp)
 {
 	time_t now;
 	struct tm *t;
 	int yearset;
 	char *p;
 					/* Start with the current time. */
-	now = tvp[0].tv_sec;
+	now = tsp->atime.tv_sec;
 	if ((t = localtime(&now)) == NULL)
 		err(1, "localtime");
 					/* [[CC]YY]MMDDhhmm[.SS] */
@@ -293,21 +302,21 @@ stime_arg1(char *arg, struct timeval *tvp)
 	}
 
 	t->tm_isdst = -1;		/* Figure out DST. */
-	tvp[0].tv_sec = tvp[1].tv_sec = mktime(t);
-	if (tvp[0].tv_sec == -1)
+	tsp->atime.tv_sec = tsp->mtime.tv_sec = mktime(t);
+	if (tsp->atime.tv_sec == -1)
 terr:		errx(1,
 	"out of range or illegal time specification: [[CC]YY]MMDDhhmm[.SS]");
 
-	tvp[0].tv_usec = tvp[1].tv_usec = 0;
+	tsp->atime.tv_nsec = tsp->mtime.tv_nsec = 0;
 }
 
 void
-stime_arg2(char *arg, int year, struct timeval *tvp)
+stime_arg2(char *arg, int year, set_ts *tsp)
 {
 	time_t now;
 	struct tm *t;
 					/* Start with the current time. */
-	now = tvp[0].tv_sec;
+	now = tsp->atime.tv_sec;
 	if ((t = localtime(&now)) == NULL)
 		err(1, "localtime");
 
@@ -323,12 +332,12 @@ stime_arg2(char *arg, int year, struct timeval *tvp)
 	}
 
 	t->tm_isdst = -1;		/* Figure out DST. */
-	tvp[0].tv_sec = tvp[1].tv_sec = mktime(t);
-	if (tvp[0].tv_sec == -1)
+	tsp->atime.tv_sec = tsp->mtime.tv_sec = mktime(t);
+	if (tsp->atime.tv_sec == -1)
 		errx(1,
 	"out of range or illegal time specification: MMDDhhmm[yy]");
 
-	tvp[0].tv_usec = tvp[1].tv_usec = 0;
+	tsp->atime.tv_nsec = tsp->mtime.tv_nsec = 0;
 }
 
 /* Calculate a time offset in seconds, given an arg of the format [-]HHMMSS. */
@@ -362,14 +371,14 @@ timeoffset(char *arg)
 }
 
 void
-stime_file(char *fname, struct timeval *tvp)
+stime_file(char *fname, set_ts *ts_struct)
 {
 	struct stat sb;
 
 	if (stat(fname, &sb))
 		err(1, "%s", fname);
-	TIMESPEC_TO_TIMEVAL(tvp, &sb.st_atimespec);
-	TIMESPEC_TO_TIMEVAL(tvp + 1, &sb.st_mtimespec);
+	ts_struct->atime = sb.st_atimespec;
+	ts_struct->mtime = sb.st_mtimespec;
 }
 
 int

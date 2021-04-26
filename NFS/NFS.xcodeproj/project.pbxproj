@@ -121,7 +121,6 @@
 		D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */; };
 		D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */; };
 		D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */; };
-		D6EA4A7C1FB9653A002AF776 /* Makefile in Sources */ = {isa = PBXBuildFile; fileRef = D6EA4A7A1FB96539002AF776 /* Makefile */; };
 		D6EA4A7D1FB96564002AF776 /* nfs.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A791FB96539002AF776 /* nfs.5 */; };
 		D6EA4A7E1FB96564002AF776 /* nfs.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A7B1FB96539002AF776 /* nfs.conf.5 */; };
 		D6EA4A8E1FB9793F002AF776 /* nfs.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354ACA1FA3D0F100AACC99 /* nfs.conf */; };
@@ -1236,7 +1235,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D6EA4A7C1FB9653A002AF776 /* Makefile in Sources */,
 				D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

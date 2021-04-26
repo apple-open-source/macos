@@ -165,6 +165,13 @@ private:
     
     IOPMConnection  _powerConnect;
 
+    dispatch_block_t _pmInitBlock;
+
+
+    IOHIDEventRef   _delayedLockKeyEvent;
+    UInt32          _lockKeyDelayMS;
+    dispatch_source_t _lockKeyDelayTimer;
+
     boolean_t       _capsLockState;
     boolean_t       _capsLockLEDState;
     boolean_t       _capsLockLEDInhibit;
@@ -175,6 +182,7 @@ private:
     
     StickyKeyHandler *_stickyKeyHandler;
   
+    
     IOHIDEventRef processStickyKeys(IOHIDEventRef event);
     void setStickyKeyState(UInt32 usagePage, UInt32 usage, StickyKeyState state);
     StickyKeyState getStickyKeyState(UInt32 usagePage, UInt32 usage);
@@ -222,13 +230,17 @@ private:
     static kern_return_t setHIDSystemParam(CFStringRef key, uint32_t property);
     uint32_t getKeyboardID ();
     uint32_t getKeyboardID (uint16_t productID, uint16_t vendorID);
-    bool isModifiersPressed ();
     //------------------------------------------------------------------------------
     // IOHIDKeyboardFilter::powerNotificationCallback
     //------------------------------------------------------------------------------
     static void powerNotificationCallback (void * refcon, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
     void powerNotificationCallback (IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
 
+
+    bool isModifiersPressed ();
+    void dispatchLockKey(void);
+    void resetLockKeyDelay(void);
+    IOHIDEventRef processLockKeyDelay(IOHIDEventRef event);
     
     void setEjectKeyProperty(uint32_t keyboardID);
     bool isDelayedEvent(IOHIDEventRef event);

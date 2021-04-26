@@ -42,6 +42,8 @@ public:
     void draw(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
     void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions&) override;
 
+    void clipToMask(GraphicsContext&, const FloatRect& destRect) override;
+
     void transformColorSpace(ColorSpace srcColorSpace, ColorSpace destColorSpace) override;
 
     String toDataURL(const String& mimeType, Optional<double> quality, PreserveResolution) const override;
@@ -50,7 +52,6 @@ public:
 protected:
     using ImageBufferBackend::ImageBufferBackend;
 
-    ColorFormat backendColorFormat() const override { return ColorFormat::BGRA; }
     virtual void platformTransformColorSpace(const std::array<uint8_t, 256>&) { }
 };
 

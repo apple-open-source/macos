@@ -117,10 +117,13 @@
     ;; CoreVideo CVCGDisplayLink
     (allow iokit-open
         (iokit-registry-entry-class "IOFramebufferSharedUserClient"))
-    ;; H.264 Acceleration
+
+    ;; These are needed for Encrypted Media on some hardware (MacMini8,1 for example)
     (allow iokit-open
         (iokit-registry-entry-class "AppleIntelMEUserClient")
-        (iokit-registry-entry-class "AppleSNBFBUserClient"))
+        (iokit-registry-entry-class "AppleSNBFBUserClient")
+    )
+
     ;; QuartzCore
     (allow iokit-open
         (iokit-registry-entry-class "AGPMClient")
@@ -173,6 +176,7 @@
         "kern.version"
         "machdep.cpu.brand_string"
         "security.mac.sandbox.sentinel"
+        "sysctl.name2oid"
         "kern.tcsm_enable"
         "kern.tcsm_available"
         "vm.footprint_suspend")
@@ -391,6 +395,9 @@
     (iokit-property "dpm")
 #endif
     (iokit-property "IOGVAH264EncodeCapabilities") ;; <rdar://problem/49498040>
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED > 101500
+    (iokit-property "IOAVDHEVCDecodeCapabilities") ;; <rdar://problem/71100188>
+#endif
 )
 
 (deny mach-lookup (xpc-service-name-prefix ""))
@@ -573,15 +580,6 @@
     (ipc-posix-name-regex #"\.PrivateBrowsing-")
     (ipc-posix-name-regex #"^WebKit Test-"))
 
-;; ColorSync
-(allow ipc-posix-shm*
-    (ipc-posix-name "com.apple.ColorSync.Gen.lock")
-    (ipc-posix-name "com.apple.ColorSync.Disp.lock")
-    (ipc-posix-name "com.apple.ColorSync.Gray2.2")
-    (ipc-posix-name "com.apple.ColorSync.sRGB")
-    (ipc-posix-name "com.apple.ColorSync.GenGray")
-    (ipc-posix-name "com.apple.ColorSync.GenRGB"))
-
 ;; Audio
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
     (ipc-posix-name-regex #"^AudioIO"))
@@ -677,13 +675,18 @@
 
 ;; Networking
 (allow network-outbound
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101500
        ;; Local mDNSResponder for DNS, arbitrary outbound TCP
        ;; Note: This is needed for some media playback features. <rdar://problem/38191574>
        ;; Remove this permission when <rdar://problem/38240572> is fixed.
        (literal "/private/var/run/mDNSResponder")
+#endif
        ;; ObjC map_images needs to send logging data to syslog. <rdar://problem/39778918>
        (literal "/private/var/run/syslog")
-       (remote tcp))
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101500
+       (remote tcp)
+#endif
+)
 
 ;; CFNetwork
 (allow file-read-data (path "/private/var/db/nsurlstoraged/dafsaData.bin"))
@@ -825,3 +828,11 @@
         (iokit-user-client-class "IOUSBInterfaceUserClientV2"))
     (allow device-camera))
 #endif // PLATFORM(MAC)
+
+(allow mach-lookup
+    (global-name "com.apple.relatived.tempest")
+)
+
+(allow iokit-open
+    (iokit-user-client-class "AppleAVDUserClient")
+)

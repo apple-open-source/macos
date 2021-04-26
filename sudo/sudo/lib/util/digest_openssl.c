@@ -23,18 +23,7 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-
-#include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 
 #include <openssl/sha.h>
@@ -87,7 +76,7 @@ struct sudo_digest {
 struct sudo_digest *
 sudo_digest_alloc_v1(int digest_type)
 {
-    debug_decl(sudo_digest_alloc, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_alloc, SUDO_DEBUG_UTIL);
     struct digest_function *func = NULL;
     struct sudo_digest *dig;
     int i;
@@ -114,7 +103,7 @@ sudo_digest_alloc_v1(int digest_type)
 void
 sudo_digest_free_v1(struct sudo_digest *dig)
 {
-    debug_decl(sudo_digest_free, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_free, SUDO_DEBUG_UTIL);
 
     free(dig);
 
@@ -124,7 +113,7 @@ sudo_digest_free_v1(struct sudo_digest *dig)
 void
 sudo_digest_reset_v1(struct sudo_digest *dig)
 {
-    debug_decl(sudo_digest_reset, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_reset, SUDO_DEBUG_UTIL);
 
     dig->func->init(&dig->ctx);
 
@@ -133,7 +122,7 @@ sudo_digest_reset_v1(struct sudo_digest *dig)
 int
 sudo_digest_getlen_v1(int digest_type)
 {
-    debug_decl(sudo_digest_getlen, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_getlen, SUDO_DEBUG_UTIL);
     int i;
 
     for (i = 0; digest_functions[i].digest_len != 0; i++) {
@@ -147,7 +136,7 @@ sudo_digest_getlen_v1(int digest_type)
 void
 sudo_digest_update_v1(struct sudo_digest *dig, const void *data, size_t len)
 {
-    debug_decl(sudo_digest_update, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_update, SUDO_DEBUG_UTIL);
 
     dig->func->update(&dig->ctx, data, len);
 
@@ -157,7 +146,7 @@ sudo_digest_update_v1(struct sudo_digest *dig, const void *data, size_t len)
 void
 sudo_digest_final_v1(struct sudo_digest *dig, unsigned char *md)
 {
-    debug_decl(sudo_digest_final, SUDO_DEBUG_UTIL)
+    debug_decl(sudo_digest_final, SUDO_DEBUG_UTIL);
 
     dig->func->final(md, &dig->ctx);
 

@@ -195,6 +195,8 @@ secd_21_transmogrify(int argc, char *const *argv)
     CFReleaseNull(currentACL);
 
     CFRelease(musr);
+
+    secd_test_teardown_delete_temp_keychain("secd_21_transmogrify");
 #else
     plan_skip_all("not support on non TARGET_OS_IOS");
 #endif

@@ -11,7 +11,7 @@
             buildForRunning = "YES"
             buildForProfiling = "NO"
             buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
+            buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D4707A0421136E69005BCFDA"
@@ -67,7 +67,8 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "YES"
+      internalIOSLaunchStyle = "0">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
@@ -84,15 +85,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D4707A0421136E69005BCFDA"
-            BuildableName = "TrustTests.xctest"
-            BlueprintName = "TrustTests_ios"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

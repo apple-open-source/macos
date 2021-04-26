@@ -122,7 +122,6 @@ MediaElementSession::MediaElementSession(HTMLMediaElement& element)
     , m_logIdentifier(element.logIdentifier())
 #endif
 {
-    addedMediaUsageManagerSessionIfNecessary();
 }
 
 MediaElementSession::~MediaElementSession()
@@ -134,7 +133,7 @@ MediaElementSession::~MediaElementSession()
 #endif
 }
 
-void MediaElementSession::addedMediaUsageManagerSessionIfNecessary()
+void MediaElementSession::addMediaUsageManagerSessionIfNecessary()
 {
 #if ENABLE(MEDIA_USAGE)
     if (m_haveAddedMediaUsageManagerSession)
@@ -215,7 +214,6 @@ void MediaElementSession::inActiveDocumentChanged()
 {
     m_elementIsHiddenBecauseItWasRemovedFromDOM = !m_element.inActiveDocument();
     scheduleClientDataBufferingCheck();
-    addedMediaUsageManagerSessionIfNecessary();
 }
 
 void MediaElementSession::scheduleClientDataBufferingCheck()
@@ -276,7 +274,7 @@ void MediaElementSession::removeBehaviorRestriction(BehaviorRestrictions restric
     m_restrictions &= ~restriction;
 }
 
-SuccessOr<MediaPlaybackDenialReason> MediaElementSession::playbackPermitted() const
+SuccessOr<MediaPlaybackDenialReason> MediaElementSession::playbackPermitted(MediaPlaybackOperation operation) const
 {
     if (m_element.isSuspended()) {
         ALWAYS_LOG(LOGIDENTIFIER, "Returning FALSE because element is suspended");
@@ -315,6 +313,14 @@ SuccessOr<MediaPlaybackDenialReason> MediaElementSession::playbackPermitted() co
 
     // FIXME: Why are we checking top-level document only for PerDocumentAutoplayBehavior?
     const auto& topDocument = document.topDocument();
+    if (topDocument.quirks().requiresUserGestureToPauseInPictureInPicture()
+        && m_element.fullscreenMode() & HTMLMediaElementEnums::VideoFullscreenModePictureInPicture
+        && !m_element.paused() && operation == MediaPlaybackOperation::Pause
+        && !document.processingUserGestureForMedia()) {
+        ALWAYS_LOG(LOGIDENTIFIER, "Returning FALSE because a quirk requires a user gesture to pause while in Picture-in-Picture");
+        return MediaPlaybackDenialReason::UserGestureRequired;
+    }
+
     if (topDocument.mediaState() & MediaProducer::HasUserInteractedWithMediaElement && topDocument.quirks().needsPerDocumentAutoplayBehavior())
         return { };
 
@@ -1084,7 +1090,7 @@ void MediaElementSession::updateMediaUsageIfChanged()
     m_mediaUsageInfo = WTFMove(usage);
 
 #if ENABLE(MEDIA_USAGE)
-    ASSERT(m_haveAddedMediaUsageManagerSession);
+    addMediaUsageManagerSessionIfNecessary();
     page->chrome().client().updateMediaUsageManagerSessionState(mediaSessionIdentifier(), *m_mediaUsageInfo);
 #endif
 }

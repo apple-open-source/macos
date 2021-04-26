@@ -25,6 +25,7 @@
 //
 // auditevents - monitor and act upon audit subsystem events
 //
+#include <os/log.h>
 #include "auditevents.h"
 #include "dtrace.h"
 #include <security_utilities/logging.h>
@@ -35,7 +36,7 @@ using namespace MachPlusPlus;
 
 
 AuditMonitor::AuditMonitor(Port relay)
-	: mRelay(relay)
+	: Thread("AuditMonitor"), mRelay(relay)
 {
 }
 
@@ -49,24 +50,31 @@ AuditMonitor::~AuditMonitor()
 // (The current version of MachServer cannot receive FileDesc-based events,
 // so we need a monitor thread for this.)
 //
-void AuditMonitor::action()
+void AuditMonitor::threadAction()
 {
-	au_sdev_handle_t *dev = au_sdev_open(AU_SDEVF_ALLSESSIONS);
+    au_sdev_handle_t *dev;
 	int event;
 	auditinfo_addr_t aia;
 
-	if (NULL == dev) {
-		Syslog::error("This is bad, man. I've got bad vibes here. Could not open %s: %d", AUDIT_SDEV_PATH, errno);
-		return;
-	}
+    // This retries forever since securityd can't functions correctly without getting audit sessions events
+    while (1) {
+        dev = au_sdev_open(AU_SDEVF_ALLSESSIONS);
+        if (NULL == dev) {
+            os_log_fault(OS_LOG_DEFAULT, "auditevents count not open audit device: %d, retrying in a bit", errno);
+            sleep(10);
+            continue;
+        }
 
-	for (;;) {
-		if (0 != au_sdev_read_aia(dev, &event, &aia)) {
-			Syslog::error("au_sdev_read_aia failed: %d\n", errno);
-			continue;
-		}
-        secinfo("SecServer", "%p session notify %d %d %d", this, aia.ai_asid, event, aia.ai_auid);
-		if (kern_return_t rc = self_client_handleSession(mRelay, mach_task_self(), event, aia.ai_asid))
-			Syslog::error("self-send failed (mach error %d)", rc);
-	}
+        for (;;) {
+            if (0 != au_sdev_read_aia(dev, &event, &aia)) {
+                secerror("au_sdev_read_aia failed: %d\n", errno);
+                break;
+            }
+            secinfo("SecServer", "%p session notify %d %d %d", this, aia.ai_asid, event, aia.ai_auid);
+            if (kern_return_t rc = self_client_handleSession(mRelay, event, aia.ai_asid)) {
+                secerror("self-send failed (mach error %d)", rc);
+            }
+        }
+        au_sdev_close(dev);
+    }
 }

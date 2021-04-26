@@ -38,6 +38,9 @@
 @class _WKActivatedElementInfo;
 @class _WKElementAction;
 @class _WKFrameHandle;
+@class _WKInspector;
+@class _WKInspectorConfiguration;
+@class _WKInspectorDebuggableInfo;
 
 #if TARGET_OS_IOS
 
@@ -70,14 +73,14 @@ typedef NS_ENUM(NSInteger, _WKAutoplayEvent) {
     _WKAutoplayEventDidPlayMediaWithUserGesture,
     _WKAutoplayEventDidAutoplayMediaPastThresholdWithoutUserInterference,
     _WKAutoplayEventUserDidInterfereWithPlayback,
-} WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+} WK_API_AVAILABLE(macos(10.13.4), ios(14.0));
 
 typedef NS_OPTIONS(NSUInteger, _WKAutoplayEventFlags) {
     _WKAutoplayEventFlagsNone = 0,
     _WKAutoplayEventFlagsHasAudio = 1 << 0,
     _WKAutoplayEventFlagsPlaybackWasPrevented = 1 << 1,
     _WKAutoplayEventFlagsMediaIsMainContent = 1 << 2,
-} WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+} WK_API_AVAILABLE(macos(10.13.4), ios(14.0));
 
 typedef NS_ENUM(NSInteger, _WKFocusDirection) {
     _WKFocusDirectionBackward,
@@ -104,7 +107,7 @@ struct UIEdgeInsets;
 - (void)_webView:(WKWebView *)webView decideWebApplicationCacheQuotaForSecurityOrigin:(WKSecurityOrigin *)securityOrigin currentQuota:(unsigned long long)currentQuota totalBytesNeeded:(unsigned long long)totalBytesNeeded decisionHandler:(void (^)(unsigned long long newQuota))decisionHandler;
 
 - (void)_webView:(WKWebView *)webView printFrame:(_WKFrameHandle *)frame;
-- (void)_webView:(WKWebView *)webView printFrame:(_WKFrameHandle *)frame completionHandler:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_webView:(WKWebView *)webView printFrame:(_WKFrameHandle *)frame completionHandler:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
 - (void)_webViewClose:(WKWebView *)webView;
 - (void)_webViewFullscreenMayReturnToInline:(WKWebView *)webView;
@@ -115,7 +118,7 @@ struct UIEdgeInsets;
 - (void)_webViewDidShowSafeBrowsingWarning:(WKWebView *)webView WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (void)_webViewDidLosePointerLock:(WKWebView *)webView WK_API_AVAILABLE(macos(10.12.3));
 - (void)_webView:(WKWebView *)webView hasVideoInPictureInPictureDidChange:(BOOL)hasVideoInPictureInPicture WK_API_AVAILABLE(macos(10.13), ios(11.0));
-- (void)_webView:(WKWebView *)webView shouldAllowPDFAtURL:(NSURL *)fileURL toOpenFromFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_webView:(WKWebView *)webView shouldAllowPDFAtURL:(NSURL *)fileURL toOpenFromFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
 - (void)_webView:(WKWebView *)webView imageOrMediaDocumentSizeChanged:(CGSize)size WK_API_AVAILABLE(macos(10.12), ios(10.0));
 - (NSDictionary *)_dataDetectionContextForWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(10.12), ios(10.0));
@@ -143,11 +146,13 @@ struct UIEdgeInsets;
 
 - (void)_webView:(WKWebView *)webView takeFocus:(_WKFocusDirection)direction WK_API_AVAILABLE(macos(10.13.4), ios(12.2));
 
-- (void)_webView:(WKWebView *)webView runWebAuthenticationPanel:(_WKWebAuthenticationPanel *)panel initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(_WKWebAuthenticationPanelResult))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_webView:(WKWebView *)webView runWebAuthenticationPanel:(_WKWebAuthenticationPanel *)panel initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(_WKWebAuthenticationPanelResult))completionHandler WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 
-- (void)_webView:(WKWebView *)webView handleAutoplayEvent:(_WKAutoplayEvent)event withFlags:(_WKAutoplayEventFlags)flags WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+- (void)_webView:(WKWebView *)webView handleAutoplayEvent:(_WKAutoplayEvent)event withFlags:(_WKAutoplayEventFlags)flags WK_API_AVAILABLE(macos(10.13.4), ios(14.0));
 
-- (void)_webView:(WKWebView *)webView willShareActivityItems:(NSArray *)activityItems WK_API_AVAILABLE(ios(WK_IOS_TBA));
+- (void)_webView:(WKWebView *)webView willShareActivityItems:(NSArray *)activityItems WK_API_AVAILABLE(macos(11.0), ios(14.0));
+
+- (void)_webView:(WKWebView *)webView requestSpeechRecognitionPermissionForOrigin:(WKSecurityOrigin *)origin decisionHandler:(void (^)(BOOL authorized))decisionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 #if TARGET_OS_IPHONE
 
@@ -246,6 +251,24 @@ struct UIEdgeInsets;
 - (NSMenu *)_webView:(WKWebView *)webView contextMenu:(NSMenu *)menu forElement:(_WKContextMenuElementInfo *)element userInfo:(id <NSSecureCoding>)userInfo WK_API_DEPRECATED_WITH_REPLACEMENT("_webView:getContextMenuFromProposedMenu:forElement:userInfo:completionHandler:", macos(10.12, 10.14.4));
 - (void)_webView:(WKWebView *)webView getContextMenuFromProposedMenu:(NSMenu *)menu forElement:(_WKContextMenuElementInfo *)element userInfo:(id <NSSecureCoding>)userInfo completionHandler:(void (^)(NSMenu *))completionHandler WK_API_AVAILABLE(macos(10.14));
 - (void)_webView:(WKWebView *)webView didPerformDragOperation:(BOOL)handled WK_API_AVAILABLE(macos(10.14.4));
+
+/*! @abstract Called when the _WKInspector for this WKWebView is about to be displayed. The client can
+    provide a custom _WKInspectorConfiguration that should be used when creating the Web Inspector.
+    @param inspector The Web Inspector instance that is about to be initialized.
+ */
+- (_WKInspectorConfiguration *)_webView:(WKWebView *)webView configurationForLocalInspector:(_WKInspector *)inspector WK_API_AVAILABLE(macos(WK_MAC_TBA));
+
+/*! @abstract Called when a Web Inspector instance is attached to this WKWebView. This is not called in the case of remote inspection.
+    @param webView The WKWebView instance being inspected.
+    @param inspector The Web Inspector instance attached to this WKWebView.
+ */
+- (void)_webView:(WKWebView *)webView didAttachLocalInspector:(_WKInspector *)inspector WK_API_AVAILABLE(macos(WK_MAC_TBA));
+
+/*! @abstract Called before closing the Web Inspector instance for this WKWebView. This is not called in the case of remote inspection.
+    @param webView The WKWebView instance being inspected.
+    @param inspector The Web Inspector instance being closed.
+ */
+- (void)_webView:(WKWebView *)webView willCloseLocalInspector:(_WKInspector *)inspector WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
 #endif // !TARGET_OS_IPHONE
 

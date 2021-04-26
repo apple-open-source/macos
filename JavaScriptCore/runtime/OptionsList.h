@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,8 @@ constexpr bool enableWebAssemblyStreamingApi = true;
 #else
 constexpr bool enableWebAssemblyStreamingApi = false;
 #endif
+
+JS_EXPORT_PRIVATE bool canUseJITCage();
 
 // How do JSC VM options work?
 // ===========================
@@ -110,6 +112,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, dumpBytecodeLivenessResults, false, Normal, nullptr) \
     v(Bool, validateBytecode, false, Normal, nullptr) \
     v(Bool, forceDebuggerBytecodeGeneration, false, Normal, nullptr) \
+    v(Bool, debuggerTriggersBreakpointException, false, Normal, "Using the debugger statement will trigger an breakpoint exception (Useful when lldbing)") \
     v(Bool, dumpBytecodesBeforeGeneratorification, false, Normal, nullptr) \
     \
     v(Bool, useFunctionDotArguments, true, Normal, nullptr) \
@@ -240,7 +243,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Unsigned, frequentCallThreshold, 2, Normal, nullptr) \
     v(Double, minimumCallToKnownRate, 0.51, Normal, nullptr) \
     v(Bool, createPreHeaders, true, Normal, nullptr) \
-    v(Bool, useMovHintRemoval, true, Normal, nullptr) \
     v(Bool, usePutStackSinking, true, Normal, nullptr) \
     v(Bool, useObjectAllocationSinking, true, Normal, nullptr) \
     v(Bool, useValueRepElimination, true, Normal, nullptr) \
@@ -385,7 +387,8 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, validateExceptionChecks, false, Normal, "Verifies that needed exception checks are performed.") \
     v(Unsigned, unexpectedExceptionStackTraceLimit, 100, Normal, "Stack trace limit for debugging unexpected exceptions observed in the VM") \
     \
-    v(Bool, validateDFGClobberize, false, Normal, "Emits extra validation code in the DFG/FTL for the Clobberize phase")\
+    v(Bool, validateDFGClobberize, false, Normal, "Emits code in the DFG/FTL to validate the Clobberize phase")\
+    v(Bool, validateBoundsCheckElimination, false, Normal, "Emits code in the DFG/FTL to validate bounds check elimination")\
     \
     v(Bool, useExecutableAllocationFuzz, false, Normal, nullptr) \
     v(Unsigned, fireExecutableAllocationFuzzAt, 0, Normal, nullptr) \
@@ -412,6 +415,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     \
     v(Bool, logPhaseTimes, false, Normal, nullptr) \
     v(Double, rareBlockPenalty, 0.001, Normal, nullptr) \
+    v(Unsigned, maximumTmpsForGraphColoring, 25000, Normal, "The maximum number of tmps an Air program can have before always register allocating with Linear Scan") \
     v(Bool, airLinearScanVerbose, false, Normal, nullptr) \
     v(Bool, airLinearScanSpillsEverything, false, Normal, nullptr) \
     v(Bool, airForceBriggsAllocator, false, Normal, nullptr) \
@@ -456,7 +460,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Unsigned, webAssemblyBBQAirOptimizationLevel, 0, Normal, "Air Optimization level for BBQ Web Assembly module compilations.") \
     v(Unsigned, webAssemblyBBQB3OptimizationLevel, 1, Normal, "B3 Optimization level for BBQ Web Assembly module compilations.") \
     v(Unsigned, webAssemblyOMGOptimizationLevel, Options::defaultB3OptLevel(), Normal, "B3 Optimization level for OMG Web Assembly module compilations.") \
-    v(Unsigned, webAssemblyBBQFallbackSize, 60000, Normal, "Limit of Wasm function size above which we fallback to BBQ compilation mode.") \
     \
     v(Bool, useBBQTierUpChecks, true, Normal, "Enables tier up checks for our BBQ code.") \
     v(Bool, useWebAssemblyOSR, true, Normal, nullptr) \
@@ -488,10 +491,12 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, useEagerWebAssemblyModuleHashing, false, Normal, "Unnamed WebAssembly modules are identified in backtraces through their hash, if available.") \
     v(Bool, useWebAssemblyReferences, false, Normal, "Allow types from the wasm references spec.") \
     v(Bool, useWebAssemblyMultiValues, true, Normal, "Allow types from the wasm mulit-values spec.") \
-    /* FIXME: We should make sure finalizers don't run for detached windows before enabling WeakRefs by default. https://bugs.webkit.org/show_bug.cgi?id=214508 */ \
-    v(Bool, useWeakRefs, false, Normal, "Expose the WeakRef constructor.") \
-    v(Bool, useBigInt, true, Normal, "If true, we will enable BigInt support.") \
-    v(Bool, useIntlDisplayNames, false, Normal, "Expose the Intl.DisplayNames constructor.") \
+    v(Bool, useWebAssemblyThreading, true, Normal, "Allow instructions from the wasm threading spec.") \
+    v(Bool, useWeakRefs, true, Normal, "Expose the WeakRef constructor.") \
+    v(Bool, useIntlDateTimeFormatDayPeriod, true, Normal, "Expose the Intl.DateTimeFormat dayPeriod feature.") \
+    v(Bool, useIntlDateTimeFormatRangeToParts, true, Normal, "Expose the Intl.DateTimeFormat#formatRangeToParts feature.") \
+    v(Bool, useAtMethod, false, Normal, "Expose the at() method on Array, %TypedArray%, and String.") \
+    v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \
     v(Bool, useArrayAllocationProfiling, true, Normal, "If true, we will use our normal array allocation profiling. If false, the allocation profile will always claim to be undecided.") \
     v(Bool, forcePolyProto, false, Normal, "If true, create_this will always create an object with a poly proto structure.") \
     v(Bool, forceMiniVMMode, false, Normal, "If true, it will force mini VM mode on.") \
@@ -509,17 +514,19 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(Bool, useUnlinkedCodeBlockJettisoning, false, Normal, "If true, UnlinkedCodeBlock can be jettisoned.") \
     v(Bool, forceOSRExitToLLInt, false, Normal, "If true, we always exit to the LLInt. If false, we exit to whatever is most convenient.") \
     v(Unsigned, getByValICMaxNumberOfIdentifiers, 4, Normal, "Number of identifiers we see in the LLInt that could cause us to bail on generating an IC for get_by_val.") \
-    v(Bool, usePublicClassFields, true, Normal, "If true, the parser will understand public data fields inside classes.") \
     v(Bool, useRandomizingExecutableIslandAllocation, false, Normal, "For the arm64 ExecutableAllocator, if true, select which region to use randomly. This is useful for testing that jump islands work.") \
     v(Bool, exposeProfilersOnGlobalObject, false, Normal, "If true, we will expose functions to enable/disable both the sampling profiler and the super sampler") \
     v(Bool, allowUnsupportedTiers, false, Normal, "If true, we will not disable DFG or FTL when an experimental feature is enabled.") \
-    v(Bool, usePrivateClassFields, false, Normal, "If true, the parser will understand private data fields inside classes.") \
+    v(Bool, usePrivateClassFields, true, Normal, "If true, the parser will understand private data fields inside classes.") \
     v(Bool, returnEarlyFromInfiniteLoopsForFuzzing, false, Normal, nullptr) \
     v(Size, earlyReturnFromInfiniteLoopsLimit, 1300000000, Normal, "When returnEarlyFromInfiniteLoopsForFuzzing is true, this determines the number of executions a loop can run for before just returning. This is helpful for the fuzzer so it doesn't get stuck in infinite loops.") \
     v(Bool, useLICMFuzzing, false, Normal, nullptr) \
     v(Unsigned, seedForLICMFuzzer, 424242, Normal, nullptr) \
     v(Double, allowHoistingLICMProbability, 0.5, Normal, nullptr) \
     v(Bool, exposeCustomSettersOnGlobalObjectForTesting, false, Normal, nullptr) \
+    v(Bool, useJITCage, canUseJITCage(), Normal, nullptr) \
+    v(Bool, usePublicStaticClassFields, true, Normal, "If true, the parser will understand public static data fields inside classes.") \
+    v(Bool, usePrivateStaticClassFields, true, Normal, "If true, the parser will understand private static data fields inside classes.") \
 
 enum OptionEquivalence {
     SameOption,
@@ -539,15 +546,11 @@ enum OptionEquivalence {
     v(enablePolyvariantDevirtualization, usePolyvariantDevirtualization, SameOption) \
     v(enablePolymorphicAccessInlining, usePolymorphicAccessInlining, SameOption) \
     v(enablePolymorphicCallInlining, usePolymorphicCallInlining, SameOption) \
-    v(enableMovHintRemoval, useMovHintRemoval, SameOption) \
     v(enableObjectAllocationSinking, useObjectAllocationSinking, SameOption) \
     v(enableConcurrentJIT, useConcurrentJIT, SameOption) \
     v(enableProfiler, useProfiler, SameOption) \
     v(enableArchitectureSpecificOptimizations, useArchitectureSpecificOptimizations, SameOption) \
-    v(enablePolyvariantCallInlining, usePolyvariantCallInlining, SameOption) \
-    v(enablePolyvariantByIdInlining, usePolyvariantByIdInlining, SameOption) \
     v(objectsAreImmortal, useImmortalObjects, SameOption) \
-    v(showObjectStatistics, dumpObjectStatistics, SameOption) \
     v(disableGC, useGC, InvertedOption) \
     v(enableTypeProfiler, useTypeProfiler, SameOption) \
     v(enableControlFlowProfiler, useControlFlowProfiler, SameOption) \
@@ -561,7 +564,8 @@ enum OptionEquivalence {
     v(maximumFunctionForClosureCallInlineCandidateInstructionCount, maximumFunctionForClosureCallInlineCandidateBytecodeCost, SameOption) \
     v(maximumFunctionForConstructInlineCandidateInstructionCount, maximumFunctionForConstructInlineCandidateBytecoodeCost, SameOption) \
     v(maximumFTLCandidateInstructionCount, maximumFTLCandidateBytecodeCost, SameOption) \
-    v(maximumInliningCallerSize, maximumInliningCallerBytecodeCost, SameOption)
+    v(maximumInliningCallerSize, maximumInliningCallerBytecodeCost, SameOption) \
+    v(validateBCE, validateBoundsCheckElimination, SameOption)
 
 enum ExperimentalOptionFlags {
     LLIntAndBaselineOnly = 0,
@@ -570,7 +574,7 @@ enum ExperimentalOptionFlags {
 };
 
 #define FOR_EACH_JSC_EXPERIMENTAL_OPTION(v) \
-    v(usePrivateClassFields, LLIntAndBaselineOnly, "https://bugs.webkit.org/show_bug.cgi?id=212781", "https://bugs.webkit.org/show_bug.cgi?id=212784")
+    v(usePrivateClassFields, (SupportsFTL | SupportsDFG), "https://bugs.webkit.org/show_bug.cgi?id=212781", "https://bugs.webkit.org/show_bug.cgi?id=212784")
 
 constexpr size_t countNumberOfJSCOptions()
 {

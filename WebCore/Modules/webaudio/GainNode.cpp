@@ -31,6 +31,7 @@
 #include "AudioBus.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
+#include "AudioUtilities.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -39,11 +40,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(GainNode);
 
 ExceptionOr<Ref<GainNode>> GainNode::create(BaseAudioContext& context, const GainOptions& options)
 {
-    if (context.isStopped())
-        return Exception { InvalidStateError };
-
-    context.lazyInitialize();
-
     auto gainNode = adoptRef(*new GainNode(context));
 
     auto result = gainNode->handleAudioNodeOptions(options, { 2, ChannelCountMode::Max, ChannelInterpretation::Speakers });
@@ -56,14 +52,12 @@ ExceptionOr<Ref<GainNode>> GainNode::create(BaseAudioContext& context, const Gai
 }
 
 GainNode::GainNode(BaseAudioContext& context)
-    : AudioNode(context)
-    , m_sampleAccurateGainValues(AudioNode::ProcessingSizeInFrames) // FIXME: can probably share temp buffer in context
+    : AudioNode(context, NodeTypeGain)
+    , m_sampleAccurateGainValues(AudioUtilities::renderQuantumSize) // FIXME: can probably share temp buffer in context
     , m_gain(AudioParam::create(context, "gain"_s, 1.0, -FLT_MAX, FLT_MAX, AutomationRate::ARate))
 {
-    setNodeType(NodeTypeGain);
-
-    addInput(makeUnique<AudioNodeInput>(this));
-    addOutput(makeUnique<AudioNodeOutput>(this, 1));
+    addInput();
+    addOutput(1);
 
     initialize();
 }
@@ -93,20 +87,21 @@ void GainNode::process(size_t framesToProcess)
         } else {
             // Apply the gain with de-zippering into the output bus.
             float gain = this->gain().hasSampleAccurateValues() ? this->gain().finalValue() : this->gain().value();
-            if (!m_lastGain && m_lastGain == gain) {
-                // If the gain is 0 (and we've converged on dezippering), just zero the bus and set
-                // the silence hint.
+            if (!gain) {
+                // If the gain is 0 just zero the bus.
                 outputBus->zero();
             } else
-                outputBus->copyWithGainFrom(*inputBus, &m_lastGain, gain);
+                outputBus->copyWithGainFrom(*inputBus, gain);
         }
     }
 }
 
-void GainNode::reset()
+void GainNode::processOnlyAudioParams(size_t framesToProcess)
 {
-    // Snap directly to desired gain.
-    m_lastGain = gain().value();
+    float values[AudioUtilities::renderQuantumSize];
+    ASSERT(framesToProcess <= AudioUtilities::renderQuantumSize);
+
+    m_gain->calculateSampleAccurateValues(values, framesToProcess);
 }
 
 // FIXME: this can go away when we do mixing with gain directly in summing junction of AudioNodeInput

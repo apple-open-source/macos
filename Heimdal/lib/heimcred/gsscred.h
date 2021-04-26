@@ -134,7 +134,6 @@ cache_read_status readCredCache(void);
 void storeCredCache(void);
 void notifyChangedCaches(void);
 
-bool isAcquireCred(HeimCredRef cred);
 bool hasRenewTillInAttributes(CFDictionaryRef attributes);
 
 void _HeimCredRegisterGeneric(void);

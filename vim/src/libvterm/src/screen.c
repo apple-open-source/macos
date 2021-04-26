@@ -186,7 +186,12 @@ static int putglyph(VTermGlyphInfo *info, VTermPos pos, void *user)
     cell->chars[i] = 0;
 
   for(col = 1; col < info->width; col++)
-    getcell(screen, pos.row, pos.col + col)->chars[0] = (uint32_t)-1;
+  {
+    ScreenCell *onecell = getcell(screen, pos.row, pos.col + col);
+    if (onecell == NULL)
+      break;
+    onecell->chars[0] = (uint32_t)-1;
+  }
 
   rect.start_row = pos.row;
   rect.end_row   = pos.row+1;
@@ -280,6 +285,12 @@ static int erase_internal(VTermRect rect, int selective, void *user)
     for(col = rect.start_col; col < rect.end_col; col++) {
       ScreenCell *cell = getcell(screen, row, col);
 
+      if (cell == NULL)
+      {
+        DEBUG_LOG2("libvterm: erase_internal() position invalid: %d / %d",
+								     row, col);
+	return 1;
+      }
       if(selective && cell->pen.protected_cell)
         continue;
 
@@ -640,6 +651,12 @@ static int setlineinfo(int row, const VTermLineInfo *newinfo, const VTermLineInf
      newinfo->doubleheight != oldinfo->doubleheight) {
     for(col = 0; col < screen->cols; col++) {
       ScreenCell *cell = getcell(screen, row, col);
+      if (cell == NULL)
+      {
+        DEBUG_LOG2("libvterm: setlineinfo() position invalid: %d / %d",
+								     row, col);
+	return 1;
+      }
       cell->pen.dwl = newinfo->doublewidth;
       cell->pen.dhl = newinfo->doubleheight;
     }
@@ -767,6 +784,12 @@ static size_t _get_chars(const VTermScreen *screen, const int utf8, void *buffer
       ScreenCell *cell = getcell(screen, row, col);
       int i;
 
+      if (cell == NULL)
+      {
+        DEBUG_LOG2("libvterm: _get_chars() position invalid: %d / %d",
+								     row, col);
+	return 1;
+      }
       if(cell->chars[0] == 0)
         // Erased cell, might need a space
         padding++;

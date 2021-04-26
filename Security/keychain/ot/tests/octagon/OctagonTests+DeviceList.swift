@@ -117,15 +117,13 @@ class OctagonDeviceListTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         do {
-            let number = try self.cuttlefishContext.numberOfPeersInModel(withMachineID: self.mockAuthKit.currentMachineID)
-            XCTAssertEqual(number.intValue, 1, "Should have a one peer for numberOfPeersInModel after an initial join")
-        } catch {
-            XCTFail("Should not have failed fetching the number of peers with a mid: \(error)")
-        }
+            let egoPeerStatus = try self.cuttlefishContext.egoPeerStatus()
 
-        do {
-            let number = try self.cuttlefishContext.numberOfPeersInModel(withMachineID: "not-a-real-machine-id")
-            XCTAssertEqual(number.intValue, 0, "Should have a zero peers for an invalid MID")
+            let numberOfPeersWithMID = egoPeerStatus.peerCountsByMachineID[self.mockAuthKit.currentMachineID] ?? NSNumber(0)
+            XCTAssertEqual(numberOfPeersWithMID.intValue, 1, "Should have a one peer for the current MID after an initial join")
+
+            let numberOfPeersWithInvalidMID = egoPeerStatus.peerCountsByMachineID["not-a-real-machine-id"]
+            XCTAssertNil(numberOfPeersWithInvalidMID, "Should have a zero peers for an invalid MID")
         } catch {
             XCTFail("Should not have failed fetching the number of peers with a mid: \(error)")
         }
@@ -245,26 +243,17 @@ class OctagonDeviceListTests: OctagonTestsBase {
                       "peer 1 should trust peer 1")
 
         // Then peer1 drops off the device list
-        // It should remove trust in itself
-        let updateTrustExpectation = self.expectation(description: "updateTrust")
+        // It should _not_ remove trust in itself, as it's the only peer around
         self.fakeCuttlefishServer.updateListener = { request in
-            XCTAssertTrue(request.hasDynamicInfoAndSig, "updateTrust request should have a dynamic info")
-            let newDynamicInfo = TPPeerDynamicInfo(data: request.dynamicInfoAndSig.peerDynamicInfo,
-                                                   sig: request.dynamicInfoAndSig.sig)
-            XCTAssertNotNil(newDynamicInfo, "should be able to make a dynamic info from protobuf")
-
-            XCTAssertEqual(newDynamicInfo!.includedPeerIDs.count, 0, "peer1 should no longer trust anyone")
-            XCTAssertEqual(newDynamicInfo!.excludedPeerIDs, Set([peer1ID]), "peer1 should exclude itself")
-            updateTrustExpectation.fulfill()
+            XCTFail("Should not have updatedTrust")
             return nil
         }
 
         self.mockAuthKit.removeAndSendNotification(machineID: try! self.mockAuthKit.machineID())
 
-        self.wait(for: [updateTrustExpectation], timeout: 10)
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testRemoveSelfWhenRemovedFromLargeDeviceList() throws {
@@ -276,8 +265,11 @@ class OctagonDeviceListTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer1ID)),
                       "peer 1 should trust peer 1")
 
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
         // Then peer1 drops off the device list
-        // It should remove trust in itself
+        // It should remove trust in itself, as joiner is still around
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             XCTAssertTrue(request.hasDynamicInfoAndSig, "updateTrust request should have a dynamic info")
@@ -307,6 +299,9 @@ class OctagonDeviceListTests: OctagonTestsBase {
         let peer1ID = self.assertResetAndBecomeTrustedInDefaultContext()
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer1ID)),
                       "peer 1 should trust peer 1")
+
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
 
         // Then peer1 drops off the device list
         // It should remove trust in itself
@@ -515,15 +510,17 @@ class OctagonDeviceListTests: OctagonTestsBase {
 
         self.mockAuthKit.addAndSendNotification(machineID: try! self.mockAuthKit2.machineID())
 
-        sleep(1)
-
+        try self.waitForPushToArriveAtStateMachine(context: self.cuttlefishContext)
         XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
+
+        let pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagCuttlefishNotification))
 
         // Now, peer should unlock and receive an Octagon push
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -631,14 +628,6 @@ class OctagonDeviceListTests: OctagonTestsBase {
                       "peer 1 should trust peer 2 after update")
     }
 
-    static func makeAuthKitError(code: Int) -> NSError {
-        let authkitError = CKPrettyError(domain: AKAppleIDAuthenticationErrorDomain,
-                                         code: code,
-                                         userInfo: nil)
-
-        return authkitError
-    }
-
     func testRemovePeerWhenRemovedFromDeviceListAndAuthkitThrowsError() throws {
         self.startCKAccountStatusMock()
 
@@ -653,13 +642,43 @@ class OctagonDeviceListTests: OctagonTestsBase {
         // Now, tell peer1 about the change. It will trust the peer and upload some TLK shares
         self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer2ID)),
                       "peer 1 should trust peer 2 after update")
 
-        // Then peer2 drops off the device list. Peer 1 should distrust peer2.
+        // Then peer2 drops off the device list, and is no longer able to fetch the deveice list.
+        // It shouldn't even try to update Cuttlefish: the write will fail
+        self.fakeCuttlefishServer.updateListener = { _ in
+            XCTFail("no update was expected")
+            return nil
+        }
+
+        let deviceListFetches = self.mockAuthKit2.fetchInvocations
+        self.mockAuthKit2.injectAuthErrorsAtFetchTime = true
+        self.mockAuthKit2.removeAndSendNotification(machineID: self.mockAuthKit2.currentMachineID)
+
+        self.assertEnters(context: joiningContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: joiningContext)
+
+        #if !os(tvOS)
+        XCTAssertTrue(joiningContext.followupHandler.hasPosted(.stateRepair), "Octagon should have posted a repair CFU after falling off the trusted device list")
+        #else
+        XCTAssertFalse(joiningContext.followupHandler.hasPosted(.stateRepair), "posted should be false on tvOS; there aren't any iOS devices around to repair it")
+        #endif
+
+        // And it should even report itself as not on the list anymore
+        do {
+            let errorPtr: NSErrorPointer = nil
+            let onList = joiningContext.machineID(onMemoizedList: self.mockAuthKit2.currentMachineID, error: errorPtr)
+            XCTAssertNil(errorPtr, "Should have had no error checking memoized list")
+            XCTAssertFalse(onList, "Should no longer report that the local MID is on the memoized MID list")
+        }
+
+        XCTAssertEqual(deviceListFetches + 1, self.mockAuthKit2.fetchInvocations, "Should have fetched device list exactly once")
+
+        // Now, when peer1 hears of the change, it should distrust peer2.
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             XCTAssertTrue(request.hasDynamicInfoAndSig, "updateTrust request should have a dynamic info")
@@ -681,48 +700,57 @@ class OctagonDeviceListTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .excludes, target: peer2ID)),
                       "peer 1 should distrust peer 2 after update")
 
+        // But peer2 can always rejoin, if it's readded!
+        self.mockAuthKit2.excludeDevices.remove(self.mockAuthKit2.currentMachineID)
+        let peer2ID_retry = self.assertJoinViaEscrowRecovery(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
+
+        XCTAssertNotEqual(peer2ID, peer2ID_retry, "Should use a different peer ID after rejoining")
         self.assertEnters(context: joiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-
-        //peer2 attempts to update trusted device list but hits an authkit error
-        //try bottle restore again
-        joiningContext.startOctagonStateMachine()
-
-        let sponsorPeerID = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata().peerID
-        XCTAssertNotNil(sponsorPeerID, "sponsorPeerID should not be nil")
-        let entropy = try self.loadSecret(label: sponsorPeerID!)
-        XCTAssertNotNil(entropy, "entropy should not be nil")
-
-        let altDSID = try joiningContext.authKitAdapter.primaryiCloudAccountAltDSID()
-        XCTAssertNotNil(altDSID, "Should have an altDSID")
-
-        let bottles = self.fakeCuttlefishServer.state.bottles.filter { $0.peerID == sponsorPeerID }
-        XCTAssertEqual(bottles.count, 1, "Should have a single bottle for the approving peer")
-        let bottle = bottles[0]
-
-        let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        joiningContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: altDSID) { error in
-            XCTAssertNil(error, "error should be nil")
-            joinWithBottleExpectation.fulfill()
-        }
-
-        self.assertEnters(context: joiningContext, state: OctagonStateInitiatorUpdateDeviceList, within: 10 * NSEC_PER_SEC)
-
-        let authKitError = OctagonDeviceListTests.makeAuthKitError(code: -7026)
-        self.mockAuthKit2.machineIDFetchErrors = [authKitError]
-        let updateTrustExpectationPeer2 = self.expectation(description: "updateTrustPeer2")
-        self.fakeCuttlefishServer.fetchChangesListener = { request in
-            self.mockAuthKit2.machineIDFetchErrors = []
-            updateTrustExpectationPeer2.fulfill()
-            self.fakeCuttlefishServer.fetchChangesListener = nil
-            return nil
-        }
-        self.wait(for: [updateTrustExpectationPeer2], timeout: 10)
-
-        self.wait(for: [joinWithBottleExpectation], timeout: 10)
-
         self.assertConsidersSelfTrusted(context: joiningContext)
 
-        self.assertEnters(context: joiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        do {
+            let errorPtr: NSErrorPointer = nil
+            let onList = joiningContext.machineID(onMemoizedList: self.mockAuthKit2.currentMachineID, error: errorPtr)
+            XCTAssertNil(errorPtr, "Should have had no error checking memoized list")
+            XCTAssertTrue(onList, "Should be on the memoized list again")
+        }
+    }
+
+    func testResetWhileNotOnListQuiesces() throws {
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.fakeCuttlefishServer.updateListener = { _ in
+            XCTFail("no update was expected")
+            return nil
+        }
+
+        self.mockAuthKit.injectAuthErrorsAtFetchTime = true
+        self.mockAuthKit.removeAndSendNotification(machineID: self.mockAuthKit.currentMachineID)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+
+        let deviceListFetches = self.mockAuthKit.fetchInvocations
+
+        do {
+            let arguments = OTConfigurationContext()
+            arguments.altDSID = try self.cuttlefishContext.authKitAdapter.primaryiCloudAccountAltDSID()
+            arguments.context = self.cuttlefishContext.contextID
+            arguments.otControl = self.otControl
+
+            try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
+            XCTFail("Should have errored trying to perform an Octagon Establish while not on the trusted device list")
+        } catch {
+            //pass
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(3 * NSEC_PER_SEC), "State machine should be paused, and not looping")
+        XCTAssertEqual(deviceListFetches + 1, self.mockAuthKit.fetchInvocations, "Should have fetched device list exactly once")
     }
 }
 

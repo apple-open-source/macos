@@ -1956,10 +1956,10 @@ class T_createFileTwice : BaseTest {
         
         (nodeResult, error) = fsTree.createNode(NodeType.File, fileName, dirNode: fsTree.rootFileNode, attrs: attrs)
         try pluginApiAssert(error, msg: "There was an error creating the file (\(error))")
-        if mountPoint.fsType!.isHFS() && mountPoint.fsType!.isAPFS() {
-            try testFlowAssert( nodeResult.attrs!.fa_allocsize <= Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)))")
+        if mountPoint.fsType!.isHFS() || mountPoint.fsType!.isAPFS() {
+            try testFlowAssert( nodeResult.attrs!.fa_allocsize <= Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)), msg: "(1) New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)))")
         } else {
-            try testFlowAssert( nodeResult.attrs!.fa_allocsize == Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)))")
+            try testFlowAssert( nodeResult.attrs!.fa_allocsize == Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)), msg: "(1) New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)))")
         }
 
         attrs.fa_size = UInt64(testedSize)
@@ -1970,10 +1970,10 @@ class T_createFileTwice : BaseTest {
         (nodeResult, error) = fsTree.changeNodeAttributes(nodeResult, attrs: attrs)
         try pluginApiAssert(error, msg: "There was an error creating the file \(fileName) (\(error))")
         try testFlowAssert((nodeResult.attrs!.fa_size == attrs.fa_size), msg: "file size is \(nodeResult.attrs!.fa_size) which expected to be \(attrs.fa_size)")
-        if mountPoint.fsType!.isHFS(){
-            try testFlowAssert( nodeResult.attrs!.fa_allocsize <= Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)))")
+        if mountPoint.fsType!.isHFS() || mountPoint.fsType!.isAPFS() {
+            try testFlowAssert( nodeResult.attrs!.fa_allocsize <= Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)), msg: "(2) New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)))")
         } else {
-        	try testFlowAssert( nodeResult.attrs!.fa_allocsize == Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)))")
+            try testFlowAssert( nodeResult.attrs!.fa_allocsize == Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)), msg: "(2) New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)))")
         }
         // validate file contents zeroed
         log("Validate File content is zeroed")

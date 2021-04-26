@@ -120,7 +120,7 @@ int verbose = 0;
 LIST_HEAD(nfs_active_user_node_head, nfs_active_user_node);
 LIST_HEAD(nfs_export_node_head, nfs_export_node);
 
-const struct nfsstats_printer *printer = NULL;
+const struct nfsstats_printer *printer = &printf_printer;
 
 struct nfs_active_user_node {
 	LIST_ENTRY(nfs_active_user_node)	user_next;
@@ -172,7 +172,6 @@ main(int argc, char *argv[])
 	u_int mode = CLIENT_SERVER_MODE;
 	int ch;
 
-	printer = &printf_printer;
 	interval = 0;
 	while ((ch = getopt(argc, argv, "w:sceun:mvzf:")) != EOF)
 		switch(ch) {

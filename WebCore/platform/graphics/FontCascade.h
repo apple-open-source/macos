@@ -34,12 +34,6 @@
 #include <wtf/WeakPtr.h>
 #include <wtf/unicode/CharacterNames.h>
 
-// "X11/X.h" defines Complex to 0 and conflicts
-// with Complex value in CodePath enum.
-#ifdef Complex
-#undef Complex
-#endif
-
 namespace WebCore {
 
 class GraphicsContext;
@@ -80,6 +74,13 @@ struct GlyphOverflow {
     int bottom { 0 };
     bool computeBounds { false };
 };
+
+#if USE(CORE_TEXT)
+void showLetterpressedGlyphsWithAdvances(const FloatPoint&, const Font&, GraphicsContext&, const CGGlyph*, const CGSize* advances, unsigned count);
+void fillVectorWithHorizontalGlyphPositions(Vector<CGPoint, 256>& positions, CGContextRef, const CGSize* advances, unsigned count, const FloatPoint&);
+AffineTransform computeOverallTextMatrix(const Font&);
+AffineTransform computeVerticalTextMatrix(const Font&, const AffineTransform& previousTextMatrix);
+#endif
 
 class TextLayoutDeleter {
 public:
@@ -182,12 +183,14 @@ public:
 
     static bool isSubpixelAntialiasingAvailable();
 
-    enum CodePath { Auto, Simple, Complex, SimpleWithGlyphOverflow };
+    enum class CodePath : uint8_t { Auto, Simple, Complex, SimpleWithGlyphOverflow };
     CodePath codePath(const TextRun&, Optional<unsigned> from = WTF::nullopt, Optional<unsigned> to = WTF::nullopt) const;
-    static CodePath characterRangeCodePath(const LChar*, unsigned) { return Simple; }
+    static CodePath characterRangeCodePath(const LChar*, unsigned) { return CodePath::Simple; }
     static CodePath characterRangeCodePath(const UChar*, unsigned len);
 
     bool primaryFontIsSystemFont() const;
+
+    static float syntheticObliqueAngle() { return 14; }
 
     std::unique_ptr<DisplayList::DisplayList> displayListForTextRun(GraphicsContext&, const TextRun&, unsigned from = 0, Optional<unsigned> to = { }, CustomFontNotReadyAction = CustomFontNotReadyAction::DoNotPaintIfFontNotReady) const;
 
@@ -301,8 +304,6 @@ private:
 #endif
         return advancedTextRenderingMode();
     }
-
-    static int syntheticObliqueAngle() { return 14; }
 
 #if PLATFORM(WIN) && USE(CG)
     static double s_fontSmoothingContrast;

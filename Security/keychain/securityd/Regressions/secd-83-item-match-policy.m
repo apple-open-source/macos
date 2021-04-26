@@ -230,5 +230,7 @@ int secd_83_item_match_policy(int argc, char *const *argv)
             test(returnKeyName);
     }
 
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
+
     return 0;
 }

@@ -64,6 +64,7 @@
 #include "JSTemplateObjectDescriptor.h"
 #include "LLIntData.h"
 #include "LLIntEntrypoint.h"
+#include "LLIntExceptions.h"
 #include "LLIntPrototypeLoadAdaptiveStructureWatchpoint.h"
 #include "MetadataTable.h"
 #include "ModuleProgramCodeBlock.h"
@@ -431,8 +432,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
                 HandlerInfo& handler = m_rareData->m_exceptionHandlers[i];
 #if ENABLE(JIT)
                 auto& instruction = *instructions().at(unlinkedHandler.target).ptr();
-                MacroAssemblerCodePtr<BytecodePtrTag> codePtr = LLInt::getCodePtr<BytecodePtrTag>(instruction);
-                handler.initialize(unlinkedHandler, CodeLocationLabel<ExceptionHandlerPtrTag>(codePtr.retagged<ExceptionHandlerPtrTag>()));
+                handler.initialize(unlinkedHandler, CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleCatch(instruction.width()).code()));
 #else
                 handler.initialize(unlinkedHandler);
 #endif
@@ -503,7 +503,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         OpcodeID opcodeID = instruction->opcodeID();
         m_bytecodeCost += opcodeLengths[opcodeID];
         switch (opcodeID) {
-        LINK(OpHasIndexedProperty)
+        LINK(OpHasEnumerableIndexedProperty)
 
         LINK(OpCallVarargs, profile)
         LINK(OpTailCallVarargs, profile)
@@ -542,6 +542,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         LINK(OpInByVal)
         LINK(OpPutByVal)
         LINK(OpPutByValDirect)
+        LINK(OpPutPrivateName)
 
         LINK(OpNewArray)
         LINK(OpNewArrayWithSize)
@@ -772,7 +773,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         }
 
         case op_loop_hint: {
-            if (Options::returnEarlyFromInfiniteLoopsForFuzzing())
+            if (UNLIKELY(Options::returnEarlyFromInfiniteLoopsForFuzzing()))
                 vm.addLoopHintExecutionCounter(instruction.ptr());
             break;
         }
@@ -825,7 +826,7 @@ CodeBlock::~CodeBlock()
     // So, we can access member UnlinkedCodeBlock safely here. We bypass the assertion by using unvalidatedGet.
     UnlinkedCodeBlock* unlinkedCodeBlock = m_unlinkedCode.unvalidatedGet();
 
-    if (Options::returnEarlyFromInfiniteLoopsForFuzzing() && JITCode::isBaselineCode(jitType())) {
+    if (UNLIKELY(Options::returnEarlyFromInfiniteLoopsForFuzzing() && JITCode::isBaselineCode(jitType()))) {
         for (const auto& instruction : unlinkedCodeBlock->instructions()) {
             if (instruction->is<OpLoopHint>())
                 vm.removeLoopHintExecutionCounter(instruction.ptr());
@@ -1136,6 +1137,25 @@ void CodeBlock::propagateTransitions(const ConcurrentJSLocker&, SlotVisitor& vis
                 if (vm.heap.isMarked(oldStructure))
                     visitor.appendUnbarriered(newStructure);
             });
+
+            m_metadata->forEach<OpPutPrivateName>([&] (auto& metadata) {
+                StructureID oldStructureID = metadata.m_oldStructureID;
+                StructureID newStructureID = metadata.m_newStructureID;
+                if (!oldStructureID || !newStructureID)
+                    return;
+
+                JSCell* property = metadata.m_property.get();
+                ASSERT(property);
+                if (!vm.heap.isMarked(property))
+                    return;
+
+                Structure* oldStructure =
+                    vm.heap.structureIDTable().get(oldStructureID);
+                Structure* newStructure =
+                    vm.heap.structureIDTable().get(newStructureID);
+                if (vm.heap.isMarked(oldStructure))
+                    visitor.appendUnbarriered(newStructure);
+            });
         }
     }
 
@@ -1302,6 +1322,22 @@ void CodeBlock::finalizeLLIntInlineCaches()
             metadata.m_structureChain.clear();
         });
 
+        m_metadata->forEach<OpPutPrivateName>([&] (auto& metadata) {
+            StructureID oldStructureID = metadata.m_oldStructureID;
+            StructureID newStructureID = metadata.m_newStructureID;
+            JSCell* property = metadata.m_property.get();
+            if ((!oldStructureID || vm.heap.isMarked(vm.heap.structureIDTable().get(oldStructureID)))
+                && (!property || vm.heap.isMarked(property))
+                && (!newStructureID || vm.heap.isMarked(vm.heap.structureIDTable().get(newStructureID))))
+                return;
+
+            dataLogLnIf(Options::verboseOSR(), "Clearing LLInt put_private_name transition.");
+            metadata.m_oldStructureID = 0;
+            metadata.m_offset = 0;
+            metadata.m_newStructureID = 0;
+            metadata.m_property.clear();
+        });
+
         m_metadata->forEach<OpToThis>([&] (auto& metadata) {
             if (!metadata.m_cachedStructureID || vm.heap.isMarked(vm.heap.structureIDTable().get(metadata.m_cachedStructureID)))
                 return;
@@ -1466,8 +1502,7 @@ void CodeBlock::finalizeUnconditionally(VM& vm)
                         const UnlinkedHandlerInfo& unlinkedHandler = m_unlinkedCode->exceptionHandler(i);
                         HandlerInfo& handler = m_rareData->m_exceptionHandlers[i];
                         auto& instruction = *instructions().at(unlinkedHandler.target).ptr();
-                        MacroAssemblerCodePtr<BytecodePtrTag> codePtr = LLInt::getCodePtr<BytecodePtrTag>(instruction);
-                        handler.initialize(unlinkedHandler, CodeLocationLabel<ExceptionHandlerPtrTag>(codePtr.retagged<ExceptionHandlerPtrTag>()));
+                        handler.initialize(unlinkedHandler, CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleCatch(instruction.width()).code()));
                     }
 
                     unlinkIncomingCalls();

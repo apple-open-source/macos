@@ -181,6 +181,7 @@ int secd_52_offering_gencount_reset(int argc, char *const *argv)
     plan_tests(63);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
+    secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);
 #endif

@@ -39,20 +39,22 @@ class WEBCORE_EXPORT ImageBufferIOSurfaceBackend : public ImageBufferCGBackend {
 public:
     static IntSize calculateBackendSize(const FloatSize& logicalSize, float resolutionScale);
 
-    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const FloatSize&, float resolutionScale, ColorSpace, CGColorSpaceRef, const HostWindow*);
-    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const FloatSize&, float resolutionScale, ColorSpace, const HostWindow*);
-    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const FloatSize&, const GraphicsContext&);
+    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, CGColorSpaceRef, const HostWindow*);
+    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const HostWindow*);
+    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const GraphicsContext&);
 
-    ImageBufferIOSurfaceBackend(const FloatSize& logicalSize, const IntSize& physicalSize, float resolutionScale, ColorSpace, std::unique_ptr<IOSurface>&&);
+    ImageBufferIOSurfaceBackend(const Parameters&, std::unique_ptr<IOSurface>&&);
 
     GraphicsContext& context() const override;
     void flushContext() override;
 
+    IntSize backendSize() const override;
+    
     size_t memoryCost() const override;
     size_t externalMemoryCost() const override;
 
-    NativeImagePtr copyNativeImage(BackingStoreCopy = CopyBackingStore) const override;
-    NativeImagePtr sinkIntoNativeImage() override;
+    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const override;
+    RefPtr<NativeImage> sinkIntoNativeImage() override;
 
     void drawConsuming(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
 
@@ -62,15 +64,23 @@ public:
     RefPtr<ImageData> getImageData(AlphaPremultiplication outputFormat, const IntRect&) const override;
     void putImageData(AlphaPremultiplication inputFormat, const ImageData&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
     IOSurface* surface();
-    bool isAccelerated() const override;
+
+    bool isInUse() const override;
+    void releaseGraphicsContext() override;
+    VolatilityState setVolatile(bool) override;
+    void releaseBufferToPool() override;
+
+    static constexpr bool isOriginAtUpperLeftCorner = true;
+    static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
 
 protected:
     static RetainPtr<CGColorSpaceRef> contextColorSpace(const GraphicsContext&);
     unsigned bytesPerRow() const override;
-    ColorFormat backendColorFormat() const override;
 
     std::unique_ptr<IOSurface> m_surface;
     mutable bool m_requiresDrawAfterPutImageData { false };
+
+    mutable bool m_needsSetupContext { false };
 };
 
 } // namespace WebCore

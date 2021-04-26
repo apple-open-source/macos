@@ -82,10 +82,12 @@
 	iprop-acl = @confdir@/iprop-acl
 
 [logging]
-	kdc = 0-/FILE:@testdir@/messages.log
-	default = 0-/FILE:@testdir@/messages.log
-	krb5 = 0-/FILE:@testdir@/messages.log
-	kpasswdd = 0-/FILE:@testdir@/messages.log
+	kdc = 0-/OSLOG:normal:kdc
+ 	kdc = 0-/FILE:@testdir@/messages.log
+	default = 0-/OSLOG:normal:default
+	krb5 = 0-/OSLOG:normal:krb5
+	kpasswdd = 0-/OSLOG:normal:kpasswdd
+
 
 [kadmin]
 	save-password = true

@@ -23,6 +23,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = E47E9845221EB9D0006E312E /* Build configuration list for PBXAggregateTarget "libclosure_driverkit" */;
 			buildPhases = (
+				C2D4261325644D0900FE1EBA /* ShellScript */,
 			);
 			dependencies = (
 				E47E9849221EB9D8006E312E /* PBXTargetDependency */,
@@ -297,6 +298,23 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "# This target is only here for B&I compatibility.  Cortex should be\n# updated to use the Blocks target and then this target can be\n# removed.\n\ntrue\n";
+		};
+		C2D4261325644D0900FE1EBA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/sh -eux";
+			shellScript = "INCLUDE=/usr/include\nSOURCE=\"${DSTROOT}${DRIVERKITROOT}/Runtime${INCLUDE}\"\nDEST=\"${DSTROOT}${DRIVERKITROOT}${INCLUDE}\"\nditto \"${SOURCE}\" \"${DEST}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

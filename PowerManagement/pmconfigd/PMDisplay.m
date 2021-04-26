@@ -46,6 +46,7 @@ os_log_t display_log = NULL;
 bool gSLCheckIn = false;
 bool gDesktopMode = false;
 bool gDisplayOn = false;
+bool gSLConnectionInitialized = false;
 pid_t gSLPid = -1;
 dispatch_source_t gSLExit = 0;
 
@@ -306,6 +307,7 @@ void handleSkylightNotification(void *dict)
         case kSLDCNotificationTypeConnectionEstablished:
             // initial connection established
             INFO_LOG("Connection initialized");
+            gSLConnectionInitialized = true;
 
             // send initial clamshell state to WindowServer
             SLSClamshellState sls_state = kClamshellNotPresent;
@@ -331,6 +333,12 @@ void handleSkylightNotification(void *dict)
                         if (payload[i][kSLSDisplayControlNotificationLogicalDisplaysState]) {
                             uint64_t state = [payload[i][kSLSDisplayControlNotificationLogicalDisplaysState] longLongValue];
                             displayStateDidChange(state);
+
+                            // take a UserIsActive assertion if display is on
+                            if (state == kDisplaysPowered) {
+                                IOPMAssertionID assertionID = kIOPMNullAssertionID;
+                                InternalDeclareUserActive(CFSTR("com.apple.powerd.ws.initialize"), &assertionID);
+                            }
                         }
                     }
                 }
@@ -401,6 +409,7 @@ void handleSkylightCheckIn()
         gSLExit = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, gSLPid, DISPATCH_PROC_EXIT, _getPMMainQueue());
         dispatch_source_set_event_handler(gSLExit, ^{
                                         gSLCheckIn = false;
+                                        gSLConnectionInitialized = false;
                                         gSLPid = -1;
                                         ERROR_LOG("WindowServer exited");
                                         dispatch_release(gSLExit);
@@ -411,7 +420,7 @@ void handleSkylightCheckIn()
 
     // create ws power control client
     NSError *err = nil;
-    gSLPowerClient = [[SLSDisplayPowerControlClient alloc] initPowerControlClient:&err notifyQueue:_getPMMainQueue() notificationType:kSLDCNotificationTypeNone notificationBlock:^(void *dict) {
+    gSLPowerClient = [[SLSDisplayPowerControlClient alloc] initAsyncPowerControlClient:&err notifyQueue:_getPMMainQueue() notificationType:kSLDCNotificationTypeNone notificationBlock:^(void *dict) {
         if (dict != nil) {
             handleSkylightNotification(dict);
         } else {
@@ -437,8 +446,8 @@ void handleSkylightCheckIn()
 
 void requestDisplayState(uint64_t state, int timeout)
 {
-    if (!gSLCheckIn) {
-        ERROR_LOG("WindowServer has not checked in. Refusing to change display state");
+    if (!gSLCheckIn || !gSLConnectionInitialized) {
+        ERROR_LOG("WindowServer has not checked in or connection not initialized. Refusing to change display state");
         return;
     }
     /* This function always targets all displays.

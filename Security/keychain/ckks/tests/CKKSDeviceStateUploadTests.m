@@ -85,6 +85,7 @@
                     return NO;
                 }
             }
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
@@ -131,6 +132,7 @@
                     return NO;
                 }
             }
+          inspectOperationGroup:nil
            runAfterModification:nil];
 
     CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];

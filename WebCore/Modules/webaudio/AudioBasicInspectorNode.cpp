@@ -36,11 +36,10 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(AudioBasicInspectorNode);
 
-AudioBasicInspectorNode::AudioBasicInspectorNode(BaseAudioContext& context)
-    : AudioNode(context)
+AudioBasicInspectorNode::AudioBasicInspectorNode(BaseAudioContext& context, NodeType type)
+    : AudioNode(context, type)
 {
-    setNodeType(NodeTypeBasicInspector);
-    addInput(makeUnique<AudioNodeInput>(this));
+    addInput();
 }
 
 // We override pullInputs() as an optimization allowing this node to take advantage of in-place processing,
@@ -95,7 +94,9 @@ void AudioBasicInspectorNode::updatePullStatus()
             context().addAutomaticPullNode(*this);
             m_needAutomaticPull = true;
         } else if (!numberOfInputConnections && m_needAutomaticPull) {
-            // The AudioBasicInspectorNode is connected to nothing, remove it from the context's automatic pull list.
+            // The AudioBasicInspectorNode is connected to nothing and is not an AnalyserNode, remove it from the
+            // context's automatic pull list. AnalyserNode's need to be pulled even with no inputs so that the
+            // internal state gets updated to hold the right time and FFT data.
             context().removeAutomaticPullNode(*this);
             m_needAutomaticPull = false;
         }

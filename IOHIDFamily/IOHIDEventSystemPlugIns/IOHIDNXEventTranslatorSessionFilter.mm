@@ -30,6 +30,7 @@
 #include "IOHIDEventTranslation.h"
 #include <IOKit/IOMessage.h>
 #include <sstream>
+#include <cmath>
 #include <iomanip>
 #include <sys/time.h>
 
@@ -282,15 +283,25 @@ void IOHIDNXEventTranslatorSessionFilter::registerService(IOHIDServiceRef servic
         }
     }
   
-    CFNumberRefWrap value (IOHIDServiceCopyProperty(service, CFSTR(kIOHIDServiceGlobalModifiersUsageKey)), true);
-    if (value) {
-      HIDLogError("kIOHIDServiceGlobalModifiersUsageKey = %d", ((int)value));
-      if (((SInt32)value) & kIOHIDGlobalModifersReportToService) {
-        _reportModifiers.SetValue(service);
-      }
-      if (((SInt32)value) & kIOHIDGlobalModifersUse) {
-        _updateModifiers.SetValue(service);
-      }
+    CFTypeRef propertyValue = IOHIDServiceCopyProperty(service, CFSTR(kIOHIDServiceGlobalModifiersUsageKey));
+    if (propertyValue) {
+        unsigned int value = 0;
+        if (CFGetTypeID(propertyValue) == CFDateGetTypeID()) {
+            CFDataRef propertyValueData =  (CFDataRef)propertyValue;
+            size_t propertyValueLength = std::min((size_t)CFDataGetLength(propertyValueData), sizeof(uint32_t));
+            CFDataGetBytes(propertyValueData, CFRangeMake(0, propertyValueLength), (UInt8 *)&value);
+        } else if (CFGetTypeID(propertyValue) == CFNumberGetTypeID()) {
+            CFNumberRef propertyValueNum =  (CFNumberRef)propertyValue;
+            CFNumberGetValue(propertyValueNum, kCFNumberSInt32Type, &value);
+        }
+        HIDLog ("kIOHIDServiceGlobalModifiersUsageKey:0x%x", value);
+        if (value & kIOHIDGlobalModifersReportToService) {
+            _reportModifiers.SetValue(service);
+        }
+        if (value & kIOHIDGlobalModifersUse) {
+            _updateModifiers.SetValue(service);
+        }
+        CFRelease(propertyValue);
     }
  
     if (_translator &&

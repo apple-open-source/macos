@@ -29,6 +29,7 @@
 #if USE(CG)
 
 #include "ImageOrientation.h"
+#include "ImageResolution.h"
 #include "ImageSourceCG.h"
 #include "IntPoint.h"
 #include "IntSize.h"
@@ -62,6 +63,13 @@ static RetainPtr<CFMutableDictionaryRef> createImageSourceOptions()
     CFDictionarySetValue(options.get(), kCGImageSourceShouldCache, kCFBooleanTrue);
     CFDictionarySetValue(options.get(), kCGImageSourceShouldPreferRGB32, kCFBooleanTrue);
     CFDictionarySetValue(options.get(), kCGImageSourceSkipMetadata, kCFBooleanTrue);
+    return options;
+}
+
+static RetainPtr<CFMutableDictionaryRef> createImageSourceMetadataOptions()
+{
+    auto options = createImageSourceOptions();
+    CFDictionarySetValue(options.get(), kCGImageSourceSkipMetadata, kCFBooleanFalse);
     return options;
 }
     
@@ -166,6 +174,59 @@ static ImageOrientation orientationFromProperties(CFDictionaryRef imagePropertie
     return ImageOrientation::fromEXIFValue(exifValue);
 }
 
+static bool mayHaveDensityCorrectedSize(CFDictionaryRef imageProperties)
+{
+    ASSERT(imageProperties);
+    auto resolutionXProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyDPIWidth);
+    auto resolutionYProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyDPIHeight);
+    if (!resolutionXProperty || !resolutionYProperty)
+        return false;
+
+    float resolutionX, resolutionY;
+    return CFNumberGetValue(resolutionXProperty, kCFNumberFloat32Type, &resolutionX)
+        && CFNumberGetValue(resolutionYProperty, kCFNumberFloat32Type, &resolutionY)
+        && (resolutionX != ImageResolution::DefaultResolution || resolutionY != ImageResolution::DefaultResolution);
+}
+
+static Optional<IntSize> densityCorrectedSizeFromProperties(CFDictionaryRef imageProperties)
+{
+    ASSERT(imageProperties);
+    auto exifDictionary = (CFDictionaryRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyExifDictionary);
+    auto tiffDictionary = (CFDictionaryRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyTIFFDictionary);
+
+    if (!exifDictionary || !tiffDictionary)
+        return WTF::nullopt;
+
+    auto widthProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelWidth);
+    auto heightProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelHeight);
+    auto preferredWidthProperty = (CFNumberRef)CFDictionaryGetValue(exifDictionary, kCGImagePropertyExifPixelXDimension);
+    auto preferredHeightProperty = (CFNumberRef)CFDictionaryGetValue(exifDictionary, kCGImagePropertyExifPixelYDimension);
+    auto resolutionXProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyDPIWidth);
+    auto resolutionYProperty = (CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyDPIHeight);
+    auto resolutionUnitProperty = (CFNumberRef)CFDictionaryGetValue(tiffDictionary, kCGImagePropertyTIFFResolutionUnit);
+
+    if (!preferredWidthProperty || !preferredHeightProperty || !resolutionXProperty || !resolutionYProperty || !resolutionUnitProperty)
+        return WTF::nullopt;
+
+    int resolutionUnit;
+    float sourceWidth, sourceHeight, preferredWidth, preferredHeight, resolutionWidth, resolutionHeight;
+    if (!CFNumberGetValue(widthProperty, kCFNumberFloat32Type, &sourceWidth)
+        || !CFNumberGetValue(heightProperty, kCFNumberFloat32Type, &sourceHeight)
+        || !CFNumberGetValue(preferredWidthProperty, kCFNumberFloat32Type, &preferredWidth)
+        || !CFNumberGetValue(preferredHeightProperty, kCFNumberFloat32Type, &preferredHeight)
+        || !CFNumberGetValue(resolutionXProperty, kCFNumberFloat32Type, &resolutionWidth)
+        || !CFNumberGetValue(resolutionYProperty, kCFNumberFloat32Type, &resolutionHeight)
+        || !CFNumberGetValue(resolutionUnitProperty, kCFNumberIntType, &resolutionUnit)) {
+        return WTF::nullopt;
+    }
+
+    return ImageResolution::densityCorrectedSize(FloatSize(sourceWidth, sourceHeight), {
+        { preferredWidth, preferredHeight },
+        { resolutionWidth, resolutionHeight },
+        static_cast<ImageResolution::ResolutionUnit>(resolutionUnit)
+    });
+}
+
 #if !PLATFORM(COCOA)
 size_t sharedBufferGetBytesAtPosition(void* info, void* buffer, off_t position, size_t count)
 {
@@ -225,46 +286,54 @@ String ImageDecoderCG::filenameExtension() const
 
 EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
 {
+    if (m_encodedDataStatus == EncodedDataStatus::Error || m_encodedDataStatus == EncodedDataStatus::Complete)
+        return m_encodedDataStatus;
+
+    // The image source UTI can be changed while receiving more encoded data.
     String uti = this->uti();
     if (uti.isEmpty())
         return EncodedDataStatus::Unknown;
 
+    if (!isSupportedImageType(uti)) {
+        m_encodedDataStatus = EncodedDataStatus::Error;
+        return m_encodedDataStatus;
+    }
+
     switch (CGImageSourceGetStatus(m_nativeDecoder.get())) {
     case kCGImageStatusUnknownType:
-        return EncodedDataStatus::Error;
+        m_encodedDataStatus = EncodedDataStatus::Error;
+        break;
 
     case kCGImageStatusUnexpectedEOF:
     case kCGImageStatusInvalidData:
     case kCGImageStatusReadingHeader:
         // Ragnaros yells: TOO SOON! You have awakened me TOO SOON, Executus!
         if (!m_isAllDataReceived)
-            return EncodedDataStatus::Unknown;
-
-        return EncodedDataStatus::Error;
+            m_encodedDataStatus = EncodedDataStatus::Unknown;
+        else
+            m_encodedDataStatus = EncodedDataStatus::Error;
+        break;
 
     case kCGImageStatusIncomplete: {
-        if (!isSupportedImageType(uti))
-            return EncodedDataStatus::Error;
+        if (m_encodedDataStatus == EncodedDataStatus::SizeAvailable)
+            break;
 
-        RetainPtr<CFDictionaryRef> image0Properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
-        if (!image0Properties)
-            return EncodedDataStatus::TypeAvailable;
-        
-        if (!CFDictionaryContainsKey(image0Properties.get(), kCGImagePropertyPixelWidth) || !CFDictionaryContainsKey(image0Properties.get(), kCGImagePropertyPixelHeight))
-            return EncodedDataStatus::TypeAvailable;
-        
-        return EncodedDataStatus::SizeAvailable;
+        auto image0Properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
+        if (!image0Properties || !CFDictionaryContainsKey(image0Properties.get(), kCGImagePropertyPixelWidth) || !CFDictionaryContainsKey(image0Properties.get(), kCGImagePropertyPixelHeight)) {
+            m_encodedDataStatus = EncodedDataStatus::TypeAvailable;
+            break;
+        }
+
+        m_encodedDataStatus = EncodedDataStatus::SizeAvailable;
+        break;
     }
 
     case kCGImageStatusComplete:
-        if (!isSupportedImageType(uti))
-            return EncodedDataStatus::Error;
-
-        return EncodedDataStatus::Complete;
+        m_encodedDataStatus = EncodedDataStatus::Complete;
+        break;
     }
 
-    ASSERT_NOT_REACHED();
-    return EncodedDataStatus::Unknown;
+    return m_encodedDataStatus; 
 }
 
 size_t ImageDecoderCG::frameCount() const
@@ -308,7 +377,7 @@ RepetitionCount ImageDecoderCG::repetitionCount() const
 
 Optional<IntPoint> ImageDecoderCG::hotSpot() const
 {
-    RetainPtr<CFDictionaryRef> properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
+    auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
     if (!properties)
         return WTF::nullopt;
     
@@ -359,13 +428,21 @@ bool ImageDecoderCG::frameIsCompleteAtIndex(size_t index) const
     return CGImageSourceGetStatusAtIndex(m_nativeDecoder.get(), index) == kCGImageStatusComplete;
 }
 
-ImageOrientation ImageDecoderCG::frameOrientationAtIndex(size_t index) const
+ImageDecoder::FrameMetadata ImageDecoderCG::frameMetadataAtIndex(size_t index) const
 {
     RetainPtr<CFDictionaryRef> properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions().get()));
     if (!properties)
-        return ImageOrientation::None;
+        return { };
     
-    return orientationFromProperties(properties.get());
+    auto orientation = orientationFromProperties(properties.get());
+    if (!mayHaveDensityCorrectedSize(properties.get()))
+        return { orientation, WTF::nullopt };
+
+    auto propertiesWithMetadata = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, createImageSourceMetadataOptions().get()));
+    if (!propertiesWithMetadata)
+        return { orientation, WTF::nullopt };
+    
+    return { orientation, densityCorrectedSizeFromProperties(propertiesWithMetadata.get()) };
 }
 
 Seconds ImageDecoderCG::frameDurationAtIndex(size_t index) const
@@ -428,15 +505,16 @@ unsigned ImageDecoderCG::frameBytesAtIndex(size_t index, SubsamplingLevel subsam
     return (frameSize.area() * 4).unsafeGet();
 }
 
-NativeImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions& decodingOptions)
+PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions& decodingOptions)
 {
     LOG(Images, "ImageDecoder %p createFrameImageAtIndex %lu", this, index);
     RetainPtr<CFDictionaryRef> options;
     RetainPtr<CGImageRef> image;
 
+    auto size = frameSizeAtIndex(index, SubsamplingLevel::Default);
+
     if (!decodingOptions.isSynchronous()) {
         // Don't consider the subsamplingLevel when comparing the image native size with sizeForDrawing.
-        IntSize size = frameSizeAtIndex(index, SubsamplingLevel::Default);
         
         if (decodingOptions.hasSizeForDrawing()) {
             // See which size is smaller: the image native size or the sizeForDrawing.

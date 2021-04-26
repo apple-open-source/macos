@@ -24,15 +24,27 @@
  */
 
 #import "config.h"
-#import "_WKRemoteWebInspectorViewController.h"
+#import "_WKRemoteWebInspectorViewControllerInternal.h"
 
 #if PLATFORM(MAC)
 
 #import "APIDebuggableInfo.h"
+#import "APIInspectorConfiguration.h"
 #import "DebuggableInfoData.h"
 #import "RemoteWebInspectorProxy.h"
 #import "WKWebViewInternal.h"
+#import "_WKInspectorConfigurationInternal.h"
 #import "_WKInspectorDebuggableInfoInternal.h"
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+#import "APIInspectorExtension.h"
+#import "WKError.h"
+#import "WebInspectorUIExtensionControllerProxy.h"
+#import "_WKInspectorExtensionInternal.h"
+#import <wtf/BlockPtr.h>
+#endif
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface _WKRemoteWebInspectorViewController ()
 - (void)sendMessageToBackend:(NSString *)message;
@@ -62,6 +74,11 @@ public:
     {
         [m_controller closeFromFrontend];
     }
+    
+    Ref<API::InspectorConfiguration> configurationForRemoteInspector(RemoteWebInspectorProxy& inspector) override
+    {
+        return static_cast<API::InspectorConfiguration&>([m_controller.configuration _apiObject]);
+    }
 
 private:
     _WKRemoteWebInspectorViewController *m_controller;
@@ -70,14 +87,16 @@ private:
 } // namespace WebKit
 
 @implementation _WKRemoteWebInspectorViewController {
-    RefPtr<WebKit::RemoteWebInspectorProxy> m_remoteInspectorProxy;
     std::unique_ptr<WebKit::_WKRemoteWebInspectorProxyClient> m_remoteInspectorClient;
+    _WKInspectorConfiguration *_configuration;
 }
 
-- (instancetype)init
+- (instancetype)initWithConfiguration:(_WKInspectorConfiguration *)configuration
 {
     if (!(self = [super init]))
         return nil;
+
+    _configuration = [configuration copy];
 
     m_remoteInspectorProxy = WebKit::RemoteWebInspectorProxy::create();
     m_remoteInspectorClient = makeUnique<WebKit::_WKRemoteWebInspectorProxyClient>(self);
@@ -94,38 +113,6 @@ private:
 - (WKWebView *)webView
 {
     return m_remoteInspectorProxy->webView();
-}
-
-static _WKInspectorDebuggableType legacyDebuggableTypeToModernDebuggableType(WKRemoteWebInspectorDebuggableType debuggableType)
-{
-    switch (debuggableType) {
-    case WKRemoteWebInspectorDebuggableTypeITML:
-        return _WKInspectorDebuggableTypeITML;
-    case WKRemoteWebInspectorDebuggableTypeJavaScript:
-        return _WKInspectorDebuggableTypeJavaScript;
-    case WKRemoteWebInspectorDebuggableTypePage:
-        return _WKInspectorDebuggableTypePage;
-    case WKRemoteWebInspectorDebuggableTypeServiceWorker:
-        return _WKInspectorDebuggableTypeServiceWorker;
-    case WKRemoteWebInspectorDebuggableTypeWebPage:
-        return _WKInspectorDebuggableTypeWebPage;
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    case WKRemoteWebInspectorDebuggableTypeWeb:
-        return _WKInspectorDebuggableTypeWebPage;
-ALLOW_DEPRECATED_DECLARATIONS_END
-    }
-}
-
-// FIXME: remove this variant when all callers have moved off of it.
-- (void)loadForDebuggableType:(WKRemoteWebInspectorDebuggableType)debuggableType backendCommandsURL:(NSURL *)backendCommandsURL
-{
-    _WKInspectorDebuggableInfo *debuggableInfo = [_WKInspectorDebuggableInfo new];
-    debuggableInfo.debuggableType = legacyDebuggableTypeToModernDebuggableType(debuggableType);
-    debuggableInfo.targetPlatformName = @"macOS";
-    debuggableInfo.targetBuildVersion = @"Unknown";
-    debuggableInfo.targetProductVersion = @"Unknown";
-    debuggableInfo.targetIsSimulator = false;
-    [self loadForDebuggable:debuggableInfo backendCommandsURL:backendCommandsURL];
 }
 
 - (void)loadForDebuggable:(_WKInspectorDebuggableInfo *)debuggableInfo backendCommandsURL:(NSURL *)backendCommandsURL
@@ -148,6 +135,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     m_remoteInspectorProxy->sendMessageToFrontend(message);
 }
 
+// MARK: RemoteWebInspectorProxyClient methods
+
 - (void)sendMessageToBackend:(NSString *)message
 {
     if (_delegate && [_delegate respondsToSelector:@selector(inspectorViewController:sendMessageToBackend:)])
@@ -162,12 +151,48 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 // MARK: _WKRemoteWebInspectorViewControllerPrivate methods
 
-- (void)_setDiagnosticLoggingDelegate:(id<_WKDiagnosticLoggingDelegate>)delegate
+- (void)_setDiagnosticLoggingDelegate:(id<_WKDiagnosticLoggingDelegate> _Nullable)delegate
 {
     self.webView._diagnosticLoggingDelegate = delegate;
     m_remoteInspectorProxy->setDiagnosticLoggingAvailable(!!delegate);
 }
 
+// MARK: _WKInspectorExtensionHost methods
+
+- (void)registerExtensionWithID:(NSString *)extensionID displayName:(NSString *)displayName completionHandler:(void(^)(NSError *, _WKInspectorExtension *))completionHandler
+{
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_remoteInspectorProxy->extensionController().registerExtension(extensionID, displayName, [protectedExtensionID = retainPtr(extensionID), protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(completionHandler)] (Expected<bool, WebKit::InspectorExtensionError> result) mutable {
+        if (!result) {
+            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: inspectorExtensionErrorToString(result.error())}], nil);
+            return;
+        }
+
+        capturedBlock(nil, [[wrapper(API::InspectorExtension::create(protectedExtensionID.get(), protectedSelf->m_remoteInspectorProxy->extensionController())) retain] autorelease]);
+    });
+#else
+    completionHandler([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil], nil);
+#endif
+}
+
+- (void)unregisterExtension:(_WKInspectorExtension *)extension completionHandler:(void(^)(NSError *))completionHandler
+{
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_remoteInspectorProxy->extensionController().unregisterExtension(extension.extensionID, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(completionHandler)] (Expected<bool, WebKit::InspectorExtensionError> result) mutable {
+        if (!result) {
+            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: inspectorExtensionErrorToString(result.error())}]);
+            return;
+        }
+
+        capturedBlock(nil);
+    });
+#else
+    completionHandler([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
+#endif
+}
+
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // PLATFORM(MAC)

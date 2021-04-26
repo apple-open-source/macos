@@ -44,6 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSTimeInterval)cuttlefishRetryAfter;
 
 - (BOOL)isCKKSServerPluginError:(NSInteger)code;
+- (BOOL)isCKServerInternalError;
 @end
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)

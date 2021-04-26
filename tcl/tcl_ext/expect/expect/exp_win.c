@@ -43,6 +43,11 @@ conflicts with sys/ioctl.h
 #  include <sys/ioctl.h>
 #endif
 
+/* On Apple systems, this is needed for ioctl(2) */
+#if defined(HAVE_TERMIOS) && defined(__APPLE__)
+#  include <sys/ioctl.h>
+#endif
+
 /* SCO defines window size structure in PTEM and TIOCGWINSZ in termio.h */
 /* Sigh... */
 #if defined(HAVE_SYS_PTEM_H)
@@ -81,27 +86,32 @@ static exp_winsize win2size = {0, 0};
 int exp_window_size_set(fd)
 int fd;
 {
+	int res = -1;
 #ifdef TIOCSWINSZ
-	ioctl(fd,TIOCSWINSZ,&winsize);
+	res = ioctl(fd,TIOCSWINSZ,&winsize);
 #endif
 #if defined(TIOCSSIZE) && !defined(TIOCSWINSZ)
-	ioctl(fd,TIOCSSIZE,&winsize);
+	res = ioctl(fd,TIOCSSIZE,&winsize);
 #endif
+	return res;
 }
 
 int exp_window_size_get(fd)
 int fd;
 {
+	int res = -1;
 #ifdef TIOCGWINSZ
-	ioctl(fd,TIOCGWINSZ,&winsize);
+	res = ioctl(fd,TIOCGWINSZ,&winsize);
 #endif
 #if defined(TIOCGSIZE) && !defined(TIOCGWINSZ)
-	ioctl(fd,TIOCGSIZE,&winsize);
+	res = ioctl(fd,TIOCGSIZE,&winsize);
 #endif
 #if !defined(EXP_WIN)
 	winsize.rows = 0;
 	winsize.columns = 0;
+	res = 0;
 #endif
+	return res;
 }
 
 void
@@ -112,13 +122,11 @@ char *rows;
 	exp_window_size_set(exp_dev_tty);
 }
 
-char*
-exp_win_rows_get()
+int
+exp_win_rows_get(void)
 {
-    static char rows [20];
 	exp_window_size_get(exp_dev_tty);
-	sprintf(rows,"%d",winsize.rows);
-    return rows;
+	return winsize.rows;
 }
 
 void
@@ -129,13 +137,11 @@ char *columns;
 	exp_window_size_set(exp_dev_tty);
 }
 
-char*
-exp_win_columns_get()
+int
+exp_win_columns_get(void)
 {
-    static char columns [20];
 	exp_window_size_get(exp_dev_tty);
-	sprintf(columns,"%d",winsize.columns);
-    return columns;
+	return winsize.columns;
 }
 
 /*
@@ -145,23 +151,32 @@ exp_win_columns_get()
 int exp_win2_size_set(fd)
 int fd;
 {
+	int res = -1;
 #ifdef TIOCSWINSZ
-			ioctl(fd,TIOCSWINSZ,&win2size);
+	res = ioctl(fd,TIOCSWINSZ,&win2size);
 #endif
 #if defined(TIOCSSIZE) && !defined(TIOCSWINSZ)
-			ioctl(fd,TIOCSSIZE,&win2size);
+	res = ioctl(fd,TIOCSSIZE,&win2size);
 #endif
+	return res;
 }
 
 int exp_win2_size_get(fd)
 int fd;
 {
+	int res = -1;
 #ifdef TIOCGWINSZ
-	ioctl(fd,TIOCGWINSZ,&win2size);
+	res = ioctl(fd,TIOCGWINSZ,&win2size);
 #endif
 #if defined(TIOCGSIZE) && !defined(TIOCGWINSZ)
-	ioctl(fd,TIOCGSIZE,&win2size);
+	res = ioctl(fd,TIOCGSIZE,&win2size);
 #endif
+#if !defined(EXP_WIN)
+	win2size.rows = 0;
+	win2size.columns = 0;
+	res = 0;
+#endif
+	return res;
 }
 
 void
@@ -174,18 +189,12 @@ char *rows;
 	exp_win2_size_set(fd);
 }
 
-char*
+int
 exp_win2_rows_get(fd)
 int fd;
 {
-    static char rows [20];
 	exp_win2_size_get(fd);
-	sprintf(rows,"%d",win2size.rows);
-#if !defined(EXP_WIN)
-	win2size.rows = 0;
-	win2size.columns = 0;
-#endif
-    return rows;
+	return win2size.rows;
 }
 
 void
@@ -198,14 +207,12 @@ char *columns;
 	exp_win2_size_set(fd);
 }
 
-char*
+int
 exp_win2_columns_get(fd)
 int fd;
 {
-    static char columns [20];
 	exp_win2_size_get(fd);
-	sprintf(columns,"%d",win2size.columns);
-    return columns;
+	return win2size.columns;
 }
 
 /*

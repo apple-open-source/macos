@@ -27,7 +27,7 @@
 
 typedef enum _SMB2_CMD_FLAGS
 {
-    SMB2_CMD_NO_BLOCK = 0x80000000  /* Dont wait for credits */
+    SMB2_CMD_NO_BLOCK      = 0x80000000  /* Dont wait for credits */
 } _SMB2_CMD_FLAGS;
 
 
@@ -52,27 +52,33 @@ typedef enum _SMB2_CMD_FLAGS
  */
 typedef enum _SMB2_CREATE_RQ_FLAGS
 {
-    SMB2_CREATE_DO_CREATE = 0x0001,             /* We are creating a new item */
-    SMB2_CREATE_IS_NAMED_STREAM = 0x0002,       /* Dealing with a named stream */
-    SMB2_CREATE_GET_MAX_ACCESS = 0x0004,        /* Add Max Access Create Context */
-    SMB2_CREATE_NAME_IS_PATH = 0x0008,          /* Name field is already converted to a path format */
-    SMB2_CREATE_AAPL_QUERY = 0x0010,            /* Add AAPL Create Context */
-    SMB2_CREATE_AAPL_RESOLVE_ID = 0x0020,       /* Add AAPL Resolve ID Create Context */
-    SMB2_CREATE_DUR_HANDLE = 0x0040,            /* Get a durable handle */
-    SMB2_CREATE_DUR_HANDLE_RECONNECT = 0x0080,  /* Reopen file that has durable handle */
-    SMB2_CREATE_ASSUME_DELETE = 0x0100,         /* Assume delete access in Max Access */
-	SMB2_CREATE_HANDLE_RECONNECT = 0x0200,      /* Reopen file that does not have a durable handle */
-	SMB2_CREATE_DIR_LEASE = 0x0400,				/* Request a Dir Lease */
-	SMB2_CREATE_SET_DFS_FLAG = 0x0800			/* Set the DFS Flag in the header */
+    SMB2_CREATE_DO_CREATE            = 0x0001, /* We are creating a new item */
+    SMB2_CREATE_IS_NAMED_STREAM      = 0x0002, /* Dealing with a named stream */
+    SMB2_CREATE_GET_MAX_ACCESS       = 0x0004, /* Add Max Access Create Context */
+    SMB2_CREATE_NAME_IS_PATH         = 0x0008, /* Name field is already converted to a path format */
+    SMB2_CREATE_AAPL_QUERY           = 0x0010, /* Add AAPL Create Context */
+    SMB2_CREATE_AAPL_RESOLVE_ID      = 0x0020, /* Add AAPL Resolve ID Create Context */
+    SMB2_CREATE_DUR_HANDLE           = 0x0040, /* Get a durable handle */
+    SMB2_CREATE_DUR_HANDLE_RECONNECT = 0x0080, /* Reopen file that has durable handle */
+    SMB2_CREATE_ASSUME_DELETE        = 0x0100, /* Assume delete access in Max Access */
+	SMB2_CREATE_HANDLE_RECONNECT     = 0x0200, /* Reopen file that does not have a durable handle */
+	SMB2_CREATE_DIR_LEASE            = 0x0400, /* Request a Dir Lease */
+	SMB2_CREATE_SET_DFS_FLAG         = 0x0800, /* Set the DFS Flag in the header */
+    SMB2_CREATE_REPLAY_FLAG          = 0x1000, /* This is a retransmit, ie, set the SMB2_FLAGS_REPLAY_OPERATIONS flag */
+    SMB2_CREATE_ADD_TIME_WARP        = 0x2000  /* Add Time Warp Context */
 } _SMB2_CREATE_RQ_FLAGS;
 
 /* smb2_cmpd_position flags */
 typedef enum _SMB2_CMPD_POSITION_FLAGS
 {
-    SMB2_CMPD_FIRST = 0x0001,
+    SMB2_CMPD_FIRST  = 0x0001,
     SMB2_CMPD_MIDDLE = 0x0002,
-    SMB2_CMPD_LAST = 0x0004
+    SMB2_CMPD_LAST   = 0x0004
 } _SMB2_CMPD_POSITION_FLAGS;
+
+typedef enum smb_mc_control {
+    SMB2_MC_REPLAY_FLAG         = SMB2_CREATE_REPLAY_FLAG, /* This is a retransmit, ie, set the SMB2_FLAGS_REPLAY_OPERATIONS flag */
+} _SMB2_MC_CONTROL;
 
 struct smb2_change_notify_rq {
 	uint32_t flags;
@@ -93,6 +99,7 @@ struct smb2_close_rq {
     uint32_t flags;
     uint32_t pad;
     SMBFID fid;
+    enum smb_mc_control mc_flags;
     
     /* return values */
 	uint32_t ret_ntstatus;
@@ -129,7 +136,8 @@ struct smb2_create_rq {
     char *strm_namep;               /* stream name */
     void *create_contextp;          /* used for various create contexts */
 	struct timespec req_time;       /* time this create was done */
-    
+    enum smb_mc_control mc_flags;
+
     /* return values */
 	uint32_t ret_ntstatus;
 	uint32_t ret_attributes;
@@ -217,7 +225,8 @@ struct smb2_ioctl_rq {
 	uint32_t snd_output_len;
 	uint32_t rcv_input_len;
 	uint32_t rcv_output_len;
-    
+    enum smb_mc_control mc_flags;
+
     /* uio buffers used for ioctls from user space */
     uio_t snd_input_uio;
     uio_t snd_output_uio;
@@ -246,7 +255,8 @@ struct smb2_query_dir_rq {
     uint32_t name_flags;    /* use UTF_SFM_CONVERSIONS or not */
     struct smbnode *dnp;
     char *namep;
-    
+    enum smb_mc_control mc_flags;
+
     /* uio buffers used for ioctls from user space */
     uio_t rcv_output_uio;
     
@@ -267,7 +277,8 @@ struct smb2_query_info_rq {
     uint8_t *output_buffer;
     uint8_t *input_buffer;
 	SMBFID fid;
-    
+    enum smb_mc_control mc_flags;
+
     /* return values */
 	uint32_t ret_ntstatus;
 	uint32_t ret_buffer_len;
@@ -286,6 +297,7 @@ struct smb2_rw_rq {
 	SMBFID fid;
     uio_t auio;
     user_ssize_t io_len;
+    enum smb_mc_control mc_flags;
     
     /* return values */
 	uint32_t ret_ntstatus;
@@ -334,6 +346,7 @@ struct smb2_set_info_rq {
 	uint32_t add_info;
 	SMBFID fid;
     uint8_t *input_buffer;
+    enum smb_mc_control mc_flags;
     
     /* return values */
 	uint32_t ret_ntstatus;
@@ -347,14 +360,14 @@ struct smb2_network_info_reply {
 };
 
 int smb2_rq_alloc(struct smb_connobj *obj, u_char cmd, uint32_t *rq_len, 
-                  vfs_context_t context, struct smb_rq **rqpp);
+                  vfs_context_t context, struct smbiod *iod, struct smb_rq **rqpp);
 void smb_rq_bend32(struct smb_rq *rqp);
 void smb2_rq_bstart(struct smb_rq *rqp, uint16_t *len_ptr);
 void smb2_rq_bstart32(struct smb_rq *rqp, uint32_t *len_ptr);
 void smb2_rq_align8(struct smb_rq *rqp);
 int smb2_rq_credit_increment(struct smb_rq *rqp);
 uint32_t smb2_rq_credit_check(struct smb_rq *rqp, uint32_t len);
-void smb2_rq_credit_start(struct smb_session *sessionp, uint16_t credits);
+void smb2_rq_credit_start(struct smbiod *iod, uint16_t credits);
 int smb2_rq_message_id_increment(struct smb_rq *rqp);
 int smb2_rq_next_command(struct smb_rq *rqp, size_t *next_cmd_offset,
                          struct mdchain *mdp);

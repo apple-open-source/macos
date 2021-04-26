@@ -75,8 +75,13 @@ MediaRecorderPrivateAVFImpl::MediaRecorderPrivateAVFImpl(Ref<MediaRecorderPrivat
 
 MediaRecorderPrivateAVFImpl::~MediaRecorderPrivateAVFImpl()
 {
-    setAudioSource(nullptr);
-    setVideoSource(nullptr);
+}
+
+void MediaRecorderPrivateAVFImpl::startRecording(StartRecordingCallback&& callback)
+{
+    // FIMXE: In case of of audio recording, we should wait for the audio compression to start to give back the exact bit rate.
+    // FIXME: Add support to options.bitsPerSecond as well.
+    callback(String(m_writer->mimeType()), m_writer->audioBitRate(), m_writer->videoBitRate());
 }
 
 void MediaRecorderPrivateAVFImpl::videoSampleAvailable(MediaSample& sampleBuffer)
@@ -136,15 +141,25 @@ void MediaRecorderPrivateAVFImpl::audioSamplesAvailable(const WTF::MediaTime& me
 
 void MediaRecorderPrivateAVFImpl::stopRecording()
 {
-    setAudioSource(nullptr);
-    setVideoSource(nullptr);
     m_writer->stopRecording();
+}
+
+void MediaRecorderPrivateAVFImpl::pauseRecording(CompletionHandler<void()>&& completionHandler)
+{
+    m_writer->pause();
+    completionHandler();
+}
+
+void MediaRecorderPrivateAVFImpl::resumeRecording(CompletionHandler<void()>&& completionHandler)
+{
+    m_writer->resume();
+    completionHandler();
 }
 
 void MediaRecorderPrivateAVFImpl::fetchData(FetchDataCallback&& completionHandler)
 {
-    m_writer->fetchData([completionHandler = WTFMove(completionHandler), mimeType = mimeType()](auto&& buffer) mutable {
-        completionHandler(WTFMove(buffer), mimeType);
+    m_writer->fetchData([completionHandler = WTFMove(completionHandler), mimeType = mimeType()](auto&& buffer, auto timeCode) mutable {
+        completionHandler(WTFMove(buffer), mimeType, timeCode);
     });
 }
 

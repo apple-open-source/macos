@@ -110,31 +110,46 @@ Universal *MachORep::mainExecutableImage()
 void MachORep::prepareForSigning(SigningContext &context)
 {
 	if (context.digestAlgorithms().empty()) {
-        unique_ptr<MachO> macho(mainExecutableImage()->architecture());
-		
-		uint32_t limit = 0;
-		switch (macho->platform()) {
-			case 0:
-				// If we don't know the platform, we stay agile.
-				return;
-			case PLATFORM_MACOS:
-				// 10.11.4 had first proper sha256 support.
-				limit = (10 << 16 | 11 << 8 | 4 << 0);
-				break;
-			case PLATFORM_TVOS:
-			case PLATFORM_IOS:
-				// iOS 11 and tvOS 11 had first proper sha256 support.
-				limit = (11 << 16 | 0 << 8 | 0 << 0);
-				break;
-			case PLATFORM_WATCHOS:
-				// We stay agile on the watch right now.
-				return;
-			default:
-				// All other platforms are assumed to be new and support SHA256.
-				break;
+		bool requiresAgileHashes = false;
+
+		Universal::Architectures architectures;
+		mExecutable->architectures(architectures);
+
+		for (Universal::Architectures::const_iterator arch = architectures.begin(); arch != architectures.end(); ++arch) {
+			unique_ptr<MachO> slice(mExecutable->architecture(*arch));
+
+			uint32_t limit = 0;
+			switch (slice->platform()) {
+				case 0:
+					// If we don't know the platform, we stay agile.
+					requiresAgileHashes = true;
+					continue;
+				case PLATFORM_MACOS:
+					// 10.11.4 had first proper sha256 support.
+					limit = (10 << 16 | 11 << 8 | 4 << 0);
+					break;
+				case PLATFORM_TVOS:
+				case PLATFORM_IOS:
+					// iOS 11 and tvOS 11 had first proper sha256 support.
+					limit = (11 << 16 | 0 << 8 | 0 << 0);
+					break;
+				case PLATFORM_WATCHOS:
+					// We stay agile on the watch right now.
+					requiresAgileHashes = true;
+					continue;
+				default:
+					// All other platforms are assumed to be new and support SHA256.
+					continue;
+			}
+			if (slice->minVersion() < limit) {
+				// If any slice has a min version less than the limit, than we must remain agile.
+				requiresAgileHashes = true;
+			}
 		}
-		if (macho->minVersion() >= limit) {
-			// young enough not to need SHA-1 legacy support
+
+		// Only if every slice met the minimum requirements can we set the digest algorithm to SHA256.
+		// Otherwise, we leave it empty and let it pick the default which will include legacy hash types.
+		if (!requiresAgileHashes) {
 			context.setDigestAlgorithm(kSecCodeSignatureHashSHA256);
 		}
 	}
@@ -399,7 +414,7 @@ void MachORep::flush()
 	mExecutable = new Universal(fd(), offset, length);
 }
 
-CFDictionaryRef MachORep::diskRepInformation()
+CFDictionaryRef MachORep::copyDiskRepInformation()
 {
     unique_ptr<MachO> macho (mainExecutableImage()->architecture());
     CFRef<CFDictionaryRef> info;

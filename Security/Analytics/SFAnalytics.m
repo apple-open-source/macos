@@ -185,7 +185,8 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 {
     WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *path) {
 #if TARGET_OS_IPHONE
-        mode_t permissions = 0775;
+        /* We need _securityd, _trustd, and root all to be able to write. They share no groups. */
+        mode_t permissions = 0777;
 #else
         mode_t permissions = 0700;
 #endif // TARGET_OS_IPHONE
@@ -218,11 +219,12 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         [directory appendString:[userUuid UUIDString]];
         WithPathInProtectedDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
 #if TARGET_OS_IPHONE
-            mode_t permissions = 0775;
+            /* We need _securityd, _trustd, and root all to be able to write. They share no groups. */
+            mode_t permissions = 0777;
 #else
             mode_t permissions = 0700;
-            if (geteuid() == 0) {
-                // Root user directory needs to be read/write for group so that user supd can upload root data
+            if (geteuid() == 0 || geteuid() == 282) {
+                // Root/_trustd user directory needs to be read/write for group so that user supd can upload system data
                 permissions = 0775;
             }
 #endif // TARGET_OS_IPHONE
@@ -285,6 +287,38 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     else {
         return 365;
     }
+}
+
++ (NSInteger)fuzzyInteger:(NSInteger)num
+{
+    NSInteger sign = 1;
+    if(num < 0) {
+        sign = -1;
+        num = -num;
+    }
+
+    // Differentiate zero and non-zero....
+    if(num == 0) {
+        return 0;
+    }
+
+    if(num <= 5) {
+        return sign*5;
+    }
+
+    // Otherwise, round to the nearest five
+    NSInteger mod = num % 5;
+
+    if(mod <= 2) {
+        return sign*(num - mod);
+    } else {
+        return sign*(num + (5-mod));
+    }
+}
+
++ (NSNumber*)fuzzyNumber:(NSNumber*)num
+{
+    return [NSNumber numberWithInteger:[self fuzzyInteger:[num integerValue]]];
 }
 
 // Instantiate lazily so unit tests can have clean databases each

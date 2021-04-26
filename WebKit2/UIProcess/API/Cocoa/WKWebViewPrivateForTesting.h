@@ -49,6 +49,7 @@ typedef enum {
 
 - (void)_denyNextUserMediaRequest;
 @property (nonatomic, setter=_setMediaCaptureReportingDelayForTesting:) double _mediaCaptureReportingDelayForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, readonly) BOOL _wirelessVideoPlaybackDisabled;
 
 - (BOOL)_beginBackSwipeForTesting;
 - (BOOL)_completeBackSwipeForTesting;
@@ -57,7 +58,9 @@ typedef enum {
 
 - (void)_setShareSheetCompletesImmediatelyWithResolutionForTesting:(BOOL)resolved;
 
-@property (nonatomic, readonly) BOOL _hasInspectorFrontend;
+- (void)_didPresentContactPicker;
+- (void)_didDismissContactPicker;
+- (void)_dismissContactPickerWithContacts:(NSArray *)contacts;
 
 @property (nonatomic, setter=_setScrollingUpdatesDisabledForTesting:) BOOL _scrollingUpdatesDisabledForTesting;
 
@@ -76,4 +79,12 @@ typedef enum {
 - (BOOL)_hasSleepDisabler;
 - (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus;
 - (double)_audioRoutingArbitrationUpdateTime;
+
+- (void)_doAfterActivityStateUpdate:(void (^)(void))completionHandler;
+
+- (NSNumber *)_suspendMediaPlaybackCounter WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+- (void)_setPrivateClickMeasurementOverrideTimerForTesting:(BOOL)overrideTimer completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_setPrivateClickMeasurementConversionURLForTesting:(NSURL *)url completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
 @end

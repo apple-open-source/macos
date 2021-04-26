@@ -42,6 +42,8 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
+#import "keychain/ckks/CKKSViewManager.h"
+
 
 @implementation CKKSOutgoingQueueEntry
 
@@ -87,7 +89,10 @@
 }
 
 
-+ (CKKSKey*)keyForItem:(SecDbItemRef)item zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (CKKSKey*)keyForItem:(SecDbItemRef)item
+                zoneID:(CKRecordZoneID*)zoneID
+              keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                 error:(NSError * __autoreleasing *)error
 {
     if(!item) {
         ckkserror("ckks-key", zoneID, "Cannot select a key for no item!");
@@ -120,7 +125,13 @@
     }
 
     NSError* currentKeyError = nil;
-    CKKSKey* key = [CKKSKey currentKeyForClass:class zoneID:zoneID error:&currentKeyError];
+    CKKSKey* key = nil;
+
+    if(keyCache) {
+        key = [keyCache currentKeyForClass:class zoneID:zoneID error:&currentKeyError];
+    } else {
+        key = [CKKSKey currentKeyForClass:class zoneID:zoneID error:&currentKeyError];
+    }
     if(!key || currentKeyError) {
         ckkserror("ckks-key", zoneID, "Couldn't find current key for %@: %@", class, currentKeyError);
 
@@ -146,6 +157,7 @@
 + (instancetype)withItem:(SecDbItemRef)item
                   action:(NSString*)action
                   zoneID:(CKRecordZoneID*)zoneID
+                keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
                    error:(NSError * __autoreleasing *)error
 {
     CFErrorRef cferror = NULL;
@@ -162,6 +174,7 @@
     NSError* keyError = nil;
     key = [self keyForItem:item
                     zoneID:zoneID
+                  keyCache:keyCache
                      error:&keyError];
     if(!key || keyError) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:keyError.code description:@"No key for item" underlying:keyError];
@@ -269,7 +282,7 @@
     // Is this modification just changing the mdat? As a performance improvement, don't update the item in CK
     if(ckme && !existingOQE && [actualAction isEqualToString:SecCKKSActionModify]) {
         NSError* ckmeError = nil;
-        NSMutableDictionary* mirror = [[CKKSItemEncrypter decryptItemToDictionary:ckme.item error:&ckmeError] mutableCopy];
+        NSMutableDictionary* mirror = [[CKKSItemEncrypter decryptItemToDictionary:ckme.item keyCache:keyCache error:&ckmeError] mutableCopy];
         NSMutableDictionary* objdCopy = [objd mutableCopy];
 
         if(ckmeError) {
@@ -323,6 +336,7 @@
                                                   dataDictionary:objd
                                                 updatingCKKSItem:ckme.item
                                                        parentkey:key
+                                                        keyCache:keyCache
                                                            error:&encryptionError];
 
     if(!encryptedItem || encryptionError) {
@@ -449,6 +463,90 @@
     return result;
 }
 
+
+#pragma mark - State Transitions
+
+- (BOOL)intransactionMoveToState:(NSString*)state
+                       viewState:(CKKSKeychainViewState*)viewState
+                           error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    if([state isEqualToString:SecCKKSStateDeleted]) {
+        // Hurray, this must be a success
+        SecBoolNSErrorCallback syncCallback = [[CKKSViewManager manager] claimCallbackForUUID:self.uuid];
+        if(syncCallback) {
+            syncCallback(true, nil);
+        }
+
+        [self deleteFromDatabase:&localerror];
+        if(localerror) {
+            ckkserror("ckks", viewState, "Couldn't delete %@: %@", self, localerror);
+        }
+
+    } else if([self.state isEqualToString:SecCKKSStateInFlight] && [state isEqualToString:SecCKKSStateNew]) {
+        // An in-flight OQE is moving to new? See if it's been superceded
+        CKKSOutgoingQueueEntry* newOQE = [CKKSOutgoingQueueEntry tryFromDatabase:self.uuid
+                                                                           state:SecCKKSStateNew
+                                                                          zoneID:viewState.zoneID
+                                                                           error:&localerror];
+        if(localerror) {
+            ckkserror("ckksoutgoing", viewState, "Couldn't fetch an overwriting OQE, assuming one doesn't exist: %@", localerror);
+            newOQE = nil;
+        }
+
+        if(newOQE) {
+            ckksnotice("ckksoutgoing", viewState, "New modification has come in behind inflight %@; dropping failed change", self);
+            // recurse for that lovely code reuse
+            [self intransactionMoveToState:SecCKKSStateDeleted
+                                 viewState:viewState
+                                     error:&localerror];
+            if(localerror) {
+                ckkserror("ckksoutgoing", viewState, "Couldn't delete in-flight OQE: %@", localerror);
+            }
+        } else {
+            self.state = state;
+            [self saveToDatabase:&localerror];
+            if(localerror) {
+                ckkserror("ckks", viewState, "Couldn't save %@ as %@: %@", self, state, localerror);
+            }
+        }
+
+    } else {
+        self.state = state;
+        [self saveToDatabase: &localerror];
+        if(localerror) {
+            ckkserror("ckks", viewState, "Couldn't save %@ as %@: %@", self, state, localerror);
+        }
+    }
+
+    if(error && localerror) {
+        *error = localerror;
+    }
+    return localerror == nil;
+}
+
+- (BOOL)intransactionMarkAsError:(NSError*)itemError
+                       viewState:(CKKSKeychainViewState*)viewState
+                           error:(NSError* __autoreleasing*)error
+{
+    SecBoolNSErrorCallback callback = [[CKKSViewManager manager] claimCallbackForUUID:self.uuid];
+    if(callback) {
+        callback(false, itemError);
+    }
+    NSError* localerror = nil;
+
+    // Now, delete the OQE: it's never coming back
+    [self deleteFromDatabase:&localerror];
+    if(localerror) {
+        ckkserror("ckks", viewState, "Couldn't delete %@ (due to error %@): %@", self, itemError, localerror);
+    }
+
+    if(error && localerror) {
+        *error = localerror;
+    }
+    return localerror == nil;
+}
 
 @end
 

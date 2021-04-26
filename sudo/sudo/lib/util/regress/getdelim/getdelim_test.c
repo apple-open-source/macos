@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2020 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,12 +23,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif /* HAVE_STRING_H */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif /* HAVE_STRINGS_H */
+#include <string.h>
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
@@ -40,7 +35,7 @@
 #include "sudo_fatal.h"
 #include "sudo_util.h"
 
-__dso_public int main(int argc, char *argv[]);
+sudo_dso_public int main(int argc, char *argv[]);
 
 /*
  * Test that sudo_getdelim() works as expected.
@@ -87,7 +82,7 @@ runtests(char **buf, size_t *buflen)
 		sudo_warn_nodebug("send");
 		_exit(127);
 	    }
-	    _exit(0);
+	    _exit(EXIT_SUCCESS);
 	    break;
 	default:
 	    /* parent */

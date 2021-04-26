@@ -670,7 +670,9 @@ kern_vm_tag_name(uint64_t tag)
 	case (VM_KERN_MEMORY_REASON):           name = "VM_KERN_MEMORY_REASON"; break;
 	case (VM_KERN_MEMORY_SKYWALK):          name = "VM_KERN_MEMORY_SKYWALK"; break;
 	case (VM_KERN_MEMORY_LTABLE):           name = "VM_KERN_MEMORY_LTABLE"; break;
+	case (VM_KERN_MEMORY_HV):               name = "VM_KERN_MEMORY_HV"; break;
 	case (VM_KERN_MEMORY_ANY):              name = "VM_KERN_MEMORY_ANY"; break;
+	case (VM_KERN_MEMORY_RETIRED):          name = "VM_KERN_MEMORY_RETIRED"; break;
 	default:                                name = NULL; break;
 	}
 	if (name) {

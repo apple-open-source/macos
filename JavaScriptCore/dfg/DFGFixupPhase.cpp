@@ -1335,8 +1335,10 @@ private:
                 node->arrayMode().refine(
                     m_graph, node, base->prediction(), index->prediction()));
             
-            if (node->arrayMode().type() == Array::Generic)
+            if (!node->arrayMode().isOneOfTypedArrayView()) {
+                node->setArrayMode(ArrayMode(Array::Generic, node->arrayMode().action()));
                 break;
+            }
             
             for (unsigned i = numExtraAtomicsArgs(node->op()); i--;) {
                 Edge& child = m_graph.child(node, 2 + i);
@@ -1365,8 +1367,8 @@ private:
         }
             
         case AtomicsIsLockFree:
-            if (node->child1()->shouldSpeculateInt32())
-                fixIntOrBooleanEdge(node->child1());
+            if (m_graph.child(node, 0)->shouldSpeculateInt32())
+                fixIntOrBooleanEdge(m_graph.child(node, 0));
             break;
             
         case ArrayPush: {
@@ -1780,6 +1782,17 @@ private:
             break;
         }
 
+        case GetPrivateName:
+        case GetPrivateNameById:
+            if (node->child1()->shouldSpeculateCell())
+                fixEdge<CellUse>(node->child1());
+            else
+                fixEdge<UntypedUse>(node->child1());
+
+            if (!node->hasCacheableIdentifier())
+                fixEdge<SymbolUse>(node->child2());
+            break;
+
         case DeleteByVal: {
             if (node->child1()->shouldSpeculateCell()) {
                 fixEdge<CellUse>(node->child1());
@@ -1905,12 +1918,19 @@ private:
             break;
         }
 
+
+        case PutPrivateName: {
+            fixEdge<SymbolUse>(node->child2());
+            break;
+        }
+
         case OverridesHasInstance:
         case CheckStructure:
         case CreateThis:
         case CreatePromise:
         case CreateGenerator:
         case CreateAsyncGenerator:
+        case PutPrivateNameById:
         case GetButterfly: {
             fixEdge<CellUse>(node->child1());
             break;
@@ -2096,7 +2116,7 @@ private:
             break;
         }
 
-        case CheckNeutered:
+        case CheckDetached:
         case CheckArray: {
             fixEdge<CellUse>(node->child1());
             break;
@@ -2110,6 +2130,7 @@ private:
         case CheckTierUpInLoop:
         case CheckTierUpAtReturn:
         case CheckTierUpAndOSREnter:
+        case AssertInBounds:
         case CheckInBounds:
         case ConstantStoragePointer:
         case DoubleAsInt32:
@@ -2185,11 +2206,11 @@ private:
             fixEdge<CellUse>(node->child1());
             break;
         }
-        case HasGenericProperty: {
+        case HasEnumerableProperty: {
             fixEdge<CellUse>(node->child2());
             break;
         }
-        case HasStructureProperty: {
+        case HasEnumerableStructureProperty: {
             fixEdge<StringUse>(node->child2());
             fixEdge<KnownCellUse>(node->child3());
             break;
@@ -2201,7 +2222,8 @@ private:
             fixEdge<KnownCellUse>(node->child3());
             break;
         }
-        case HasIndexedProperty: {
+        case HasIndexedProperty:
+        case HasEnumerableIndexedProperty: {
             node->setArrayMode(
                 node->arrayMode().refine(
                     m_graph, node,
@@ -2377,12 +2399,18 @@ private:
                 fixEdge<BooleanUse>(node->child2());
             else if (node->child2()->shouldSpeculateInt32())
                 fixEdge<Int32Use>(node->child2());
+#if USE(BIGINT32)
+            else if (node->child2()->shouldSpeculateBigInt32())
+                fixEdge<BigInt32Use>(node->child2());
+#endif
             else if (node->child2()->shouldSpeculateSymbol())
                 fixEdge<SymbolUse>(node->child2());
             else if (node->child2()->shouldSpeculateObject())
                 fixEdge<ObjectUse>(node->child2());
             else if (node->child2()->shouldSpeculateString())
                 fixEdge<StringUse>(node->child2());
+            else if (node->child2()->shouldSpeculateHeapBigInt())
+                fixEdge<HeapBigIntUse>(node->child2());
             else if (node->child2()->shouldSpeculateCell())
                 fixEdge<CellUse>(node->child2());
             else
@@ -2433,6 +2461,18 @@ private:
 
             if (node->child1()->shouldSpeculateString()) {
                 fixEdge<StringUse>(node->child1());
+                break;
+            }
+
+#if USE(BIGINT32)
+            if (node->child1()->shouldSpeculateBigInt32()) {
+                fixEdge<BigInt32Use>(node->child1());
+                break;
+            }
+#endif
+
+            if (node->child1()->shouldSpeculateHeapBigInt()) {
+                fixEdge<HeapBigIntUse>(node->child1());
                 break;
             }
 
@@ -2759,7 +2799,6 @@ private:
         case LoopHint:
         case MovHint:
         case InitializeEntrypointArguments:
-        case ZombieHint:
         case ExitOK:
         case BottomValue:
         case TypeOf:
@@ -3952,7 +3991,6 @@ private:
                 m_graph.varArgChild(node, 0)->prediction(),
                 m_graph.varArgChild(node, 1)->prediction(),
                 SpecNone));
-        node->setInternalMethodType(PropertySlot::InternalMethodType::HasProperty);
 
         blessArrayOperation(m_graph.varArgChild(node, 0), m_graph.varArgChild(node, 1), m_graph.varArgChild(node, 2));
         auto arrayMode = node->arrayMode();
@@ -3997,11 +4035,13 @@ private:
             return;
         }
 
-        if (node->child1()->shouldSpeculateCell()) {
-            fixEdge<CellUse>(node->child1());
+#if USE(BIGINT32)
+        if (node->child1()->shouldSpeculateBigInt32()) {
+            fixEdge<BigInt32Use>(node->child1());
             node->convertToIdentity();
             return;
         }
+#endif
 
         fixEdge<UntypedUse>(node->child1());
     }

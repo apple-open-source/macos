@@ -501,7 +501,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
-					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -520,12 +519,16 @@
 				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				INSTALL_PATH = "$(DRIVERKITROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
@@ -533,7 +536,7 @@
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -590,7 +593,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
-					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -607,11 +609,15 @@
 				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				INSTALL_PATH = "$(DRIVERKITROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
@@ -619,7 +625,7 @@
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -676,7 +682,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
-					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -693,11 +698,15 @@
 				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				INSTALL_PATH = "$(DRIVERKITROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
@@ -705,7 +714,7 @@
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -729,7 +738,10 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
@@ -760,7 +772,10 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
@@ -789,7 +804,10 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;

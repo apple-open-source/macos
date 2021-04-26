@@ -1727,8 +1727,10 @@ Bangkok)•</data>
 #
 #  Apple tests for using delimiter data to move quotes from line class QU to CL/OP <rdar://problem/51193810&56749360>
 #  and fix for U+2019 in <rdar://problem/63475386>
-#  and fix for de/hr U+201C in rdar://67787054,rdar://67804156 using text in the bug, or quotes per CLDR / Apple style
-#  and fix for Danish quotes in rdar://66836891 using text in the bug, or quotes per CLDR/Wikipedia style
+#  and fix for de/hr/ru U+201C in rdar://67787054&7804156&73179567 using text in the bug,
+#    or quotes per CLDR / Apple ICU style
+#  and fix for Danish quotes in rdar://66836891 using text in the bug, or quotes per
+#    CLDR/Wikipedia style
 #
 ####################################################################################
 
@@ -1753,6 +1755,12 @@ Bangkok)•</data>
 <data>•koristeći •“Macintosh •HD“ •“sljedeći“•</data>
 <data>•koristeći •„Macintosh •HD“ „sljedeći“•</data>
 <data>•koristeći •“Macintosh •HD” •“sljedeći”•</data>
+
+<locale ru>
+<line>
+<data>•text •“quotes •for •bug” •example•</data>
+<data>•текст •„цитаты •для •ошибки“ •пример•</data>
+<data>•текст •«цитаты •для •ошибки» •пример•</data>
 
 <locale da>
 <line>

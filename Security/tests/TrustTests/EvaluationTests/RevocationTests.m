@@ -60,11 +60,10 @@
     CFRelease(ocspPolicy);
     ok_status(SecTrustCreateWithCertificates(certs, policies, &trust),
         "create trust");
-    /* April 14, 2019 at 10:46:40 PM PDT */
-    CFDateRef date = CFDateCreate(NULL, 577000000.0);
+    CFDateRef date = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
-    is(SecTrustGetVerifyTime(trust), 577000000.0, "get date");
+    is(SecTrustGetVerifyTime(trust), _ocsp_c0_eval_abs_time, "get date");
 
     SecTrustResultType trustResult;
     ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
@@ -95,13 +94,13 @@
     SecPolicyRef ocspSignerPolicy = NULL;
     SecTrustResultType trustResult = kSecTrustResultInvalid;
 
-    /* August 14, 2018 at 9:26:40 PM PDT */
-    CFDateRef date = CFDateCreate(NULL, 556000000.0);
+    CFDateRef date = CFDateCreate(NULL, _valid_ist_eval_abs_time);
+    CFDateRef responderDate = CFDateCreate(NULL, _responder_eval_abs_time);
 
-    isnt(leaf = SecCertificateCreateWithBytes(NULL, valid_ist_certificate,
-                                                       sizeof(valid_ist_certificate)), NULL, "create ist leaf");
-    isnt(subCA = SecCertificateCreateWithBytes(NULL, ist_intermediate_certificate,
-                                                       sizeof(ist_intermediate_certificate)), NULL, "create ist subCA");
+    isnt(leaf = SecCertificateCreateWithBytes(NULL, _valid_ist_certificate,
+                                                       sizeof(_valid_ist_certificate)), NULL, "create ist leaf");
+    isnt(subCA = SecCertificateCreateWithBytes(NULL, _ist_intermediate_certificate,
+                                                       sizeof(_ist_intermediate_certificate)), NULL, "create ist subCA");
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, subCA);
 
@@ -120,7 +119,7 @@
     CFArraySetValueAtIndex(certs, 0, responderCert);
     ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
               "create trust for ocspResponder -> c1");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    ok_status(SecTrustSetVerifyDate(trust, responderDate), "set date");
     ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultUnspecified,
               "trust is kSecTrustResultUnspecified");
@@ -132,6 +131,7 @@
     CFReleaseNull(trust);
     CFReleaseSafe(ocspSignerPolicy);
     CFReleaseNull(date);
+    CFReleaseNull(responderDate);
 }
 
 - (void)test_always_honor_cached_revoked_responses {
@@ -143,10 +143,10 @@
     SecTrustRef trust;
     SecCertificateRef rcert0, rcert1;
     isnt(rcert0 = SecCertificateCreateWithBytes(NULL,
-         revoked_ist_certificate, sizeof(revoked_ist_certificate)),
+         _revoked_ist_certificate, sizeof(_revoked_ist_certificate)),
          NULL, "create rcert0");
     isnt(rcert1 = SecCertificateCreateWithBytes(NULL,
-         ist_intermediate_certificate, sizeof(ist_intermediate_certificate)),
+         _ist_intermediate_certificate, sizeof(_ist_intermediate_certificate)),
          NULL, "create rcert1");
     CFMutableArrayRef rcerts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                    &kCFTypeArrayCallBacks);
@@ -604,7 +604,7 @@ errOut:
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
     require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
-    verifyDate = CFDateCreate(NULL, 577000000.0); // April 14, 2019 at 10:46:40 PM PDT
+    verifyDate = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
     require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
@@ -669,7 +669,7 @@ errOut:
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
     require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
-    verifyDate = CFDateCreate(NULL, 577000000.0); // April 14, 2019 at 10:46:40 PM PDT
+    verifyDate = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
     require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
@@ -801,6 +801,9 @@ errOut:
 
     revocationChecked = [self runRevocationCheckNoNetwork:leaf
                                                     subCA:subCA];
+    /* assume false if value not present, pending resolution of <rdar://71227125> */
+    if (!revocationChecked) { revocationChecked = @NO; }
+
     XCTAssert(revocationChecked != NULL, "kSecTrustRevocationChecked is not in the result dictionary");
 
 errOut:

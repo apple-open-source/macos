@@ -61,7 +61,7 @@ inline bool webkitGstCheckVersion(guint major, guint minor, guint micro)
 
 GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate*, const gchar* name, GstPad* target);
 #if ENABLE(VIDEO)
-bool getVideoSizeAndFormatFromCaps(GstCaps*, WebCore::IntSize&, GstVideoFormat&, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride);
+bool getVideoSizeAndFormatFromCaps(const GstCaps*, WebCore::IntSize&, GstVideoFormat&, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride);
 Optional<FloatSize> getVideoResolutionFromCaps(const GstCaps*);
 bool getSampleVideoInfo(GstSample*, GstVideoInfo&);
 #endif
@@ -291,6 +291,12 @@ void disconnectSimpleBusMessageCallback(GstElement* pipeline);
 enum class GstVideoDecoderPlatform { ImxVPU, Video4Linux, OpenMAX };
 
 bool isGStreamerPluginAvailable(const char* name);
+
+GstElement* createPlatformAudioSink();
+
+bool webkitGstSetElementStateSynchronously(GstElement*, GstState, Function<bool(GstMessage*)>&& = [](GstMessage*) -> bool {
+    return true;
+});
 
 }
 

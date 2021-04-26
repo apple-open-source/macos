@@ -120,6 +120,8 @@ public:
     CDMInstanceSessionFairPlayStreamingAVFObjC* sessionForRequest(AVContentKeyRequest*) const;
 
 private:
+    void handleUnexpectedRequests(Vector<RetainPtr<AVContentKeyRequest>>&&);
+
 #if !RELEASE_LOG_DISABLED
     WTF::Logger* loggerPtr() const { return m_logger.get(); };
     const void* logIdentifier() const { return m_logIdentifier; }
@@ -194,7 +196,7 @@ private:
     void nextRequest();
     AVContentKeyRequest* lastKeyRequest() const;
 
-    bool keyRequestHasInsufficientProtectionForDisplayID(AVContentKeyRequest *, PlatformDisplayID) const;
+    Optional<CDMKeyStatus> protectionStatusForDisplayID(AVContentKeyRequest *, Optional<PlatformDisplayID>) const;
 
 #if !RELEASE_LOG_DISABLED
     WTF::Logger* loggerPtr() const { return m_logger.get(); };

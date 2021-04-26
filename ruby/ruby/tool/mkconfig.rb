@@ -121,7 +121,7 @@ File.foreach "config.status" do |line|
       universal, val = val, 'universal' if universal
     when /^includedir$/
       val = "(ENV['SDKROOT'] || (File.exist?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
-    when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
+    when /^(CXXFLAGS|DLDFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
       if universal
         # configure didn't strip -arch nor -m32/64 from CXXFLAGS
         # replace the first with ARCH_FLAG and delete the rest

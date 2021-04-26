@@ -759,5 +759,32 @@ static void print_json(NSDictionary* dict)
     #endif
 }
 
+- (long)resetAccountCDPContentsWithContainerName:(NSString *)containerName
+                                       contextID:(NSString *)contextID {
+   __block long ret = 0;
 
+#if OCTAGON
+   dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control resetAccountCDPContents:containerName contextID:contextID reply:^(NSError * _Nullable error) {
+        if(error) {
+            ret = -1;
+            printf("Error resetting account cdp content: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Succeeded resetting account cdp content");
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+   if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+       printf("timed out waiting for restore/recover\n");
+       ret = -1;
+   }
+
+   return ret;
+#else
+   ret = -1;
+   return ret;
+#endif
+}
 @end

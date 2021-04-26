@@ -1,0 +1,24 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index cd76013..dc6beac 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -42,6 +42,9 @@ if ($^O eq 'dos') {
+ 
+ $ostype = "-DLAYERGZIP_DEFAULT_OS_TYPE=$ostype" if length $ostype;
+ 
++my $ZLIB_LIB = '@SDKROOT@/usr/lib';
++my $ZLIB_INC = '@SDKROOT@/usr/include';
++
+ # See lib/ExtUtils/MakeMaker.pm for details of how to influence
+ # the contents of the Makefile that is written.
+ WriteMakefile(
+@@ -50,7 +53,8 @@ WriteMakefile(
+     'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+     ABSTRACT_FROM	=> 'gzip.pm', # retrieve abstract from module
+     AUTHOR	=> 'Nicholas Clark <nwc10+perlio-gzip@colon.colondot.net>',
+-    'LIBS'		=> ['-lz'],
++    'INC'		=> "-I$ZLIB_INC",
++    'LIBS'		=> [ "-L$ZLIB_LIB -lz" ],
+     'DEFINE'		=> $ostype,
+     ((eval $ExtUtils::MakeMaker::VERSION > 6.30) ? (LICENSE => 'perl') : ()),
+ #    'DEFINE'		=> '-g -Wall -DDEBUG_LAYERGZIP',

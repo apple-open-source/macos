@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>55</integer>
+	<integer>56</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -209,6 +209,8 @@
 		</array>
 	</dict>
 	<dict>
+		<key>transparentConnection</key>
+		<true/>
 		<key>domains</key>
 		<array>
 			<dict>
@@ -243,6 +245,8 @@
 		</array>
 	</dict>
 	<dict>
+		<key>transparentConnection</key>
+		<true/>
 		<key>domains</key>
 		<array>
 			<dict>
@@ -1037,6 +1041,8 @@
 		</array>
 	</dict>
 	<dict>
+		<key>transparentConnection</key>
+		<true/>
 		<key>domains</key>
 		<array>
 			<dict>

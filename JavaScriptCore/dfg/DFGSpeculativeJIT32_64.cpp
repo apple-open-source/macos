@@ -824,7 +824,7 @@ void SpeculativeJIT::emitCall(Node* node)
         m_jit.addPtr(TrustedImm32(requiredBytes), JITCompiler::stackPointerRegister);
         m_jit.load32(JITCompiler::calleeFrameSlot(CallFrameSlot::callee).withOffset(PayloadOffset), GPRInfo::regT0);
         m_jit.load32(JITCompiler::calleeFrameSlot(CallFrameSlot::callee).withOffset(TagOffset), GPRInfo::regT1);
-        m_jit.emitDumbVirtualCall(vm(), globalObject, info);
+        m_jit.emitVirtualCall(vm(), globalObject, info);
         
         done.link(&m_jit);
         setResultAndResetStack();
@@ -1923,12 +1923,6 @@ void SpeculativeJIT::compile(Node* node)
         noResult(node);
         break;
     }
-        
-    case ZombieHint: {
-        recordSetLocal(m_currentNode->unlinkedOperand(), VirtualRegister(), DataFormatDead);
-        noResult(node);
-        break;
-    }
 
     case ExitOK: {
         noResult(node);
@@ -2231,8 +2225,8 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
         
-    case CheckNeutered: {
-        compileCheckNeutered(node);
+    case CheckDetached: {
+        compileCheckDetached(node);
         break;
     }
 
@@ -2244,6 +2238,12 @@ void SpeculativeJIT::compile(Node* node)
     case Arrayify:
     case ArrayifyToStructure: {
         arrayify(node);
+        break;
+    }
+
+    case GetPrivateName:
+    case GetPrivateNameById: {
+        compileGetPrivateName(node);
         break;
     }
 
@@ -2593,6 +2593,16 @@ void SpeculativeJIT::compile(Node* node)
 
     case GetByValWithThis: {
         compileGetByValWithThis(node);
+        break;
+    }
+
+    case PutPrivateName: {
+        compilePutPrivateName(node);
+        break;
+    }
+
+    case PutPrivateNameById: {
+        compilePutPrivateNameById(node);
         break;
     }
 
@@ -4063,12 +4073,12 @@ void SpeculativeJIT::compile(Node* node)
         compileGetEnumerableLength(node);
         break;
     }
-    case HasGenericProperty: {
-        compileHasGenericProperty(node);
+    case HasEnumerableStructureProperty: {
+        compileHasEnumerableStructureProperty(node);
         break;
     }
-    case HasStructureProperty: {
-        compileHasStructureProperty(node);
+    case HasEnumerableProperty: {
+        compileHasEnumerableProperty(node);
         break;
     }
     case HasOwnStructureProperty: {
@@ -4080,7 +4090,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
     case HasIndexedProperty: {
-        compileHasIndexedProperty(node);
+        compileHasIndexedProperty(node, operationHasIndexedProperty);
+        break;
+    }
+    case HasEnumerableIndexedProperty: {
+        compileHasIndexedProperty(node, operationHasEnumerableIndexedProperty);
         break;
     }
     case GetDirectPname: {
@@ -4241,6 +4255,7 @@ void SpeculativeJIT::compile(Node* node)
     case Int52Rep:
     case FiatInt52:
     case Int52Constant:
+    case AssertInBounds:
     case CheckInBounds:
     case ArithIMul:
     case MultiGetByOffset:

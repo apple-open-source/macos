@@ -185,7 +185,9 @@ _dispatch_apply_f(dispatch_queue_global_t dq, dispatch_apply_t da,
 	_dispatch_thread_event_init(&da->da_event);
 	// FIXME: dq may not be the right queue for the priority of `head`
 	_dispatch_trace_item_push_list(dq, head, tail);
-	_dispatch_root_queue_push_inline(dq, head, tail, continuation_cnt);
+	if ((dx_type(dq) == DISPATCH_QUEUE_GLOBAL_ROOT_TYPE)) {
+		_dispatch_root_queue_push_inline(dq, head, tail, continuation_cnt);
+	}
 	// Call the first element directly
 	_dispatch_apply_invoke_and_wait(da);
 }
@@ -268,9 +270,22 @@ static inline dispatch_queue_global_t
 _dispatch_apply_root_queue(dispatch_queue_t dq)
 {
 	if (dq) {
+
 		while (unlikely(dq->do_targetq)) {
-			dq = dq->do_targetq;
+			dispatch_queue_t tq = dq->do_targetq;
+
+			// We're trying to go wide on a custom priority workloop. Just put all
+			// the dispatch_apply continuations on the workloop and go serial
+			// instead.
+			//
+			// We have to do this dance because the custom pri workloop's target
+			// queue is not actually used for making thread requests.
+			if (_dispatch_is_custom_pri_workloop(tq)) {
+				return upcast(dq)._dgq;
+			}
+			dq = tq;
 		}
+
 		// if the current root queue is a pthread root queue, select it
 		if (!_dispatch_is_in_root_queues_array(dq)) {
 			return upcast(dq)._dgq;
@@ -334,16 +349,27 @@ dispatch_apply_f(size_t iterations, dispatch_queue_t _dq, void *ctxt,
 	da->da_thr_cnt = thr_cnt;
 #if DISPATCH_INTROSPECTION
 	da->da_dc = _dispatch_continuation_alloc();
-	*da->da_dc = dc;
+	da->da_dc->dc_func = (void *) dc.dc_func;
+	da->da_dc->dc_ctxt = dc.dc_ctxt;
+	da->da_dc->dc_data = dc.dc_data;
+
 	da->da_dc->dc_flags = DC_FLAG_ALLOCATED;
 #else
 	da->da_dc = &dc;
 #endif
 	da->da_flags = 0;
 
+	if (unlikely(_dispatch_is_custom_pri_workloop(dq->do_targetq))) {
+		/* We're targetting a custom pri workloop, go straight to caller
+		 * draining it, we don't want to go wide for these high priority threads
+		 */
+		goto default_apply;
+	}
+
 	if (unlikely(dq->dq_width == 1 || thr_cnt <= 1)) {
 		return dispatch_sync_f(dq, da, _dispatch_apply_serial);
 	}
+
 	if (unlikely(dq->do_targetq)) {
 		if (unlikely(dq == old_dq)) {
 			return dispatch_sync_f(dq, da, _dispatch_apply_serial);
@@ -352,6 +378,7 @@ dispatch_apply_f(size_t iterations, dispatch_queue_t _dq, void *ctxt,
 		}
 	}
 
+default_apply:;
 	dispatch_thread_frame_s dtf;
 	_dispatch_thread_frame_push(&dtf, dq);
 	_dispatch_apply_f(upcast(dq)._dgq, da, _dispatch_apply_invoke);

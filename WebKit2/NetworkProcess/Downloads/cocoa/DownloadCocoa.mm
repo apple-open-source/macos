@@ -31,6 +31,7 @@
 #import "WKDownloadProgress.h"
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/NSProgressSPI.h>
+#import <wtf/BlockPtr.h>
 
 namespace WebKit {
 
@@ -49,7 +50,7 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     auto nsData = adoptNS([[NSData alloc] initWithBytes:resumeData.data() length:resumeData.size()]);
 
     // FIXME: This is a temporary workaround for <rdar://problem/34745171>. Fixed in iOS 13 and macOS 10.15, but we still need to support macOS 10.14 for now.
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
+#if USE(LEGACY_CFNETWORK_DOWNLOADS)
     static NSSet<Class> *plistClasses = nil;
     static dispatch_once_t onceToken;
 
@@ -70,6 +71,8 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     NSData *updatedData = [NSPropertyListSerialization dataWithPropertyList:dictionary format:NSPropertyListXMLFormat_v1_0 options:0 error:nullptr];
 #endif
 
+    // FIXME: Use nsData instead of updatedData once we've migrated from _WKDownload to WKDownload
+    // because there's no reason to set the local path we got from the data back into the data.
     m_downloadTask = [cocoaSession.sessionWrapperForDownloads().session downloadTaskWithResumeData:updatedData];
     auto taskIdentifier = [m_downloadTask taskIdentifier];
     ASSERT(!cocoaSession.sessionWrapperForDownloads().downloadMap.contains(taskIdentifier));
@@ -79,17 +82,28 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     [m_downloadTask resume];
 }
     
-void Download::platformCancelNetworkLoad()
+void Download::platformCancelNetworkLoad(CompletionHandler<void(const IPC::DataReference&)>&& completionHandler)
 {
     ASSERT(m_downloadTask);
-
-    // The download's resume data is accessed in the network session delegate
-    // method -URLSession:task:didCompleteWithError: instead of inside this block,
-    // to avoid race conditions between the two. Calling -cancel is not sufficient
-    // here because CFNetwork won't provide the resume data unless we ask for it.
-    [m_downloadTask cancelByProducingResumeData:^(NSData *resumeData) {
-        UNUSED_PARAM(resumeData);
-    }];
+    [m_downloadTask cancelByProducingResumeData:makeBlockPtr([path = retainPtr(m_downloadTask.get()._pathToDownloadTaskFile), completionHandler = WTFMove(completionHandler)] (NSData *resumeData) mutable {
+#if USE(LEGACY_CFNETWORK_DOWNLOADS)
+        if (resumeData) {
+            // Mojave does not include the download location in the resume data from CFNetwork. Add it from the task.
+            auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:resumeData error:nil]);
+            [unarchiver setDecodingFailurePolicy:NSDecodingFailurePolicyRaiseException];
+            auto dictionary = adoptNS(static_cast<NSMutableDictionary *>([[unarchiver decodeObjectOfClasses:[NSSet setWithObjects:[NSDictionary class], [NSArray class], [NSString class], [NSNumber class], [NSData class], [NSURL class], [NSURLRequest class], nil] forKey:@"NSKeyedArchiveRootObjectKey"] mutableCopy]));
+            [unarchiver finishDecoding];
+            [dictionary setObject:path.get() forKey:@"NSURLSessionResumeInfoLocalPath"];
+            auto encoder = adoptNS([[NSKeyedArchiver alloc] initRequiringSecureCoding:YES]);
+            [encoder encodeObject:dictionary.get() forKey:@"NSKeyedArchiveRootObjectKey"];
+            resumeData = [encoder encodedData];
+        }
+#else
+        UNUSED_PARAM(path);
+#endif
+        auto resumeDataReference = resumeData ? IPC::DataReference { static_cast<const uint8_t*>(resumeData.bytes), resumeData.length } : IPC::DataReference { };
+        completionHandler(resumeDataReference);
+    }).get()];
 }
 
 void Download::platformDestroyDownload()

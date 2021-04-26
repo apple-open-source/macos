@@ -103,7 +103,6 @@
 
         // Step 2
         CKKSIncomingQueueOperation* incomingOp = [[CKKSIncomingQueueOperation alloc] initWithDependencies:ckks.operationDependencies
-                                                                                                     ckks:ckks
                                                                                                 intending:SecCKKSZoneKeyStateReady
                                                                                                errorState:SecCKKSZoneKeyStateUnhealthy
                                                                                      errorOnClassAFailure:true

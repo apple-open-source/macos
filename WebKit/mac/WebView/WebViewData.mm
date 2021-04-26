@@ -40,8 +40,10 @@
 #import <WebCore/RunLoopObserver.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/ValidationBubble.h>
+#import <WebCore/WebCoreJITOperations.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
+#import <wtf/SetForScope.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "WebGeolocationProviderIOS.h"
@@ -107,6 +109,9 @@ WebViewLayerFlushScheduler::~WebViewLayerFlushScheduler()
 
 void WebViewLayerFlushScheduler::schedule()
 {
+    if (m_insideCallback)
+        m_rescheduledInsideCallback = true;
+
     m_runLoopObserver->schedule(currentRunLoop());
 }
 
@@ -119,7 +124,11 @@ void WebViewLayerFlushScheduler::layerFlushCallback()
 {
     @autoreleasepool {
         RefPtr<LayerFlushController> protector = m_flushController;
-        if (m_flushController->flushLayers())
+
+        SetForScope<bool> insideCallbackScope(m_insideCallback, true);
+        m_rescheduledInsideCallback = false;
+
+        if (m_flushController->flushLayers() && !m_rescheduledInsideCallback)
             invalidate();
     }
 }
@@ -169,6 +178,7 @@ void WebViewLayerFlushScheduler::layerFlushCallback()
 #if !PLATFORM(IOS_FAMILY)
     JSC::initialize();
     WTF::initializeMainThread();
+    WebCore::populateJITOperations();
 #endif
 }
 

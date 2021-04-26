@@ -41,24 +41,30 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
 	SecCertificateRef certificate,
     CFTypeRef trustSettingsDictOrArray, CFErrorRef *error);
 
-bool SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef *error);
+bool _SecTrustStoreRemoveCertificate(SecTrustStoreRef ts, SecCertificateRef cert, CFErrorRef *error);
 
 bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error);
 
-CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
-    SecCertificateRef certificate, CFErrorRef *error);
+CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef *error);
 
-bool SecTrustStoreContainsCertificateWithDigest(SecTrustStoreRef source, CFDataRef digest, bool *contains, CFErrorRef *error);
+bool _SecTrustStoreContainsCertificate(SecTrustStoreRef source, SecCertificateRef cert, bool *contains, CFErrorRef *error);
 
-bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef cert, CFArrayRef *usageConstraints, CFErrorRef *error);
 
 bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
+
+bool _SecTrustStoreMigrateUserStore(CFErrorRef *error);
+
+void _SecTrustStoreMigrateConfigurations(void);
 
 bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *error);
 
 bool _SecTrustStoreSetCARevocationAdditions(CFStringRef appID, CFDictionaryRef additions, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCARevocationAdditions(CFStringRef appID, CFErrorRef *error);
+
+bool _SecTrustStoreSetTransparentConnectionPins(CFStringRef appID, CFArrayRef pins, CFErrorRef *error);
+CF_RETURNS_RETAINED CFArrayRef _SecTrustStoreCopyTransparentConnectionPins(CFStringRef appID, CFErrorRef *error);
 
 __END_DECLS
 

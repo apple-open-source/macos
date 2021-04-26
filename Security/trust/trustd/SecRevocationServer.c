@@ -87,6 +87,7 @@ static bool SecOCSPSingleResponseProcess(SecOCSPSingleResponseRef this,
              in the info dictionary. */
             //cert.revokeCheckGood(true);
             rvc->nextUpdate = this->nextUpdate == NULL_TIME ? this->thisUpdate + kSecDefaultOCSPResponseTTL : this->nextUpdate;
+            rvc->thisUpdate = this->thisUpdate;
             processed = true;
             break;
         case CS_Revoked:
@@ -127,6 +128,7 @@ void SecORVCUpdatePVC(SecORVCRef rvc) {
     }
     if (rvc->ocspResponse) {
         rvc->nextUpdate = SecOCSPResponseGetExpirationTime(rvc->ocspResponse);
+        rvc->thisUpdate = SecOCSPResponseProducedAt(rvc->ocspResponse);
     }
 }
 
@@ -1055,4 +1057,9 @@ CFAbsoluteTime SecRVCGetEarliestNextUpdate(SecRVCRef rvc) {
     if (!rvc || !rvc->orvc) { return enu; }
     enu = rvc->orvc->nextUpdate;
     return enu;
+}
+
+CFAbsoluteTime SecRVCGetLatestThisUpdate(SecRVCRef rvc) {
+    if (!rvc || !rvc->orvc) { return -DBL_MAX; }
+    return rvc->orvc->thisUpdate;
 }

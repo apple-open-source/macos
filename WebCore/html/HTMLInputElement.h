@@ -24,7 +24,6 @@
 
 #pragma once
 
-#include "DateComponents.h"
 #include "FileChooser.h"
 #include "HTMLTextFormControlElement.h"
 #include <memory>
@@ -43,8 +42,6 @@ class ListAttributeTargetObserver;
 class RadioButtonGroups;
 class StepRange;
 
-struct DateTimeChooserParameters;
-
 struct InputElementClickState {
     bool stateful { false };
     bool checked { false };
@@ -53,6 +50,7 @@ struct InputElementClickState {
 };
 
 enum class AnyStepHandling : bool;
+enum class DateComponentsType : uint8_t;
 
 class HTMLInputElement : public HTMLTextFormControlElement {
     WTF_MAKE_ISO_ALLOCATED(HTMLInputElement);
@@ -130,7 +128,7 @@ public:
     WEBCORE_EXPORT bool isTimeField() const;
     WEBCORE_EXPORT bool isWeekField() const;
 
-    DateComponents::Type dateType() const;
+    DateComponentsType dateType() const;
 
     HTMLElement* containerElement() const;
     
@@ -327,10 +325,6 @@ public:
     HTMLImageLoader* imageLoader() { return m_imageLoader.get(); }
     HTMLImageLoader& ensureImageLoader();
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-    bool setupDateTimeChooserParameters(DateTimeChooserParameters&);
-#endif
-
     void capsLockStateMayHaveChanged();
 
     bool shouldTruncateText(const RenderStyle&) const;
@@ -455,7 +449,7 @@ private:
     void addToRadioButtonGroup();
     void removeFromRadioButtonGroup();
 
-    void setDefaultSelectionAfterFocus(SelectionRevealMode);
+    void setDefaultSelectionAfterFocus(SelectionRestorationMode, SelectionRevealMode);
 
     AtomString m_name;
     String m_valueIfDirty;

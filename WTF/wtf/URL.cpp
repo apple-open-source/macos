@@ -93,6 +93,27 @@ StringView URL::lastPathComponent() const
     return StringView(m_string).substring(start, end - start + 1);
 }
 
+bool URL::hasSpecialScheme() const
+{
+    // https://url.spec.whatwg.org/#special-scheme
+    return protocolIs("ftp")
+        || protocolIs("file")
+        || protocolIs("http")
+        || protocolIs("https")
+        || protocolIs("ws")
+        || protocolIs("wss");
+}
+
+unsigned URL::pathStart() const
+{
+    unsigned start = m_hostEnd + m_portLength;
+    if (start == m_schemeEnd + 1U
+        && start + 1 < m_string.length()
+        && m_string[start] == '/' && m_string[start + 1] == '.')
+        start += 2;
+    return start;
+}
+
 StringView URL::protocol() const
 {
     if (!m_isValid)
@@ -414,6 +435,18 @@ unsigned URL::credentialsEnd() const
     return end;
 }
 
+static bool forwardSlashHashOrQuestionMark(UChar c)
+{
+    return c == '/'
+        || c == '#'
+        || c == '?';
+}
+
+static bool slashHashOrQuestionMark(UChar c)
+{
+    return forwardSlashHashOrQuestionMark(c) || c == '\\';
+}
+
 void URL::setHost(StringView newHost)
 {
     if (!m_isValid)
@@ -421,6 +454,9 @@ void URL::setHost(StringView newHost)
 
     if (newHost.contains(':') && !newHost.startsWith('['))
         return;
+
+    if (auto index = newHost.find(hasSpecialScheme() ? slashHashOrQuestionMark : forwardSlashHashOrQuestionMark); index != notFound)
+        newHost = newHost.substring(0, index);
 
     Vector<UChar, 512> encodedHostName;
     if (!appendEncodedHostname(encodedHostName, newHost))
@@ -641,7 +677,7 @@ void URL::setPath(StringView path)
 
     parse(makeString(
         StringView(m_string).left(pathStart()),
-        path.startsWith('/') ? "" : "/",
+        path.startsWith('/') || (path.startsWith('\\') && (hasSpecialScheme() || protocolIs("file"))) ? "" : "/",
         escapePathWithoutCopying(path),
         StringView(m_string).substring(m_pathEnd)
     ));

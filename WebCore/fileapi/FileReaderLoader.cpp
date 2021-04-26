@@ -56,7 +56,7 @@ const int defaultBufferLength = 32768;
 
 FileReaderLoader::FileReaderLoader(ReadType readType, FileReaderLoaderClient* client)
     : m_readType(readType)
-    , m_client(client)
+    , m_client(makeWeakPtr(client))
     , m_isRawDataConverted(false)
     , m_stringResult(emptyString())
     , m_variableLength(false)
@@ -279,6 +279,11 @@ RefPtr<ArrayBuffer> FileReaderLoader::arrayBufferResult() const
     return ArrayBuffer::create(*m_rawData);
 }
 
+RefPtr<JSC::ArrayBuffer> FileReaderLoader::takeRawData()
+{
+    return std::exchange(m_rawData, nullptr);
+}
+
 String FileReaderLoader::stringResult()
 {
     ASSERT(m_readType != ReadAsArrayBuffer && m_readType != ReadAsBlob);
@@ -341,7 +346,10 @@ void FileReaderLoader::convertToDataURL()
         return;
     }
 
-    builder.append(m_dataType);
+    if (m_dataType.isEmpty())
+        builder.append("application/octet-stream");
+    else
+        builder.append(m_dataType);
     builder.appendLiteral(";base64,");
 
     Vector<char> out;

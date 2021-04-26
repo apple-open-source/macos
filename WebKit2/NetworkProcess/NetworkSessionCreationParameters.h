@@ -33,6 +33,7 @@
 
 #if USE(SOUP)
 #include "SoupCookiePersistentStorageType.h"
+#include <WebCore/SoupNetworkProxySettings.h>
 #endif
 
 #if USE(CURL)
@@ -60,7 +61,6 @@ struct NetworkSessionCreationParameters {
     String sourceApplicationBundleIdentifier;
     String sourceApplicationSecondaryIdentifier;
     bool shouldLogCookieInformation { false };
-    Seconds loadThrottleLatency;
     URL httpProxy;
     URL httpsProxy;
 #endif
@@ -69,10 +69,14 @@ struct NetworkSessionCreationParameters {
     SandboxExtension::Handle alternativeServiceDirectoryExtensionHandle;
     bool http3Enabled { false };
 #endif
+    String hstsStorageDirectory;
+    SandboxExtension::Handle hstsStorageDirectoryExtensionHandle;
 #if USE(SOUP)
     String cookiePersistentStoragePath;
     SoupCookiePersistentStorageType cookiePersistentStorageType { SoupCookiePersistentStorageType::Text };
     bool persistentCredentialStorageEnabled { true };
+    bool ignoreTLSErrors { false };
+    WebCore::SoupNetworkProxySettings proxySettings;
 #endif
 #if USE(CURL)
     String cookiePersistentStorageFile;

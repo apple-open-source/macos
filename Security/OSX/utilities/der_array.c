@@ -84,12 +84,19 @@ size_t der_sizeof_array(CFArrayRef data, CFErrorRef *error)
 uint8_t* der_encode_array(CFArrayRef array, CFErrorRef *error,
                           const uint8_t *der, uint8_t *der_end)
 {
+    return der_encode_array_repair(array, error, false, der, der_end);
+}
+
+uint8_t* der_encode_array_repair(CFArrayRef array, CFErrorRef *error,
+                                 bool repair,
+                                 const uint8_t *der, uint8_t *der_end)
+{
     uint8_t* original_der_end = der_end;
     for(CFIndex position = CFArrayGetCount(array) - 1;
         position >= 0;
         --position)
     {
-        der_end = der_encode_plist(CFArrayGetValueAtIndex(array, position), error, der, der_end);
+        der_end = der_encode_plist_repair(CFArrayGetValueAtIndex(array, position), error, repair, der, der_end);
     }
 
     return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, original_der_end, der, der_end),

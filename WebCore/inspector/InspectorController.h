@@ -32,7 +32,7 @@
 #pragma once
 
 #include "InspectorOverlay.h"
-#include "PageScriptDebugServer.h"
+#include "PageDebugger.h"
 #include <JavaScriptCore/InspectorAgentRegistry.h>
 #include <JavaScriptCore/InspectorEnvironment.h>
 #include <wtf/Forward.h>
@@ -92,7 +92,7 @@ public:
     void inspect(Node*);
     WEBCORE_EXPORT bool shouldShowOverlay() const;
     WEBCORE_EXPORT void drawHighlight(GraphicsContext&) const;
-    WEBCORE_EXPORT void getHighlight(Highlight&, InspectorOverlay::CoordinateSystem) const;
+    WEBCORE_EXPORT void getHighlight(InspectorOverlay::Highlight&, InspectorOverlay::CoordinateSystem) const;
     void hideHighlight();
     Node* highlightedNode() const;
 
@@ -119,7 +119,7 @@ public:
     Inspector::InspectorEvaluateHandler evaluateHandler() const override;
     void frontendInitialized() override;
     WTF::Stopwatch& executionStopwatch() const final;
-    PageScriptDebugServer& scriptDebugServer() override;
+    PageDebugger& debugger() override;
     JSC::VM& vm() override;
 
 private:
@@ -134,7 +134,7 @@ private:
     Ref<Inspector::BackendDispatcher> m_backendDispatcher;
     std::unique_ptr<InspectorOverlay> m_overlay;
     Ref<WTF::Stopwatch> m_executionStopwatch;
-    PageScriptDebugServer m_scriptDebugServer;
+    PageDebugger m_debugger;
     Inspector::AgentRegistry m_agents;
 
     Page& m_page;

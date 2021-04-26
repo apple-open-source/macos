@@ -279,6 +279,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("CopyCARevocationAdditions");
         case kSecXPCOpValidUpdate:
             return CFSTR("ValidUpdate");
+        case kSecXPCOpSetTransparentConnectionPins:
+            return CFSTR("SetTransparentConnectionPins");
+        case kSecXPCOpCopyTransparentConnectionPins:
+            return CFSTR("CopyTransparentConnectionPins");
         default:
             return CFSTR("Unknown xpc operation");
     }

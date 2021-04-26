@@ -399,12 +399,6 @@ String String::simplifyWhiteSpace(CodeUnitMatchFunction isWhiteSpace) const
     return m_impl ? m_impl->simplifyWhiteSpace(isWhiteSpace) : String { };
 }
 
-String String::removeCharacters(CodeUnitMatchFunction findMatch) const
-{
-    // FIXME: Should this function, and the many others like it, be inlined?
-    return m_impl ? m_impl->removeCharacters(findMatch) : String { };
-}
-
 String String::foldCase() const
 {
     // FIXME: Should this function, and the many others like it, be inlined?
@@ -426,7 +420,7 @@ bool String::percentage(int& result) const
     return true;
 }
 
-Vector<UChar> String::charactersWithNullTermination() const
+Vector<UChar> String::charactersWithoutNullTermination() const
 {
     Vector<UChar> result;
 
@@ -441,10 +435,15 @@ Vector<UChar> String::charactersWithNullTermination() const
             const UChar* characters16 = m_impl->characters16();
             result.append(characters16, m_impl->length());
         }
-
-        result.append(0);
     }
 
+    return result;
+}
+
+Vector<UChar> String::charactersWithNullTermination() const
+{
+    auto result = charactersWithoutNullTermination();
+    result.append(0);
     return result;
 }
 

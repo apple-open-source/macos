@@ -38,17 +38,17 @@ T_DECL(is_full, "is_full")
 T_DECL(should_sample_counter, "should_sample_counter")
 {
 	expected_upper_bound = 7;
-	rand_value = 0;
+	rand_ret_value = 0;
 	T_EXPECT_TRUE(should_sample_counter(7), "1/1 -> sample");
 	T_EXPECT_TRUE(should_sample_counter(7), "1/1 -> sample");
 
-	rand_value = 1;
+	rand_ret_value = 1;
 	T_EXPECT_FALSE(should_sample_counter(7), "1/2 -> skip");
 	T_EXPECT_TRUE (should_sample_counter(7), "2/2 -> sample");
 	T_EXPECT_FALSE(should_sample_counter(7), "1/2 -> skip");
 	T_EXPECT_TRUE (should_sample_counter(7), "2/2 -> sample");
 
-	rand_value = 2;
+	rand_ret_value = 2;
 	T_EXPECT_FALSE(should_sample_counter(7), "1/3 -> skip");
 	T_EXPECT_FALSE(should_sample_counter(7), "2/3 -> skip");
 	T_EXPECT_TRUE (should_sample_counter(7), "3/3 -> sample");
@@ -62,20 +62,22 @@ T_DECL(should_sample, "should_sample")
 	T_EXPECT_TRUE (should_sample(&zone, 5), "normal size");
 	T_EXPECT_TRUE (should_sample(&zone, PAGE_SIZE), "page size");
 	T_EXPECT_FALSE(should_sample(&zone, PAGE_SIZE + 1), "size > page size");
+	T_EXPECT_EQ(rand_call_count, 3, NULL);
 
 	zone.num_allocations = 1;
 	T_EXPECT_FALSE(should_sample(&zone, 5), "zone full");
 
 	zone.max_allocations = 2;
-	rand_value = 1;
+	rand_ret_value = 1;
 	T_EXPECT_FALSE(should_sample(&zone, 5), "1/2 -> skip");
 	T_EXPECT_TRUE (should_sample(&zone, 5), "2/2 -> sample");
 
 	// Ensure rand_uniform() is only called when needed.
-	expected_upper_bound = ~zone.sample_counter_range;
+	T_EXPECT_EQ(rand_call_count, 4, NULL);
 	T_EXPECT_FALSE(should_sample(&zone, PAGE_SIZE + 1), "bad size");
 	zone.num_allocations = 2;
 	T_EXPECT_FALSE(should_sample(&zone, 5), "zone full");
+	T_EXPECT_EQ(rand_call_count, 4, NULL);
 }
 
 T_DECL(is_guarded, "is_guarded")
@@ -201,11 +203,16 @@ T_DECL(choose_available_slot, "choose_available_slot")
 
 T_DECL(choose_metadata, "choose_metadata")
 {
-	expected_upper_bound = zone.max_metadata = 2;
-	rand_value = 7;
+	zone.max_metadata = 2;
 	T_EXPECT_EQ(choose_metadata(&zone), 0, "0/2 -> 0");
 	T_EXPECT_EQ(choose_metadata(&zone), 1, "1/2 -> 1");
-	T_EXPECT_EQ(choose_metadata(&zone), 7, "full -> random");
+	T_EXPECT_EQ(rand_call_count, 0, NULL);
+
+	expected_upper_bound = 2; rand_use_ret_values = true;
+	slots[0].state = ss_allocated; metadata[0].slot = 0; rand_ret_values[0] = 0;
+	slots[1].state = ss_freed;     metadata[1].slot = 1; rand_ret_values[1] = 1;
+	T_EXPECT_EQ(choose_metadata(&zone), 1, "full -> random metadata (for freed slot)");
+	T_EXPECT_EQ(rand_call_count, 2, "try random index until we find metadata for a freed slot");
 }
 
 T_DECL(is_power_of_2, "is_power_of_2")
@@ -226,10 +233,10 @@ T_DECL(choose_offset_on_page, "choose_offset_on_page")
 	uint16_t page_size = 32;
 	expected_upper_bound = 2;
 
-	rand_value = 1;
+	rand_ret_value = 1;
 	T_EXPECT_EQ(choose_offset_on_page(5, 16, page_size), (uint16_t)0, "left-aligned");
 
-	rand_value = 0;
+	rand_ret_value = 0;
 	T_EXPECT_EQ(choose_offset_on_page( 0,  1, page_size), (uint16_t)32, "size 0, perfectly right-aligned");
 	T_EXPECT_EQ(choose_offset_on_page( 1,  1, page_size), (uint16_t)31, "size 1, perfectly right-aligned");
 	T_EXPECT_EQ(choose_offset_on_page( 5,  1, page_size), (uint16_t)27, "perfectly right-aligned");

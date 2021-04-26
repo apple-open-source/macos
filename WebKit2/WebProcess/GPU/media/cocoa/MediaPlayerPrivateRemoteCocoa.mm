@@ -28,45 +28,33 @@
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
 
-#import <WebCore/FloatRect.h>
+#import "RemoteAudioSourceProvider.h"
+#import <WebCore/VideoLayerManagerObjC.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <wtf/MachSendRight.h>
 
 namespace WebKit {
+using namespace WebCore;
+
+MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, MediaPlayerIdentifier playerIdentifier, RemoteMediaPlayerManager& manager)
+#if !RELEASE_LOG_DISABLED
+    : m_logger(player->mediaPlayerLogger())
+    , m_logIdentifier(player->mediaPlayerLogIdentifier())
+#endif
+    , m_player(player)
+    , m_mediaResourceLoader(*player->createResourceLoader())
+    , m_videoLayerManager(makeUniqueRef<VideoLayerManagerObjC>(logger(), logIdentifier()))
+    , m_manager(manager)
+    , m_remoteEngineIdentifier(engineIdentifier)
+    , m_id(playerIdentifier)
+{
+    INFO_LOG(LOGIDENTIFIER);
+}
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-
 PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 {
-    if (!m_fullscreenLayerHostingContextId)
-        return nullptr;
-
-    if (!m_videoFullscreenLayer) {
-        m_videoFullscreenLayer = adoptNS([[CALayer alloc] init]);
-        auto sublayer = LayerHostingContext::createPlatformLayerForHostingContext(m_fullscreenLayerHostingContextId.value());
-        [sublayer setName:@"VideoFullscreenLayerSublayer"];
-        [sublayer setPosition:CGPointMake(0, 0)];
-        [m_videoFullscreenLayer addSublayer:sublayer.get()];
-    }
-
-    return m_videoFullscreenLayer;
+    return adoptNS([[CALayer alloc] init]);
 }
-
-void MediaPlayerPrivateRemote::setVideoFullscreenFrame(WebCore::FloatRect rect)
-{
-    auto context = [m_videoFullscreenLayer context];
-    if (!context)
-        return;
-
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
-    MachSendRight fenceSendRight = MachSendRight::adopt([context createFencePort]);
-    setVideoFullscreenFrameFenced(rect, fenceSendRight);
-
-    [CATransaction commit];
-}
-
 #endif
 
 } // namespace WebKit

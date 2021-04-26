@@ -19,6 +19,7 @@
 #ifndef SUDO_DEBUG_H
 #define SUDO_DEBUG_H
 
+#include <sys/types.h>		/* for id_t, size_t, ssize_t, time_t */
 #include <stdarg.h>
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
@@ -105,17 +106,17 @@ struct sudo_conf_debug_file_list;
 #ifdef HAVE___FUNC__
 # define debug_decl_func(funcname)
 # define debug_decl_vars(funcname, subsys)				       \
-    const int sudo_debug_subsys = (subsys);
+    const int sudo_debug_subsys = (subsys)
 #else
 # define debug_decl_func(funcname)					       \
     const char __func__[] = #funcname;
 # define debug_decl_vars(funcname, subsys)				       \
-    const int sudo_debug_subsys = (subsys);				       \
-    debug_decl_func(funcname);
+    debug_decl_func(funcname)						       \
+    const int sudo_debug_subsys = (subsys)
 #endif
 #define debug_decl(funcname, subsys)					       \
-    debug_decl_vars((funcname), (subsys))				       \
-    sudo_debug_enter(__func__, __FILE__, __LINE__, sudo_debug_subsys);
+    debug_decl_vars((funcname), (subsys));				       \
+    sudo_debug_enter(__func__, __FILE__, __LINE__, sudo_debug_subsys)
 
 /*
  * Wrappers for sudo_debug_exit() and friends.
@@ -244,32 +245,35 @@ struct sudo_conf_debug_file_list;
 #define sudo_debug_write(fd, str, len, errnum) \
     sudo_debug_write2(fd, NULL, NULL, 0, (str), (len), (errnum))
 
-__dso_public int sudo_debug_deregister_v1(int instance_id);
-__dso_public void sudo_debug_enter_v1(const char *func, const char *file, int line, int subsys);
-__dso_public void sudo_debug_execve2_v1(int level, const char *path, char *const argv[], char *const envp[]);
-__dso_public void sudo_debug_exit_v1(const char *func, const char *file, int line, int subsys);
-__dso_public void sudo_debug_exit_bool_v1(const char *func, const char *file, int line, int subsys, bool ret);
-__dso_public void sudo_debug_exit_int_v1(const char *func, const char *file, int line, int subsys, int ret);
-__dso_public void sudo_debug_exit_long_v1(const char *func, const char *file, int line, int subsys, long ret);
-__dso_public void sudo_debug_exit_ptr_v1(const char *func, const char *file, int line, int subsys, const void *ret);
-__dso_public void sudo_debug_exit_id_t_v1(const char *func, const char *file, int line, int subsys, id_t ret);
-__dso_public void sudo_debug_exit_size_t_v1(const char *func, const char *file, int line, int subsys, size_t ret);
-__dso_public void sudo_debug_exit_ssize_t_v1(const char *func, const char *file, int line, int subsys, ssize_t ret);
-__dso_public void sudo_debug_exit_str_v1(const char *func, const char *file, int line, int subsys, const char *ret);
-__dso_public void sudo_debug_exit_str_masked_v1(const char *func, const char *file, int line, int subsys, const char *ret);
-__dso_public void sudo_debug_exit_time_t_v1(const char *func, const char *file, int line, int subsys, time_t ret);
-__dso_public pid_t sudo_debug_fork_v1(void);
-__dso_public int sudo_debug_get_active_instance_v1(void);
-__dso_public int sudo_debug_get_fds_v1(unsigned char **fds);
-__dso_public int sudo_debug_get_instance_v1(const char *program);
-__dso_public void sudo_debug_printf2_v1(const char *func, const char *file, int line, int level, const char *fmt, ...) __printf0like(5, 6);
-__dso_public void sudo_debug_printf_nvm_v1(int pri, const char *fmt, ...) __printf0like(2, 3);
-__dso_public int sudo_debug_register_v1(const char *program, const char *const subsystems[], unsigned int ids[], struct sudo_conf_debug_file_list *debug_files);
-__dso_public int sudo_debug_set_active_instance_v1(int inst);
-__dso_public void sudo_debug_update_fd_v1(int ofd, int nfd);
-__dso_public void sudo_debug_vprintf2_v1(const char *func, const char *file, int line, int level, const char *fmt, va_list ap) __printf0like(5, 0);
-__dso_public void sudo_debug_write2_v1(int fd, const char *func, const char *file, int line, const char *str, int len, int errnum);
+sudo_dso_public int sudo_debug_deregister_v1(int instance_id);
+sudo_dso_public void sudo_debug_enter_v1(const char *func, const char *file, int line, int subsys);
+sudo_dso_public void sudo_debug_execve2_v1(int level, const char *path, char *const argv[], char *const envp[]);
+sudo_dso_public void sudo_debug_exit_v1(const char *func, const char *file, int line, int subsys);
+sudo_dso_public void sudo_debug_exit_bool_v1(const char *func, const char *file, int line, int subsys, bool ret);
+sudo_dso_public void sudo_debug_exit_int_v1(const char *func, const char *file, int line, int subsys, int ret);
+sudo_dso_public void sudo_debug_exit_long_v1(const char *func, const char *file, int line, int subsys, long ret);
+sudo_dso_public void sudo_debug_exit_ptr_v1(const char *func, const char *file, int line, int subsys, const void *ret);
+sudo_dso_public void sudo_debug_exit_id_t_v1(const char *func, const char *file, int line, int subsys, id_t ret);
+sudo_dso_public void sudo_debug_exit_size_t_v1(const char *func, const char *file, int line, int subsys, size_t ret);
+sudo_dso_public void sudo_debug_exit_ssize_t_v1(const char *func, const char *file, int line, int subsys, ssize_t ret);
+sudo_dso_public void sudo_debug_exit_str_v1(const char *func, const char *file, int line, int subsys, const char *ret);
+sudo_dso_public void sudo_debug_exit_str_masked_v1(const char *func, const char *file, int line, int subsys, const char *ret);
+sudo_dso_public void sudo_debug_exit_time_t_v1(const char *func, const char *file, int line, int subsys, time_t ret);
+sudo_dso_public pid_t sudo_debug_fork_v1(void);
+sudo_dso_public int sudo_debug_get_active_instance_v1(void);
+sudo_dso_public int sudo_debug_get_fds_v1(unsigned char **fds);
+sudo_dso_public int sudo_debug_get_instance_v1(const char *program);
+sudo_dso_public int sudo_debug_parse_flags_v1(struct sudo_conf_debug_file_list *debug_files, const char *entry);
+sudo_dso_public void sudo_debug_printf2_v1(const char *func, const char *file, int line, int level, const char *fmt, ...) __printf0like(5, 6);
+sudo_dso_public void sudo_debug_printf_nvm_v1(int pri, const char *fmt, ...) __printf0like(2, 3);
+sudo_dso_public int sudo_debug_register_v1(const char *program, const char *const subsystems[], unsigned int ids[], struct sudo_conf_debug_file_list *debug_files);
+sudo_dso_public int sudo_debug_set_active_instance_v1(int inst);
+sudo_dso_public void sudo_debug_update_fd_v1(int ofd, int nfd);
+sudo_dso_public void sudo_debug_vprintf2_v1(const char *func, const char *file, int line, int level, const char *fmt, va_list ap) __printf0like(5, 0);
+sudo_dso_public void sudo_debug_write2_v1(int fd, const char *func, const char *file, int line, const char *str, int len, int errnum);
+sudo_dso_public bool sudo_debug_needed_v1(int level);
 
+#define sudo_debug_needed(level) sudo_debug_needed_v1((level)|sudo_debug_subsys)
 #define sudo_debug_deregister(_a) sudo_debug_deregister_v1((_a))
 #define sudo_debug_enter(_a, _b, _c, _d) sudo_debug_enter_v1((_a), (_b), (_c), (_d))
 #define sudo_debug_execve2(_a, _b, _c, _d) sudo_debug_execve2_v1((_a), (_b), (_c), (_d))
@@ -288,6 +292,7 @@ __dso_public void sudo_debug_write2_v1(int fd, const char *func, const char *fil
 #define sudo_debug_get_active_instance() sudo_debug_get_active_instance_v1()
 #define sudo_debug_get_fds(_a) sudo_debug_get_fds_v1((_a))
 #define sudo_debug_get_instance(_a) sudo_debug_get_instance_v1((_a))
+#define sudo_debug_parse_flags(_a, _b) sudo_debug_parse_flags_v1((_a), (_b))
 #define sudo_debug_printf2 sudo_debug_printf2_v1
 #define sudo_debug_printf_nvm sudo_debug_printf_nvm_v1
 #define sudo_debug_register(_a, _b, _c, _d) sudo_debug_register_v1((_a), (_b), (_c), (_d))

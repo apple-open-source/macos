@@ -43,8 +43,9 @@ class JSGlobalObject;
     v(setBucketHead, nullptr) \
     v(setBucketNext, nullptr) \
     v(setBucketKey, nullptr) \
+    v(setPrototypeDirect, nullptr) \
     v(propertyIsEnumerable, nullptr) \
-    v(ownKeys, nullptr) \
+    v(copyDataProperties, nullptr) \
     v(enqueueJob, nullptr) \
     v(makeTypeError, nullptr) \
     v(AggregateError, nullptr) \
@@ -52,6 +53,9 @@ class JSGlobalObject;
     v(typedArrayGetOriginalConstructor, nullptr) \
     v(typedArraySort, nullptr) \
     v(isTypedArrayView, nullptr) \
+    v(isSharedTypedArrayView, nullptr) \
+    v(isDetached, nullptr) \
+    v(typedArrayDefaultComparator, nullptr) \
     v(typedArraySubarrayCreate, nullptr) \
     v(isBoundFunction, nullptr) \
     v(hasInstanceBoundFunction, nullptr) \
@@ -59,6 +63,7 @@ class JSGlobalObject;
     v(BuiltinLog, nullptr) \
     v(BuiltinDescribe, nullptr) \
     v(RegExp, nullptr) \
+    v(min, nullptr) \
     v(trunc, nullptr) \
     v(Promise, nullptr) \
     v(InternalPromise, nullptr) \

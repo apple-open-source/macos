@@ -57,7 +57,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/mtree.c,v 1.29 2004/06/04 19:29:28 ru Exp
 #define SECONDS_IN_A_DAY (60 * 60 * 24)
 
 int ftsoptions = FTS_PHYSICAL;
-int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag, mflag, tflag;
+int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag, mflag, tflag, xflag;
 int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
 struct timespec ts;
 u_int keys;
@@ -101,7 +101,7 @@ main(int argc, char *argv[])
 	atexit(do_cleanup);
 	atexit(print_metrics_to_file);
 
-	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuwxX:m:F:t:E:")) != -1)
+	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuwxX:m:F:t:E:S")) != -1)
 		switch((char)ch) {
 		case 'c':
 			cflag = 1;
@@ -216,8 +216,10 @@ main(int argc, char *argv[])
 			} else {
 				set_metrics_file(file);
 			}
-		break;
-
+			break;
+		case 'S':
+			xflag = 1;
+			break;
 		case '?':
 		default:
 			RECORD_FAILURE(92, WARN_USAGE);
@@ -279,7 +281,7 @@ main(int argc, char *argv[])
 		status = mtree_verifyspec(spec1);
 		if (Uflag & (status == MISMATCHEXIT)) {
 			status = 0;
-		} else {
+		} else if (status) {
 			RECORD_FAILURE(100, status);
 		}
 		if (mflag && CFDictionaryGetCount(dict)) {
@@ -296,7 +298,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-"usage: mtree [-LPUcdeinqruxw] [-f spec] [-f spec] [-K key] [-k key] [-p path] [-s seed]\n"
+"usage: mtree [-LPUScdeinqruxw] [-f spec] [-K key] [-k key] [-p path] [-s seed] [-m xml dictionary] [-t timestamp]\n"
 "\t[-X excludes]\n");
 	exit(1);
 }

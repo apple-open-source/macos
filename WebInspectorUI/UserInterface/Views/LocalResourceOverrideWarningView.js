@@ -27,7 +27,8 @@ WI.LocalResourceOverrideWarningView = class LocalResourceOverrideWarningView ext
 {
     constructor(resource)
     {
-        console.assert(!resource.isLocalResourceOverride);
+        console.assert(resource instanceof WI.Resource, resource);
+        console.assert(!resource.localResourceOverride, resource);
 
         super();
 
@@ -50,7 +51,8 @@ WI.LocalResourceOverrideWarningView = class LocalResourceOverrideWarningView ext
 
     detached()
     {
-        WI.networkManager.removeEventListener(null, null, this);
+        WI.networkManager.removeEventListener(WI.NetworkManager.Event.LocalResourceOverrideAdded, this._handleLocalResourceOverrideAddedOrRemoved, this);
+        WI.networkManager.removeEventListener(WI.NetworkManager.Event.LocalResourceOverrideRemoved, this._handleLocalResourceOverrideAddedOrRemoved, this);
 
         super.detached();
     }
@@ -62,8 +64,8 @@ WI.LocalResourceOverrideWarningView = class LocalResourceOverrideWarningView ext
         this._revealButton.addEventListener("click", (event) => {
             const cookie = null;
             const options = {ignoreNetworkTab: true, ignoreSearchTab: true};
-            let overrideResource = WI.networkManager.localResourceOverrideForURL(this._resource.url);
-            WI.showRepresentedObject(overrideResource, cookie, options);
+            let localResourceOverride = WI.networkManager.localResourceOverridesForURL(this._resource.url)[0];
+            WI.showRepresentedObject(localResourceOverride, cookie, options);
         });
 
         let container = this.element.appendChild(document.createElement("div"));
@@ -79,8 +81,7 @@ WI.LocalResourceOverrideWarningView = class LocalResourceOverrideWarningView ext
         if (!this._revealButton)
             return;
 
-        let hasLocalResourceOverride = !!WI.networkManager.localResourceOverrideForURL(this._resource.url);
-        this._revealButton.hidden = !hasLocalResourceOverride;
+        this._revealButton.hidden = !WI.networkManager.localResourceOverridesForURL(this._resource.url).length;
 
         let resourceShowingOverrideContent = this._resource.responseSource === WI.Resource.ResponseSource.InspectorOverride;
         this.element.hidden = !resourceShowingOverrideContent;
@@ -88,7 +89,8 @@ WI.LocalResourceOverrideWarningView = class LocalResourceOverrideWarningView ext
 
     _handleLocalResourceOverrideAddedOrRemoved(event)
     {
-        if (this._resource.url !== event.data.localResourceOverride.url)
+        let {localResourceOverride} = event.data;
+        if (!localResourceOverride.matches(this._resource.url))
             return;
 
         this._updateContent();

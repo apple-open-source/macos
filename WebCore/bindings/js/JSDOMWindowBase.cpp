@@ -35,6 +35,7 @@
 #include "JSDOMBindingSecurity.h"
 #include "JSDOMGlobalObjectTask.h"
 #include "JSDOMWindowCustom.h"
+#include "JSDocument.h"
 #include "JSFetchResponse.h"
 #include "JSMicrotaskCallback.h"
 #include "JSNode.h"
@@ -80,6 +81,8 @@ const GlobalObjectMethodTable JSDOMWindowBase::s_globalObjectMethodTable = {
     &moduleLoaderEvaluate,
     &promiseRejectionTracker,
     &reportUncaughtExceptionAtEventLoop,
+    &currentScriptExecutionOwner,
+    &scriptExecutionStatus,
     &defaultLanguage,
 #if ENABLE(WEBASSEMBLY)
     &compileStreaming,
@@ -94,8 +97,8 @@ JSDOMWindowBase::JSDOMWindowBase(VM& vm, Structure* structure, RefPtr<DOMWindow>
     : JSDOMGlobalObject(vm, structure, proxy->world(), &s_globalObjectMethodTable)
     , m_windowCloseWatchpoints(WatchpointSet::create((window && window->frame()) ? IsWatched : IsInvalidated))
     , m_wrapped(WTFMove(window))
-    , m_proxy(proxy)
 {
+    m_proxy.set(vm, this, proxy);
 }
 
 void JSDOMWindowBase::finishCreation(VM& vm, JSWindowProxy* proxy)
@@ -107,7 +110,7 @@ void JSDOMWindowBase::finishCreation(VM& vm, JSWindowProxy* proxy)
 
     GlobalPropertyInfo staticGlobals[] = {
         GlobalPropertyInfo(builtinNames.documentPublicName(), jsNull(), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        GlobalPropertyInfo(builtinNames.windowPublicName(), m_proxy, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        GlobalPropertyInfo(builtinNames.windowPublicName(), m_proxy.get(), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
     };
 
     addStaticGlobals(staticGlobals, WTF_ARRAY_LENGTH(staticGlobals));
@@ -231,14 +234,35 @@ void JSDOMWindowBase::queueMicrotaskToEventLoop(JSGlobalObject& object, Ref<JSC:
     });
 }
 
+JSC::JSObject* JSDOMWindowBase::currentScriptExecutionOwner(JSGlobalObject* object)
+{
+    JSDOMWindowBase* thisObject = static_cast<JSDOMWindowBase*>(object);
+    return jsCast<JSObject*>(toJS(thisObject, thisObject, thisObject->wrapped().document()));
+}
+
+JSC::ScriptExecutionStatus JSDOMWindowBase::scriptExecutionStatus(JSC::JSGlobalObject*, JSC::JSObject* owner)
+{
+    return jsCast<JSDocument*>(owner)->wrapped().jscScriptExecutionStatus();
+}
+
 void JSDOMWindowBase::willRemoveFromWindowProxy()
 {
     setCurrentEvent(0);
 }
 
-JSWindowProxy* JSDOMWindowBase::proxy() const
+void JSDOMWindowBase::setCurrentEvent(Event* currentEvent)
 {
-    return m_proxy;
+    m_currentEvent = currentEvent;
+}
+
+Event* JSDOMWindowBase::currentEvent() const
+{
+    return m_currentEvent.get();
+}
+
+JSWindowProxy& JSDOMWindowBase::proxy() const
+{
+    return *jsCast<JSWindowProxy*>(&JSDOMGlobalObject::proxy());
 }
 
 JSValue toJS(JSGlobalObject* lexicalGlobalObject, DOMWindow& domWindow)

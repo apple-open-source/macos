@@ -52,11 +52,12 @@
 #include <netsmb/smb_gss.h>
 #include <netsmb/netbios.h>
 #include <netsmb/smb2_mc_support.h>
+#include <smbfs/smbfs_node.h>
 #include <smbclient/smbclient_internal.h>
 
 extern uint32_t smbfs_deadtimer;
 
-static struct smb_connobj smb_session_list;
+struct smb_connobj smb_session_list;
 static int smb_session_next = 1;	/* next unique id for Session */
 
 extern struct linker_set sysctl_net_smb;
@@ -66,6 +67,7 @@ SYSCTL_DECL(_net_smb);
 SYSCTL_NODE(_net, OID_AUTO, smb, CTLFLAG_RW, NULL, "SMB protocol");
 
 static void smb_co_put(struct smb_connobj *cp, vfs_context_t context);
+static void smb_session_lease_thread(void *arg);
 
 /*
  * The smb_co_lock, smb_co_unlock, smb_co_ref, smb_co_rel and smb_co_put deal
@@ -174,7 +176,6 @@ static void smb_co_gone(struct smb_connobj *cp, vfs_context_t context)
 
 static void smb_co_put(struct smb_connobj *cp, vfs_context_t context)
 {
-	
 	lck_mtx_lock(&(cp)->co_interlock);
 	if (cp->co_usecount > 1) {
 		cp->co_usecount--;
@@ -244,7 +245,7 @@ smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 {
 	struct sockaddr *sa2;
 
-	SMB_MALLOC(sa2, struct sockaddr *, sa->sa_len, M_SONAME,
+	SMB_MALLOC(sa2, struct sockaddr *, sizeof(struct sockaddr_nb), M_SONAME,
 	       canwait ? M_WAITOK : M_NOWAIT);
 	if (sa2)
 		bcopy(sa, sa2, sa->sa_len);
@@ -264,12 +265,13 @@ int smb_sm_done(void)
 		SMBERROR("%d connections still active\n", smb_session_list.co_usecount - 1);
 		return (EBUSY);
 	}
+
 	/* XXX Q4BP why are we not iterating on smb_session_list here with SMBCO_FOREACH? */
 	smb_co_done(&smb_session_list);
 	return (0);
 }
 
-static void smb_sm_lock_session_list()
+void smb_sm_lock_session_list(void)
 {
   	/*
 	 * The smb_session_list never goes away so there is no way for smb_co_lock
@@ -278,7 +280,7 @@ static void smb_sm_lock_session_list()
 	KASSERT((smb_co_lock(&smb_session_list) == 0), ("smb_sm_lock_session_list: lock failed"));
 }
 
-static void smb_sm_unlock_session_list()
+void smb_sm_unlock_session_list(void)
 {
 	smb_co_unlock(&smb_session_list);
 }
@@ -299,11 +301,6 @@ void smb_session_reset(struct smb_session *sessionp)
 	sessionp->session_mid = 0;
 	sessionp->session_low_pid = 1;
 
-    sessionp->session_message_id = 1;
-    
-    /* leave session_misc_flags untouched as it has preferences flags */
-    //sessionp->session_misc_flags = 0; 
-    
     /* Save previous sessID for reconnects SessionSetup request */
     sessionp->session_prev_session_id = sessionp->session_session_id;
     sessionp->session_session_id = 0;
@@ -341,18 +338,56 @@ void smb_session_unlock(struct smb_session *sessionp)
 
 static void smb_session_free(struct smb_connobj *cp)
 {
+    extern void ipc_port_release_send(ipc_port_t);
 	struct smb_session *sessionp = (struct smb_session*)cp;
-	
-	smb_gss_rel_cred(sessionp);
-    
-	if (sessionp->session_iod)
-		smb_iod_destroy(sessionp->session_iod);
-	sessionp->session_iod = NULL;
-    
-    if (sessionp->negotiate_token) {
-        SMB_FREE(sessionp->negotiate_token, M_SMBTEMP);
+    struct smbiod *iod, *t_iod, *main_iod = NULL;
+    struct lease_rq *lease_rqp, *tmp_lease_rqp = NULL;
+
+    SMB_LOG_MC("*** smb_session_free *** \n");
+
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+    sessionp->iod_tailq_flags |= SMB_IOD_TAILQ_SESSION_IS_SHUTTING_DOWN;
+
+    TAILQ_FOREACH_SAFE(iod, &sessionp->iod_tailq_head, tailq, t_iod) {
+
+        if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+            SMB_LOG_MC("shutdown alt-ch iod %d\n", iod->iod_id);
+            SMB_IOD_FLAGSLOCK(iod);
+            iod->iod_flags |= SMBIOD_SHUTDOWN;
+            SMB_IOD_FLAGSUNLOCK(iod);
+        } else {
+            // Remove the main iod from the queue but don't destroy it yet
+            main_iod = iod;
+            iod->iod_session->round_robin_iod = NULL;
+            SMB_LOG_MC("remove main-ch iod %d\n", iod->iod_id);
+            TAILQ_REMOVE(&iod->iod_session->iod_tailq_head, iod, tailq);
+        }
     }
-    
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+    // Wait for alt-ch iods to drop
+    do {
+        lck_mtx_lock(&sessionp->iod_tailq_lock);
+        bool is_empty = TAILQ_EMPTY(&sessionp->iod_tailq_head);
+        lck_mtx_unlock(&sessionp->iod_tailq_lock);
+        if (is_empty) {
+            break;
+        }
+        SMB_LOG_MC("Wait for alt-ch iods to drop\n");
+        msleep(sessionp, 0, PWAIT, "alt-iod-exit", 0);
+    } while(1);
+            
+    SMB_LOG_MC("done waiting for alt-ch iods to drop\n");
+    // Destroy the main iod after all the alt-ch iod were destroyed
+    if (main_iod) {
+        smb_iod_destroy(main_iod, false);
+    } else {
+        SMBERROR("*** smb_session_free: why wasn't there main_iod?? *** \n");
+    }
+
+    SMB_LOG_MC("*** smb_session_free: all iods reclaimed *** \n");
+
     if (sessionp->NativeOS) {
         SMB_FREE(sessionp->NativeOS, M_SMBSTR);
     }
@@ -386,43 +421,79 @@ static void smb_session_free(struct smb_connobj *cp)
     }
     
     if (sessionp->session_saddr) {
-		SMB_FREE(sessionp->session_saddr, M_SONAME);
+        SMB_FREE(sessionp->session_saddr, M_SONAME);
     }
-    
-    if (sessionp->session_laddr) {
-		SMB_FREE(sessionp->session_laddr, M_SONAME);
-    }
-    
-	smb_gss_destroy(&sessionp->session_gss);
-    
-	if (sessionp->throttle_info)
+
+    if (sessionp->throttle_info)
+    {
 		throttle_info_release(sessionp->throttle_info);
-	sessionp->throttle_info = NULL;
+        sessionp->throttle_info = NULL;
+
+    }
+
+    SMB_SESSION_LEASE_FLAGSLOCK(sessionp);
+    sessionp->session_lease_flags |= SMB_SESSION_LEASE_THREAD_STOP;
+    SMB_SESSION_LEASE_FLAGSUNLOCK(sessionp);
+
+    wakeup(&(sessionp->session_lease_work_flag));
+    for (;;) {
+        SMB_SESSION_LEASE_FLAGSLOCK(sessionp);
+        if (!(sessionp->session_lease_flags &
+              SMB_SESSION_LEASE_THREAD_RUNNING)) {
+            SMB_SESSION_LEASE_FLAGSUNLOCK(sessionp);
+            break;
+        }
+        sessionp->session_lease_flags |= SMB_SESSION_LEASE_THREAD_STOP;
+        msleep(&sessionp->session_lease_flags,
+               SMB_SESSION_LEASE_FLAGSLOCKPTR(sessionp), PWAIT | PDROP,
+               "session-lease-exit", 0);
+    }
+
+    /* free any leftover leases */
+    SMB_SESSION_LEASELOCK(sessionp);
+    TAILQ_FOREACH_SAFE(lease_rqp, &sessionp->session_lease_list, link, tmp_lease_rqp) {
+        TAILQ_REMOVE(&sessionp->session_lease_list, lease_rqp, link);
+        SMB_FREE(lease_rqp, M_SMBIOD);
+    }
+
+    SMB_SESSION_LEASEUNLOCK(sessionp);
+
+    /* Release the mach port by  calling the kernel routine needed to release task special port */
+    if (IPC_PORT_VALID(sessionp->gss_mp)) {
+        ipc_port_release_send(sessionp->gss_mp);
+    }
     
     smb_co_done(SESSION_TO_CP(sessionp));
 
     lck_mtx_destroy(&sessionp->session_stlock, session_st_lck_group);
     lck_mtx_destroy(&sessionp->session_model_info_lock, session_st_lck_group);
+    lck_mtx_destroy(&sessionp->iod_tailq_lock, session_st_lck_group);
+    lck_mtx_destroy(&sessionp->failover_lock, session_st_lck_group);
     lck_mtx_destroy(&sessionp->iod_quantum_lock, session_st_lck_group);
+    lck_mtx_destroy(&sessionp->session_lease_lock, session_st_lck_group);
 
     smb2_mc_destroy(&sessionp->session_interface_table);
-    
 #if 0
     /* Message ID and credit checking debugging code */
     lck_mtx_destroy(&sessionp->session_mid_lock, session_st_lck_group);
 #endif
+
     if (sessionp) {
         SMB_FREE(sessionp, M_SMBCONN);
     }
 }
 
 /*
- * Force reconnect on session
+ * Force reconnect on iod
  */
-int smb_session_force_reconnect(struct smb_session *sessionp)
+int smb_session_force_reconnect(struct smbiod *iod)
 {
-	if (sessionp->session_iod) {
-		smb_iod_request(sessionp->session_iod, SMBIOD_EV_FORCE_RECONNECT | SMBIOD_EV_SYNC, NULL);
+	if (iod) {
+		smb_iod_request(iod, SMBIOD_EV_FORCE_RECONNECT | SMBIOD_EV_SYNC, NULL);
+    }
+    else {
+        /* Should never happen */
+        SMBERROR("iod is null??? \n");
     }
 
 	return (0);
@@ -437,6 +508,16 @@ static int smb_session_disconnect(struct smb_session *sessionp)
 	if (sessionp->session_iod)
 		smb_iod_request(sessionp->session_iod, SMBIOD_EV_DISCONNECT | SMBIOD_EV_SYNC, NULL);
 	return (0);
+}
+
+int smb_request_iod_disconnect_and_shutdown(struct smbiod *iod)
+{
+    if (iod != NULL)
+    {
+        smb_iod_request(iod, SMBIOD_EV_FAILOVER, NULL);
+        smb_iod_request(iod, SMBIOD_EV_SHUTDOWN, NULL);
+    }
+    return (0);
 }
 
 /*
@@ -456,11 +537,15 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 {
 	struct smb_session *sessionp;
 	int error = 0;
-	
+    thread_t thread;
+
 	/* Should never happen, but just to be safe */
 	if (context == NULL) {
 		return ENOTSUP;
 	}
+
+    SMB_LOG_MC("*** create session ****.\n");
+    
 	SMB_MALLOC(sessionp, struct smb_session *, sizeof(*sessionp), M_SMBCONN, M_WAITOK | M_ZERO);
 	smb_co_init(SESSION_TO_CP(sessionp), SMBL_SESSION, "smb_session", vfs_context_proc(context));
 	sessionp->obj.co_free = smb_session_free;
@@ -468,16 +553,21 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 	sessionp->session_number = smb_session_next++;
 	sessionp->session_timo = SMB_DEFRQTIMO;
 	sessionp->session_smbuid = SMB_UID_UNKNOWN;
-	sessionp->session_tdesc = &smb_tran_nbtcp_desc;
 	sessionp->session_seqno = 0;
 	sessionp->session_mackey = NULL;
 	sessionp->session_mackeylen = 0;
     sessionp->session_smb3_signing_key_len = 0;
     sessionp->session_smb3_encrypt_key_len = 0;
     sessionp->session_smb3_decrypt_key_len = 0;
-	sessionp->session_saddr = saddr;
-	sessionp->session_laddr = laddr;
-	/* Remove any user setable items */
+    
+    /*
+     * <72239144> Save the original IP address that we connected to so we can
+     * return it later. Used when checking for IP address matching for sharing
+     * a session.
+     */
+    sessionp->session_saddr = smb_dup_sockaddr(saddr, 1);
+
+    /* Remove any user setable items */
 	sessionp->session_flags &= ~SMBV_USER_LAND_MASK;
 	/* Now add the users setable items */
 	sessionp->session_flags |= (session_spec->ioc_userflags & SMBV_USER_LAND_MASK);
@@ -491,15 +581,17 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 #endif // DEBUG_TURN_OFF_EXT_SEC
 	
 	sessionp->session_uid = session_spec->ioc_ssn.ioc_owner;
-	sessionp->session_gss.gss_asid = AU_ASSIGN_ASID;
 	
 	/* Amount of time to wait while reconnecting */
 	sessionp->reconnect_wait_time = session_spec->ioc_ssn.ioc_reconnect_wait_time;	
 	
-    lck_mtx_init(&sessionp->session_credits_lock, session_credits_lck_group, session_credits_lck_attr);
-
     lck_mtx_init(&sessionp->session_stlock, session_st_lck_group, session_st_lck_attr);
-
+    
+    lck_mtx_init(&sessionp->iod_tailq_lock, session_st_lck_group, session_st_lck_attr);
+    TAILQ_INIT(&sessionp->iod_tailq_head);
+    
+    lck_mtx_init(&sessionp->failover_lock, session_st_lck_group, session_st_lck_attr);
+    
     lck_mtx_init(&sessionp->session_model_info_lock, session_st_lck_group, session_st_lck_attr);
     lck_mtx_init(&sessionp->iod_quantum_lock, session_st_lck_group, session_st_lck_attr);
 #if 0
@@ -513,21 +605,46 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 		error = ENOMEM;
 	}
 
-	sessionp->session_message_id = 1;
     sessionp->session_misc_flags = SMBV_HAS_FILEIDS;  /* assume File IDs supported */
     sessionp->session_server_caps = 0;
 	sessionp->session_volume_caps = 0;
     
+    sessionp->session_smb3_encrypt_ciper = SMB2_ENCRYPTION_AES_128_CCM;
+
     lck_mtx_lock(&sessionp->session_model_info_lock);
     bzero(sessionp->session_model_info, sizeof(sessionp->session_model_info));
     lck_mtx_unlock(&sessionp->session_model_info_lock);
 
+    struct smbiod *iod = NULL;
 	if (!error)
-		error = smb_iod_create(sessionp);
+		error = smb_iod_create(sessionp, &iod);
 	if (error) {
 		smb_session_put(sessionp, context);
 		return error;
 	}
+    iod->iod_message_id = 1;
+    iod->iod_saddr  = saddr;
+    iod->iod_laddr  = laddr;
+    
+    sessionp->session_lease_flags = 0;
+    lck_mtx_init(&sessionp->session_lease_lock,
+                 session_st_lck_group, session_st_lck_attr);
+    lck_mtx_init(&sessionp->session_lease_flagslock,
+                 session_st_lck_group, session_st_lck_attr);
+    TAILQ_INIT(&sessionp->session_lease_list);
+
+    /* Start up a thread to handle lease breaks */
+    error = kernel_thread_start((thread_continue_t)smb_session_lease_thread, sessionp, &thread);
+    if (error != KERN_SUCCESS) {
+        /* Should never happen */
+        SMBERROR("can't start lease break thread. error = %d\n", error);
+        smb_session_put(sessionp, context);
+        return error;
+    }
+    else {
+        thread_deallocate(thread);
+    }
+
 	*sessionpp = sessionp;
 	
 	/* What versions of SMB are allowed? */
@@ -542,6 +659,18 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 	if (session_spec->ioc_extra_flags & SMB_SMB3_ENABLED) {
 		sessionp->session_misc_flags |= SMBV_NEG_SMB3_ENABLED;
 	}
+    
+    if (session_spec->ioc_extra_flags & SMB_MULTICHANNEL_ENABLE) {
+        sessionp->session_flags |= SMBV_MULTICHANNEL_ON;
+    }
+    
+    if (session_spec->ioc_extra_flags & SMB_MC_PREFER_WIRED) {
+        sessionp->session_flags |= SMBV_MC_PREFER_WIRED;
+    }
+
+    if (session_spec->ioc_extra_flags & SMB_DISABLE_311) {
+        sessionp->session_flags |= SMBV_DISABLE_311;
+    }
 
 	/* Is signing required? */
 	if (session_spec->ioc_extra_flags & SMB_SIGNING_REQUIRED) {
@@ -592,13 +721,24 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 
     lck_mtx_unlock(&sessionp->iod_quantum_lock);
 
+    sessionp->session_gone_iod_total_tx_bytes = 0;
+    sessionp->session_gone_iod_total_rx_bytes = 0;
+    sessionp->session_setup_time.tv_sec = 0;
+    sessionp->session_reconnect_count = 0;
+
     /* Init Multi Channel Interfaces table*/
-    smb2_mc_init(& sessionp->session_interface_table);
-    
+    smb2_mc_init(&sessionp->session_interface_table,
+                 session_spec->ioc_mc_max_channel,
+                 session_spec->ioc_mc_max_rss_channel,
+                 session_spec->ioc_mc_client_if_blacklist,
+                 session_spec->ioc_mc_client_if_blacklist_len,
+                 (sessionp->session_flags & SMBV_MC_PREFER_WIRED));
+
     smb_sm_lock_session_list();
-	smb_co_addchild(&smb_session_list, SESSION_TO_CP(sessionp));
-	smb_sm_unlock_session_list();
-	return 0;
+    smb_co_addchild(&smb_session_list, SESSION_TO_CP(sessionp));
+    smb_sm_unlock_session_list();
+
+    return 0;
 }
 
 /*
@@ -626,23 +766,31 @@ static int addressMatch(struct smb_session *sessionp, struct sockaddr *saddr)
 		SMBERROR("sessionp or saddr is null \n");
 		return FALSE;
 	}
-	
-	session_saddr = sessionp->session_saddr;
+
+    /*
+     * <72239144> Try matching on the original server IP address that was used
+     *
+     * If multichannel is being used, then each of the iod->iod_saddr
+     * contains the specific server IP address being used, but all the
+     * channels are to the same server, so any channel that matches the
+     * original server IP address should be considered a match.
+     */
+    session_saddr = sessionp->session_saddr;
 	if (session_saddr == NULL) {
 		SMBERROR("session_saddr is null \n");
 		return FALSE;
 	}
 
-	if ((session_saddr->sa_family == AF_NETBIOS) && (saddr->sa_family != AF_NETBIOS)) {
-		session_saddr = (struct sockaddr *)&((struct sockaddr_nb *)sessionp->session_saddr)->snb_addrin;
-	}
-	
+    if ((session_saddr->sa_family == AF_NETBIOS) && (saddr->sa_family != AF_NETBIOS)) {
+        session_saddr = (struct sockaddr *)&((struct sockaddr_nb *)sessionp->session_saddr)->snb_addrin;
+    }
+
     if ((session_saddr->sa_len == saddr->sa_len) && (memcmp(session_saddr, saddr, saddr->sa_len) == 0)) {
         SMB_LOG_AUTH("Address match for <%s> \n", (sessionp == NULL ? "null" : sessionp->session_srvname));
 		return TRUE;
     }
-	
-	return FALSE;
+
+    return FALSE;
 }
 
 static int dnsMatch(struct smb_session *sessionp, char *dns_name)
@@ -962,6 +1110,10 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 	
 	*sessionpp = sessionp = NULL;
 
+    if ((searchOnly) && (session_spec->ioc_sessionp != NULL)) {
+        sessionp = session_spec->ioc_sessionp;
+    }
+
 	if (session_spec->ioc_extra_flags & SMB_FORCE_NEW_SESSION) {
 		error = ENOENT;	/* Force a new session */
 	}
@@ -1002,14 +1154,22 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 			}
 		}
 		/* If smb_session_create fails it will clean up saddr and laddr */
+#ifdef SMB_DEBUG
+        char str[128];
+        smb2_sockaddr_to_str(saddr, str, sizeof(str));
+        SMBDEBUG("saddr is %s.\n", str);
+#endif
 		error = smb_session_create(session_spec, saddr, laddr, context, &sessionp);
 		if (error == 0) {
 			/* Flags used to cancel the connection */
 			sessionp->connect_flag = &sdp->sd_flags;
 			error = smb_session_negotiate(sessionp, context);
 			sessionp->connect_flag = NULL;
-			if (error) /* Remove the lock and reference */
+            if (error) {
+                SMBDEBUG("saddr is %s.\n", str);
+                /* Remove the lock and reference */
 				smb_session_put(sessionp, context);
+            }
 		}		
 	}
 	if ((error == 0) && (sessionp)) {
@@ -1027,10 +1187,12 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 	return error;
 }
 
-int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec, 
+int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
 					vfs_context_t context)
 {
 	int error;
+    
+    struct smbiod *iod = sessionp->session_iod;
 
     /*
 	 * Call smb_sm_lookupint to verify that the sessionp is still on the
@@ -1064,16 +1226,16 @@ int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
     if (sessionp->session_domain != NULL) {
         SMB_FREE(sessionp->session_domain, M_SMBSTR);
     }
-    if (sessionp->session_gss.gss_cpn != NULL) {
-        SMB_FREE(sessionp->session_gss.gss_cpn, M_SMBSTR);
+    if (iod->iod_gss.gss_cpn != NULL) {
+        SMB_FREE(iod->iod_gss.gss_cpn, M_SMBSTR);
     }
 	/* 
 	 * Freeing the SPN will make sure we never use the hint. Remember that the 
 	 * gss_spn contains the hint from the negotiate. We now require user
 	 * land to send us a SPN, if we are going to use one.
 	 */
-    if (sessionp->session_gss.gss_spn != NULL) {
-        SMB_FREE(sessionp->session_gss.gss_spn, M_SMBSTR);
+    if (iod->iod_gss.gss_spn != NULL) {
+        SMB_FREE(iod->iod_gss.gss_spn, M_SMBSTR);
     }
 	sessionp->session_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user));
 	sessionp->session_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password));
@@ -1087,27 +1249,27 @@ int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
 
 	/* GSS principal names are only set if we are doing kerberos or ntlmssp */
 	if (sspec->ioc_gss_client_size) {
-		sessionp->session_gss.gss_cpn = smb_memdupin(sspec->ioc_gss_client_name, sspec->ioc_gss_client_size);
+		iod->iod_gss.gss_cpn = smb_memdupin(sspec->ioc_gss_client_name, sspec->ioc_gss_client_size);
 	}
-	sessionp->session_gss.gss_cpn_len = sspec->ioc_gss_client_size;
-	sessionp->session_gss.gss_client_nt = sspec->ioc_gss_client_nt;
+	iod->iod_gss.gss_cpn_len = sspec->ioc_gss_client_size;
+	iod->iod_gss.gss_client_nt = sspec->ioc_gss_client_nt;
 
 	if (sspec->ioc_gss_target_size) {
-		sessionp->session_gss.gss_spn = smb_memdupin(sspec->ioc_gss_target_name, sspec->ioc_gss_target_size);
+		iod->iod_gss.gss_spn = smb_memdupin(sspec->ioc_gss_target_name, sspec->ioc_gss_target_size);
 	}
-	sessionp->session_gss.gss_spn_len = sspec->ioc_gss_target_size;
-	sessionp->session_gss.gss_target_nt = sspec->ioc_gss_target_nt;
+	iod->iod_gss.gss_spn_len = sspec->ioc_gss_target_size;
+	iod->iod_gss.gss_target_nt = sspec->ioc_gss_target_nt;
 	if (!(sspec->ioc_userflags & SMBV_ANONYMOUS_ACCESS)) {
 		SMB_LOG_AUTH("client size = %d client name type = %d\n", 
-				   sspec->ioc_gss_client_size, sessionp->session_gss.gss_client_nt);
+				   sspec->ioc_gss_client_size, iod->iod_gss.gss_client_nt);
 		SMB_LOG_AUTH("taget size = %d target name type = %d\n", 
-				   sspec->ioc_gss_target_size, sessionp->session_gss.gss_target_nt);
+				   sspec->ioc_gss_target_size, iod->iod_gss.gss_target_nt);
 	}
 	
 	error = smb_session_ssnsetup(sessionp);
 	/* If no error then this session has been authorized */
 	if (error == 0) {
-		smb_gss_ref_cred(sessionp);
+		smb_gss_ref_cred(iod);
 		sessionp->session_flags |= SMBV_AUTH_DONE;
 	}
 
@@ -1131,19 +1293,20 @@ done:
         if (sessionp->session_domain) {
             SMB_FREE(sessionp->session_domain, M_SMBSTR);
         }
-        if (sessionp->session_gss.gss_cpn) {
-            SMB_FREE(sessionp->session_gss.gss_cpn, M_SMBSTR);
+        if (iod->iod_gss.gss_cpn) {
+            SMB_FREE(iod->iod_gss.gss_cpn, M_SMBSTR);
         }
-        if (sessionp->session_gss.gss_spn) {
-            SMB_FREE(sessionp->session_gss.gss_spn, M_SMBSTR);
+        if (iod->iod_gss.gss_spn) {
+            SMB_FREE(iod->iod_gss.gss_spn, M_SMBSTR);
         }
         
-		sessionp->session_gss.gss_spn_len = 0;
-		sessionp->session_gss.gss_cpn_len = 0;
+		iod->iod_gss.gss_spn_len = 0;
+		iod->iod_gss.gss_cpn_len = 0;
 	}
 	
 	/* Release the reference and lock that smb_sm_lookupint took on the sessionp */
 	smb_session_put(sessionp, context);
+
 	return error;
 }
 
@@ -1244,7 +1407,7 @@ int smb_sm_tcon(struct smb_session *sessionp, struct smbioc_share *shspec,
 			struct smb_share **shpp, vfs_context_t context)
 {
 	int error;
-	
+
 	*shpp = NULL;
 	/*
 	 * Call smb_sm_lookupint to verify that the sessionp is still on the
@@ -1281,14 +1444,6 @@ int smb_sm_tcon(struct smb_session *sessionp, struct smbioc_share *shspec,
 		shspec->ioc_fstype = (*shpp)->ss_fstype;
 	}
 	
-    /* if multichannel smb, interogate server for additional interfaces */
-    if (!error) {
-        error = smb_session_query_net_if(sessionp);
-        if (error) {
-            SMBERROR("smb_session_query_net_if: error = %d\n", error);
-        }
-    }
-
     /* Release the reference that smb_sm_lookupint took on the session */
     smb_session_rele(sessionp, context);
     
@@ -1331,14 +1486,144 @@ int smb_session_ssnsetup(struct smb_session *sessionp)
 
 int smb_session_query_net_if(struct smb_session *sessionp)
 {
+    int error = 0;
+    struct smbiod *iod = NULL;
+    struct timeval current_time, elapsed_time;
 
-    if (sessionp->session_flags & SMBV_MULTICHANNEL_ON) {
-        /* MultiChannel is supported on this session */
-        return smb_iod_request(sessionp->session_iod, SMBIOD_EV_QUERY_IF_INFO | SMBIOD_EV_SYNC, NULL);
-    } else {
-        /* MultiChannel is not supported on this session */
-        return(0);
+    if (sessionp == NULL) {
+        SMBERROR("sessionp is NULL \n");
+        goto exit;
     }
+
+    /* Is MultiChannel enabled on this session? */
+    if (!(sessionp->session_flags & SMBV_MULTICHANNEL_ON)) {
+        SMBDEBUG("MultiChannel is not enabled on this session.\n");
+        goto exit;
+    }
+
+    /* Has it been long enough between server queries? */
+    microtime(&current_time);
+    timersub (&current_time, &sessionp->session_query_net_recheck_time,
+              &elapsed_time);
+
+    if (elapsed_time.tv_sec < SMB_SESSION_QUERY_NET_IF_TIMEOUT_SEC) {
+        goto exit;
+    }
+
+    SMB_LOG_UNIT_TEST("MultiChannelUnitTest - Time to recheck server interfaces %ld >= %d \n",
+                      elapsed_time.tv_sec, SMB_SESSION_QUERY_NET_IF_TIMEOUT_SEC);
+
+    /* Get an iod to send query on */
+    error = smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__);
+    if (error) {
+        SMBERROR("smb_iod_get_main_iod failed %d\n", error);
+        goto exit;
+    }
+
+    if (iod == NULL) {
+        SMBERROR("iod is NULL \n");
+        goto exit;
+    }
+
+    /* Query the server for its current network interfaces */
+    error = smb_iod_request(iod, SMBIOD_EV_QUERY_IF_INFO | SMBIOD_EV_SYNC,
+                            NULL);
+    
+    /* Save time that we last checked server network interfaces */
+    microtime(&sessionp->session_query_net_recheck_time);
+
+    smb_iod_rel(iod, NULL, __FUNCTION__);
+        
+exit:
+    return(error);
+}
+
+int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct session_con_entry *con_entry)
+{
+    struct smb_session *sessionp = parent_iod->iod_session;
+    struct smbiod *iod = NULL;
+    int    error       = 0;
+    
+    if (!(sessionp->session_flags & SMBV_MULTICHANNEL_ON)) {
+        /* MultiChannel is not enabled on this session */
+        SMBERROR("MultiChannel is not enabled on this session.\n");
+        goto exit;
+    }
+    
+    if ((!con_entry) || (!con_entry->con_client_nic) || (!con_entry->con_server_nic)) {
+        SMBERROR("Invalid con_entry.\n");
+        return(EINVAL);
+    }
+    
+    if (TAILQ_EMPTY(&con_entry->con_server_nic->addr_list)) {
+        SMBERROR("Empty con_server_nic->addr_list .\n");
+        return(EINVAL);
+    }
+
+    /* create a new iod thread */
+    error = smb_iod_create(sessionp, &iod);
+    if (error) {
+        SMBERROR("Unable to create iod (%d).\n", error);
+        goto exit;
+    }
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags |= SMBIOD_ALTERNATE_CHANNEL;       // Mark this iod as alternate channel
+    SMB_IOD_FLAGSUNLOCK(iod);
+
+    /* Save Connection Info */
+    iod->iod_conn_entry.con_entry      = con_entry;
+    con_entry->iod = iod;
+    iod->iod_conn_entry.client_if_idx  = con_entry->con_client_nic->nic_index;
+    iod->iod_conn_entry.selected_saddr = TAILQ_FIRST(&con_entry->con_server_nic->addr_list);
+    if (con_entry->active_state != SMB2_MC_FUNC_ACTIVE) {
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags |= SMBIOD_INACTIVE_CHANNEL;
+        SMB_IOD_FLAGSUNLOCK(iod);
+    }
+    
+    /* Find a suitable Server's IP address */
+    error = smb2_find_valid_ip_family(iod);
+    if (error) {
+        SMBERROR("id %d smb2_find_valid_ip_family returned %d.\n", iod->iod_id, error);
+        goto exit;
+    }
+
+    /* Duplicate gss from main iod */
+    error = smb_gss_dup(&sessionp->session_iod->iod_gss, &iod->iod_gss);
+    if (error) {
+        SMBERROR("id %d smb_gss_dup returned %d.\n", iod->iod_id, error);
+        goto exit;
+    }
+    smb_gss_ref_cred(iod);
+    
+    /* Copy Session.SigningKey to Channel.SigningKey */
+    memcpy(iod->iod_smb3_signing_key, sessionp->session_smb3_signing_key, SMB3_KEY_LEN);
+    iod->iod_smb3_signing_key_len = sessionp->session_smb3_signing_key_len;
+
+#ifdef SMB_DEBUG
+    char str[128];
+    smb2_sockaddr_to_str(iod->iod_saddr, str, sizeof(str));
+    SMB_LOG_MC("id %d: Try from if %llu to %s.\n",
+             iod->iod_id,
+             iod->iod_conn_entry.client_if_idx,
+             str); 
+#endif
+
+    /* Invoke the new iod to establish a new channel */
+    error = smb_iod_request(iod, SMBIOD_EV_ESTABLISH_ALT_CH, NULL);
+    if (error) {
+        SMBERROR("Unable to send event SMBIOD_EV_ESTABLISH_ALT_CH to iod.\n");
+        goto exit;
+    }
+    
+exit:
+    if (error) {
+        if (iod) {
+            smb_gss_destroy(&iod->iod_gss);
+        }
+    }
+    return error;
+
 }
 
 static char smb_emptypass[] = "";
@@ -1432,4 +1717,422 @@ void smb_session_reconnect_rel(struct smb_session *sessionp)
 	thread_deallocate(thread);
 }
 
+bool
+smb2_extract_ip_and_len(struct sockaddr *addr, void **addrp, uint32_t *addr_lenp) {
 
+    if (!addr) {
+        /* This should never happen */
+        SMBERROR("NULL addr.\n");
+        return 0;
+    }
+
+    if ((!addrp) || (!addr_lenp)) {
+        SMBERROR("invalid addrp or addr_lenp.\n");
+        return false;
+    }
+
+    switch (addr->sa_family) {
+        case AF_INET:
+        {
+            struct sockaddr_in *xin = (void*)addr;
+            *addrp     = &xin->sin_addr.s_addr;
+            *addr_lenp = sizeof(xin->sin_addr.s_addr);
+        }
+        return true;
+
+        case AF_NETBIOS:
+        {
+            struct sockaddr_nb *xnb = (void*)addr;
+            *addrp     = &xnb->snb_addrin.sin_addr.s_addr;
+            *addr_lenp = sizeof(xnb->snb_addrin.sin_addr.s_addr);
+        }
+        return true;
+
+        case AF_INET6:
+        {
+            struct sockaddr_in6 *xin6 = (void*)addr;
+            *addrp     = &xin6->sin6_addr;
+            *addr_lenp = sizeof(xin6->sin6_addr);
+        }
+        return true;
+
+        default:
+            SMBERROR("invalid sa_family %u.\n", addr->sa_family);
+            return false;
+    }
+}
+
+uint32_t
+smb2_get_port_from_sockaddr(struct sockaddr *addr)
+{
+    uint16_t port = 0;
+
+    if (!addr) {
+        /* This should never happen */
+        SMBERROR("NULL addr.\n");
+        return 0;
+    }
+
+    switch(addr->sa_family) {
+        case AF_INET:
+        {
+            struct sockaddr_in *xin = (void*)addr;
+            port = ntohs(xin->sin_port);
+        }
+        break;
+
+        case AF_NETBIOS:
+        {
+            struct sockaddr_nb *xnb = (void*)addr;
+            port = ntohs(xnb->snb_addrin.sin_port);
+        }
+        break;
+
+        case AF_INET6:
+        {
+            struct sockaddr_in6 *xin6 = (void*)addr;
+            port = ntohs(xin6->sin6_port);
+        }
+        break;
+
+        default:
+            SMBERROR("Unsupported sa_family %u.\n", addr->sa_family);
+            break;
+    }
+
+    return port;
+}
+
+int
+smb2_set_port_in_sockaddr(struct sockaddr *addr, uint32_t port)
+{
+    if (!addr) {
+        /* This should never happen */
+        SMBERROR("NULL addr.\n");
+        return 0;
+    }
+
+    switch(addr->sa_family) {
+        case AF_INET:
+        {
+            struct sockaddr_in *xin = (void*)addr;
+            xin->sin_port = htons(port);
+        }
+        return 0;
+
+        case AF_NETBIOS:
+        {
+            struct sockaddr_nb *xnb = (void*)addr;
+            xnb->snb_addrin.sin_port = htons(port);
+        }
+        return 0;
+
+        case AF_INET6:
+        {
+            struct sockaddr_in6 *xin6 = (void*)addr;
+            xin6->sin6_port = htons(port);
+        }
+        return 0;
+    }
+
+    SMBERROR("Unsupported sa_family %u.\n", addr->sa_family);
+    return EINVAL;
+}
+
+int
+smb2_sockaddr_to_str(struct sockaddr *addr, char *str, uint32_t max_str_len)
+{
+    uint32_t str_len = 0;
+
+    if (!addr) {
+        /* This should never happen */
+        SMBERROR("NULL addr.\n");
+        return 0;
+    }
+
+    if (!str) {
+        /* This should never happen */
+        SMBERROR("NULL str.\n");
+        return 0;
+    }
+
+    uint32_t port = smb2_get_port_from_sockaddr(addr);
+
+    switch (addr->sa_family) {
+        case AF_INET:
+            str_len = snprintf(str, max_str_len, "IPv4[%u.%u.%u.%u]:%u",
+                                 (uint8_t)addr->sa_data[2],
+                                 (uint8_t)addr->sa_data[3],
+                                 (uint8_t)addr->sa_data[4],
+                                 (uint8_t)addr->sa_data[5],
+                                 port);
+            break;
+
+        case AF_NETBIOS:
+            str_len = snprintf(str, max_str_len, "NetBIOS[%u.%u.%u.%u]:%u",
+                                 (uint8_t)addr->sa_data[6],
+                                 (uint8_t)addr->sa_data[7],
+                                 (uint8_t)addr->sa_data[8],
+                                 (uint8_t)addr->sa_data[9],
+                                 port);
+            break;
+
+        case AF_INET6:
+            if (addr->sa_len < 22) {
+                str_len = snprintf(str, max_str_len, "IPv6[Invalid sa_len]:%u", port);
+
+            } else {
+                str_len = snprintf(str, max_str_len, "IPv6[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]:%u",
+                         (uint8_t)addr->sa_data[6],
+                         (uint8_t)addr->sa_data[7],
+                         (uint8_t)addr->sa_data[8],
+                         (uint8_t)addr->sa_data[9],
+                         (uint8_t)addr->sa_data[10],
+                         (uint8_t)addr->sa_data[11],
+                         (uint8_t)addr->sa_data[12],
+                         (uint8_t)addr->sa_data[13],
+                         (uint8_t)addr->sa_data[14],
+                         (uint8_t)addr->sa_data[15],
+                         (uint8_t)addr->sa_data[16],
+                         (uint8_t)addr->sa_data[17],
+                         (uint8_t)addr->sa_data[18],
+                         (uint8_t)addr->sa_data[19],
+                         (uint8_t)addr->sa_data[20],
+                         (uint8_t)addr->sa_data[21],
+                         port);
+            }
+            break;
+
+        default:
+            str_len = snprintf(str, max_str_len, "Unsupported sa_family %u", addr->sa_family);
+            break;
+    }
+    return str_len;
+}
+
+void
+smb2_spd_to_txt(uint64_t spd, char *str, uint32_t str_len) {
+    const char *unit[3] = {"Gb", "Mb", "Kb"};
+    
+    if (!str)
+        return;
+    
+    strncpy(str, "NA", 3);
+    uint64_t factor = (1000*1000*1000);
+    for(uint32_t u = 0; u < 3; u++) {
+        if (spd >= factor) {
+            uint64_t v = spd/factor;
+            snprintf(str, str_len, "%3llu.%.3llu %s", v, (spd-v*factor)/(factor/1000), unit[u]);
+            break;
+        }
+        factor /= 1000;
+    }
+}
+
+
+/*
+ * smb2_create_server_addr
+ * This function creates a server socket address (saddr) based on the socket-address used by the main iod
+ * and the alternate connection information (selected_saddr).
+ */
+int
+smb2_create_server_addr(struct smbiod *iod) {
+    int error = 0;
+    void *src = NULL, *dst = NULL;
+    uint32_t src_len = 0, dst_len = 0, port = 0;
+
+    if (!iod) {
+        SMBERROR("invalid iod.\n");
+        return EINVAL;
+    }
+
+    struct smb_session *sessionp = iod->iod_session;
+    if (!sessionp) {
+        SMBERROR("id %d invalid session.\n", iod->iod_id);
+        return EINVAL;
+    }
+
+    struct sockaddr *main_saddr = sessionp->session_iod->iod_saddr;
+    if (!main_saddr) {
+        SMBERROR("id %d invalid main_saddr.\n", iod->iod_id);
+        return EINVAL;
+    }
+
+    struct sock_addr_entry *selected_saddr_entry = iod->iod_conn_entry.selected_saddr;
+    if (!selected_saddr_entry) {
+        SMBERROR("id %d invalid selected_saddr_entry.\n", iod->iod_id);
+        return EINVAL;
+    }
+
+    struct sockaddr *sel_addr = selected_saddr_entry->addr;
+    if (!sel_addr) {
+        SMBERROR("id %d invalid sel_addr.\n", iod->iod_id);
+        return EINVAL;
+    }
+
+    if (main_saddr->sa_family != AF_NETBIOS) {
+        // Duplicate IF sockaddr
+        iod->iod_saddr = smb_dup_sockaddr(sel_addr, true);
+        if (!iod->iod_saddr) {
+            SMBERROR("id %d smb_dup_sockaddr failed.\n", iod->iod_id);
+            error = ENOMEM;
+            goto exit;
+        }
+        // Copy port number from main iod
+        port = smb2_get_port_from_sockaddr(main_saddr);
+        smb2_set_port_in_sockaddr(iod->iod_saddr, port);
+
+    } else { // main is netbios
+        if (sel_addr->sa_family == AF_INET6) {
+            SMBDEBUG("id %d no netbios over ipv6.\n", iod->iod_id);
+            error = EAGAIN;
+            goto exit;
+        }
+        // Duplicate main sockaddr
+        iod->iod_saddr = smb_dup_sockaddr(main_saddr, true);
+        if (!iod->iod_saddr) {
+            SMBERROR("id %d smb_dup_sockaddr failed.\n", iod->iod_id);
+            error = ENOMEM;
+            goto exit;
+        }
+        // Copy the IP address from sel_addr
+        if (!smb2_extract_ip_and_len(iod->iod_saddr, &dst, &dst_len)) {
+            SMBERROR("id %d smb2_extract_ip_and_len(iod->iod_saddr) failed.\n", iod->iod_id);
+            return EINVAL;
+        }
+        if (!smb2_extract_ip_and_len(sel_addr, &src, &src_len)) {
+            SMBERROR("id %d smb2_extract_ip_and_len(sel_addr) failed.\n", iod->iod_id);
+            return EINVAL;
+        }
+        memcpy(dst, src, dst_len);
+    }
+exit:
+    return error;
+}
+
+/*
+ * smb2_find_valid_ip_family
+ * This function searches through the available IP addresses of a server interface
+ * for a useable IP address.
+ */
+int
+smb2_find_valid_ip_family(struct smbiod *iod) {
+    int error = 0;
+eagain:
+    if (!iod->iod_conn_entry.selected_saddr) {
+        SMB_LOG_MC("id %d no valid connection found.\n", iod->iod_id);
+        return EINVAL;
+    }
+
+    // Create iod->saddr from iod_conn_entry.selected_saddr
+    error = smb2_create_server_addr(iod);
+
+    // Can we use this saddr?
+    if (error == EAGAIN) {
+        // Try another address
+        iod->iod_conn_entry.selected_saddr = TAILQ_NEXT(iod->iod_conn_entry.selected_saddr, next);
+        // end of the list - stop
+        if (iod->iod_conn_entry.selected_saddr && (!(iod->iod_flags & SMBIOD_SHUTDOWN))) {
+            goto eagain;
+        } else {
+            error = ENOENT;
+        }
+    }
+
+    if (error) {
+        SMBERROR("id %d smb2_set_server_addr returned %d.\n", iod->iod_id, error);
+        return error;
+    }
+
+    return error;
+}
+
+static void
+smb_session_lease_thread(void *arg)
+{
+    vfs_context_t context;
+    struct smb_session *sessionp = arg;
+    struct lease_rq *lease_rqp;
+    /*
+     * This thread handles any incoming lease breaks from the server
+     */
+
+    /*
+     * Its important to use a different context than the iod_context of the
+     * lease_rqp.received_iod as those send/rcv expect one request at a time.
+     */
+    context = vfs_context_create((vfs_context_t)0);
+
+    SMB_SESSION_LEASE_FLAGSLOCK(sessionp);
+    sessionp->session_lease_flags |= SMB_SESSION_LEASE_THREAD_RUNNING;
+    SMB_SESSION_LEASE_FLAGSUNLOCK(sessionp);
+
+    /*
+     * Loop until the session is being released
+     */
+    while ((sessionp->session_lease_flags & SMB_SESSION_LEASE_THREAD_STOP) == 0) {
+        /* Take session lease lock */
+        SMB_SESSION_LEASELOCK(sessionp);
+
+        lease_rqp = TAILQ_FIRST(&sessionp->session_lease_list);
+        if (lease_rqp != NULL) {
+            /*
+             * Found a lease break to handle.
+             * Remove the lease from the queue and drop the lock while we
+             * process it.
+             */
+            TAILQ_REMOVE(&sessionp->session_lease_list, lease_rqp, link);
+
+            /* Free session lease lock */
+            SMB_SESSION_LEASEUNLOCK(sessionp);
+
+            /* Handle the lease break */
+            smbfs_handle_lease_break(lease_rqp, context);
+
+            /* Done with this lease break; free it */
+            SMB_FREE(lease_rqp, M_SMBIOD);
+            
+            /* Loop around and check for more work */
+            sessionp->session_lease_work_flag = 1;
+        }
+        else {
+            /*
+             * No more leases to handle.
+             * Free session lease lock and go to sleep to wait for more work
+             */
+            SMB_SESSION_LEASEUNLOCK(sessionp);
+
+            /* No more work to do */
+            sessionp->session_lease_work_flag = 0;
+        }
+
+        /* Do we need to exit this thread? */
+        if (sessionp->session_lease_flags & SMB_SESSION_LEASE_THREAD_STOP) {
+            break;
+        }
+
+        /* Did more work come in? */
+        if (sessionp->session_lease_work_flag) {
+            continue;
+        }
+
+        struct timespec ts;
+        ts.tv_sec = 2;
+        ts.tv_nsec = 0;
+
+        /* No work left to do, sleep until we get more work */
+        msleep(&sessionp->session_lease_work_flag, 0,
+               PWAIT,"session lease idle",
+               &ts);
+    }
+
+    /*
+     * Clear the running flag, and wake up anybody waiting for us to quit.
+     */
+    SMB_SESSION_LEASE_FLAGSLOCK(sessionp);
+    sessionp->session_lease_flags &= ~SMB_SESSION_LEASE_THREAD_RUNNING;
+    SMB_SESSION_LEASE_FLAGSUNLOCK(sessionp);
+
+    wakeup(&(sessionp->session_lease_flags));
+    vfs_context_rele(context);
+}

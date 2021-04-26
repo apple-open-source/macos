@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <System/sys/proc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -87,7 +88,7 @@ int get_task_from_pid(int pid, task_t *task)
 		fprintf(stderr, "%s\n", PRIV_ERR_MSG);
 		return -1;
 	}
-	kr = task_for_pid(mach_task_self(), pid, task);
+	kr = task_inspect_for_pid(mach_task_self(), pid, task);
 	if (kr != KERN_SUCCESS) {
 		fprintf(stderr, "Failed to get task port for pid: %d\n", pid);
 		return -1;
@@ -127,9 +128,9 @@ int get_system_tasks(task_array_t *tasks, mach_msg_type_number_t *count)
 	vm_deallocate(mach_task_self(), (vm_address_t)psets, (vm_size_t)psetCount * sizeof(mach_port_t));
 
 	/* convert the processor-set-priv to a list of tasks for the processor set */
-	ret = processor_set_tasks(pset_priv, tasks, count);
+	ret = processor_set_tasks_with_flavor(pset_priv, TASK_FLAVOR_INSPECT, tasks, count);
 	if (ret != KERN_SUCCESS) {
-		fprintf(stderr, "processor_set_tasks() failed: %s\n", mach_error_string(ret));
+		fprintf(stderr, "processor_set_tasks_with_flavor() failed: %s\n", mach_error_string(ret));
 		return -1;
 	}
 	mach_port_deallocate(mach_task_self(), pset_priv);

@@ -10,7 +10,7 @@ Extra_Configure_Flags = --enable-usbdropdir=$(CCIDDriversPath) \
 	LIBUSB_CFLAGS="-I$(DSTROOT)/usr/include/libusb-1.0" \
 	LIBUSB_LIBS="-L$(DSTROOT)/usr/lib -lusb-1.0 -framework IOKit -framework CoreFoundation -framework Foundation"
 
-Extra_Environment     = 
+Extra_Environment     = V=1
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
@@ -33,7 +33,7 @@ AEP_Version    = 1.4.32
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = destDirFix.patch ForceWithoutPcsc.patch ccid-info-plist.patch osxConfigure.patch
+AEP_Patches    = destDirFix.patch ForceWithoutPcsc.patch ccid-info-plist.patch osxConfigure.patch headerpadLDFlags.patch
 
 # Extract the source.
 install_source::

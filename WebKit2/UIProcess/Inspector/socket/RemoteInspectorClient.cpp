@@ -29,6 +29,7 @@
 #if ENABLE(REMOTE_INSPECTOR)
 
 #include "APIDebuggableInfo.h"
+#include "APIInspectorConfiguration.h"
 #include "RemoteWebInspectorProxy.h"
 #include <wtf/MainThread.h>
 #include <wtf/text/Base64.h>
@@ -67,6 +68,8 @@ public:
         m_proxy->show();
     }
 
+    // MARK: RemoteWebInspectorProxyClient methods
+
     void sendMessageToFrontend(const String& message)
     {
         m_proxy->sendMessageToFrontend(message);
@@ -80,6 +83,11 @@ public:
     void closeFromFrontend() override
     {
         m_inspectorClient.closeFromFrontend(m_connectionID, m_targetID);
+    }
+
+    Ref<API::InspectorConfiguration> configurationForRemoteInspector(RemoteWebInspectorProxy&)
+    {
+        return API::InspectorConfiguration::create();
     }
 
 private:
@@ -145,7 +153,7 @@ void RemoteInspectorClient::connectionClosed()
     m_observer.targetListChanged(*this);
 }
 
-void RemoteInspectorClient::didClose(ConnectionID)
+void RemoteInspectorClient::didClose(Inspector::RemoteInspectorSocketEndpoint&, ConnectionID)
 {
     callOnMainThread([this] {
         connectionClosed();
@@ -206,25 +214,38 @@ void RemoteInspectorClient::setTargetList(const Event& event)
     if (!event.connectionID || !event.message)
         return;
 
-    RefPtr<JSON::Value> messageValue;
-    if (!JSON::Value::parseJSON(event.message.value(), messageValue))
+    auto messageValue = JSON::Value::parseJSON(event.message.value());
+    if (!messageValue)
         return;
 
-    RefPtr<JSON::Array> messageArray;
-    if (!messageValue->asArray(messageArray))
+    auto messageArray = messageValue->asArray();
+    if (!messageArray)
         return;
 
     Vector<Target> targetList;
     for (auto& itemValue : *messageArray) {
-        RefPtr<JSON::Object> itemObject;
-        if (!itemValue->asObject(itemObject))
+        auto itemObject = itemValue->asObject();
+        if (!itemObject)
             continue;
 
         Target target;
-        if (!itemObject->getInteger("targetID"_s, target.id)
-            || !itemObject->getString("name"_s, target.name)
-            || !itemObject->getString("url"_s, target.url)
-            || !itemObject->getString("type"_s, target.type))
+
+        auto targetID = itemObject->getInteger("targetID"_s);
+        if (!targetID)
+            continue;
+
+        target.id = *targetID;
+
+        target.name = itemObject->getString("name"_s);
+        if (!target.name)
+            continue;
+
+        target.url = itemObject->getString("url"_s);
+        if (!target.url)
+            continue;
+
+        target.type = itemObject->getString("type"_s);
+        if (!target.type)
             continue;
 
         targetList.append(WTFMove(target));

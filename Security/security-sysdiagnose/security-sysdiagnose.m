@@ -76,9 +76,11 @@
 
 static NSString *dictionaryToString(NSDictionary *dict) {
     NSMutableString *result = [NSMutableString stringWithCapacity:0];
-    [dict enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
-        [result appendFormat:@"%@=%@,", key, obj];
-    }];
+
+    NSArray* keys = [[dict allKeys] sortedArrayUsingSelector:@selector(compare:)];
+    for(NSString* key in keys) {
+        [result appendFormat:@"%@=%@,", key, dict[key]];
+    }
     return [result substringToIndex:result.length-(result.length>0)];
 }
 
@@ -197,6 +199,29 @@ unlock_sysdiagnose(void)
     CFReleaseNull(result);
 }
 
+static void
+rapport_sysdiagnose(void)
+{
+    NSString *kAccessGroupRapport  = @"com.apple.rapport";
+
+    [@"Rapport keychain state:\n" writeToStdOut];
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : kAccessGroupRapport,
+        (id)kSecAttrSynchronizable: (id)kCFBooleanTrue,
+        (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecReturnAttributes: @YES,
+        (id)kSecReturnData: @NO,
+    };
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef) query, &result);
+    if (status == noErr) {
+        printSecItems(@"rapport", result);
+    }
+    CFReleaseNull(result);
+}
 
 static void
 analytics_sysdiagnose(void)
@@ -241,6 +266,7 @@ main(int argc, const char ** argv)
         engine_sysdiagnose();
         homekit_sysdiagnose();
         unlock_sysdiagnose();
+        rapport_sysdiagnose();
         analytics_sysdiagnose();
         
         // Keep this one last

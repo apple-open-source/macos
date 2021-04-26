@@ -213,6 +213,7 @@
 				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.c",
 				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.h",
 			);
+			runOncePerArchitecture = 0;
 			script = "mig -Iheaders -user /dev/null -header /dev/null -server ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.c -sheader ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.h ${INPUT_FILE_PATH}\n";
 		};
 /* End PBXBuildRule section */

@@ -92,8 +92,10 @@ static void doMotionEvent(struct wpe_view_backend* viewBackend, const WebCore::I
     wpe_view_backend_dispatch_pointer_event(viewBackend, &event);
 }
 
-void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
+void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers, const String& pointerType)
 {
+    UNUSED_PARAM(pointerType);
+
     unsigned wpeButton = mouseButtonToWPEButton(button);
     auto modifier = stateModifierForWPEButton(wpeButton);
     uint32_t state = modifiersToEventState(keyModifiers) | m_currentModifiers;
@@ -163,12 +165,20 @@ static uint32_t keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey
 {
     switch (key) {
     case Inspector::Protocol::Automation::VirtualKey::Shift:
+        return WPE_KEY_Shift_L;
+    case Inspector::Protocol::Automation::VirtualKey::ShiftRight:
         return WPE_KEY_Shift_R;
     case Inspector::Protocol::Automation::VirtualKey::Control:
+        return WPE_KEY_Control_L;
+    case Inspector::Protocol::Automation::VirtualKey::ControlRight:
         return WPE_KEY_Control_R;
     case Inspector::Protocol::Automation::VirtualKey::Alternate:
         return WPE_KEY_Alt_L;
+    case Inspector::Protocol::Automation::VirtualKey::AlternateRight:
+        return WPE_KEY_Alt_R;
     case Inspector::Protocol::Automation::VirtualKey::Meta:
+        return WPE_KEY_Meta_L;
+    case Inspector::Protocol::Automation::VirtualKey::MetaRight:
         return WPE_KEY_Meta_R;
     case Inspector::Protocol::Automation::VirtualKey::Command:
         return WPE_KEY_Execute;
@@ -190,24 +200,44 @@ static uint32_t keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey
         return WPE_KEY_Escape;
     case Inspector::Protocol::Automation::VirtualKey::PageUp:
         return WPE_KEY_Page_Up;
+    case Inspector::Protocol::Automation::VirtualKey::PageUpRight:
+        return WPE_KEY_KP_Page_Up;
     case Inspector::Protocol::Automation::VirtualKey::PageDown:
         return WPE_KEY_Page_Down;
+    case Inspector::Protocol::Automation::VirtualKey::PageDownRight:
+        return WPE_KEY_KP_Page_Down;
     case Inspector::Protocol::Automation::VirtualKey::End:
         return WPE_KEY_End;
+    case Inspector::Protocol::Automation::VirtualKey::EndRight:
+        return WPE_KEY_KP_End;
     case Inspector::Protocol::Automation::VirtualKey::Home:
         return WPE_KEY_Home;
+    case Inspector::Protocol::Automation::VirtualKey::HomeRight:
+        return WPE_KEY_KP_Home;
     case Inspector::Protocol::Automation::VirtualKey::LeftArrow:
         return WPE_KEY_Left;
+    case Inspector::Protocol::Automation::VirtualKey::LeftArrowRight:
+        return WPE_KEY_KP_Left;
     case Inspector::Protocol::Automation::VirtualKey::UpArrow:
         return WPE_KEY_Up;
+    case Inspector::Protocol::Automation::VirtualKey::UpArrowRight:
+        return WPE_KEY_KP_Up;
     case Inspector::Protocol::Automation::VirtualKey::RightArrow:
         return WPE_KEY_Right;
+    case Inspector::Protocol::Automation::VirtualKey::RightArrowRight:
+        return WPE_KEY_KP_Right;
     case Inspector::Protocol::Automation::VirtualKey::DownArrow:
         return WPE_KEY_Down;
+    case Inspector::Protocol::Automation::VirtualKey::DownArrowRight:
+        return WPE_KEY_KP_Down;
     case Inspector::Protocol::Automation::VirtualKey::Insert:
         return WPE_KEY_Insert;
+    case Inspector::Protocol::Automation::VirtualKey::InsertRight:
+        return WPE_KEY_KP_Insert;
     case Inspector::Protocol::Automation::VirtualKey::Delete:
         return WPE_KEY_Delete;
+    case Inspector::Protocol::Automation::VirtualKey::DeleteRight:
+        return WPE_KEY_KP_Delete;
     case Inspector::Protocol::Automation::VirtualKey::Space:
         return WPE_KEY_space;
     case Inspector::Protocol::Automation::VirtualKey::Semicolon:
@@ -281,12 +311,16 @@ static uint32_t keyCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey
 static uint32_t modifiersForKeyCode(unsigned keyCode)
 {
     switch (keyCode) {
+    case WPE_KEY_Shift_L:
     case WPE_KEY_Shift_R:
         return wpe_input_keyboard_modifier_shift;
+    case WPE_KEY_Control_L:
     case WPE_KEY_Control_R:
         return wpe_input_keyboard_modifier_control;
     case WPE_KEY_Alt_L:
+    case WPE_KEY_Alt_R:
         return wpe_input_keyboard_modifier_alt;
+    case WPE_KEY_Meta_L:
     case WPE_KEY_Meta_R:
         return wpe_input_keyboard_modifier_meta;
     }
@@ -301,7 +335,7 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
             keyCode = keyCodeForVirtualKey(virtualKey);
         },
         [&] (CharKey charKey) {
-            keyCode = wpe_unicode_to_key_code(g_utf8_get_char(&charKey));
+            keyCode = wpe_unicode_to_key_code(charKey);
         }
     );
     uint32_t modifiers = modifiersForKeyCode(keyCode);
@@ -331,6 +365,31 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
     } while (*p);
 }
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
+
+#if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+void WebAutomationSession::platformSimulateWheelInteraction(WebPageProxy& page, const WebCore::IntPoint& locationInView, const WebCore::IntSize& delta)
+{
+#if WPE_CHECK_VERSION(1, 5, 0)
+    struct wpe_input_axis_2d_event event;
+    memset(&event, 0, sizeof(event));
+    event.base.type = static_cast<wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth);
+    event.base.x = locationInView.x();
+    event.base.y = locationInView.y();
+    event.x_axis = -delta.width();
+    event.y_axis = -delta.height();
+    wpe_view_backend_dispatch_axis_event(page.viewBackend(), &event.base);
+#else
+    if (auto deltaX = delta.width()) {
+        struct wpe_input_axis_event event = { wpe_input_axis_event_type_motion, 0, locationInView.x(), locationInView.y(), 1, -deltaX, 0 };
+        wpe_view_backend_dispatch_axis_event(page.viewBackend(), &event);
+    }
+    if (auto deltaY = delta.height()) {
+        struct wpe_input_axis_event event = { wpe_input_axis_event_type_motion, 0, locationInView.x(), locationInView.y(), 0, -deltaY, 0 };
+        wpe_view_backend_dispatch_axis_event(page.viewBackend(), &event);
+    }
+#endif
+}
+#endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 
 } // namespace WebKit
 

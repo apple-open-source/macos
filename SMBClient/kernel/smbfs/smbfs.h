@@ -41,11 +41,11 @@
 #include <netsmb/netbios.h>
 
 #define SMBFS_VERMAJ	3
-#define SMBFS_VERMIN	4100
+#define SMBFS_VERMIN	5000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 3.4.1"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 10.15"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 3.5"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 11"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
@@ -185,6 +185,11 @@ struct smb_reconnect_stats {
 	uint64_t fail_cmpd_create_cnt;
 };
 
+struct smbSockAddrPB {
+	void *sessionp;
+	struct sockaddr_storage addr;
+};
+
 /* Match AFP Client definition */
 #define smbfsByteRangeLock2FSCTL		_IOWR('z', 23, struct ByteRangeLockPB2)
 
@@ -193,6 +198,8 @@ struct smb_reconnect_stats {
 #define smbfsUniqueShareIDFSCTL			_IOWR('z', 19, struct UniqueSMBShareID)
 
 #define smbfsGetSessionSockaddrFSCTL		_IOR('z', 20, struct sockaddr_storage)
+
+#define smbfsGetSessionSockaddrFSCTL2		_IOR('z', 30, struct smbSockAddrPB)
 
 /* Match AFP Client definition */
 #define smbfsGetStatsFSCTL			_IOWR('z', 25, struct smb_reconnect_stats)
@@ -227,6 +234,9 @@ struct smb_mount_args {
 	int32_t         max_dir_entries_cached;
 	uint32_t        max_read_size;
 	uint32_t        max_write_size;
+	/* Snapshot time support */
+	char		snapshot_time[32] __attribute((aligned(8)));
+	time_t 		snapshot_local_time;
 };
 
 #define SMBFS_SYSCTL_REMOUNT 1
@@ -516,7 +526,9 @@ enum {
 	SMB_DBG_READ_QUANTUM_SIZE         = SMB_DBG_CODE(84),   /* 0x030A0150 */
 	SMB_DBG_WRITE_QUANTUM_SIZE        = SMB_DBG_CODE(85),   /* 0x030A0154 */
 	SMB_DBG_READ_BYTES_PER_SEC        = SMB_DBG_CODE(86),   /* 0x030A0158 */
-	SMB_DBG_WRITE_BYTES_PER_SEC       = SMB_DBG_CODE(87)    /* 0x030A015C */
+	SMB_DBG_WRITE_BYTES_PER_SEC       = SMB_DBG_CODE(87),   /* 0x030A015C */
+	
+	SMB_DBG_MMAP_CHECK                = SMB_DBG_CODE(88)    /* 0x030A0160 */
 };
 
 /* 

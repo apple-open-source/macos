@@ -406,6 +406,182 @@
             ];
 }
 
+#pragma mark - CKKS interaction methods
+
++ (CKKSDeviceStateEntry* _Nullable)intransactionCreateDeviceStateForView:(CKKSKeychainViewState*)viewState
+                                                          accountTracker:(CKKSAccountStateTracker*)accountTracker
+                                                        lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+                                                                   error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    CKKSAccountStatus hsa2Status = accountTracker.hsa2iCloudAccountStatus;
+
+    // We must have an HSA2 iCloud account and a CloudKit account to even create one of these
+    if(hsa2Status != CKKSAccountStatusAvailable ||
+       accountTracker.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable) {
+        ckkserror("ckksdevice", viewState, "No iCloud account active: %@ hsa2 account:%@",
+                  accountTracker.currentCKAccountInfo,
+                  CKKSAccountStatusToString(hsa2Status));
+        localerror = [NSError errorWithDomain:@"securityd"
+                                         code:errSecInternalError
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No active HSA2 iCloud account: %@", accountTracker.currentCKAccountInfo]}];
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    NSString* ckdeviceID = accountTracker.ckdeviceID;
+    if(ckdeviceID == nil) {
+        ckkserror("ckksdevice", viewState, "No CK device ID available; cannot make device state entry");
+        localerror = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNotLoggedIn
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CK device ID: %@", accountTracker.currentCKAccountInfo]}];
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    CKKSDeviceStateEntry* oldcdse = [CKKSDeviceStateEntry tryFromDatabase:ckdeviceID zoneID:viewState.zoneID error:&localerror];
+    if(localerror) {
+        ckkserror("ckksdevice", viewState, "Couldn't read old CKKSDeviceStateEntry from database: %@", localerror);
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
+    // Find out what we think the current keys are
+    CKKSCurrentKeyPointer* currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:viewState.zoneID error:&localerror];
+    CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:viewState.zoneID error:&localerror];
+    CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:viewState.zoneID error:&localerror];
+    if(localerror) {
+        // Things is broken, but the whole point of this record is to share the brokenness. Continue.
+        ckkserror("ckksdevice", viewState, "Couldn't read current key pointers from database: %@; proceeding", localerror);
+        localerror = nil;
+    }
+
+    CKKSKey* suggestedTLK       = currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:currentTLKPointer.currentKeyUUID    zoneID:viewState.zoneID error:&localerror] : nil;
+    CKKSKey* suggestedClassAKey = currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassAPointer.currentKeyUUID zoneID:viewState.zoneID error:&localerror] : nil;
+    CKKSKey* suggestedClassCKey = currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassCPointer.currentKeyUUID zoneID:viewState.zoneID error:&localerror] : nil;
+
+    if(localerror) {
+        // Things is broken, but the whole point of this record is to share the brokenness. Continue.
+        ckkserror("ckksdevice", viewState, "Couldn't read keys from database: %@; proceeding", localerror);
+        localerror = nil;
+    }
+
+    // Check if we posess the keys in the keychain
+    [suggestedTLK ensureKeyLoaded:&localerror];
+    if(localerror && [lockStateTracker isLockedError:localerror]) {
+        ckkserror("ckksdevice", viewState, "Device is locked; couldn't read TLK from keychain. Assuming it is present and continuing; error was %@", localerror);
+        localerror = nil;
+    } else if(localerror) {
+        ckkserror("ckksdevice", viewState, "Couldn't read TLK from keychain. We do not have a current TLK. Error was %@", localerror);
+        suggestedTLK = nil;
+    }
+
+    [suggestedClassAKey ensureKeyLoaded:&localerror];
+    if(localerror && [lockStateTracker isLockedError:localerror]) {
+        ckkserror("ckksdevice", viewState, "Device is locked; couldn't read ClassA key from keychain. Assuming it is present and continuing; error was %@", localerror);
+        localerror = nil;
+    } else if(localerror) {
+        ckkserror("ckksdevice", viewState, "Couldn't read ClassA key from keychain. We do not have a current ClassA key. Error was %@", localerror);
+        suggestedClassAKey = nil;
+    }
+
+    [suggestedClassCKey ensureKeyLoaded:&localerror];
+    // class C keys are stored class C, so uh, don't check lock state.
+    if(localerror) {
+        ckkserror("ckksdevice", viewState, "Couldn't read ClassC key from keychain. We do not have a current ClassC key. Error was %@", localerror);
+        suggestedClassCKey = nil;
+    }
+
+    // We'd like to have the circle peer ID. Give the account state tracker a fighting chance, but not having it is not an error
+    // But, if the platform doesn't have SOS, don't bother
+    if(OctagonPlatformSupportsSOS() && [accountTracker.accountCirclePeerIDInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.accountCirclePeerID) {
+        ckkserror("ckksdevice", viewState, "No SOS peer ID available");
+    }
+
+    // We'd also like the Octagon status
+    if([accountTracker.octagonInformationInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.octagonPeerID) {
+        ckkserror("ckksdevice", viewState, "No octagon peer ID available");
+    }
+
+    // Reset the last unlock time to 'day' granularity in UTC
+    NSCalendar* calendar = [NSCalendar calendarWithIdentifier:NSCalendarIdentifierISO8601];
+    calendar.timeZone = [NSTimeZone timeZoneWithAbbreviation:@"UTC"];
+    NSDate* lastUnlockDay = lockStateTracker.lastUnlockTime;
+    lastUnlockDay = lastUnlockDay ? [calendar startOfDayForDate:lastUnlockDay] : nil;
+
+    // We only really want the oldcdse for its encodedCKRecord, so make a new cdse here
+    CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initForDevice:ckdeviceID
+                                                                      osVersion:SecCKKSHostOSVersion()
+                                                                 lastUnlockTime:lastUnlockDay
+                                                                  octagonPeerID:accountTracker.octagonPeerID
+                                                                  octagonStatus:accountTracker.octagonStatus
+                                                                   circlePeerID:accountTracker.accountCirclePeerID
+                                                                   circleStatus:accountTracker.currentCircleStatus.status
+                                                                       keyState:viewState.zoneCKKSState
+                                                                 currentTLKUUID:suggestedTLK.uuid
+                                                              currentClassAUUID:suggestedClassAKey.uuid
+                                                              currentClassCUUID:suggestedClassCKey.uuid
+                                                                         zoneID:viewState.zoneID
+                                                                encodedCKRecord:oldcdse.encodedCKRecord];
+    return newcdse;
+}
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
+{
+    if(resync) {
+        NSError* dserror = nil;
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabase:record.recordID.recordName zoneID:record.recordID.zoneID error:&dserror];
+        if(dserror) {
+            ckkserror("ckksresync", record.recordID.zoneID, "error loading cdse: %@", dserror);
+        }
+        if(!cdse) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: No current device state entry matching resynced CloudKit record: %@", record);
+        } else if(![cdse matchesCKRecord:record]) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: Local current device state entry doesn't match resynced CloudKit record(s): %@ %@", cdse, record);
+        } else {
+            ckksnotice("ckksresync", record.recordID.zoneID, "Already know about this current item pointer, skipping update: %@", record);
+            return YES;
+        }
+    }
+
+    NSError* localerror = nil;
+    CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
+    bool saved = [cdse saveToDatabase:&localerror];
+    if (!saved || localerror != nil) {
+        ckkserror("ckksdevice", record.recordID.zoneID, "Failed to save device record to database: %@: %@ %@", cdse, localerror, record);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
+{
+    NSError* localerror = nil;
+    ckksinfo("ckksdevice", recordID.zoneID, "CloudKit notification: deleted device state record(%@): %@", SecCKRecordDeviceStateType, recordID);
+
+    CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabaseFromCKRecordID:recordID error:&localerror];
+    [cdse deleteFromDatabase:&localerror];
+
+    ckksinfo("ckksdevice", recordID.zoneID, "CKKSCurrentItemPointer(%@) was deleted: %@ error: %@", cdse, recordID, localerror);
+
+    if(error && localerror) {
+        *error = localerror;
+    }
+
+    return (localerror == nil);
+}
+
 @end
 
 #endif

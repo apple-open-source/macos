@@ -46,16 +46,21 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         let toolTip = WI.UIString("Start recording (%s)\nCreate new recording (%s)").format(this._toggleRecordingShortcut.displayName, this._toggleNewRecordingShortcut.displayName);
         let altToolTip = WI.UIString("Stop recording (%s)").format(this._toggleRecordingShortcut.displayName);
         this._recordButton = new WI.ToggleButtonNavigationItem("record-start-stop", toolTip, altToolTip, "Images/Record.svg", "Images/Stop.svg", 13, 13);
-        this._recordButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
+        this._recordButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._recordButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._recordButtonClicked, this);
 
+        this._recordStoppingSpinner = new WI.IndeterminateProgressSpinnerNavigationItem("record-stopping", WI.UIString("Stopping recording"));
+        this._recordStoppingSpinner.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
+        this._recordStoppingSpinner.hidden = true;
+
         this._continueButton = new WI.ButtonNavigationItem("record-continue", WI.UIString("Continue without automatically stopping"), "Images/Resume.svg", 13, 13);
-        this._continueButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
+        this._continueButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._continueButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._continueButtonClicked, this);
         this._continueButton.hidden = true;
 
         this.contentBrowser.navigationBar.insertNavigationItem(this._recordButton, 0);
-        this.contentBrowser.navigationBar.insertNavigationItem(this._continueButton, 1);
+        this.contentBrowser.navigationBar.insertNavigationItem(this._recordStoppingSpinner, 1);
+        this.contentBrowser.navigationBar.insertNavigationItem(this._continueButton, 2);
 
         if (WI.sharedApp.isWebDebuggable()) {
             let timelinesNavigationItem = new WI.RadioButtonNavigationItem(WI.TimelineOverview.ViewMode.Timelines, WI.UIString("Events"));
@@ -64,7 +69,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
             let viewModeGroup = new WI.GroupNavigationItem([timelinesNavigationItem, renderingFramesNavigationItem]);
             viewModeGroup.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
 
-            this.contentBrowser.navigationBar.insertNavigationItem(viewModeGroup, 2);
+            this.contentBrowser.navigationBar.insertNavigationItem(viewModeGroup, 3);
             this.contentBrowser.navigationBar.addEventListener(WI.NavigationBar.Event.NavigationItemSelected, this._viewModeSelected, this);
         }
 
@@ -280,6 +285,8 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         case WI.TimelineRecord.Type.Script:
             return WI.ScriptTimelineRecord.EventType.displayName(timelineRecord.eventType, timelineRecord.details, includeDetailsInMainTitle);
         case WI.TimelineRecord.Type.RenderingFrame:
+            if (timelineRecord.name)
+                return WI.UIString("Frame %d \u2014 %s").format(timelineRecord.frameNumber, timelineRecord.name);
             return WI.UIString("Frame %d").format(timelineRecord.frameNumber);
         case WI.TimelineRecord.Type.HeapAllocations:
             if (timelineRecord.heapSnapshot.imported)
@@ -310,9 +317,9 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         return WI.TimelineTabContentView.Type;
     }
 
-    shown()
+    attached()
     {
-        super.shown();
+        super.attached();
 
         this._toggleRecordingShortcut.disabled = false;
         this._toggleNewRecordingShortcut.disabled = false;
@@ -321,14 +328,14 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
             WI.timelineManager.autoCaptureOnPageLoad = true;
     }
 
-    hidden()
+    detached()
     {
-        super.hidden();
-
         this._toggleRecordingShortcut.disabled = true;
         this._toggleNewRecordingShortcut.disabled = true;
 
         WI.timelineManager.autoCaptureOnPageLoad = false;
+
+        super.detached();
     }
 
     closed()
@@ -337,10 +344,14 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         WI.memoryManager.disable();
         WI.heapManager.disable();
 
-        this.contentBrowser.navigationBar.removeEventListener(null, null, this);
+        if (WI.sharedApp.isWebDebuggable())
+            this.contentBrowser.navigationBar.removeEventListener(WI.NavigationBar.Event.NavigationItemSelected, this._viewModeSelected, this);
 
-        WI.timelineManager.removeEventListener(null, null, this);
-        WI.notifications.removeEventListener(null, null, this);
+        WI.timelineManager.removeEventListener(WI.TimelineManager.Event.CapturingStateChanged, this._handleTimelineCapturingStateChanged, this);
+        WI.timelineManager.removeEventListener(WI.TimelineManager.Event.RecordingCreated, this._recordingCreated, this);
+        WI.timelineManager.removeEventListener(WI.TimelineManager.Event.RecordingLoaded, this._recordingLoaded, this);
+        WI.notifications.removeEventListener(WI.Notification.VisibilityStateDidChange, this._inspectorVisibilityChanged, this);
+        WI.notifications.removeEventListener(WI.Notification.GlobalModifierKeysDidChange, this._globalModifierKeysDidChange, this);
 
         super.closed();
     }
@@ -450,18 +461,29 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     _showRecordButton()
     {
         this._recordButton.hidden = false;
+        this._recordStoppingSpinner.hidden = true;
+        this._continueButton.hidden = true;
+    }
+
+    _showRecordStoppingSpinner()
+    {
+        this._recordButton.hidden = true;
+        this._recordStoppingSpinner.hidden = false;
         this._continueButton.hidden = true;
     }
 
     _showContinueButton()
     {
         this._recordButton.hidden = true;
+        this._recordStoppingSpinner.hidden = true;
         this._continueButton.hidden = false;
     }
 
     _updateNavigationBarButtons()
     {
-        if (!WI.modifierKeys.altKey || !WI.timelineManager.willAutoStop())
+        if (WI.timelineManager.capturingState === WI.TimelineManager.CapturingState.Stopping)
+            this._showRecordStoppingSpinner();
+        else if (!WI.modifierKeys.altKey || !WI.timelineManager.willAutoStop())
             this._showRecordButton();
         else
             this._showContinueButton();
@@ -470,9 +492,10 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     _handleTimelineCapturingStateChanged(event)
     {
         let enabled = WI.timelineManager.capturingState === WI.TimelineManager.CapturingState.Active || WI.timelineManager.capturingState === WI.TimelineManager.CapturingState.Inactive;
+        let stopping = WI.timelineManager.capturingState === WI.TimelineManager.CapturingState.Stopping;
 
-        this._toggleRecordingShortcut.disabled = !enabled;
-        this._toggleNewRecordingShortcut.disabled = !enabled;
+        this._toggleRecordingShortcut.disabled = !enabled || stopping;
+        this._toggleNewRecordingShortcut.disabled = !enabled || stopping;
 
         this._recordButton.toggled = WI.timelineManager.isCapturing();
         this._recordButton.enabled = enabled;
@@ -482,7 +505,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _inspectorVisibilityChanged(event)
     {
-        WI.timelineManager.autoCaptureOnPageLoad = !!this.visible && !!WI.visible;
+        WI.timelineManager.autoCaptureOnPageLoad = !!this.isAttached && !!WI.visible;
     }
 
     _globalModifierKeysDidChange(event)

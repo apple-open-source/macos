@@ -26,18 +26,19 @@
 #include "config.h"
 #include "GraphicsContextGLOpenGL.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_GL) && USE(DIRECT2D)
+#if ENABLE(WEBGL) && USE(DIRECT2D)
 
 #include "COMPtr.h"
+#include "GraphicsContextGLImageExtractor.h"
 #include "NotImplemented.h"
 #include <d2d1.h>
 #include <d2d1effects.h>
 
 namespace WebCore {
 
-GraphicsContextGLOpenGL::ImageExtractor::~ImageExtractor() = default;
+GraphicsContextGLImageExtractor::~GraphicsContextGLImageExtractor() = default;
 
-bool GraphicsContextGLOpenGL::ImageExtractor::extractImage(bool premultiplyAlpha, bool ignoreGammaAndColorProfile, bool ignoreNativeImageAlphaPremultiplication)
+bool GraphicsContextGLImageExtractor::extractImage(bool premultiplyAlpha, bool ignoreGammaAndColorProfile, bool ignoreNativeImageAlphaPremultiplication)
 {
     if (!m_image)
         return false;
@@ -57,4 +58,4 @@ void GraphicsContextGLOpenGL::paintToCanvas(const unsigned char* imagePixels, co
 
 } // namespace WebCore
 
-#endif // ENABLE(GRAPHICS_CONTEXT_GL) && USE(DIRECT2D)
+#endif // ENABLE(WEBGL) && USE(DIRECT2D)

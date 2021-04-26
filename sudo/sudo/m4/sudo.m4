@@ -79,21 +79,19 @@ dnl
 dnl Where the log file goes, use /var/log if it exists, else /{var,usr}/adm
 dnl
 AC_DEFUN([SUDO_LOGFILE], [AC_MSG_CHECKING(for log file location)
-if test -n "$with_logpath"; then
-    AC_MSG_RESULT($with_logpath)
-    SUDO_DEFINE_UNQUOTED(_PATH_SUDO_LOGFILE, "$with_logpath")
-elif test -d "/var/log"; then
-    AC_MSG_RESULT(/var/log/sudo.log)
-    SUDO_DEFINE(_PATH_SUDO_LOGFILE, "/var/log/sudo.log")
-elif test -d "/var/adm"; then
-    AC_MSG_RESULT(/var/adm/sudo.log)
-    SUDO_DEFINE(_PATH_SUDO_LOGFILE, "/var/adm/sudo.log")
-elif test -d "/usr/adm"; then
-    AC_MSG_RESULT(/usr/adm/sudo.log)
-    SUDO_DEFINE(_PATH_SUDO_LOGFILE, "/usr/adm/sudo.log")
-else
-    AC_MSG_RESULT(unknown, you will have to set _PATH_SUDO_LOGFILE by hand)
-fi
+    if test "${with_logpath-yes}" != "yes"; then
+	logpath="$with_logpath"
+    else
+	# Default value of logpath set in configure.ac
+	for d in /var/log /var/adm /usr/adm; do
+	    if test -d "$d"; then
+		logpath="$d/sudo.log"
+		break
+	    fi
+	done
+    fi
+    AC_MSG_RESULT($logpath)
+    SUDO_DEFINE_UNQUOTED(_PATH_SUDO_LOGFILE, "$logpath")
 ])dnl
 
 dnl
@@ -120,8 +118,12 @@ dnl
 dnl Parent directory for time stamp dir.
 dnl
 AC_DEFUN([SUDO_RUNDIR], [AC_MSG_CHECKING(for sudo run dir location)
-rundir="$with_rundir"
-if test -z "$rundir"; then
+if test -n "$with_rundir"; then
+    rundir="$with_rundir"
+elif test -n "$runstatedir" && test "$runstatedir" != '${localstatedir}/run'; then
+    rundir="$runstatedir/sudo"
+else
+    # No --with-rundir or --runstatedir specified
     for d in /run /var/run /var/db /var/lib /var/adm /usr/adm; do
 	if test -d "$d"; then
 	    rundir="$d/sudo"
@@ -131,6 +133,7 @@ if test -z "$rundir"; then
 fi
 AC_MSG_RESULT([$rundir])
 SUDO_DEFINE_UNQUOTED(_PATH_SUDO_TIMEDIR, "$rundir/ts")
+SUDO_DEFINE_UNQUOTED(_PATH_SUDO_LOGSRVD_PID, "$rundir/sudo_logsrvd.pid")
 ])dnl
 
 dnl
@@ -158,17 +161,41 @@ AC_DEFUN([SUDO_IO_LOGDIR], [
     AC_MSG_CHECKING(for I/O log dir location)
     if test "${with_iologdir-yes}" != "yes"; then
 	iolog_dir="$with_iologdir"
-    elif test -d "/var/log"; then
-	iolog_dir="/var/log/sudo-io"
-    elif test -d "/var/adm"; then
-	iolog_dir="/var/adm/sudo-io"
     else
-	iolog_dir="/usr/adm/sudo-io"
+	# Default value of iolog_dir set in configure.ac
+	for d in /var/log /var/adm /usr/adm; do
+	    if test -d "$d"; then
+		iolog_dir="$d/sudo-io"
+		break
+	    fi
+	done
     fi
     if test "${with_iologdir}" != "no"; then
 	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_IO_LOGDIR, "$iolog_dir")
     fi
     AC_MSG_RESULT($iolog_dir)
+])dnl
+
+dnl
+dnl Where the log files go, use /var/log if it exists, else /{var,usr}/adm
+dnl
+AC_DEFUN([SUDO_LOGDIR], [
+    AC_MSG_CHECKING(for log dir location)
+    if test "${with_logdir-yes}" != "yes"; then
+	log_dir="$with_logdir"
+    else
+	# Default value of log_dir set in configure.ac
+	for d in /var/log /var/adm /usr/adm; do
+	    if test -d "$d"; then
+		log_dir="$d"
+		break
+	    fi
+	done
+    fi
+    if test "${with_logdir}" != "no"; then
+	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_LOGDIR, "$log_dir")
+    fi
+    AC_MSG_RESULT($log_dir)
 ])dnl
 
 dnl
@@ -179,7 +206,7 @@ AC_DEFUN([SUDO_FUNC_FNMATCH],
 AC_CACHE_VAL(sudo_cv_func_fnmatch,
 [rm -f conftestdata; > conftestdata
 AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <fnmatch.h>
-main() { exit(fnmatch("/*/bin/echo *", "/usr/bin/echo just a test", FNM_CASEFOLD)); }]])], [sudo_cv_func_fnmatch=yes], [sudo_cv_func_fnmatch=no],
+int main() { return(fnmatch("/*/bin/echo *", "/usr/bin/echo just a test", FNM_CASEFOLD)); }]])], [sudo_cv_func_fnmatch=yes], [sudo_cv_func_fnmatch=no],
   [sudo_cv_func_fnmatch=no])
 rm -f core core.* *.core])
 AC_MSG_RESULT($sudo_cv_func_fnmatch)
@@ -196,7 +223,7 @@ AC_DEFUN([SUDO_WORKING_PIE],
 AC_CACHE_VAL(sudo_cv_working_pie,
 [rm -f conftestdata; > conftestdata
 AC_RUN_IFELSE([AC_LANG_SOURCE([AC_INCLUDES_DEFAULT
-main() { char *p = malloc(1024); if (p == NULL) return 1; memset(p, 0, 1024); return 0; }])], [sudo_cv_working_pie=yes], [sudo_cv_working_pie=no],
+int main() { char *p = malloc(1024); if (p == NULL) return 1; memset(p, 0, 1024); return 0; }])], [sudo_cv_working_pie=yes], [sudo_cv_working_pie=no],
   [sudo_cv_working_pie=no])
 rm -f core core.* *.core])
 AC_MSG_RESULT($sudo_cv_working_pie)
@@ -344,7 +371,7 @@ AC_DEFUN([SUDO_SOCK_SIN_LEN], [
 dnl
 dnl check for max length of uid_t in string representation.
 dnl we can't really trust UID_MAX or MAXUID since they may exist
-dnl only for backwards compatibility.
+dnl only for backward compatibility.
 dnl
 AC_DEFUN([SUDO_UID_T_LEN],
 [AC_REQUIRE([AC_TYPE_UID_T])
@@ -353,21 +380,22 @@ AC_CACHE_VAL(sudo_cv_uid_t_len,
 [rm -f conftestdata
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdio.h>
+#include <string.h>
 #include <pwd.h>
 #include <limits.h>
 #include <sys/types.h>
-main() {
+int main() {
   FILE *f;
   char b[1024];
   uid_t u = (uid_t) -1;
 
   if ((f = fopen("conftestdata", "w")) == NULL)
-    exit(1);
+    return(1);
 
   (void) sprintf(b, "%lu", (unsigned long) u);
-  (void) fprintf(f, "%d\n", strlen(b));
+  (void) fprintf(f, "%d\n", (int)strlen(b));
   (void) fclose(f);
-  exit(0);
+  return(0);
 }]])], [sudo_cv_uid_t_len=`cat conftestdata`], [sudo_cv_uid_t_len=10], [sudo_cv_uid_t_len=10])
 ])
 rm -f conftestdata

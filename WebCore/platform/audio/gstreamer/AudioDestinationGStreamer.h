@@ -16,44 +16,50 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef AudioDestinationGStreamer_h
-#define AudioDestinationGStreamer_h
+#pragma once
 
 #include "AudioBus.h"
 #include "AudioDestination.h"
-#include <wtf/RefPtr.h>
-
-typedef struct _GstElement GstElement;
-typedef struct _GstPad GstPad;
-typedef struct _GstMessage GstMessage;
+#include "GRefPtrGStreamer.h"
+#include <wtf/Condition.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class AudioDestinationGStreamer : public AudioDestination {
 public:
-    AudioDestinationGStreamer(AudioIOCallback&, float sampleRate);
+    AudioDestinationGStreamer(AudioIOCallback&, unsigned long numberOfOutputChannels, float sampleRate);
     virtual ~AudioDestinationGStreamer();
 
-    void start() override;
-    void stop() override;
+    WEBCORE_EXPORT void start(Function<void(Function<void()>&&)>&& dispatchToRenderThread, CompletionHandler<void(bool)>&&) final;
+    WEBCORE_EXPORT void stop(CompletionHandler<void(bool)>&&) final;
 
     bool isPlaying() override { return m_isPlaying; }
     float sampleRate() const override { return m_sampleRate; }
     unsigned framesPerBuffer() const final;
-    AudioIOCallback& callback() const { return m_callback; }
 
     gboolean handleMessage(GstMessage*);
+    void notifyIsPlaying(bool);
+
+protected:
+    virtual void startRendering(CompletionHandler<void(bool)>&&);
+    virtual void stopRendering(CompletionHandler<void(bool)>&&);
 
 private:
-    AudioIOCallback& m_callback;
+    void notifyStartupResult(bool);
+    void notifyStopResult(bool);
+
     RefPtr<AudioBus> m_renderBus;
 
     float m_sampleRate;
-    bool m_isPlaying;
-    bool m_audioSinkAvailable;
-    GstElement* m_pipeline;
+    bool m_isPlaying { false };
+    bool m_audioSinkAvailable { false };
+    GRefPtr<GstElement> m_pipeline;
+    GRefPtr<GstElement> m_src;
+    CompletionHandler<void(bool)> m_startupCompletionHandler;
+    CompletionHandler<void(bool)> m_stopCompletionHandler;
+    Lock m_setStateLock;
+    Condition m_setStateCondition;
 };
 
 } // namespace WebCore
-
-#endif // AudioDestinationGStreamer_h

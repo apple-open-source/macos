@@ -59,23 +59,31 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_subr.h>
+#include <netsmb/smb_gss.h>
 #include <smbfs/smbfs.h>
 #include <netsmb/smb_packets_2.h>
 #include <smbclient/ntstatus.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr_2.h>
+#include <smbfs/smb2_mc_support.h>
 
 #include <IOKit/IOLib.h>
 #include <netsmb/smb_sleephandler.h>
 
+#define MAX_CHANNEL_LIST (12)
+
 struct smb_reconnect_stats smb_reconn_stats;
 
-static int smb_iod_next;
+static int smb_iod_next = 0;
 
 int smb_iod_sendall(struct smbiod *iod);
 int smb_iod_get_interface_info(struct smbiod *iod);
+static int smb_iod_main_ch_failover(struct smbiod *iod);
+static void smb_iod_alt_ch_failover(struct smbiod *iod);
+static int smb_iod_proclaim_main(struct smbiod *iod, struct smbiod *iod_main);
 static void smb_iod_read_thread(void *arg);
-
+static void smb_iod_detach_con_entry(struct smbiod *iod);
+static void smb_iod_lease_dequeue(struct smbiod *iod);
 
 /*
  * Check to see if the share has a routine to handle going away, if so.
@@ -273,12 +281,10 @@ static void smb_iod_invrq(struct smbiod *iod)
 }
 
 static void
-smb_iod_closetran(struct smbiod *iod, int from_read_thread)
+smb_iod_closetran(struct smbiod *iod)
 {
-	struct smb_session *sessionp = iod->iod_session;
-
-    if (sessionp->session_tdata == NULL) {
-        return;
+	if (iod->iod_tdata == NULL) {
+		return;
     }
 
     /*
@@ -286,55 +292,38 @@ smb_iod_closetran(struct smbiod *iod, int from_read_thread)
      * Read thread may be blocked in a socket read, so do a disconnect to
      * unblock it.
      */
-	SMB_TRAN_DISCONNECT(sessionp);
-
-    if (from_read_thread == 1) {
-        /*
-         * Being called from the read thread, just set the state and do not
-         * wait for it to exit else you will deadlock
-         */
-        SMB_IOD_FLAGSLOCK(iod);
-        iod->iod_flags |= SMBIOD_READ_THREAD_STOP;
-        SMB_IOD_FLAGSUNLOCK(iod);
-
-        /*
-         * Dont call SMB_TRAN_DONE() from the read thread as the main
-         * iod_thread may still be using the tcp transport. Let the main
-         * iod_thread clean up the tcp transport.
-         */
-    }
-    else {
-        /*
-         * Wait for read thread to exit
-         */
-        SMB_IOD_FLAGSLOCK(iod);
-        for (;;) {
-            if (!(iod->iod_flags & SMBIOD_READ_THREAD_RUNNING)) {
-                SMB_IOD_FLAGSUNLOCK(iod);
-                break;
-            }
-
-            /* Tell read thread to exit */
-            iod->iod_flags |= SMBIOD_READ_THREAD_STOP;
-            wakeup(&(iod->iod_flags));
-
-            msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
-                   "iod-wait-read-exit", 0);
+    /*
+     * Wait for read thread to exit
+     */
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags |= SMBIOD_READ_THREAD_STOP;
+    SMB_TRAN_DISCONNECT(iod);
+    for (;;) {
+        if (!(iod->iod_flags & SMBIOD_READ_THREAD_RUNNING)) {
+            SMB_IOD_FLAGSUNLOCK(iod);
+            break;
         }
 
-        /* This will free the tcp transport! */
-        SMB_TRAN_DONE(sessionp);
+        /* Tell read thread to exit */
+        iod->iod_flags |= SMBIOD_READ_THREAD_STOP;
+        wakeup(&(iod->iod_flags));
+
+        msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
+                   "iod-wait-read-exit", 0);
     }
+
+    /* This will free the tcp transport! */
+    SMB_TRAN_DONE(iod);
 }
 
 static void
-smb_iod_dead(struct smbiod *iod, int from_read_thread)
+smb_iod_dead(struct smbiod *iod)
 {
 	struct smb_rq *rqp, *trqp;
 
 	iod->iod_state = SMBIOD_ST_DEAD;
 
-	smb_iod_closetran(iod, from_read_thread);
+	smb_iod_closetran(iod);
 	smb_iod_invrq(iod);
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
@@ -354,17 +343,19 @@ smb_iod_dead(struct smbiod *iod, int from_read_thread)
  * should block until the reconnect process is completed. This routine is always excuted
  * from the main thread.
  */
-static void smb_iod_start_reconnect(struct smbiod *iod, int from_read_thread)
+static void smb_iod_start_reconnect(struct smbiod *iod)
 {
 	struct smb_share *share, *tshare;
 	struct smb_rq *rqp, *trqp;
 
+    SMBDEBUG("id %d start reconnect.\n", iod->iod_id);
+    
 	/* This should never happen, but for testing lets leave it in */
 	if (iod->iod_flags & SMBIOD_START_RECONNECT) {
 		SMBWARNING("Already in start reconnect with %s\n", iod->iod_session->session_srvname);
 		return; /* Nothing to do here we are already in start reconnect mode */
 	}
-	
+
     /*
      * Needed for soft mount timeouts. It will get reset when reconnect
      * actually starts.
@@ -387,10 +378,10 @@ static void smb_iod_start_reconnect(struct smbiod *iod, int from_read_thread)
         case SMBIOD_ST_NEGOACTIVE:      /* completed negotiation */
         case SMBIOD_ST_SSNSETUP:        /* started (a) session setup */
         case SMBIOD_ST_DEAD:            /* connection broken, transport is down */
-            SMBDEBUG("%s: iod->iod_state = %x iod->iod_flags = 0x%x\n",
-                     iod->iod_session->session_srvname, iod->iod_state, iod->iod_flags);
+            SMBDEBUG("id %d %s: iod->iod_state = %x iod->iod_flags = 0x%x\n",
+                     iod->iod_id, iod->iod_session->session_srvname, iod->iod_state, iod->iod_flags);
             if (!(iod->iod_flags & SMBIOD_RECONNECT)) {
-                smb_iod_dead(iod, from_read_thread);
+                smb_iod_dead(iod);
                 return;
             }
             break;
@@ -401,47 +392,129 @@ static void smb_iod_start_reconnect(struct smbiod *iod, int from_read_thread)
 	iod->iod_flags |= SMBIOD_START_RECONNECT;
 	SMB_IOD_FLAGSUNLOCK(iod);
 	
+    /*
+     * If multichannel is being used and we are already in reconnect, then we
+     * already tried to fail over to another channel and failed. No need to try
+     * again.
+     */
+    if ((iod->iod_session->session_flags & SMBV_MULTICHANNEL_ON) &&
+        !(iod->iod_flags & SMBIOD_RECONNECT)) {
+        if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+            lck_mtx_lock(&iod->iod_session->failover_lock);  // One failover at a time
+            /* if alternate channel, see if we can utilize other channels */
+            smb_iod_alt_ch_failover(iod);
+            lck_mtx_unlock(&iod->iod_session->failover_lock);
+            goto done;
+        }
+        else {
+            /*
+             * <71930272> no connection trial should be on air when trying to
+             * assign another alt-ch as main or when doing reconnect.
+             * smb2_mc_resume_trials should be invoked after new main assigned
+             * or reconnect completed.
+             */
+            SMB_LOG_MC("id %d pause trials before reconnect \n", iod->iod_id);
+            smb2_mc_pause_trials(&iod->iod_session->session_interface_table);
+            
+            while (smb2_mc_check_for_active_trials(&iod->iod_session->session_interface_table))
+            {
+                SMB_LOG_MC("id %d still have ongoing trials \n", iod->iod_id);
+                smb2_mc_abort_trials(&iod->iod_session->session_interface_table);
+                struct timespec sleeptime;
+                sleeptime.tv_sec = 1;
+                sleeptime.tv_nsec = 0;
+                msleep(&iod->iod_flags, 0, PWAIT, "start reconnect wait for ongiong trials",
+                       &sleeptime);
+            }
+            
+            SMB_LOG_MC("id %d no more ongoing trials \n", iod->iod_id);
+            
+            /*
+             * Multichannel main iod
+             * Assign another alt-ch as main or, if none available, then start
+             * reconnect
+             */
+            int can_proclaim_main = smb_iod_main_ch_failover(iod);
+            if (can_proclaim_main) {
+                SMB_LOG_MC("id %d smb_iod_main_ch_failover is complete.\n",
+                         iod->iod_id);
+                /*
+                 * <71930272> new main assigned, failover as alternate channel.
+                 * smb_iod_alt_ch_failover will trigger new connection trials
+                 * so we should resume mc trials before we call it.
+                 */
+                smb2_mc_resume_trials(&iod->iod_session->session_interface_table);
+
+                /*
+                 * <73475707> Only take the failover_lock AFTER calling
+                 * smb_iod_request(SMBIOD_EV_PROCLAIM_MAIN) in smb_iod_main_ch_failover
+                 * otherwise you can deadlock
+                 */
+                lck_mtx_lock(&iod->iod_session->failover_lock);
+                smb_iod_alt_ch_failover(iod);
+                lck_mtx_unlock(&iod->iod_session->failover_lock);
+
+                goto done;
+            }
+        }
+
+        SMB_LOG_MC("id %d All channels are down.\n", iod->iod_id);
+    }
+
+    /*
+     * remove all lease request enqueued by the iod to make sure
+     * no more lease break ack will be inserted into the iod request queue
+     */
+    smb_iod_lease_dequeue(iod);
+
 	/* Search through the request list and set them to the correct state */
 	SMB_IOD_RQLOCK(iod);
 	TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
 		SMBRQ_SLOCK(rqp);
-        
+
 		/* Clear any internal or async request out of the queue */
 		if (rqp->sr_flags & (SMBR_INTERNAL | SMBR_ASYNC)) {
             /* pretend like it did not get sent to recover SMB 2/3 credits */
             rqp->sr_extflags &= ~SMB2_REQ_SENT;
             
 			SMBRQ_SUNLOCK(rqp);
-			if (rqp->sr_flags & SMBR_ASYNC)
+            // error out rqp and wake the pending thread to clears them off iod_rqlist
+            if (rqp->sr_flags & SMBR_ASYNC) {
 				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
-			else
-				smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD); 
+            }
+            else {
+				smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD);
+            }
 		}
         else {
+            /* Not INTERNAL or ASYNC */
+
             /* If SMB 2/3 and soft mount, cancel all requests with ETIMEDOUT */
             if ((rqp->sr_share) &&
                 (rqp->sr_extflags & SMB2_REQUEST) &&
                 (rqp->sr_share->ss_soft_timer) &&
                 (smb_iod_check_timeout(&iod->reconnectStartTime, rqp->sr_share->ss_soft_timer))) {
-                /* 
+                /*
+                 * If reconnect has not finished for time longer than ss_soft_timer,
+                 * and we're in soft-mount, then error out the rqp
                  * Pretend like it did not get sent to recover SMB 2/3 credits
                  */
                 rqp->sr_extflags &= ~SMB2_REQ_SENT;
-                
+
                 SMBRQ_SUNLOCK(rqp);
-                
-                SMBDEBUG("Soft Mount timed out! cmd 0x%x message_id %lld \n",
+
+                SMBDEBUG("id %u: Soft Mount timed out! cmd 0x%x message_id %lld \n", iod->iod_id,
                          (UInt32) rqp->sr_command, rqp->sr_messageid);
                 smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
             }
             else {
                 /*
-                 * Let the upper layer know that this message was processed 
-                 * while we were in reconnect mode. If they receive an error 
+                 * Let the upper layer know that this message was processed
+                 * while we were in reconnect mode. If they receive an error
                  * they may want to handle this message differently.
                  */
                 rqp->sr_flags |= SMBR_RECONNECTED;
-                
+
                 /* If we have not received a reply set the state to reconnect */
                 if (rqp->sr_state != SMBRQ_NOTIFIED) {
                     rqp->sr_extflags &= ~SMB2_REQ_SENT; /* clear the SMB 2/3 sent flag */
@@ -449,36 +522,37 @@ static void smb_iod_start_reconnect(struct smbiod *iod, int from_read_thread)
                     rqp->sr_flags |= SMBR_REXMIT;	/* Tell the upper layer this message was resent */
                     rqp->sr_lerror = 0;		/* We are going to resend clear the error */
                 }
-                
                 SMBRQ_SUNLOCK(rqp);
             }
 		}
 	}
-	SMB_IOD_RQUNLOCK(iod);
-	
+
 	/* We are already in reconnect, so we are done */
 	if (iod->iod_flags & SMBIOD_RECONNECT) {
+        SMB_IOD_RQUNLOCK(iod);
 		goto done;
 	}
 
-	/* Set our flag saying we need to do a reconnect, but not until we finish the work in this routine. */
-	SMB_IOD_FLAGSLOCK(iod);
-	iod->iod_flags |= SMBIOD_RECONNECT;
-	SMB_IOD_FLAGSUNLOCK(iod);
-	
-	/*
-	 * We have the session list locked so the shares can't be remove and they can't
-	 * go away. If the share is not gone then mark that we are in reconnect mode.
-	 */
-	smb_session_lock(iod->iod_session);
-	SMBCO_FOREACH_SAFE(share, SESSION_TO_CP(iod->iod_session), tshare) {
-		lck_mtx_lock(&share->ss_stlock);
-		if (!(share->ss_flags & SMBO_GONE)) {
-			share->ss_flags |= SMBS_RECONNECTING;
-		}
-		lck_mtx_unlock(&(share)->ss_stlock);
-	}
-	smb_session_unlock(iod->iod_session);
+    /* Set our flag saying we need to do a reconnect, but not until we finish the work in this routine. */
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags |= SMBIOD_RECONNECT;
+    SMB_IOD_FLAGSUNLOCK(iod);
+
+    SMB_IOD_RQUNLOCK(iod);
+
+    /*
+     * We have the session list locked so the shares can't be remove and they can't
+     * go away. If the share is not gone then mark that we are in reconnect mode.
+     */
+    smb_session_lock(iod->iod_session);
+    SMBCO_FOREACH_SAFE(share, SESSION_TO_CP(iod->iod_session), tshare) {
+        lck_mtx_lock(&share->ss_stlock);
+        if (!(share->ss_flags & SMBO_GONE)) {
+            share->ss_flags |= SMBS_RECONNECTING;
+        }
+        lck_mtx_unlock(&(share)->ss_stlock);
+    }
+    smb_session_unlock(iod->iod_session);
 done:
 	/* Ok now we can do the reconnect */
 	SMB_IOD_FLAGSLOCK(iod);
@@ -487,15 +561,166 @@ done:
 	SMB_IOD_FLAGSUNLOCK(iod);
 }
 
+
+/*
+ * smb_iod_main_ch_failover()
+ * The main-channel of a multichannel session has got disconnected.
+ * In case another channel is connected, declare it as main (return 1).
+ * Otherwise, start a reconnect procedure (return 0).
+ */
+static int smb_iod_main_ch_failover(struct smbiod *iod)
+{
+    int error = 0;
+    struct smbiod *alt_iod = NULL;
+    int ret_val = 1, attempts = 10;
+
+again:
+    /*
+     * Find an alternate channel
+     * Note: In future, maybe we should try to find a different iod every
+     * time we look for an alt_iod? Should be ok for now.
+     */
+    error = smb_iod_get_non_main_iod(iod->iod_session, &alt_iod, __FUNCTION__, 0);
+    if (error || (!alt_iod)) {
+        SMB_LOG_MC("id %u: Main channel can't find a valid alt iod. Start reconnect \n",
+                   iod->iod_id);
+        return(0);
+    }
+
+    /* Note that we now have a iod_ref_cnt on alt_iod */
+    
+    /*
+     * Transfer main parameters to selected iod.
+     * We found an alt iod that will be promoted to main, but the alt iod
+     * could currently be in shutdown and return an error. If so, then loop
+     * around and try to find another alt iod that we can promote. Only try
+     * finding another alt iod to use for "attempts" number of times. I'm
+     * assuming each failed iod will not be found again, so try 10 different
+     * iods.
+     */
+    SMB_LOG_MC("id %d Main channel failing over to alt iod %d \n",
+               iod->iod_id, alt_iod->iod_id);
+
+    error = smb_iod_request(alt_iod, SMBIOD_EV_PROCLAIM_MAIN | SMBIOD_EV_SYNC,
+                            iod);
+    
+    if (error) {
+        SMB_LOG_MC("id %u: Failed (%d) to promote alt_iod: %d. Try again (attempts %d). \n",
+                   iod->iod_id, alt_iod->iod_id, error, attempts);
+
+        smb_iod_rel(alt_iod, NULL, __FUNCTION__);
+
+        attempts -= 1;
+        if (attempts > 0) {
+            /* Try again and see if there is another iod that we can promote */
+            goto again;
+        }
+        
+        SMB_LOG_MC("id %u: Failed to find an iod to promote after %d attempts. Start reconnect \n",
+                   iod->iod_id, error);
+        ret_val = 0;
+        goto exit;
+    }
+exit:
+    smb_iod_rel(alt_iod, NULL, __FUNCTION__);
+    return ret_val;
+}
+
+/*
+ * smb_iod_alt_ch_failover()
+ * An alternate channel has got disconnected. Transfer all outstanding requests to
+ * another channel and abort this iod.
+ */
+static void smb_iod_alt_ch_failover(struct smbiod *iod)
+{
+    struct smb_rq *rqp, *trqp;
+
+    SMB_LOG_MC("id %d Transfer pending requests \n", iod->iod_id);
+
+    /* Mark iod with shutdown to prevent new inserts to the rqlist */
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags |= SMBIOD_SHUTDOWN;
+    SMB_IOD_FLAGSUNLOCK(iod);
+
+    /* Search through the request list and set them to the correct state */
+    SMB_IOD_RQLOCK(iod);
+    TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
+        SMBRQ_SLOCK(rqp);
+
+        /* Clear any internal or async request out of the queue */
+        if (rqp->sr_flags & (SMBR_INTERNAL | SMBR_ASYNC)) {
+            /* pretend like it did not get sent to recover SMB 2/3 credits */
+            rqp->sr_extflags &= ~SMB2_REQ_SENT;
+
+            SMBRQ_SUNLOCK(rqp);
+
+            /*
+             * Error out rqp and wake the pending thread to clear them off
+             * iod_rqlist
+             */
+            if (rqp->sr_flags & SMBR_ASYNC) {
+                SMB_LOG_MC("id %u set ETIMEDOUT messageid %llu cmd %u ref_cnt %u.\n",
+                           iod->iod_id, rqp->sr_messageid, rqp->sr_command,
+                           iod->iod_ref_cnt);
+                smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
+            }
+            else {
+                SMB_LOG_MC("id %u set ENOTCONN on messageid %llu cmd %u ref_cnt %u.\n",
+                           iod->iod_id, rqp->sr_messageid, rqp->sr_command,
+                           iod->iod_ref_cnt);
+                smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD);
+            }
+        }
+        else {
+            /* Not INTERNAL or ASYNC */
+            rqp->sr_flags |= (SMBR_RECONNECTED | SMBR_ALT_CH_DISCON);
+            if (rqp->sr_state != SMBRQ_NOTIFIED) {
+                rqp->sr_extflags &= ~SMB2_REQ_SENT; /* clear the SMB 2/3 sent flag */
+                rqp->sr_state = SMBRQ_RECONNECT;    /* Wait for reconnect to complete */
+                rqp->sr_flags |= SMBR_REXMIT;       /* Tell the upper layer this message was resent */
+                rqp->sr_lerror = 0;                 /* We are going to resend clear the error */
+                SMB_LOG_MC("id %u reposting messageid %llu cmd %u ref_cnt %u.\n",
+                           iod->iod_id, rqp->sr_messageid, rqp->sr_command,
+                           iod->iod_ref_cnt);
+                SMBRQ_SUNLOCK(rqp);
+                smb_iod_rqprocessed(rqp, EAGAIN, 0);
+            }
+            else {
+                /*
+                 * Request already has its reply and callback has been done,
+                 * just let this request finish by itself.
+                 */
+                SMBRQ_SUNLOCK(rqp);
+            }
+        }
+    }
+
+    /* We are already in reconnect, so we are done */
+    if (iod->iod_flags & SMBIOD_RECONNECT) {
+        SMB_IOD_RQUNLOCK(iod);
+        goto done;
+    }
+
+    SMB_IOD_RQUNLOCK(iod);
+
+    /* Inform mc_support that the channel has been disconnected */
+    smb_iod_detach_con_entry(iod);
+
+    // Check if additional channels can be established.
+    smb_iod_establish_alt_ch(iod);
+
+done:
+    return;
+}
+
 static int
 smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 {
-	struct smb_session *sessionp = iod->iod_session;
 	int error;
     kern_return_t result;
     thread_t thread;
 
-	SMBIODEBUG("%d\n", iod->iod_state);
+	SMBIODEBUG("iod id %d state %d\n", iod->iod_id, iod->iod_state);
 	switch(iod->iod_state) {
 	    case SMBIOD_ST_TRANACTIVE:
 	    case SMBIOD_ST_NEGOACTIVE:
@@ -513,7 +738,8 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 
     iod->iod_state = SMBIOD_ST_CONNECT;
 
-    error = SMB_TRAN_CREATE(sessionp);
+	error = SMB_TRAN_CREATE(iod);
+
 	if (error) {
 		goto errorOut;
 	}
@@ -524,13 +750,13 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
      */
     SMB_IOD_FLAGSLOCK(iod);
     if (!(iod->iod_flags & SMBIOD_READ_THREAD_RUNNING)) {
-        SMBIODEBUG("Starting read thread \n");
+        SMBIODEBUG("id %d: Starting read thread \n", iod->iod_id);
         result = kernel_thread_start((thread_continue_t)smb_iod_read_thread,
                                      iod, &thread);
         if (result != KERN_SUCCESS) {
             /* Should never happen */
             SMB_IOD_FLAGSUNLOCK(iod);
-            SMBERROR("can't start read thread. result = %d\n", result);
+            SMBERROR("id %d: can't start read thread. result = %d\n", iod->iod_id, result);
             error = ENOTCONN;
             goto errorOut;
         }
@@ -541,23 +767,26 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
     SMB_IOD_FLAGSUNLOCK(iod);
 
 	/* We only bind when doing a NetBIOS connection */
-	if (sessionp->session_saddr->sa_family == AF_NETBIOS) {
-		error = SMB_TRAN_BIND(sessionp, sessionp->session_laddr);
+	if (iod->iod_saddr->sa_family == AF_NETBIOS) {
+		error = SMB_TRAN_BIND(iod, iod->iod_laddr);
 		if (error) {
 			goto errorOut;
 		}
 		SMBIODEBUG("tbind\n");		
 	}
 
-	error = SMB_TRAN_CONNECT(sessionp, sessionp->session_saddr);
+	error = SMB_TRAN_CONNECT(iod, iod->iod_saddr);
 	if (error == 0) {
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 		SMBIODEBUG("tconnect\n");
 
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags &= ~SMBIOD_READ_THREAD_ERROR;
+        SMB_IOD_FLAGSUNLOCK(iod);
+
         /* Wake up the read thread */
         smb_iod_wakeup(iod);
-
-        error = smb_smb_negotiate(sessionp, user_context, FALSE, iod->iod_context);
+        error = smb_smb_negotiate(iod, user_context, FALSE, iod->iod_context);
 	}
 	if (error) {
 		goto errorOut;
@@ -568,17 +797,16 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 	return 0;
 	
 errorOut:
-	smb_iod_dead(iod, 0);
+	smb_iod_dead(iod);
 	return error;
 }
 
 static int
 smb_iod_ssnsetup(struct smbiod *iod, int inReconnect)
 {
-	struct smb_session *sessionp = iod->iod_session;
 	int error;
 
-	SMBIODEBUG("%d\n", iod->iod_state);
+	SMBIODEBUG("id %d, state %d\n", iod->iod_id, iod->iod_state);
 	switch(iod->iod_state) {
 	    case SMBIOD_ST_NEGOACTIVE:
             break;
@@ -593,7 +821,7 @@ smb_iod_ssnsetup(struct smbiod *iod, int inReconnect)
 		return EINVAL;
 	}
 	iod->iod_state = SMBIOD_ST_SSNSETUP;
-	error = smb_smb_ssnsetup(sessionp, inReconnect, iod->iod_context);
+	error = smb_smb_ssnsetup(iod, inReconnect, iod->iod_context);
 	if (error) {
 		/* 
 		 * We no longer call smb_io_dead here, the session could still be
@@ -609,7 +837,16 @@ smb_iod_ssnsetup(struct smbiod *iod, int inReconnect)
 			iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 	} else {
 		iod->iod_state = SMBIOD_ST_SESSION_ACTIVE;
-		SMBIODEBUG("completed\n");
+        SMBIODEBUG("completed\n");
+        nanotime(&iod->iod_session_setup_time);
+        if (inReconnect)
+        {
+            iod->iod_session->session_reconnect_count++;
+            iod->iod_session->session_reconnect_time = iod->iod_session_setup_time;
+        } else {
+            iod->iod_session->session_setup_time = iod->iod_session_setup_time;
+        }
+
 		/* Don't flush the queue if we are in reconnect state. We need to resend those messages. */
 		if ((iod->iod_flags & SMBIOD_RECONNECT) != SMBIOD_RECONNECT)
 			smb_iod_invrq(iod);
@@ -622,7 +859,7 @@ smb_iod_disconnect(struct smbiod *iod)
 {
 	struct smb_session *sessionp = iod->iod_session;
 
-	SMBIODEBUG("\n");
+	SMBIODEBUG("id %u\n", iod->iod_id);
 	if (iod->iod_state == SMBIOD_ST_SESSION_ACTIVE) {
 		smb_smb_ssnclose(sessionp, iod->iod_context);
         /*
@@ -634,7 +871,7 @@ smb_iod_disconnect(struct smbiod *iod)
 	}
 	sessionp->session_smbuid = SMB_UID_UNKNOWN;
 
-	smb_iod_closetran(iod, 0);
+	smb_iod_closetran(iod);
 
 	iod->iod_state = SMBIOD_ST_NOTCONN;
 	return 0;
@@ -648,8 +885,9 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	int error = 0;
     struct smb_rq *tmp_rqp;
 	struct mbchain *mbp;
+    size_t len = 0;
 
-	SMBIODEBUG("iod_state = %d\n", iod->iod_state);
+	SMBIODEBUG("id %d iod_state = %d\n", iod->iod_id, iod->iod_state);
 	switch (iod->iod_state) {
 	    case SMBIOD_ST_NOTCONN:
             smb_iod_rqprocessed(rqp, ENOTCONN, 0);
@@ -671,7 +909,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
         /* filled in by smb2_rq_init_internal */
 
         smb_rq_getrequest(rqp, &mbp);
-        mb_fixhdr(mbp);
+        len = mb_fixhdr(mbp);
         
         if (rqp->sr_flags & SMBR_COMPOUND_RQ) {
             /* 
@@ -729,7 +967,6 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
              * then send "m"
              */
             m = mb_detach(mbp);
-            
             /* Concatenate the other requests into the mbuf chain */
             tmp_rqp = rqp->sr_next_rqp;
             while (tmp_rqp != NULL) {
@@ -784,7 +1021,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
             }
             
             /* fix up the mbuf packet header */
-            m_fixhdr(m);
+            len = m_fixhdr(m);
         }
         else {
  #if 0      
@@ -836,6 +1073,42 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
              * then send "m"
              */
             m = mb_detach(mbp);
+
+            /* Do we need to do pre auth integrity hash? */
+            if ((rqp->sr_command == SMB2_NEGOTIATE) &&
+                (sessionp->session_misc_flags & SMBV_NEG_SMB3_ENABLED)) {
+                /*
+                 * Initialize the pre auth integrity hash
+                 * The hash starts with the first SMB2 Negotiate Request
+                 * we send.
+                 */
+                smb311_pre_auth_integrity_hash_init(iod, SMB2_NEGOTIATE, m);
+
+                /* Print current pre auth integrity hash */
+                smb311_pre_auth_integrity_hash_print(iod);
+            }
+
+            if ((rqp->sr_command == SMB2_SESSION_SETUP) &&
+                (sessionp->session_flags & SMBV_SMB311)) {
+                if (rqp->sr_rqsessionid == 0) {
+                    /*
+                     * Its the first Session Setup, initialize the pre auth
+                     * integrity hash using the hash from the negotiation
+                     * exchange. First login attemt could have failed and we
+                     * are trying again.
+                     */
+                    smb311_pre_auth_integrity_hash_init(iod, SMB2_SESSION_SETUP,
+                                                        m);
+                }
+                else {
+                    /* Not the first, just update the hash */
+                    smb311_pre_auth_integrity_hash_update(iod, m);
+                }
+
+                /* Print current pre auth integrity hash */
+                smb311_pre_auth_integrity_hash_print(iod);
+
+            }
         }
     }
     else {
@@ -855,7 +1128,6 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
         
         SMBSDEBUG("M:%04x, P:%04x, U:%04x, T:%04x\n", rqp->sr_mid, 0, 0, 0);
         m_dumpm(rqp->sr_rq.mb_top);
-
         /* SMB 1 always duplicates the sr_rq.mb_top and sends the dupe */
         error = mbuf_copym(rqp->sr_rq.mb_top, 0, MBUF_COPYALL, MBUF_WAITOK, &m);
         DBG_ASSERT(error == 0);
@@ -880,13 +1152,13 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 
     
     /* Call SMB_TRAN_SEND to send the mbufs in "m" */
-    error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(sessionp, m);
+    error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(iod, m);
 	if (error == 0) {
 		nanouptime(&rqp->sr_timesent);
 		rqp->sr_credit_timesent = rqp->sr_timesent;
         iod->iod_lastrqsent = rqp->sr_timesent;
+        OSAddAtomic64(len, &iod->iod_total_tx_bytes);
         rqp->sr_state = SMBRQ_SENT;
-        
         /* 
          * For SMB 2/3, set flag indicating this request was sent. Used for 
          * keeping track of credits.  
@@ -907,7 +1179,8 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	}
     
 	/* Did the connection go down, we may need to reconnect. */
-	if (SMB_TRAN_FATAL(sessionp, error)) {
+	if (SMB_TRAN_FATAL(iod, error)) {
+        SMBERROR("id %d: SMB_TRAN_FATAL returned error. Reconnect.\n", iod->iod_id);
 		return ENOTCONN;
     }
 	else if (error) {	
@@ -918,8 +1191,8 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 		*/
         if (rqp->sr_extflags & SMB2_REQUEST) {
             /* SMB v2/3 */
-            SMBERROR("TRAN_SEND returned non-fatal error %d sr_command = 0x%x\n",
-                     error, rqp->sr_command);
+            SMBERROR("id %d: TRAN_SEND returned non-fatal error %d sr_command = 0x%x\n",
+                     iod->iod_id,error, rqp->sr_command);
             error = EIO; /* Couldn't send not much else we can do */
             smb_iod_rqprocessed(rqp, error, 0);
             return ENOTCONN;    /* go into reconnect */
@@ -934,6 +1207,230 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	}
 	return 0;
 }
+
+/*
+ *  smb_iod_est_alt_ch_event
+ * This function attempts to establish an alternate channel between a specific Client NIC and a specific Server NIC.
+ *
+ * The function loops through all of the IP addresses of the given NICs (the Server NIC IP address is selected from
+ * 'iod->iod_conn_entry.selected_saddr' list, and the Client's NIC IP address is automatically selected (matched) by
+ * setting the if_index at the transport layer).
+ *
+ * In case the attempt succeeds, the alternate channel becomes operational (smb2_mc_report_connection_trial_results(PASS)).
+ *
+ * In either case, this function calls smb_iod_establish_alt_ch() right before exit. This function consults smb2_mc to
+ * determine if additional attempts (between different pairs of NICs) are required.
+ *
+ */
+static int
+smb_iod_est_alt_ch_event(struct smbiod *iod)
+{
+    struct smb_session *sessionp = iod->iod_session;
+    int error = 0;
+    uint32_t port = 0;
+    bool used_445 = false, used_139 = false;
+    kern_return_t result;
+    thread_t thread;
+    
+retry:
+    SMB_LOG_MC("iod id %d state %d\n", iod->iod_id, iod->iod_state);
+    if (iod->iod_state != SMBIOD_ST_NOTCONN) {
+        SMB_LOG_MC("smb_iod_est_alt_ch_event is invalid now, state=%d\n", iod->iod_state);
+        error = EINVAL;
+        goto exit;
+    }
+    if (iod->iod_flags & SMBIOD_SHUTDOWN) {
+        SMB_LOG_MC("shutdown. time to go. state=%d\n", iod->iod_state);
+        error = EINVAL;
+        goto exit;
+    }
+
+    /*
+     * Start up read thread if not already running
+     */
+    SMB_IOD_FLAGSLOCK(iod);
+    if (!(iod->iod_flags & SMBIOD_READ_THREAD_RUNNING)) {
+        SMB_LOG_MC("id %d: Starting read thread \n", iod->iod_id);
+        result = kernel_thread_start((thread_continue_t)smb_iod_read_thread,
+                                     iod, &thread);
+        if (result != KERN_SUCCESS) {
+            /* Should never happen */
+            SMB_IOD_FLAGSUNLOCK(iod);
+            SMBERROR("id %d: can't start read thread. result = %d\n", iod->iod_id, result);
+            error = ENOTCONN;
+            goto exit;
+        } else {
+            thread_deallocate(thread);
+        }
+    }
+    SMB_IOD_FLAGSUNLOCK(iod);
+
+    // 1) *********** Connect ***********
+    iod->iod_state = SMBIOD_ST_CONNECT;
+    error = SMB_TRAN_CREATE(iod);
+    if (error) {
+        goto exit;
+    }
+    SMB_LOG_MC("id %d created\n", iod->iod_id);
+    
+    /* We only bind when doing a NetBIOS connection */
+    if (iod->iod_saddr->sa_family == AF_NETBIOS) {
+        error = SMB_TRAN_BIND(iod, iod->iod_laddr);
+        if (error) {
+            goto exit;
+        }
+        SMB_LOG_MC("id %d binded\n", iod->iod_id);
+    }
+
+    if ((iod->iod_conn_entry.con_entry) && (iod->iod_conn_entry.con_entry->con_client_nic)) {
+        SMB_TRAN_SETPARAM(iod, SMBTP_BOUND_IF, &iod->iod_conn_entry.con_entry->con_client_nic->nic_index);
+    }
+    SMB_LOG_MC("id %d param set\n", iod->iod_id);
+    
+    error = SMB_TRAN_CONNECT(iod, iod->iod_saddr);
+    if (error) {
+        SMB_LOG_MC("id %d SMB_TRAN_CONNECT returned %d.\n", iod->iod_id, error);
+        goto exit;
+    }
+    iod->iod_state = SMBIOD_ST_TRANACTIVE;
+    SMB_LOG_MC("id %d *** CONNECTED ***\n", iod->iod_id);
+
+    // Allow the read thread to run
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags &= ~SMBIOD_READ_THREAD_ERROR;
+    SMB_IOD_FLAGSUNLOCK(iod);
+    smb_iod_wakeup(iod); // Wake up the read thread
+
+    // 2) *********** Negotiate ***********
+    iod->iod_message_id = 0;
+
+    /*
+     * SMBIOD_ALTERNATE_CHANNEL is already set in iod_flags to indicate that
+     * the negotiation uses a specific dialect in case we need to validate
+     * negotiation on this channel in the future.
+     */
+
+    error = smb2_smb_negotiate(iod, NULL, FALSE, NULL, iod->iod_context);
+    if (error) {
+        SMB_LOG_MC("id %d smb_smb_negotiate returned %d.\n", iod->iod_id, error);
+        goto exit;
+    }
+    iod->iod_state = SMBIOD_ST_NEGOACTIVE;
+    SMB_LOG_MC("id %d negotiated\n", iod->iod_id);
+
+    // 3) *********** Session Setup ***********
+    iod->iod_state = SMBIOD_ST_SSNSETUP;
+    error = smb_gss_alt_ch_session_setup(iod);
+    if (error) {
+        SMB_LOG_MC("id %d smb_gss_alt_ch_session_setup returned %d.\n", iod->iod_id, error);
+        goto exit;
+    }
+    nanotime(&iod->iod_session_setup_time);
+    SMB_LOG_MC("id %d Session Setup Succeeded\n", iod->iod_id);
+    iod->iod_state = SMBIOD_ST_SESSION_ACTIVE;
+
+    smb_iod_invrq(iod);  
+
+exit:
+    if (error) {
+        if (iod->iod_state >= SMBIOD_ST_TRANACTIVE) {
+            smb_iod_closetran(iod);
+        } else if ((iod->iod_flags & SMBIOD_ABORT_CONNECT) == 0) { // we weren't able to establish a connection - see if there is another ip address available
+
+            // Try the next usable server IP address
+            iod->iod_conn_entry.selected_saddr = TAILQ_NEXT(iod->iod_conn_entry.selected_saddr, next);
+            // validate family (ip version)
+            error = smb2_find_valid_ip_family(iod);
+            if (!error) {
+                if (port != 0) {
+                    smb2_set_port_in_sockaddr(iod->iod_saddr, port);
+                }
+                // Try to connect with with the new address
+#ifdef SMB_DEBUG
+                char str[128];
+                smb2_sockaddr_to_str(iod->iod_saddr, str, sizeof(str));
+                SMB_LOG_MC("id %d next_addr %s.\n", iod->iod_id, str);
+#endif
+                iod->iod_state = SMBIOD_ST_NOTCONN;
+                goto retry;
+
+            } else {
+                /*
+                 * reset the list of server IP address to try with another port.
+                 * the ports we try to connect through are:
+                 *   first  - the same port as the main channel
+                 *   then   - port 445 (if haven't tried it yet)
+                 *   lastly - port 139 (if haven't tried it yet)
+                 */
+                iod->iod_conn_entry.selected_saddr = TAILQ_FIRST(&iod->iod_conn_entry.con_entry->con_server_nic->addr_list);
+                if (port == 0) {
+                    port = smb2_get_port_from_sockaddr(sessionp->session_iod->iod_saddr);
+                }
+                if (port == SMB_TCP_PORT_445) {
+                    used_445 = true;
+                }
+                if (port == NBSS_TCP_PORT_139) {
+                    used_139 = true;
+                }
+                if (!used_445) {
+                    port = SMB_TCP_PORT_445;
+                    goto retry;
+                }
+                if (!used_139) {
+                    port = NBSS_TCP_PORT_139;
+                    /*
+                     * Windows servers have a tendency to respond slowly (seconds!) on
+                     * port 445 and quickly on port 139 if we send TCP SYN to both 445
+                     * and 139 simultaneously. We always send the TCP SYN to port 445
+                     * first, so before we send out the TCP SYN for port 139, delay
+                     * sending it to give a higher chance for port 445 to succeed.
+                     * According to Microsoft, they delay the port 139 TCP SYN by
+                     * 500 ms! Seems a little long to me...
+                     */
+                    struct timespec sleepTime;
+                    sleepTime.tv_sec = 0;
+                    sleepTime.tv_nsec = 150 * 1000 * 1000;  /* 150 ms */
+                    msleep(iod, NULL, PWAIT | PCATCH, "smb_iod_est_alt_ch_event", &sleepTime);
+                    goto retry;
+                }
+
+                SMB_LOG_MC("id %d smb2_find_valid_ip_family returned %d.\n", iod->iod_id, error);
+            }
+        }
+            
+        // No more saddrs to try. Fail this connection
+        SMB_LOG_MC("id %d reports failure to connect.\n", iod->iod_id);
+        error = smb2_mc_report_connection_trial_results(&sessionp->session_interface_table,
+                                                        SMB2_MC_TRIAL_FAILED,
+                                                        iod->iod_conn_entry.con_entry);
+        if (error) {
+            SMB_LOG_MC("id %d smb2_mc_report_alt_ch_status(fail) returned %d.\n", iod->iod_id, error);
+        }
+        // we've informed mc_support we're out. no need to tell them again in detach_con_entry
+        memset(&iod->iod_conn_entry, 0, sizeof(iod->iod_conn_entry));
+
+        // Kill iod
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags |= (SMBIOD_SHUTDOWN); // Alternate channel: will auto clean on exit
+        SMB_IOD_FLAGSUNLOCK(iod);
+        
+    } else {
+        // Mark connection as passed.
+        SMB_LOG_MC("id %d reports successful connection.\n", iod->iod_id);
+        error = smb2_mc_report_connection_trial_results(&sessionp->session_interface_table,
+                                                        SMB2_MC_TRIAL_PASSED,
+                                                        iod->iod_conn_entry.con_entry);
+        if (error) {
+            SMB_LOG_MC("id %d smb2_mc_report_alt_ch_status(pass) returned %d.\n", iod->iod_id, error);
+        }
+    }
+    
+    // Check if additional channels can be established.
+    smb_iod_establish_alt_ch(iod);
+
+    return(error);
+}
+
 
 // Interogate Server for available interfaces
 int
@@ -960,16 +1457,38 @@ smb_iod_get_interface_info(struct smbiod *iod)
         return EINVAL;
     }
 
-    error = smb2fs_smb_validate_neg_info(share, piod_context);
-    if (error) {
-        SMBERROR("smb2fs_smb_validate_neg_info returned %d\n", error);
-        goto exit;
-    }
-    
     error = smb2fs_smb_query_network_interface_info(share, piod_context);
     if (error) {
         SMBERROR("smb2fs_smb_query_network_interface_info returned %d\n", error);
         goto exit;
+    }
+
+    /* Now that we have the list of client and server interfaces,
+     * Update the connection table with the currently used interfaces */
+    if (iod->iod_conn_entry.con_entry == NULL) {
+        // Mark main connection as active in the connection table
+        struct sockaddr_storage client_ip_addr = {0};
+        SMB_TRAN_GETPARAM(iod, SMBTP_IP_ADDR, &client_ip_addr);
+        
+        struct session_con_entry *con_entry = NULL;
+        error = smb2_mc_update_main_channel(&sessionp->session_interface_table,
+                                                    (struct sockaddr*)&client_ip_addr,
+                                                    iod->iod_saddr,
+                                                    &con_entry,
+                                                    iod);
+        if (error || (con_entry == NULL)) {
+            SMBERROR("id %d con_entry is null (error %d).\n",
+                     iod->iod_id, error);
+            error = EINVAL;
+            goto exit;
+        } else {
+            // save connection entry in iod structure
+            iod->iod_conn_entry.con_entry      = con_entry;
+            iod->iod_conn_entry.client_if_idx  = con_entry->con_client_nic->nic_index;
+            iod->iod_conn_entry.selected_saddr = smb2_mc_does_ip_belong_to_interface(
+                                                          con_entry->con_server_nic,
+                                                          iod->iod_saddr);
+        }
     }
 
 exit:
@@ -988,20 +1507,24 @@ smb_iod_recvall(struct smbiod *iod)
 {
 	struct smb_session *sessionp = iod->iod_session;
 	struct smb_rq *rqp, *trqp, *temp_rqp, *cmpd_rqp;
-	mbuf_t m;
+	mbuf_t m, tmp_m;
 	u_char *hp;
 	uint16_t mid = 0;
 	uint16_t pidHigh = 0;
 	uint16_t pidLow = 0;
 	uint8_t cmd = 0;
 	int error;
-    struct smb2_header* smb2_hdr;
+    struct smb2_header* smb2_hdr = NULL;
     boolean_t smb2_packet;
     uint64_t message_id = 0;
     boolean_t smb1_allowed = true;
 	struct mdchain *mdp = NULL;
     int skip_wakeup = 0;
     int drop_req_lock = 0;
+    uint32_t nt_status = 0, flags = 0;
+    int update_hash = 0;
+    uint8_t zero_block[SHA512_DIGEST_LENGTH] = {0};
+    size_t mbuf_chain_len = 0, len, offset;
 
 	for (;;) {
         m = NULL;
@@ -1009,30 +1532,38 @@ smb_iod_recvall(struct smbiod *iod)
         cmpd_rqp = NULL;
         temp_rqp = NULL;
         skip_wakeup = 0;
+        update_hash = 0;
 
         /* this reads in the entire response packet based on the NetBIOS hdr */
-		error = SMB_TRAN_RECV(sessionp, &m);
+		error = SMB_TRAN_RECV(iod, &m);
         if (error) {
             if (error == EWOULDBLOCK) {
                 break;
             }
             else {
-                SMBERROR("SMB_TRAN_RECV failed %d\n", error);
-                if (SMB_TRAN_FATAL(sessionp, error)) {
+                SMBWARNING("id %d:SMB_TRAN_RECV failed %d\n", iod->iod_id, error);
+                if (SMB_TRAN_FATAL(iod, error) && (!(iod->iod_flags & SMBIOD_SHUTDOWN))) {
                     /* Tell send thread to start reconnect */
-                    SMBWARNING("Calling smb_iod_start_reconnect. iod_state %d \n",
-                               iod->iod_state);
-                    smb_iod_start_reconnect(iod, 1);
+                    SMBWARNING("id %d: Set read-thread error at state %d \n",
+                               iod->iod_id, iod->iod_state);
+                    
+                    SMB_IOD_FLAGSLOCK(iod);
+                    iod->iod_flags |= SMBIOD_READ_THREAD_ERROR;
+                    SMB_IOD_FLAGSUNLOCK(iod);
+
+                    return error;
                 }
                 break;
             }
         }
 
 		if (m == NULL) {
-			SMBERROR("SMB_TRAN_RECV returned NULL without error\n");
+			SMBERROR("id %d: SMB_TRAN_RECV returned NULL without error\n", iod->iod_id);
 			continue;
 		}
         
+        OSAddAtomic64(mbuf_get_chain_len(m), &iod->iod_total_rx_bytes);
+
         /*
          * It's possible the first mbuf in the chain
          * has zero length, so we will do the pullup
@@ -1100,7 +1631,8 @@ smb_iod_recvall(struct smbiod *iod)
 
             cmd = letohs(smb2_hdr->command);
             message_id = letohq(smb2_hdr->message_id);
-            SMBSDEBUG("message_id %lld cmd = %d\n", letohq(message_id), cmd);
+            nt_status = letohl(smb2_hdr->status);
+            flags = letohl(smb2_hdr->flags);
 		}
         else {            
             /* 
@@ -1239,6 +1771,120 @@ smb_iod_recvall(struct smbiod *iod)
                 SMB_IOD_RQUNLOCK(iod);
                 /* Indicate that we are not holding the lock */
                 drop_req_lock = 0;
+                
+                switch(rqp->sr_command) {
+                    case SMB2_NEGOTIATE:
+                        /*
+                         * Start possible pre auth integrity hash in case we
+                         * end up with SMB v3.1.1
+                         *
+                         * We ignore the SMB2 Neg Reply to SMB1 Neg Req from the
+                         * multiprotocol negotiation. Detect that by checking to
+                         * see if current hash is still all zeros.
+                         */
+                        if (memcmp(iod->iod_pre_auth_int_hash, zero_block,
+                                   SHA512_DIGEST_LENGTH) != 0) {
+                            update_hash = 1;
+                        }
+                    break;
+                        
+                    case SMB2_SESSION_SETUP:
+                        if ((sessionp->session_flags & SMBV_SMB311) &&
+                            (nt_status == STATUS_MORE_PROCESSING_REQUIRED)) {
+                            /*
+                             * Using SMB v3.1.1 and not last Session Setup
+                             * reply so add it into the pre auth integrity hash
+                             */
+                            update_hash = 1;
+                            break;
+                        }
+                        
+                        if ((SMBV_SMB3_OR_LATER(sessionp)) &&
+                            (nt_status == STATUS_SUCCESS) &&
+                            (flags & SMB2_FLAGS_SIGNED)) {
+                            /*
+                             * If its the last Session Setup, has no error and
+                             * is signed, then save it for later as we cant
+                             * verify its signature yet until we have the
+                             * session key from GSS and have derive the
+                             * signing and encryption keys.
+                             *
+                             * Could be main channel being setup that is using
+                             * SMB v3.1.1 and pre auth integrity check or could
+                             * be an alt channel being setup with SMB v3.x.x
+                             *
+                             * Note: Since its the last Session Setup reply,
+                             * there should be no other packet activity on this
+                             * iod until we process it so its safe to delete
+                             * or malloc the iod_sess_setup_reply without
+                             * needing a mutex.
+                             */
+                            if (iod->iod_sess_setup_reply != NULL) {
+                                SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
+                                iod->iod_sess_setup_reply = NULL;
+                            }
+                            
+                            /* Calculate mbuf len again to be safe */
+                            mbuf_chain_len = mbuf_get_chain_len(m);
+
+                            /* Paranoid check */
+                            if (mbuf_chain_len > (64 * 1024)) {
+                                /*
+                                 * Limit it to a max of 64 KB and assume the
+                                 * parsing of session setup reply will fail or
+                                 * defintitely the signing verify will fail.
+                                 */
+                                SMBERROR("Session Setup reply too big <%zu>??? \n", mbuf_chain_len);
+                                mbuf_chain_len = 64 * 1024;
+                            }
+                            
+                            SMB_MALLOC(iod->iod_sess_setup_reply, uint8_t *,
+                                       mbuf_chain_len, M_SMBTEMP, M_WAITOK);
+                            if (iod->iod_sess_setup_reply == NULL) {
+                                /* Should never happen, just skip it */
+                                SMBERROR("Out of memory for saving final Session Setup reply. id: %d \n",
+                                         iod->iod_id);
+                            }
+                            else {
+                                /* Save a copy of the final Session Setup */
+                                iod->iod_sess_setup_reply_len = mbuf_chain_len;
+                                tmp_m = m;
+                                offset = 0;
+
+                                while (tmp_m) {
+                                    len = mbuf_len(tmp_m);
+                                    memcpy(iod->iod_sess_setup_reply + offset,
+                                           (uint8_t *) mbuf_data(tmp_m), len);
+                                   
+                                    offset += len;
+                                    tmp_m = mbuf_next(tmp_m);
+                                }
+                            }
+                        }
+                        
+                        break;
+                        
+                    default:
+                        break;
+                }
+
+                if (update_hash == 1) {
+                    smb311_pre_auth_integrity_hash_update(iod, m);
+
+                    if (rqp->sr_command == SMB2_NEGOTIATE) {
+                        /*
+                         * Save the hash from the Negotiate exchange.
+                         * If you have to start the Session Setups again, then
+                         * you start with the Negotiate hash
+                         */
+                        memcpy(iod->iod_pre_auth_int_hash_neg,
+                               iod->iod_pre_auth_int_hash,
+                               SHA512_DIGEST_LENGTH);
+                    }
+
+                    /* Print current pre auth integrity hash */
+                    smb311_pre_auth_integrity_hash_print(iod);
+                }
             }
             else {
                 /* 
@@ -1419,7 +2065,20 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
 	struct smbiod_event *evp;
 	int error;
 
-	SMBIODEBUG("\n");
+    if (iod == NULL) {
+        SMBERROR("iod is null\n");
+        return EINVAL;
+    }
+    else {
+        /*
+         * Make sure iod is not in SMBIOD_SHUTDOWN because once its in
+         * shutdown, it will no longer process events
+         */
+        if (iod->iod_flags & SMBIOD_SHUTDOWN) {
+            return EINVAL;
+        }
+    }
+    
 	SMB_MALLOC(evp, struct smbiod_event *, sizeof(*evp), M_SMBIOD, M_WAITOK | M_ZERO);
 	evp->ev_type = event;
 	evp->ev_ident = ident;
@@ -1484,12 +2143,20 @@ smb_iod_rq_sign(struct smb_rq *rqp)
         }
     }
 
-    if ( !(do_encrypt) &&
-        ((sessionp->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) ||
-         ((rqp->sr_flags & SMBR_SIGNED)))) {
-            /* Only sign if not encrypting */
-            smb2_rq_sign(rqp);
+    if ( !(do_encrypt) &&  /* Only sign if not encrypting */
+          ((sessionp->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) ||
+          ((rqp->sr_flags & SMBR_SIGNED)))) {
+
+        // Never sign session-setup messages on main channel
+        if ( (rqp->sr_iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) ||
+             (rqp->sr_command != SMB2_SESSION_SETUP) ) {
+
+            // Never sign a negotiate request message
+            if (rqp->sr_command != SMB2_NEGOTIATE) {
+                smb2_rq_sign(rqp);
+            }
         }
+    }
 
     if (do_encrypt) {
         error = smb3_rq_encrypt(rqp);
@@ -1511,7 +2178,7 @@ int
 smb_iod_rq_enqueue(struct smb_rq *rqp)
 {
 	struct smb_session *sessionp = rqp->sr_session;
-	struct smbiod *iod = sessionp->session_iod;
+	struct smbiod *iod = rqp->sr_iod;
 	struct timespec ts;
     struct smb_rq *tmp_rqp;
     int return_error = 0;
@@ -1537,12 +2204,14 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
             }
         }
 
-		TAILQ_INSERT_HEAD(&iod->iod_rqlist, rqp, sr_link);
+        rqp->sr_flags |= SMBR_ENQUEUED;
+        TAILQ_INSERT_HEAD(&iod->iod_rqlist, rqp, sr_link);
+
 		SMB_IOD_RQUNLOCK(iod);
 		
 		for (;;) {
 			if (smb_iod_sendrq(iod, rqp) != 0) {
-				smb_iod_start_reconnect(iod, 0);
+				smb_iod_start_reconnect(iod);
 				break;
 			}
 			/*
@@ -1627,7 +2296,6 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
     /*
      * Regular request send code
      */
-    
     if (!(rqp->sr_extflags & SMB2_REQUEST)) {
         /* SMB v1 request */
         if (sessionp->session_flags & SMBV_SMB2) {
@@ -1701,16 +2369,22 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 		if (sessionp->throttle_info)
 			throttle_info_update(sessionp->throttle_info, 0);
 	}
-    
+
     /* Number of pending requests (sync and async) */
-    iod->iod_muxcnt++;
+    OSAddAtomic(1, &iod->iod_muxcnt);
     
     SMB_LOG_KTRACE(SMB_DBG_IOD_MUXCNT | DBG_FUNC_NONE,
-                   /* channelID */ 0, iod->iod_muxcnt, 0, 0, 0);
+                   iod->iod_id, iod->iod_muxcnt, 0, 0, 0);
 
     /* Hold RQ lock while we assign the Message ID and sign/seal */
     SMB_IOD_RQLOCK(iod);
-
+    
+    if (iod->iod_flags & SMBIOD_SHUTDOWN) {
+        SMBERROR("id %u iod is shutting down, can't add to queue.\n", iod->iod_id);
+        SMB_IOD_RQUNLOCK(iod);
+        return(EAGAIN);
+    }
+    
     if (rqp->sr_extflags & SMB2_REQUEST) {
         error = smb_iod_rq_sign(rqp);
         if (error) {
@@ -1720,7 +2394,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
         }
     }
 
-	TAILQ_INSERT_TAIL(&iod->iod_rqlist, rqp, sr_link);
+    rqp->sr_flags |= SMBR_ENQUEUED;
+    TAILQ_INSERT_TAIL(&iod->iod_rqlist, rqp, sr_link);
+    
 	SMB_IOD_RQUNLOCK(iod);
 
 	iod->iod_workflag = 1;
@@ -1731,20 +2407,21 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 int
 smb_iod_removerq(struct smb_rq *rqp)
 {
-	struct smb_session *sessionp = rqp->sr_session;
-	struct smbiod *iod = sessionp->session_iod;
+	struct smbiod *iod = rqp->sr_iod;
 
-	SMBIODEBUG("\n");
 	SMB_IOD_RQLOCK(iod);
     
 	if (rqp->sr_flags & SMBR_INTERNAL) {
 		TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
-		SMB_IOD_RQUNLOCK(iod);
+        rqp->sr_flags &= ~SMBR_ENQUEUED;
+
+        SMB_IOD_RQUNLOCK(iod);
 		return 0;
 	}
     
 	TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
-    
+    rqp->sr_flags &= ~SMBR_ENQUEUED;
+
     SMB_IOD_RQUNLOCK(iod);
 
     if (rqp->sr_flags & SMBR_ASYNC) {
@@ -1758,10 +2435,10 @@ smb_iod_removerq(struct smb_rq *rqp)
          * Reconnect resets muxcnt to 0, so any request that was in progress
          * at that time should not decrement muxcnt else it will go negative
          */
-        iod->iod_muxcnt--;
+        OSAddAtomic(-1, &iod->iod_muxcnt);
         
         SMB_LOG_KTRACE(SMB_DBG_IOD_MUXCNT | DBG_FUNC_NONE,
-                       /* channelID */ 0, iod->iod_muxcnt, 0, 0, 0);
+                       iod->iod_id, iod->iod_muxcnt, 0, 0, 0);
     }
     
     if (!(rqp->sr_extflags & SMB2_REQUEST)) {
@@ -1778,11 +2455,10 @@ smb_iod_removerq(struct smb_rq *rqp)
 int
 smb_iod_waitrq(struct smb_rq *rqp)
 {
-	struct smbiod *iod = rqp->sr_session->session_iod;
+	struct smbiod *iod = rqp->sr_iod;
 	int error;
 	struct timespec ts;
 
-	SMBIODEBUG("\n");
 	if (rqp->sr_flags & SMBR_INTERNAL) {
 		for (;;) {
 			smb_iod_sendall(iod);
@@ -1790,6 +2466,12 @@ smb_iod_waitrq(struct smb_rq *rqp)
 
 			if (rqp->sr_rpgen != rqp->sr_rplast)
 				break;
+            
+            if (iod->iod_flags & SMBIOD_READ_THREAD_ERROR) {
+                SMBDEBUG("id %d: Read-thread error detected. reconnect! \n", iod->iod_id);
+                smb_iod_start_reconnect(iod);
+            }
+            
 			ts.tv_sec = 1;
 			ts.tv_nsec = 0;
 			msleep(&iod->iod_flags, 0, PWAIT, "90irq", &ts);
@@ -1874,7 +2556,7 @@ smb_iod_sendall(struct smbiod *iod)
 	struct smb_session *sessionp = iod->iod_session;
 	struct smb_rq *rqp, *trqp;
 	struct timespec now, ts, uetimeout;
-	int herror, echo, drop_req_lock;
+	int herror, echo;
 	uint64_t oldest_message_id = 0;
 	struct timespec oldest_timesent = {0, 0};
     uint32_t pending_reply = 0;
@@ -1886,10 +2568,14 @@ smb_iod_sendall(struct smbiod *iod)
 	/*
 	 * Loop through the list of requests and send them if possible
 	 */
-retry:
-	SMB_IOD_RQLOCK(iod);
-    drop_req_lock = 1;
-	TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
+    if (iod->iod_flags & SMBIOD_READ_THREAD_ERROR) {
+        SMB_LOG_MC("id %d: Read-thread error detected. reconnect! \n", iod->iod_id);
+        smb_iod_start_reconnect(iod);
+    }
+    
+    SMB_IOD_RQLOCK(iod);
+
+    TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
 		if (iod->iod_state == SMBIOD_ST_DEAD) {
 			/* session is down, just time out any message on the list */
 			smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
@@ -1947,9 +2633,13 @@ retry:
 		
 		switch (rqp->sr_state) {
 			case SMBRQ_RECONNECT:
-				if (iod->iod_flags & SMBIOD_RECONNECT)
-					break;		/* Do nothing to do but wait for reconnect to end. */
+                if (iod->iod_flags & SMBIOD_RECONNECT) {
+                    /* Do nothing to do but wait for reconnect to end. */
+					break;
+                }
+
 				rqp->sr_state = SMBRQ_NOTSENT;
+
 				/*
 				 * Make sure this is not a bad server. If we reconnected more
 				 * than MAX_SR_RECONNECT_CNT (5) times trying to send this
@@ -1957,8 +2647,8 @@ retry:
 				 */
 				rqp->sr_reconnect_cnt += 1; 
 				if (rqp->sr_reconnect_cnt > MAX_SR_RECONNECT_CNT) {
-					SMBERROR("Looks like we are in a reconnect loop with server %s, canceling the reconnect. (cmd = %x)\n", 
-						sessionp->session_srvname, rqp->sr_cmd);
+					SMBERROR("Looks like we are in a reconnect loop with server %s, canceling the reconnect. (cmd = %x)\n",
+                             sessionp->session_srvname, rqp->sr_cmd);
 					iod->iod_state = SMBIOD_ST_DEAD;
 					smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 					continue;
@@ -1976,21 +2666,15 @@ retry:
                 }
                 
                 /* Fall through here and send it */
+
 			case SMBRQ_NOTSENT:
-                /* Dropping the RQ lock here helps performance */
-				SMB_IOD_RQUNLOCK(iod);
-                /* Indicate that we are not holding the lock */
-                drop_req_lock = 0;
+                /*
+                 * <71776833> Hold iod_rqlock here to keep receive thread from
+                 * processing the reply and freeing the rqp before we return.
+                 */
 				herror = smb_iod_sendrq(iod, rqp);
-                if (herror == 0) {
-                    /*
-                     * We will need to go back and reaquire the request queue lock 
-                     * and start over, since dropping the lock before sending the 
-                     * request, the queue could be in a completely differen state.
-                     */
-                    goto retry;
-                }
 				break;
+
 			case SMBRQ_SENT:
                 if (sessionp->session_flags & SMBV_SMB2) {
                     /*
@@ -2025,6 +2709,7 @@ retry:
 					(rqp->sr_flags & SMBR_NO_TIMEOUT)) {
 					break;
 				}
+
 				nanouptime(&now);
 				if (rqp->sr_share) {
 					/*
@@ -2055,6 +2740,7 @@ retry:
 					if (timespeccmp(&ts, &iod->iod_lastrecv, >) && 
                         timespeccmp(&ts, &rqp->sr_timesent, >)) {
 						/* See if the connection went down */
+                        SMB_LOG_MC("id %u ts > iod_lastrecv && ts > sr_timesent.\n", iod->iod_id);
 						herror = ENOTCONN;
 						break;
 					}
@@ -2118,19 +2804,25 @@ retry:
                     }
 				}
 				break;
+
 		    default:
 				break;
 		}
-		if (herror)
+        
+        if (herror) {
+            /* Break out of the TAILQ_FOREACH_SAFE loop */
 			break;
+        }
+        else {
+            /* Loop around and process more rqp's */
+        }
 	}
     
-    if (drop_req_lock) {
-        SMB_IOD_RQUNLOCK(iod);
-    }
+    SMB_IOD_RQUNLOCK(iod);
     
 	if (herror == ENOTCONN) {
-		smb_iod_start_reconnect(iod, 0);
+        SMB_LOG_MC("id %u herror == ENOTCONN, Reconnect.\n", iod->iod_id);
+		smb_iod_start_reconnect(iod);
 	}	/* no echo message while we are reconnecting */
 	else if (echo && ((iod->iod_flags & SMBIOD_RECONNECT) != SMBIOD_RECONNECT)) {
 		/*
@@ -2143,39 +2835,39 @@ retry:
 		timespecsub(&ts, &uetimeout);
 		if (timespeccmp(&ts, &iod->iod_lastrecv, >) &&
 		    timespeccmp(&ts, &iod->iod_lastrqsent, >)) {
-			(void)smb_smb_echo(sessionp, SMBNOREPLYWAIT, 1, iod->iod_context);
+			(void)smb_smb_echo(iod, SMBNOREPLYWAIT, 1, iod->iod_context);
         }
 	}
 
     if (sessionp->session_flags & SMBV_SMB2) {
         /* Update oldest pending request Message ID */
-        SMBC_CREDIT_LOCK(sessionp);
+        SMBC_CREDIT_LOCK(iod);
         if (pending_reply == 0) {
             /* No pending reply found */
-            sessionp->session_req_pending = 0;
+            iod->iod_req_pending = 0;
             
-            if (sessionp->session_oldest_message_id != 0) {
-                sessionp->session_oldest_message_id = 0;
+            if (iod->iod_oldest_message_id != 0) {
+                iod->iod_oldest_message_id = 0;
                 need_wakeup = 1;
             }
         }
         else {
             /* A pending reply was found */
-            sessionp->session_req_pending = 1;
+            iod->iod_req_pending = 1;
             
-            if (oldest_message_id != sessionp->session_oldest_message_id) {
-                sessionp->session_oldest_message_id = oldest_message_id;
+            if (oldest_message_id != iod->iod_oldest_message_id) {
+                iod->iod_oldest_message_id = oldest_message_id;
                 need_wakeup = 1;
             }
         }
 
         /* Wake up any requests waiting for more credits */
-        if ((need_wakeup == 1) && (sessionp->session_credits_wait)) {
-            OSAddAtomic(-1, &sessionp->session_credits_wait);
-            wakeup(&sessionp->session_credits_wait);
+        if ((need_wakeup == 1) && (iod->iod_credits_wait)) {
+            OSAddAtomic(-1, &iod->iod_credits_wait);
+            wakeup(&iod->iod_credits_wait);
         }
 
-        SMBC_CREDIT_UNLOCK(sessionp);
+        SMBC_CREDIT_UNLOCK(iod);
     }
 
 	return 0;
@@ -2186,9 +2878,9 @@ retry:
  * timeout share or notification of unresponsive shares.
  */
 static int 
-smb_iod_check_for_active_shares(struct smb_session *sessionp)
+smb_iod_check_for_active_shares(struct smbiod *iod)
 {
-	struct smbiod *	iod = sessionp->session_iod;
+    struct smb_session *sessionp = iod->iod_session;
 	struct smb_share *share, *tshare;
 	int treecnt = 0;
 
@@ -2247,10 +2939,10 @@ smb_iod_check_for_active_shares(struct smb_session *sessionp)
  * goes away or someone tries to unmount it then we need to break out of the reconnect. We 
  * may want to use this for normal connections in the future.
  */
-int smb_iod_nb_intr(struct smb_session *sessionp)
+int smb_iod_nb_intr(struct smbiod *iod)
 {
-	struct smbiod *	iod = sessionp->session_iod;
-
+    struct smb_session *sessionp = iod->iod_session;
+    
     if (get_system_inshutdown()) {
         /* If system is shutting down, then cancel reconnect */
         return EINTR;
@@ -2278,7 +2970,7 @@ int smb_iod_nb_intr(struct smb_session *sessionp)
 			SMB_IOD_FLAGSUNLOCK(iod);						
 	}
 	/* Don't keep reconnecting if there are no active shares */
-	return (smb_iod_check_for_active_shares(sessionp)) ? 0 : EINTR;
+	return (smb_iod_check_for_active_shares(iod)) ? 0 : EINTR;
 }
 
 /*
@@ -2309,15 +3001,16 @@ static void smb_iod_reconnect(struct smbiod *iod)
 
         /* This function is called by smb_iod_thread so no need for wakeup */
 		iod->iod_workflag = 1;
-		SMBERROR("The session is going aways while we are in reconnect?\n");
+        SMBWARNING("id %d The session is going aways while we are in reconnect?\n",
+                   iod->iod_id);
 		return;
 	}
 
     SMB_LOG_KTRACE(SMB_DBG_IOD_RECONNECT | DBG_FUNC_START,
-                   /* channelID */ 0, 0, 0, 0, 0);
+                   iod->iod_id, 0, 0, 0, 0);
 
-    SMBWARNING("Starting reconnect with %s\n", sessionp->session_srvname);
-	SMB_TRAN_DISCONNECT(sessionp); /* Make sure the connection is close first */
+    SMB_LOG_MC("id %d Starting reconnect with %s\n", iod->iod_id, sessionp->session_srvname);
+	SMB_TRAN_DISCONNECT(iod); /* Make sure the connection is close first */
 	iod->iod_state = SMBIOD_ST_CONNECT;
 	
 	/* Start the reconnect timers */
@@ -2332,7 +3025,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	
 	/* Is reconnect even allowed? */
 	if (sessionp->reconnect_wait_time == 0) {
-		SMBWARNING("Reconnect is disabled \n");
+		SMBWARNING("id %d Reconnect is disabled \n", iod->iod_id);
 		smb_reconn_stats.disabled_cnt += 1;
 		error = EINTR;
 		goto exit;
@@ -2345,7 +3038,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	if (sessionp->session_misc_flags & SMBV_MNT_TIME_MACHINE) {
 		error = smb_iod_check_non_idempotent(iod);
 		if (error) {
-			SMBWARNING("Non idempotent requests found, failing reconnect \n");
+			SMBWARNING("id %d Non idempotent requests found, failing reconnect \n",
+                       iod->iod_id);
 			error = EINTR;
 			goto exit;
 		}
@@ -2357,21 +3051,37 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		 * seconds. So we always wait 2 two seconds to see if the connection
 		 * comes back quickly before attempting any other types of action.
 		 */
-        if (smb_iod_nb_intr(sessionp) == EINTR) {
+        if (smb_iod_nb_intr(iod) == EINTR) {
             error = EINTR;
-            SMBWARNING("Reconnect to %s was canceled\n", sessionp->session_srvname);
+            SMBWARNING("id %d Reconnect to %s was canceled\n",
+                       iod->iod_id, sessionp->session_srvname);
 			smb_reconn_stats.cancelled_cnt += 1;
             goto exit;
         }
-
-		error = SMB_TRAN_CONNECT(sessionp, sessionp->session_saddr);
-		if (error == EINTR)	{
-			SMBWARNING("Reconnect to %s was canceled\n", sessionp->session_srvname);
+        
+        if (iod->iod_tdata != NULL) {
+            /*
+             * <71930272> clear NBF_BOUND_IF flag so reconnect will not be bounded
+             * to a specific client interface.
+             */
+            ((struct nbpcb *)iod->iod_tdata)->nbp_flags &= ~NBF_BOUND_IF;
+        }
+        else {
+            /*
+             * If iod_tdata is null, then just let SMB_TRAN_CONNECT catch it
+             * and fail.
+             */
+        }
+        
+        error = SMB_TRAN_CONNECT(iod, iod->iod_saddr);
+        if (error == EINTR)	{
+            SMBWARNING("id %d Reconnect to %s was canceled\n",
+                       iod->iod_id, sessionp->session_srvname);
 			smb_reconn_stats.cancelled_cnt += 1;
 			goto exit;
 		}
-
-		DBG_ASSERT(sessionp->session_tdata != NULL);
+        
+		DBG_ASSERT(iod->iod_tdata != NULL);
 		DBG_ASSERT(error != EISCONN);
 		DBG_ASSERT(error != EINVAL);
 		if (error) {			
@@ -2381,10 +3091,11 @@ static void smb_iod_reconnect(struct smbiod *iod)
 			 */ 
 			for (ii= 1; ii <= sleepcnt; ii++) {
 				msleep(&iod->iod_flags, 0, PWAIT, "reconnect connect retry", &sleeptime);
-                
-				if (smb_iod_nb_intr(sessionp) == EINTR) {
+
+				if (smb_iod_nb_intr(iod) == EINTR) {
 					error = EINTR;
-					SMBWARNING("Reconnect to %s was canceled\n", sessionp->session_srvname);
+					SMBWARNING("id %d Reconnect to %s was canceled\n",
+                               iod->iod_id, sessionp->session_srvname);
 					smb_reconn_stats.cancelled_cnt += 1;
 					goto exit;
 				}
@@ -2392,7 +3103,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
 			/* Never wait more than 5 seconds between connection attempts */
 			if (sleepcnt < SMB_MAX_SLEEP_CNT )
 				sleepcnt++;
-			SMBWARNING("Retrying connection to %s error = %d\n", sessionp->session_srvname, 
+			SMBWARNING("id %d Retrying connection to %s error = %d\n",
+                       iod->iod_id, sessionp->session_srvname,
 					 error);
 		}			
 		/* 
@@ -2421,26 +3133,36 @@ static void smb_iod_reconnect(struct smbiod *iod)
             
 			/* Reset the session to a reconnect state */
 			smb_session_reset(sessionp);
+            SMB_IOD_FLAGSLOCK(iod);
+            iod->iod_flags &= ~SMBIOD_USE_CHANNEL_KEYS; // Make sure we will use the session keys
+            SMB_IOD_FLAGSUNLOCK(iod);
+
+            iod->iod_message_id = 1;
             
 			/* Start the session */
 			iod->iod_state = SMBIOD_ST_TRANACTIVE;
 
             /* Wake up the read thread */
+            SMB_IOD_FLAGSLOCK(iod);
+            iod->iod_flags &= ~SMBIOD_READ_THREAD_ERROR;
+            SMB_IOD_FLAGSUNLOCK(iod);
             smb_iod_wakeup(iod);
+            
+			error = smb_smb_negotiate(iod, NULL, TRUE, iod->iod_context);
 
-			error = smb_smb_negotiate(sessionp, NULL, TRUE, iod->iod_context);
 			if ((error == ENOTCONN) || (error == ETIMEDOUT)) {
-				SMBWARNING("The negotiate timed out to %s trying again: error = %d\n", 
-						   sessionp->session_srvname, error);
-				SMB_TRAN_DISCONNECT(sessionp); /* Make sure the connection is close first */
+				SMBWARNING("id %d The negotiate timed out to %s trying again: error = %d\n",
+						   iod->iod_id, sessionp->session_srvname, error);
+				SMB_TRAN_DISCONNECT(iod); /* Make sure the connection is close first */
 				iod->iod_state = SMBIOD_ST_CONNECT;
 			} else if (error) {
-				SMBWARNING("The negotiate failed to %s with an error of %d\n", 
-						   sessionp->session_srvname, error);
+				SMBWARNING("id %d The negotiate failed to %s with an error of %d\n",
+						   iod->iod_id, sessionp->session_srvname, error);
 				break;				
 			} else {
-				SMBDEBUG("The negotiate succeeded to %s\n", sessionp->session_srvname);
-				iod->iod_state = SMBIOD_ST_NEGOACTIVE;				
+                SMB_LOG_MC("id %d The negotiate succeeded to %s\n",
+                           iod->iod_id, sessionp->session_srvname);
+				iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 				/*
 				 * We now do the authentication inside the connect loop. This 
 				 * way if the authentication fails because we don't have a 
@@ -2448,9 +3170,9 @@ static void smb_iod_reconnect(struct smbiod *iod)
 				 * keep trying.
 				 */
 				error = smb_iod_ssnsetup(iod, TRUE);
-				if (error)
-					SMBWARNING("The authentication failed to %s with an error of %d\n", 
-							   sessionp->session_srvname, error);
+                if (error)
+					SMBWARNING("id %d The authentication failed to %s with an error of %d\n",
+							   iod->iod_id, sessionp->session_srvname, error);
 				/* If the error isn't EAGAIN then nothing else to do here, we have success or failure */
 				if (error != EAGAIN) {
 					break;
@@ -2460,18 +3182,18 @@ static void smb_iod_reconnect(struct smbiod *iod)
 				for (ii = 1; ii < SMB_MAX_SLEEP_CNT; ii++) {
 					msleep(&iod->iod_flags, 0, PWAIT, "reconnect auth retry", &sleeptime);
                     
-                    if (smb_iod_nb_intr(sessionp) == EINTR) {
+                    if (smb_iod_nb_intr(iod) == EINTR) {
                         error = EINTR;
-                        SMBWARNING("Reconnect to %s was canceled\n",
-                                 sessionp->session_srvname);
+                        SMBWARNING("id %d Reconnect to %s was canceled\n",
+                                   iod->iod_id, sessionp->session_srvname);
 						smb_reconn_stats.cancelled_cnt += 1;
                         goto exit;
                     }
 					
                     error = smb_iod_ssnsetup(iod, TRUE);
 					if (error)
-						SMBWARNING("Retrying authentication count %d failed to %s with an error of %d\n", 
-								   ii, sessionp->session_srvname, error);
+						SMBWARNING("id %d Retrying authentication count %d failed to %s with an error of %d\n",
+								   iod->iod_id, ii, sessionp->session_srvname, error);
 					if (error != EAGAIN)
 						break;
 				}
@@ -2479,7 +3201,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 				if (error == 0)
 					break;
 				
-				SMB_TRAN_DISCONNECT(sessionp); /* Make sure the connection is close first */
+				SMB_TRAN_DISCONNECT(iod); /* Make sure the connection is close first */
 				iod->iod_state = SMBIOD_ST_CONNECT;
 				error = EAUTH;
 			}
@@ -2489,7 +3211,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		
 	/* reconnect failed or we timed out, nothing left to do cancel the reconnect */
 	if (error) {
-		SMBWARNING("The connection failed to %s with an error of %d\n", sessionp->session_srvname, error);
+		SMBWARNING("id %d The connection failed to %s with an error of %d\n",
+                   iod->iod_id, sessionp->session_srvname, error);
 		smb_reconn_stats.error_cnt += 1;
 		goto exit;
 	}
@@ -2497,7 +3220,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
     /* We logged back into the session, clear the not responsive flag */
     iod->iod_flags &= ~SMBIOD_SESSION_NOTRESP;
 
-	/*
+    /*
 	 * We now need to reconnect each share. Since the current code only has one share
 	 * per session there is no problem with locking the list down here. Need
 	 * to look at this in the future. If at least one mount point succeeds then do not
@@ -2523,8 +3246,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		/* Always reconnect the tree, even if its not a mount point */
 		error = smb_smb_treeconnect(share, iod->iod_context);
 		if (error) {
-			SMBERROR("Reconnect failed to share %s on server %s error = %d\n", 
-					 share->ss_name, sessionp->session_srvname, error);
+			SMBERROR("id %d Reconnect Tree Connect failed to share %s on server %s error = %d\n",
+					 iod->iod_id, share->ss_name, sessionp->session_srvname, error);
 			
 			if (sessionp->session_misc_flags & SMBV_MNT_TIME_MACHINE) {
 				smb_share_rele(share, iod->iod_context);
@@ -2552,14 +3275,14 @@ static void smb_iod_reconnect(struct smbiod *iod)
 				error = share->ss_up(share, TRUE);
                 if (error == 0) {
                     /* ss_up() worked for this share */
-                    SMBERROR("Reconnected share %s with server %s\n",
-                             share->ss_name, sessionp->session_srvname);
+                    SMBERROR("id %d Reconnected share %s with server %s\n",
+                             iod->iod_id, share->ss_name, sessionp->session_srvname);
                 }
                 else {
                     /* ss_up() failed for this share */
                     if (sessionp->session_misc_flags & SMBV_MNT_TIME_MACHINE) {
-                        SMBERROR("Failed to reconnect TM share %s with server %s\n",
-                                 share->ss_name, sessionp->session_srvname);
+                        SMBERROR("id %d Failed to reconnect TM share %s with server %s\n",
+                                 iod->iod_id, share->ss_name, sessionp->session_srvname);
                         lck_mtx_unlock(&share->ss_shlock);
                         smb_share_rele(share, iod->iod_context);
                         
@@ -2577,8 +3300,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
                          * get reconnected. If all shares fail, then the
                          * tree_cnt of 0 will cause the reconnect to fail.
                          */
-                        SMBERROR("Failed to reconnect share %s with server %s\n",
-                                 share->ss_name, sessionp->session_srvname);
+                        SMBERROR("id %d Failed %d to reconnect share %s with server %s\n",
+                                 iod->iod_id, error, share->ss_name, sessionp->session_srvname);
                         tree_cnt -= 1;
                         error = 0; /* reset the error, only used for logging */
                    }
@@ -2589,8 +3312,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
                  * No ss_up() function to call, so share must be reconnected.
                  * I dont think we can ever have this case...
                  */
-				SMBWARNING("Reconnected share %s with server %s\n",
-                           share->ss_name, sessionp->session_srvname);
+				SMBWARNING("id %d Reconnected share %s with server %s\n",
+                           iod->iod_id, share->ss_name, sessionp->session_srvname);
 			}
 			lck_mtx_unlock(&share->ss_shlock);	
 		}
@@ -2600,8 +3323,8 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	
 	/* If we have no shares on this connect then kill the whole session. */
 	if (!tree_cnt) {
-		SMBWARNING("No mounted volumes in reconnect, closing connection to server %s\n",
-                   sessionp->session_srvname);
+		SMBWARNING("id %d No mounted volumes in reconnect, closing connection to server %s\n",
+                   iod->iod_id, sessionp->session_srvname);
 		error = ENOTCONN;
 		smb_reconn_stats.no_vol_cnt += 1;
 	}
@@ -2635,9 +3358,49 @@ exit:
     wakeup(&iod->iod_flags);
 
     if (error) {
-		SMB_TRAN_DISCONNECT(sessionp);
+		SMB_TRAN_DISCONNECT(iod);
     }
-		
+    else {
+        /*
+         * For multichannel, reset connection list and set
+         * session_query_net_recheck_time to be 0 so alt channels get retried
+         * by next vop_sync()
+         * <71930272> detach the iod from it's pre-reconnect connection entry,
+         * declare it as the new main and attach it to the new main connection
+         * entry. MC tables should be ok now to resume new trials
+         */
+        if (sessionp->session_flags & SMBV_MULTICHANNEL_ON) {
+            sessionp->session_query_net_recheck_time.tv_sec = 0;
+            sessionp->session_query_net_recheck_time.tv_usec = 0;
+
+            smb_iod_detach_con_entry(iod);
+            smb2_mc_reset_nic_list(&sessionp->session_interface_table);
+
+            struct sockaddr_storage client_ip_addr = {0};
+            SMB_TRAN_GETPARAM(iod, SMBTP_IP_ADDR, &client_ip_addr);
+            struct session_con_entry *con_entry = NULL;
+            error = smb2_mc_update_main_channel(&sessionp->session_interface_table,
+                                                        (struct sockaddr*)&client_ip_addr,
+                                                        iod->iod_saddr,
+                                                        &con_entry,
+                                                        iod);
+
+            if (error || (con_entry == NULL)) {
+                SMBERROR("id %d con_entry is null (error %d).\n",
+                         iod->iod_id, error);
+                error = EINVAL;
+            } else {
+                iod->iod_conn_entry.con_entry      = con_entry;
+                iod->iod_conn_entry.client_if_idx  = con_entry->con_client_nic->nic_index;
+                iod->iod_conn_entry.selected_saddr = smb2_mc_does_ip_belong_to_interface(
+                                                              con_entry->con_server_nic,
+                                                              iod->iod_saddr);
+                /* <71930272> reconnect completed, time to resume trials */
+                smb2_mc_resume_trials(&sessionp->session_interface_table);
+            }
+        }
+    }
+
 	smb_session_reconnect_rel(sessionp);	/* We are done release the reference */
 	
 	if (error) {
@@ -2647,13 +3410,14 @@ exit:
 			 * completed. Start the whole process over now and see if we can
 			 * reconnect.
 			 */
-			SMBWARNING("The reconnect failed because we went to sleep retrying! %d\n", error);
+			SMBWARNING("id %d The reconnect failed because we went to sleep retrying! %d\n",
+                       iod->iod_id, error);
 			iod->iod_state = SMBIOD_ST_RECONNECT_AGAIN;
-			smb_iod_start_reconnect(iod, 0); /* Retry the reconnect */
+			smb_iod_start_reconnect(iod); /* Retry the reconnect */
 		}
         else {
 			/* We failed; tell the user and have the volume unmounted */
-			smb_iod_dead(iod, 0);
+			smb_iod_dead(iod);
 			
             /* 
              * Reconnect failed, but iod layer is all set now to deny any new 
@@ -2661,12 +3425,13 @@ exit:
              * allow any requests waiting for credits to error out.
              */
 			smb_reconn_stats.fail_cnt += 1;
-            smb2_rq_credit_start(sessionp, kCREDIT_MAX_AMT);
+            smb2_rq_credit_start(iod, kCREDIT_MAX_AMT);
 		}
 	}
     else {
         /* Reconnect worked, its now safe to start up crediting again */
-        smb2_rq_credit_start(sessionp, 0);
+        SMB_LOG_MC("id %d: Reconnect completed successfully. \n", iod->iod_id);
+        smb2_rq_credit_start(iod, 0);
 		smb_reconn_stats.success_cnt += 1;
     }
 
@@ -2674,7 +3439,7 @@ exit:
 	iod->iod_workflag = 1;
 
     SMB_LOG_KTRACE(SMB_DBG_IOD_RECONNECT | DBG_FUNC_END,
-                   /* channelID */ 0, error, 0, 0, 0);
+                   iod->iod_id, error, 0, 0, 0);
 }
 
 /*
@@ -2684,8 +3449,11 @@ static __inline void
 smb_iod_main(struct smbiod *iod)
 {
 	struct smbiod_event *evp;
+    int result = 0;
 
-	SMBIODEBUG("\n");
+    SMB_LOG_MC_REF("id %d flags 0x%x ref_cnt %u\n",
+                   iod->iod_id, iod->iod_flags, iod->iod_ref_cnt);
+
 	/*
 	 * Check all interesting events
 	 */
@@ -2713,12 +3481,31 @@ smb_iod_main(struct smbiod *iod)
 				break;
             case SMBIOD_EV_QUERY_IF_INFO:
                 // Interogate Server for available interfaces
-                evp->ev_error = smb_iod_get_interface_info(iod);
+                result = smb_iod_get_interface_info(iod);
+                if (result) {
+                    SMB_LOG_MC("smb_iod_get_interface_info returned %d.\n", result);
+                } else {
+                    result = smb_iod_establish_alt_ch(iod);
+                    if (evp->ev_error) {
+                        SMB_LOG_MC("smb_iod_establish_alt_ch returned %d.\n", result);
+                    }
+                }
+                // return OK (and keep the main channel running) regardless if
+                // we were able to kick off additional channels or not
+                evp->ev_error = 0;
+                break;
+            case SMBIOD_EV_ESTABLISH_ALT_CH:  // executed on alt-channel
+                evp->ev_error = smb_iod_est_alt_ch_event(iod);
                 break;
 		    case SMBIOD_EV_DISCONNECT:
 				evp->ev_error = smb_iod_disconnect(iod);
 				break;
+            case SMBIOD_EV_FAILOVER:
+                SMB_LOG_MC("id %d received SMBIOD_EV_FAILOVER.\n", iod->iod_id);
+                smb_iod_start_reconnect(iod);
+                break;
 		    case SMBIOD_EV_SHUTDOWN:
+                SMB_LOG_MC("id %d received SMBIOD_EV_SHUTDOWN.\n", iod->iod_id);
 				/*
 				 * Flags in iod_flags are only set within the iod,
 				 * so we don't need the mutex to protect
@@ -2732,8 +3519,12 @@ smb_iod_main(struct smbiod *iod)
 		    case SMBIOD_EV_NEWRQ:
 				break;
 		    case SMBIOD_EV_FORCE_RECONNECT:
-                smb_iod_start_reconnect(iod, 0);
+                SMB_LOG_MC("id %d received SMBIOD_EV_FORCE_RECONNECT.\n", iod->iod_id);
+                smb_iod_start_reconnect(iod);
 				break;
+            case SMBIOD_EV_PROCLAIM_MAIN:
+                evp->ev_error = smb_iod_proclaim_main(iod, evp->ev_ident);
+                break;
 			default:
 				break;
 		}
@@ -2741,8 +3532,10 @@ smb_iod_main(struct smbiod *iod)
 			SMB_IOD_EVLOCK(iod);
 			wakeup(evp);
 			SMB_IOD_EVUNLOCK(iod);
-		} else
+		}
+        else {
 			SMB_FREE(evp, M_SMBIOD);
+        }
 	}
 	smb_iod_sendall(iod);
     /* iod_read_thread calls smb_iod_recvall() */
@@ -2752,7 +3545,10 @@ smb_iod_main(struct smbiod *iod)
 static void smb_iod_thread(void *arg)
 {
 	struct smbiod *iod = arg;
+    struct smb_session *sessionp = iod->iod_session;
 	vfs_context_t context;
+    int iod_id = iod->iod_id;
+    struct smbiod_event *evp = NULL, *tevp = NULL;
 
 	/* 
 	 * The iod sets the iod_p to kernproc when launching smb_iod_thread in
@@ -2781,6 +3577,12 @@ static void smb_iod_thread(void *arg)
 			break;
         }
 
+        /* Check if read-thread lost socket connection */
+        if (iod->iod_flags & SMBIOD_READ_THREAD_ERROR) {
+            SMB_LOG_MC("id %d: Read-thread error detected. reconnect! \n", iod_id);
+            smb_iod_start_reconnect(iod);
+        }
+
 		/* First see if we need to try a reconnect. If not see the session is not responsive. */
         if ((iod->iod_flags & (SMBIOD_START_RECONNECT | SMBIOD_RECONNECT)) == SMBIOD_RECONNECT) {
 			smb_iod_reconnect(iod);
@@ -2802,28 +3604,117 @@ static void smb_iod_thread(void *arg)
                  iod->iod_sleeptimespec.tv_sec,
                  iod->iod_sleeptimespec.tv_nsec);
 #endif
-		msleep(&iod->iod_flags, 0, PWAIT, "iod thread idle", &iod->iod_sleeptimespec);
+		msleep(&iod->iod_flags, 0, PWAIT, "iod thread idle",
+               &iod->iod_sleeptimespec);
 	}
 
-	/*
-	 * Clear the running flag, and wake up anybody waiting for us to quit.
-	 */
-	SMB_IOD_FLAGSLOCK(iod);
-	iod->iod_flags &= ~SMBIOD_RUNNING;
-	wakeup(iod);
-	SMB_IOD_FLAGSUNLOCK(iod);
-	
-	vfs_context_rele(context);
+    SMB_LOG_MC("id %d is terminating\n", iod_id);
+    
+    /*
+     * Check for any events posted right before this iod went into shutdown
+     * and return them with an error.
+     */
+    SMB_IOD_EVLOCK(iod);
+    if (!(STAILQ_EMPTY(&iod->iod_evlist))) {
+        STAILQ_FOREACH_SAFE(evp, &iod->iod_evlist, ev_link, tevp) {
+            SMB_LOG_MC("id %d: in shutdown, remove event 0x%x. \n",
+                       iod->iod_id, evp->ev_type);
+            evp->ev_type |= SMBIOD_EV_PROCESSING;
+            evp->ev_error = EINVAL;
+            
+            STAILQ_REMOVE(&iod->iod_evlist, evp, smbiod_event, ev_link);
+            
+            if (evp->ev_type & SMBIOD_EV_SYNC) {
+                /* Do not free evp if its a sync event */
+                wakeup(evp);
+            }
+            else {
+                SMB_FREE(evp, M_SMBIOD);
+            }
+        }
+    }
+    SMB_IOD_EVUNLOCK(iod);
+
+    if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
+        /* Alternate channels clean after themselves */
+        struct smb_session *sessionp = iod->iod_session;
+
+        /* wait until rqlist is empty */
+        while (1) {
+            SMB_IOD_RQLOCK(iod);
+            bool rqlist_empty = TAILQ_EMPTY(&iod->iod_rqlist);
+            SMB_IOD_RQUNLOCK(iod);
+            if (rqlist_empty && (iod->iod_ref_cnt == 0))
+                break;
+            SMB_LOG_MC("id %u rqlist is not empty (ref_cnt %u) \n",
+                       iod_id, iod->iod_ref_cnt);
+            msleep(&iod->iod_rqlist, 0, PWAIT, "rqlist to empty",
+                   &iod->iod_sleeptimespec);
+        }
+
+        smb_iod_closetran(iod);
+
+        /* update the session gone iod's counters with the iod tx/rx bytes */
+        OSAddAtomic64(iod->iod_total_tx_bytes,
+                      &sessionp->session_gone_iod_total_tx_bytes);
+        OSAddAtomic64(iod->iod_total_rx_bytes,
+                      &sessionp->session_gone_iod_total_rx_bytes);
+
+        /*
+         * this comment is the last place where alt-ch iod can access
+         * iod->iod_session as it might be released in case the session_free
+         * is running
+         */
+
+        /* Remove from the session's iod list */
+        lck_mtx_lock(&sessionp->iod_tailq_lock);
+        iod->iod_session->round_robin_iod = NULL;
+        TAILQ_REMOVE(&iod->iod_session->iod_tailq_head, iod, tailq);
+        wakeup(sessionp);
+        /*
+         * detach iod from connection entry. should be done while the session
+         * iod_tailq_lock is locked so session free will not continue and get
+         * to release the con_entry when still attached with the iod
+         */
+        smb_iod_detach_con_entry(iod);
+        lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+        /* Free resources */
+        smb_iod_destroy(iod, true);
+
+    }
+    else {
+        /* update the session gone iod's counters with the iod tx/rx bytes */
+        OSAddAtomic64(iod->iod_total_tx_bytes, &sessionp->session_gone_iod_total_tx_bytes);
+        OSAddAtomic64(iod->iod_total_rx_bytes, &sessionp->session_gone_iod_total_rx_bytes);
+
+        /*
+         * this comment is the last place where main iod can access
+         * iod->iod_session as it might be released in case the session_free
+         * is running
+         */
+
+        /*
+         * Clear the running flag, and wake up anybody waiting for us to quit.
+         */
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags &= ~SMBIOD_RUNNING;
+        wakeup(iod);
+        SMB_IOD_FLAGSUNLOCK(iod);
+    }
+
+    vfs_context_rele(context);
+    SMB_LOG_MC("id %u iod is gone \n", iod_id);
 }
 
 void
-smb_iod_lease_enqueue(struct smbiod *iod,
+smb_iod_lease_enqueue(struct smbiod *received_iod,
 					  uint16_t server_epoch, uint32_t flags,
 					  uint64_t lease_key_hi, uint64_t lease_key_low,
 					  uint32_t curr_lease_state, uint32_t new_lease_state)
 {
 	struct lease_rq *lease_rqp = NULL;
-	
+
 	/* Malloc a lease struct */
 	SMB_MALLOC(lease_rqp, struct lease_rq *, sizeof(*lease_rqp), M_SMBIOD,
 			   M_WAITOK | M_ZERO);
@@ -2834,87 +3725,20 @@ smb_iod_lease_enqueue(struct smbiod *iod,
 	lease_rqp->lease_key_low = lease_key_low;
 	lease_rqp->curr_lease_state = curr_lease_state;
 	lease_rqp->new_lease_state = new_lease_state;
-	
+    lease_rqp->received_iod = received_iod;
+    lease_rqp->need_close_dir = 0;
+    /* dir enum cache should be purged with no delay */
+    smbfs_handle_dir_lease_break(lease_rqp);
+
+    struct smb_session *sessionp = received_iod->iod_session;
 	/* Enqueue it to be handled by lease thread */
-	SMB_IOD_LEASELOCK(iod);
-	TAILQ_INSERT_HEAD(&iod->iod_lease_list, lease_rqp, link);
-	SMB_IOD_LEASEUNLOCK(iod);
-	
+	SMB_SESSION_LEASELOCK(sessionp);
+	TAILQ_INSERT_TAIL(&sessionp->session_lease_list, lease_rqp, link);
+	SMB_SESSION_LEASEUNLOCK(sessionp);
+
 	/* Wake up the lease thread and tell it that theres work to do */
-	iod->iod_lease_work_flag = 1;
-	wakeup(&(iod->iod_lease_work_flag));
-}
-
-static void 
-smb_iod_lease_thread(void *arg)
-{
-	vfs_context_t context;
-	struct smbiod *iod = arg;
-	struct lease_rq *lease_rqp, *tmp_lease_rqp;
-	
-	/*
-	 * This thread handles any incoming lease breaks from the server
-	 */
-	
-	/* 
-	 * Its important to use a different context than the iod_context
-	 * as those send/rcv expect one request at a time.
-	 */
-	context = vfs_context_create((vfs_context_t)0);
-
-	SMB_IOD_FLAGSLOCK(iod);
-	iod->iod_flags |= SMBIOD_LEASE_THREAD_RUNNING;
-	SMB_IOD_FLAGSUNLOCK(iod);
-	
-	/*
-	 * Loop until the iod is shutdown
-	 */
-	while ((iod->iod_flags & SMBIOD_SHUTDOWN) == 0) {
-		iod->iod_lease_work_flag = 0;
-		
-		SMB_IOD_LEASELOCK(iod);
-		
-		TAILQ_FOREACH_SAFE(lease_rqp, &iod->iod_lease_list, link, tmp_lease_rqp) {
-            /* Remove the lease from the queue and drop the lock while we process it. */
-            TAILQ_REMOVE(&iod->iod_lease_list, lease_rqp, link);
-            SMB_IOD_LEASEUNLOCK(iod);
-
-			/* Handle the lease break */
-			smbfs_handle_lease_break(lease_rqp, context);
-
-            /* Done with this lease break; free it */
-			SMB_FREE(lease_rqp, M_SMBIOD);
-
-            /* ...and reacquire the lock to check for more. */
-            SMB_IOD_LEASELOCK(iod);
-		}
-		
-		SMB_IOD_LEASEUNLOCK(iod);
-		
-		/* Do we need to exit this thread? */
-		if (iod->iod_flags & SMBIOD_SHUTDOWN) {
-			break;
-		}
-		
-		/* Did more work come in? */
-		if (iod->iod_lease_work_flag) {
-			continue;
-		}
-		
-		/* No work left to do, sleep until we get more work */
-		msleep(&iod->iod_lease_work_flag, 0, PWAIT, "iod lease idle",
-			   &iod->iod_sleeptimespec);
-	}
-	
-	/*
-	 * Clear the running flag, and wake up anybody waiting for us to quit.
-	 */
-	SMB_IOD_FLAGSLOCK(iod);
-	iod->iod_flags &= ~SMBIOD_LEASE_THREAD_RUNNING;
-	wakeup(iod);
-	SMB_IOD_FLAGSUNLOCK(iod);
-
-	vfs_context_rele(context);
+    sessionp->session_lease_work_flag = 1;
+	wakeup(&(sessionp->session_lease_work_flag));
 }
 
 static void
@@ -2952,27 +3776,21 @@ smb_iod_read_thread(void *arg)
      */
     while ((iod->iod_flags & SMBIOD_READ_THREAD_STOP) == 0) {
         /* Sleep until we are in a state where we need to start reading */
-        switch (iod->iod_state) {
-            case SMBIOD_ST_NOTCONN:
-                /* This state is set after we have shut down this thread */
-            case SMBIOD_ST_CONNECT:
-                /* This state is set before we started this thread */
-            case SMBIOD_ST_DEAD:
-                /* This state is set right before we shut down this thread */
-            case SMBIOD_ST_RECONNECT_AGAIN:
-                /* reconnect is being tried again */
-            case SMBIOD_ST_RECONNECT:
-                /* reconnect has been started */
-#if 0
-                SMBERROR("going to sleep for %ld secs %ld nsecs\n",
-                         iod->iod_sleeptimespec.tv_sec,
-                         iod->iod_sleeptimespec.tv_nsec);
-#endif
-                msleep(&iod->iod_flags, 0, PWAIT, "iod read thread idle", &iod->iod_sleeptimespec);
-                /* Loop around and recheck status */
-                continue;
-            default:
-                break;
+        
+        if ((iod->iod_state == SMBIOD_ST_NOTCONN) ||         /* This state is set after we have shut down this thread */
+            (iod->iod_state == SMBIOD_ST_CONNECT) ||         /* This state is set before we started this thread */
+            (iod->iod_state == SMBIOD_ST_DEAD) ||            /* This state is set right before we shut down this thread */
+            (iod->iod_state == SMBIOD_ST_RECONNECT_AGAIN) || /* reconnect is being tried again */
+            (iod->iod_state == SMBIOD_ST_RECONNECT) ||       /* reconnect has been started */
+            (iod->iod_flags & SMBIOD_READ_THREAD_ERROR))  {  /* read thread lost ssocket connection */
+            
+            #if 0
+                  SMB_LOG_MC("going to sleep for %ld secs %ld nsecs\n",
+                             iod->iod_sleeptimespec.tv_sec,
+                             iod->iod_sleeptimespec.tv_nsec);
+            #endif
+            msleep(&iod->iod_flags, 0, PWAIT, "iod read thread idle", &iod->iod_sleeptimespec);
+            continue;
         }
 
         smb_iod_recvall(iod);
@@ -2990,30 +3808,53 @@ smb_iod_read_thread(void *arg)
     iod->iod_flags &= ~SMBIOD_READ_THREAD_RUNNING;
     wakeup(iod);
     SMB_IOD_FLAGSUNLOCK(iod);
+
+    SMB_LOG_MC("id %u read-thread is gone.\n", iod->iod_id);
 }
 
 int
-smb_iod_create(struct smb_session *sessionp)
+smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp)
 {
 	struct smbiod	*iod;
 	kern_return_t	result;
 	thread_t		thread;
 
-	SMB_MALLOC(iod, struct smbiod *, sizeof(*iod), M_SMBIOD, M_WAITOK | M_ZERO);
+    SMB_MALLOC(iod, struct smbiod *, sizeof(*iod), M_SMBIOD, M_WAITOK | M_ZERO);
 	iod->iod_id = smb_iod_next++;
 	iod->iod_state = SMBIOD_ST_NOTCONN;
 	lck_mtx_init(&iod->iod_flagslock, iodflags_lck_group, iodflags_lck_attr);
 	iod->iod_session = sessionp;
 	iod->iod_sleeptimespec.tv_sec = SMBIOD_SLEEP_TIMO;
 	iod->iod_sleeptimespec.tv_nsec = 0;
+    iod->iod_conn_entry.client_if_idx = -1;
 	nanouptime(&iod->iod_lastrqsent);
-	sessionp->session_iod = iod;
+    
+    iod->iod_tdesc = &smb_tran_nbtcp_desc;
+
+    // maintain a list of iod threads associated to a session
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+    if (sessionp->iod_tailq_flags & SMB_IOD_TAILQ_SESSION_IS_SHUTTING_DOWN) {
+        lck_mtx_unlock(&sessionp->iod_tailq_lock);
+        lck_mtx_destroy(&iod->iod_flagslock, iodflags_lck_group);
+        SMB_FREE(iod, M_SMBIOD);
+        if (iodpp) *iodpp = NULL;
+        return ESHUTDOWN;
+    }
+
+    if (TAILQ_EMPTY(&sessionp->iod_tailq_head)) {
+        sessionp->session_iod = iod;
+    }
+    TAILQ_INSERT_TAIL(&sessionp->iod_tailq_head, iod, tailq);
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
 	lck_mtx_init(&iod->iod_rqlock, iodrq_lck_group, iodrq_lck_attr);
 	TAILQ_INIT(&iod->iod_rqlist);
 	lck_mtx_init(&iod->iod_evlock, iodev_lck_group, iodev_lck_attr);
 	STAILQ_INIT(&iod->iod_evlist);
-	lck_mtx_init(&iod->iod_lease_lock, iodrq_lck_group, iodrq_lck_attr);
-	TAILQ_INIT(&iod->iod_lease_list);
+
+    iod->iod_gss.gss_asid = AU_ASSIGN_ASID;
+
+    lck_mtx_init(&iod->iod_credits_lock, iodev_lck_group, iodev_lck_attr);
 
 	/*
 	 * The IOCreateThread routine has been depricated. Just copied
@@ -3022,103 +3863,95 @@ smb_iod_create(struct smb_session *sessionp)
 	result = kernel_thread_start((thread_continue_t)smb_iod_thread, iod, &thread);
 
 	if (result != KERN_SUCCESS) {
-		SMBERROR("can't start smbiod result = %d\n", result);
+		SMBERROR("can't start smbiod. result = %d\n", result);
 		SMB_FREE(iod, M_SMBIOD);
-		return (ENOMEM); 
+		return (ENOMEM);
 	}
 	thread_deallocate(thread);
 	
-    /* Start up a thread to handle lease breaks */
-	result = kernel_thread_start((thread_continue_t)smb_iod_lease_thread, iod, &thread);
-	if (result != KERN_SUCCESS) {
-		/* Should never happen */
-		SMBERROR("can't start lease break thread. result = %d\n", result);
-	}
-	else {
-		thread_deallocate(thread);
-	}
+     if (iodpp) {
+         *iodpp = iod;
+     }
+
+    SMB_LOG_MC("smb_iod_create (id %d).\n", iod->iod_id);
 
 	return (0);
 }
 
 int
-smb_iod_destroy(struct smbiod *iod)
+smb_iod_destroy(struct smbiod *iod, bool selfclean)
 {
-	struct lease_rq *lease_rqp, *tmp_lease_rqp;
-	
-	/*
-	 * We don't post this synchronously, as that causes a wakeup
-	 * when the SMBIOD_SHUTDOWN flag is set, but that happens
-	 * before the iod actually terminates, and we have to wait
-	 * until it terminates before we can free its locks and
-	 * its data structure.
-	 */
-	smb_iod_request(iod, SMBIOD_EV_SHUTDOWN, NULL);
+    smb_gss_rel_cred(iod);
+    smb_gss_destroy(&iod->iod_gss);
 
-    /* Make sure the tcp transport was freed */
-    smb_iod_closetran(iod, 0);
+    if (!selfclean) {
+        /*
+         * We don't post this synchronously, as that causes a wakeup
+         * when the SMBIOD_SHUTDOWN flag is set, but that happens
+         * before the iod actually terminates, and we have to wait
+         * until it terminates before we can free its locks and
+         * its data structure.
+         */
+         smb_iod_request(iod, SMBIOD_EV_SHUTDOWN, NULL);
 
-    /*
-	 * Wait for the iod to exit.
-	 */
-    SMB_IOD_FLAGSLOCK(iod);
-	for (;;) {
-		if (!(iod->iod_flags & SMBIOD_RUNNING)) {
-			SMB_IOD_FLAGSUNLOCK(iod);
-			break;
-		}
+        /* Make sure the tcp transport was freed */
+        smb_iod_closetran(iod);
 
-        msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
-               "iod-exit", 0);
-	}
+        /*
+         * Wait for the iod to exit.
+         */
+        struct timespec sleep_time;
+        sleep_time.tv_sec = 0;
+        sleep_time.tv_nsec = 2 * 1000 * 1000 * 1000;  /* 2 sec */
 
-    /*
-     * Tell read thread to exit
-     */
-    SMB_IOD_FLAGSLOCK(iod);
-    for (;;) {
-        if (!(iod->iod_flags & SMBIOD_READ_THREAD_RUNNING)) {
-            SMB_IOD_FLAGSUNLOCK(iod);
-            break;
+        for (;;) {
+            SMB_IOD_FLAGSLOCK(iod);
+            if (!(iod->iod_flags & SMBIOD_RUNNING)) {
+                SMB_IOD_FLAGSUNLOCK(iod);
+                break;
+            }
+            msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT | PDROP,
+                "iod-exit", &sleep_time);
+
+            if (iod->iod_flags & SMBIOD_RUNNING) {
+                /* if the main-iod is not be avilable to process the shut-down event,
+                 * then force it to stop. */
+                SMB_LOG_MC("id %d main force shutdown. \n", iod->iod_id);
+                SMB_IOD_FLAGSLOCK(iod);
+                iod->iod_flags |= SMBIOD_SHUTDOWN;
+                SMB_IOD_FLAGSUNLOCK(iod);
+            }
         }
 
-        /* Tell read thread to exit */
-        iod->iod_flags |= SMBIOD_READ_THREAD_STOP;
-        wakeup(&(iod->iod_flags));
-
-        msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
-               "iod-read-exit", 0);
+        smb_iod_detach_con_entry(iod);
     }
 
-    /*
-	 * Wait for the iod lease thread to exit.
-	 */
-	wakeup(&(iod->iod_lease_work_flag));
-    SMB_IOD_FLAGSLOCK(iod);
-	for (;;) {
-		if (!(iod->iod_flags & SMBIOD_LEASE_THREAD_RUNNING)) {
-			SMB_IOD_FLAGSUNLOCK(iod);
-			break;
-		}
+    /* Free address storage */
+    if (iod->iod_saddr) {
+        SMB_FREE(iod->iod_saddr, M_SONAME);
+    }
+    if (iod->iod_laddr) {
+        SMB_FREE(iod->iod_laddr, M_SONAME);
+    }
+    if (iod->negotiate_token) {
+        SMB_FREE(iod->negotiate_token, M_SMBTEMP);
+    }
 
-        msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
-               "iod-lease-exit", 0);
-	}
-	
-	/* free any leftover leases */
-	SMB_IOD_LEASELOCK(iod);
-	TAILQ_FOREACH_SAFE(lease_rqp, &iod->iod_lease_list, link, tmp_lease_rqp) {
-		TAILQ_REMOVE(&iod->iod_lease_list, lease_rqp, link);
-		SMB_FREE(lease_rqp, M_SMBIOD);
-	}
-	SMB_IOD_LEASEUNLOCK(iod);
+    if (iod->iod_mackey != NULL) {
+        SMB_FREE(iod->iod_mackey, M_SMBTEMP);
+    }
+    iod->iod_mackey = NULL;
+    iod->iod_mackeylen = 0;
 
-	lck_mtx_destroy(&iod->iod_flagslock, iodflags_lck_group);
+    lck_mtx_destroy(&iod->iod_flagslock, iodflags_lck_group);
 	lck_mtx_destroy(&iod->iod_rqlock, iodrq_lck_group);
 	lck_mtx_destroy(&iod->iod_evlock, iodev_lck_group);
-	lck_mtx_destroy(&iod->iod_lease_lock, iodrq_lck_group);
 
+    int id = iod->iod_id;
+
+    memset(iod, 0, sizeof(*iod)); // TBD: Debug
 	SMB_FREE(iod, M_SMBIOD);
+    SMB_LOG_MC("** smb_iod_destroy end (id %d) **.\n", id);
 	return 0;
 }
 
@@ -3136,20 +3969,451 @@ smb_iod_done(void)
 }
 
 int
-smb_iod_get_qos(struct smb_session *sessionp, void *data)
+smb_iod_get_qos(struct smbiod *iod, void *data)
 {
 	int error;
 	
-	error = SMB_TRAN_GETPARAM(sessionp, SMBTP_QOS, data);
+	error = SMB_TRAN_GETPARAM(iod, SMBTP_QOS, data);
 	return(error);
 }
 
 int
-smb_iod_set_qos(struct smb_session *sessionp, void *data)
+smb_iod_set_qos(struct smbiod *iod, void *data)
 {
 	int error;
 	
-	error = SMB_TRAN_SETPARAM(sessionp, SMBTP_QOS, data);
+	error = SMB_TRAN_SETPARAM(iod, SMBTP_QOS, data);
 	return(error);
 }
 
+int
+smb_iod_get_main_iod(struct smb_session *sessionp, struct smbiod **iodpp,
+                     const char *function)
+{
+    int error = 0;
+    struct smbiod *iod = NULL;
+    
+    if (!sessionp) {
+        SMBERROR("Invalid sessionp.\n");
+        return(EINVAL);
+    }
+    
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+    if (TAILQ_EMPTY(&sessionp->iod_tailq_head)) {
+        SMBERROR("empty iod list.\n");
+        error = EINVAL;
+        goto exit;
+    }
+    
+    iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
+    if (!iod) {
+        SMBERROR("Invalid iod.\n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    uint32_t flags = iod->iod_flags;
+    if ((!(flags & SMBIOD_RUNNING)) ||
+          (flags & SMBIOD_SHUTDOWN)) {
+        SMBERROR("id %u bad iod flags 0x%x.\n", iod->iod_id, flags);
+        error = EINVAL;
+        goto exit;
+    }
+
+    iod->iod_ref_cnt++;
+
+exit:
+    if ((error == 0) && iodpp) {
+        *iodpp = iod;
+    }
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+    if (iod && (error == 0)) {
+        SMB_LOG_MC_REF("id %u function %s with flags 0x%x ref_cnt %u.\n",
+                       iod->iod_id, function, iod->iod_flags, iod->iod_ref_cnt);
+    }
+    return(error);
+}
+
+int
+smb_iod_get_any_iod(struct smb_session *sessionp, struct smbiod **iodpp,
+                    const char *function)
+{
+    int error = EINVAL;
+    struct smbiod *iod = NULL;
+    
+    if (!sessionp) {
+        SMBERROR("Invalid sessionp.\n");
+        return(EINVAL);
+    }
+    iod = sessionp->round_robin_iod;
+    
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+    
+    if (TAILQ_EMPTY(&sessionp->iod_tailq_head)) {
+        SMBERROR("empty iod list.\n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    bool wrapped_around_already = false;
+    
+    while (1) {
+        if (!iod) {
+            // No prev round_robin_iod, so return the first iod in the list
+            iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
+            if (!iod) {
+                SMBERROR("iod list empty.\n");
+                error = EINVAL;
+                goto exit;
+            }
+        }
+        else {
+            // We used round_robin_iod on the previous call, now use the next one in the list
+            iod = TAILQ_NEXT(iod, tailq);
+            if (!iod) {
+                // End of the list - Wrap around
+                if (wrapped_around_already) {
+                    iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
+                    if (iod) {
+                        // No iods other than main were found. We're in full reconnect.
+                        error = 0;
+                        break;
+                    }
+                    else {
+                        SMBERROR("no valid iod.\n");
+                        error = EINVAL;
+                        goto exit;
+                    }
+                }
+                wrapped_around_already = true;
+            }
+        }
+
+        if ((iod) &&
+            (iod->iod_state == SMBIOD_ST_SESSION_ACTIVE) &&
+            ((iod->iod_flags & (SMBIOD_RECONNECT | SMBIOD_START_RECONNECT | SMBIOD_SHUTDOWN | SMBIOD_RUNNING | SMBIOD_INACTIVE_CHANNEL)) == SMBIOD_RUNNING) ) {
+            error = 0;
+            break;
+        }
+    };
+
+    // Save provided iod for the next drawing
+    sessionp->round_robin_iod = iod;
+
+exit:
+    if ((error == 0) && iodpp) {
+        *iodpp = iod;
+        iod->iod_ref_cnt++;
+    }
+
+    if (iod && (error == 0)) {
+        SMB_LOG_MC_REF("id %u function %s flags 0x%x ref_cnt %u\n",
+                       iod->iod_id, function, iod->iod_flags, iod->iod_ref_cnt);
+    }
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+    return(error);
+}
+
+int
+smb_iod_get_non_main_iod(struct smb_session *sessionp, struct smbiod **iodpp,
+                         const char *function, int force_inactive)
+{
+    int error = EINVAL;
+    struct smbiod *iod = NULL;
+    struct smbiod *inactive_iod = NULL;
+
+    if (!sessionp) {
+        SMBERROR("Invalid sessionp.\n");
+        return(EINVAL);
+    }
+
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+    if (TAILQ_EMPTY(&sessionp->iod_tailq_head)) {
+        SMBERROR("empty iod list.\n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    // first look for active channels
+    TAILQ_FOREACH(iod, &sessionp->iod_tailq_head, tailq) {
+        uint32_t check_flags = SMBIOD_RECONNECT | SMBIOD_START_RECONNECT | SMBIOD_SHUTDOWN | SMBIOD_ALTERNATE_CHANNEL | SMBIOD_RUNNING;
+        uint32_t desired_flags = SMBIOD_ALTERNATE_CHANNEL | SMBIOD_RUNNING;
+        if ((iod) &&
+            ((iod->iod_flags & check_flags) == desired_flags) &&
+            (iod->iod_state == SMBIOD_ST_SESSION_ACTIVE)) {
+            if (iod->iod_flags & SMBIOD_INACTIVE_CHANNEL) {
+                inactive_iod = iod;
+            }
+            else if (force_inactive == 0) {
+                // this iod is suitable.
+                error = 0;
+                goto exit;
+            }
+        }
+    }
+    
+    // no active iod. do we have an inactive iod we can work with?
+    if ((!iod) && inactive_iod) {
+        iod = inactive_iod;
+        error = 0;
+    }
+
+exit:
+    if ((error == 0) && iodpp) {
+        iod->iod_ref_cnt++;
+        *iodpp = iod;
+    }
+
+    if (iod && (error == 0)) {
+        SMB_LOG_MC_REF("id %u function %s flags 0x%x, ref_cnt %u.\n",
+                       iod->iod_id, function, iod->iod_flags, iod->iod_ref_cnt);
+    }
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+    
+    if (iod && (iod == inactive_iod)) {
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags &= ~SMBIOD_INACTIVE_CHANNEL;
+        SMB_IOD_FLAGSUNLOCK(iod);
+
+        smb2_mc_inform_connection_active_state_change(
+            &iod->iod_session->session_interface_table,
+            iod->iod_conn_entry.con_entry,
+            true);
+    }
+
+    return(error);
+}
+
+int smb_iod_ref(struct smbiod *iod, const char *function)
+{
+    if (!iod) {
+        SMBERROR("Invalid iod.\n");
+        return(EINVAL);
+    }
+
+    struct smb_session *sessionp = iod->iod_session;
+    
+    if (!sessionp) {
+        SMBERROR("Invalid sessionp.\n");
+        return(EINVAL);
+    }
+
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+    iod->iod_ref_cnt++;
+
+    SMB_LOG_MC_REF("id %u function %s flags 0x%x, ref_cnt %u.\n",
+                   iod->iod_id, function, iod->iod_flags, iod->iod_ref_cnt);
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+    
+    return 0;
+}
+
+int smb_iod_rel(struct smbiod *iod, struct smb_rq *rqp, const char *function)
+{
+    if (!iod) {
+        // Caller is allowed to provide a NULL ptr
+        SMB_LOG_MC("Invalid iod.\n"); // This is not an error.
+        return(EINVAL);
+    }
+
+    struct smb_session *sessionp = iod->iod_session;
+    
+    if (!sessionp) {
+        SMBERROR("Invalid sessionp.\n");
+        return(EINVAL);
+    }
+
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+    if (iod->iod_ref_cnt == 0) {
+        SMBERROR("id %u iod_ref_cnt can't be zero.\n", iod->iod_id);
+        panic("smb_iod_rel: ref_cnt can't be zero.\n"); 
+    }
+
+    iod->iod_ref_cnt--;
+
+    if (rqp != NULL) {
+        SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
+                       iod->iod_id, function, rqp, rqp->sr_command,
+                       rqp->sr_messageid, iod->iod_flags, iod->iod_ref_cnt);
+    }
+    else {
+        SMB_LOG_MC_REF("id %u function %s flags 0x%x, ref_cnt %u.\n",
+                       iod->iod_id, function, iod->iod_flags, iod->iod_ref_cnt);
+    }
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+    
+    return 0;
+}
+
+/*
+ * smb_iod_establish_alt_ch
+ * This function checks if there are server and client NICs that might be suitable for
+ * alternate channels.
+ *
+ * This function calls smb2_mc_ask_for_new_connection_trial() which keeps track of the
+ * available server NICs (obtained via NETWORK_INTERFACE_INFO), available client NICs (obtained
+ * from userland), as well of the currently connected channels (main + alternate) and
+ * currently attempted connections. smb2_mc_ask_for_new_connection_trial() returns a list
+ * of NIC pairs that can potentially be used for alternate channels.
+ * For each NIC pair we then call smb_session_establish_alternate_connection() which spawns
+ * an iod to establish and run an alternate channel on the proposed pair.
+ */
+int
+smb_iod_establish_alt_ch(struct smbiod *iod)
+{
+    int error = 0;
+    struct smb_session *sessionp = iod->iod_session;
+    struct session_con_entry *con_entry[MAX_CHANNEL_LIST] = {NULL};
+    uint32_t con_entry_len = MAX_CHANNEL_LIST;
+    uint32_t num_of_cons_to_try = 0;
+
+    SMB_LOG_MC("id %d smb_iod_establish_alt_ch.\n", iod->iod_id);
+    
+    // [MS-SMB2] section 3.3.5.5: We can't bind to a guest session
+    if (SMBV_HAS_GUEST_ACCESS(sessionp) || SMBV_HAS_ANONYMOUS_ACCESS(sessionp)) {
+        SMB_LOG_MC("id %d no alt ch for guest account (session flags 0x%x).\n", iod->iod_id, sessionp->session_flags);
+        return(0);
+    }
+    
+#ifdef SMB_DEBUG
+    smb2_mc_print_all_connections(&sessionp->session_interface_table);
+#endif
+
+    do {
+        num_of_cons_to_try = smb2_mc_return_excess_connections(&sessionp->session_interface_table, con_entry, con_entry_len);
+
+        for(uint32_t u=0; u<num_of_cons_to_try; u++) {
+
+            SMB_LOG_MC("Going to remove connection %u from %u [c-%02llu s-%02llu (RSS %llu)].\n",
+                     u, num_of_cons_to_try,
+                     con_entry[u]->con_client_nic->nic_index,
+                     con_entry[u]->con_server_nic->nic_index &  SMB2_IF_INDEX_MASK,
+                     con_entry[u]->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT);
+
+            smb_request_iod_disconnect_and_shutdown(con_entry[u]->iod);
+        }
+        
+    } while (num_of_cons_to_try != 0);
+
+    num_of_cons_to_try = smb2_mc_ask_for_new_connection_trial(&sessionp->session_interface_table, con_entry, con_entry_len);
+
+#ifdef SMB_DEBUG
+    if (!num_of_cons_to_try) {
+        SMBDEBUG("id %d no more connnections to try.\n", iod->iod_id);
+    }
+#endif
+
+    for(uint32_t u=0; u<num_of_cons_to_try; u++) {
+    
+        SMB_LOG_MC("Trying to establish connection %u from %u [c-%02llu(%u) s-%02llu (RSS %llu)(%u)].\n",
+                 u, num_of_cons_to_try,
+                 con_entry[u]->con_client_nic->nic_index,
+                 con_entry[u]->con_client_nic->nic_state,
+                 con_entry[u]->con_server_nic->nic_index &  SMB2_IF_INDEX_MASK,
+                 con_entry[u]->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                 con_entry[u]->con_server_nic->nic_state);
+        
+        error = smb_session_establish_alternate_connection(iod, con_entry[u]);
+        if (error) {
+            SMBERROR("id %d reports immediate failure.\n", iod->iod_id); 
+        }
+    }
+
+    return(0);
+}
+
+static int smb_iod_proclaim_main(struct smbiod *iod, struct smbiod *iod_main)
+{
+    int error = 0;
+
+    if ((iod->iod_flags & SMBIOD_SHUTDOWN) ||
+        (iod_main->iod_flags & SMBIOD_SHUTDOWN)) {
+        SMB_LOG_MC("id %u: either iod (0x%x) or iod_main (%x) are in shutdown.\n",
+                   iod->iod_id, iod->iod_flags, iod_main->iod_flags);
+        return EINVAL;
+    }
+
+    /* Update iod flags and session ptr */
+    struct smb_session *sessionp = iod->iod_session;
+    lck_mtx_lock(&sessionp->iod_tailq_lock);
+
+    SMB_IOD_FLAGSLOCK(iod);
+    SMB_IOD_FLAGSLOCK(iod_main);
+
+    // TBD: can make the following session based
+    //    struct smb_gss        iod_gss;                /* Parameters for gssd */
+    //    uint8_t               iod_smb3_signing_key[SMB3_KEY_LEN]; /* Channel.SigningKey */
+    //    uint32_t              iod_smb3_signing_key_len;
+
+    iod_main->iod_flags |=  SMBIOD_ALTERNATE_CHANNEL;
+    iod->iod_flags      &= ~SMBIOD_ALTERNATE_CHANNEL;
+
+    sessionp->round_robin_iod = NULL;
+    TAILQ_REMOVE(&sessionp->iod_tailq_head, iod, tailq);
+    TAILQ_INSERT_HEAD(&sessionp->iod_tailq_head, iod, tailq);
+    sessionp->session_iod = iod;
+
+    SMB_IOD_FLAGSUNLOCK(iod);
+    SMB_IOD_FLAGSUNLOCK(iod_main);
+
+    lck_mtx_unlock(&sessionp->iod_tailq_lock);
+
+    SMB_LOG_MC("id %u is now the main channel. \n", iod->iod_id);
+    return error;
+}
+
+int
+smb_iod_inactive(struct smbiod *iod)
+{
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags |= SMBIOD_INACTIVE_CHANNEL;
+    SMB_IOD_FLAGSUNLOCK(iod);
+    return 0;
+}
+
+int
+smb_iod_active(struct smbiod *iod)
+{
+    SMB_IOD_FLAGSLOCK(iod);
+    iod->iod_flags &= ~SMBIOD_INACTIVE_CHANNEL;
+    SMB_IOD_FLAGSUNLOCK(iod);
+    return 0;
+}
+
+void smb_iod_detach_con_entry(struct smbiod *iod)
+{
+    if (iod->iod_conn_entry.con_entry) {
+        smb2_mc_inform_connection_disconnected(&iod->iod_session->session_interface_table,
+                                               iod->iod_conn_entry.con_entry);
+    }
+    memset(&iod->iod_conn_entry, 0, sizeof(iod->iod_conn_entry));
+}
+
+/*
+ * smb_iod_lease_dequeue
+ * Remove all lease request received by the iod from the session lease queue
+ */
+static void
+smb_iod_lease_dequeue(struct smbiod *iod)
+{
+    struct smb_session *sessionp = iod->iod_session;
+    struct lease_rq *lease_rqp, *tmp_lease_rqp;
+
+    SMB_SESSION_LEASELOCK(sessionp);
+    TAILQ_FOREACH_SAFE(lease_rqp, &sessionp->session_lease_list, link, tmp_lease_rqp) {
+        if (lease_rqp->received_iod == iod) {
+            TAILQ_REMOVE(&sessionp->session_lease_list, lease_rqp, link);
+            SMB_FREE(lease_rqp, M_SMBIOD);
+        }
+    }
+    SMB_SESSION_LEASEUNLOCK(sessionp);
+}

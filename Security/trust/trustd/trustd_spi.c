@@ -25,6 +25,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "../utilities/SecFileLocations.h"
+#include "../utilities/debugging.h"
 
 #include "../sec/ipc/securityd_client.h"
 #include "trust/trustd/SecPolicyServer.h"
@@ -35,14 +36,11 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/SecRevocationDb.h"
 #include "trust/trustd/SecPinningDb.h"
+#include "trust/trustd/SecTrustExceptionResetCount.h"
 #include "trustd_spi.h"
 
 #if TARGET_OS_OSX
 #include "trust/trustd/macOS/SecTrustOSXEntryPoints.h"
-#endif
-
-#if TARGET_OS_IPHONE
-#include "trust/trustd/SecTrustExceptionResetCount.h"
 #endif
 
 #endif // LIBTRUSTD
@@ -50,9 +48,9 @@
 #ifdef LIBTRUSTD
 struct trustd trustd_spi = {
     .sec_trust_store_for_domain             = SecTrustStoreForDomainName,
-    .sec_trust_store_contains               = SecTrustStoreContainsCertificateWithDigest,
+    .sec_trust_store_contains               = _SecTrustStoreContainsCertificate,
     .sec_trust_store_set_trust_settings     = _SecTrustStoreSetTrustSettings,
-    .sec_trust_store_remove_certificate     = SecTrustStoreRemoveCertificateWithDigest,
+    .sec_trust_store_remove_certificate     = _SecTrustStoreRemoveCertificate,
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
     .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
@@ -69,29 +67,39 @@ struct trustd trustd_spi = {
     .sec_networking_analytics_report        = SecNetworkingAnalyticsReport,
     .sec_trust_store_set_ct_exceptions      = _SecTrustStoreSetCTExceptions,
     .sec_trust_store_copy_ct_exceptions     = _SecTrustStoreCopyCTExceptions,
-#if TARGET_OS_IPHONE
     .sec_trust_get_exception_reset_count    = SecTrustServerGetExceptionResetCount,
     .sec_trust_increment_exception_reset_count = SecTrustServerIncrementExceptionResetCount,
-#endif
     .sec_trust_store_set_ca_revocation_additions = _SecTrustStoreSetCARevocationAdditions,
     .sec_trust_store_copy_ca_revocation_additions = _SecTrustStoreCopyCARevocationAdditions,
     .sec_valid_update = SecRevocationDbUpdate,
+    .sec_trust_store_set_transparent_connection_pins = _SecTrustStoreSetTransparentConnectionPins,
+    .sec_trust_store_copy_transparent_connection_pins = _SecTrustStoreCopyTransparentConnectionPins,
 };
 #endif
 
 void trustd_init(CFURLRef home_path) {
     if (home_path)
-        SetCustomHomeURL(home_path);
+        SecSetCustomHomeURL(home_path);
 
     trustd_init_server();
 }
 
 void trustd_init_server(void) {
-#ifdef LIBTRUSTD
     gTrustd = &trustd_spi;
-    SecPolicyServerInitialize();
-    SecRevocationDbInitialize();
-    SecPinningDbInitialize();
+#ifdef LIBTRUSTD
+    _SecTrustStoreMigrateConfigurations();
+    SecTrustServerMigrateExceptionsResetCount();
+#if TARGET_OS_IPHONE
+    CFErrorRef error = NULL;
+    if (!_SecTrustStoreMigrateUserStore(&error)) {
+        secerror("failed to migrate user trust store; new trust store will be empty: %@", error);
+    }
+    CFReleaseNull(error);
+#endif
+
+    SecPolicyServerInitialize();    // set up callbacks for policy checks
+    SecRevocationDbInitialize();    // set up revocation database if it doesn't already exist, or needs to be replaced
+    SecPinningDbInitialize();       // set up the pinning database
 #if TARGET_OS_OSX
     SecTrustLegacySourcesListenForKeychainEvents(); // set up the legacy keychain event listeners (for cache invalidation)
 #endif

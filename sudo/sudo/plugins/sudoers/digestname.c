@@ -23,9 +23,6 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <stdio.h>
-
 #include "sudo_compat.h"
 #include "sudo_digest.h"
 #include "sudoers_debug.h"
@@ -35,7 +32,7 @@ const char *
 digest_type_to_name(int digest_type)
 {
     const char *digest_name;
-    debug_decl(digest_type_to_name, SUDOERS_DEBUG_UTIL)
+    debug_decl(digest_type_to_name, SUDOERS_DEBUG_UTIL);
 
     switch (digest_type) {
     case SUDO_DIGEST_SHA224:

@@ -339,7 +339,12 @@ allDone:
 #endif
     int rc = sqlite3_open_v2([arcSafePath fileSystemRepresentation], &_db, flags, NULL);
     if (rc != SQLITE_OK) {
-        localError = [NSError errorWithDomain:NSCocoaErrorDomain code:rc userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, rc=%d(0x%x)", _path, rc, rc]}];
+        int reportedErrno = sqlite3_system_errno(_db);
+
+        localError = [NSError errorWithDomain:NSCocoaErrorDomain code:rc userInfo:@{
+            NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Error opening db at %@, rc=%d(0x%x), errno=%d(0x%x)",
+                                         _path, rc, rc, reportedErrno, reportedErrno],
+        }];
         goto done;
     }
     

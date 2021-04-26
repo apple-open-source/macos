@@ -66,6 +66,9 @@ public:
 #endif
     bool deferredCSSParserEnabled { false };
     bool scrollBehaviorEnabled { false };
+    bool individualTransformPropertiesEnabled { false };
+
+    bool overscrollBehaviorEnabled { false };
     
     // This is only needed to support getMatchedCSSRules.
     bool hasDocumentSecurityOrigin { false };
@@ -75,6 +78,8 @@ public:
     URL completeURL(const String& url) const;
 
     bool isContentOpaque { false };
+
+    bool aspectRatioEnabled { false };
 };
 
 bool operator==(const CSSParserContext&, const CSSParserContext&);
@@ -109,7 +114,9 @@ struct CSSParserContextHash {
             & key.attachmentEnabled                         << 11
 #endif
             & key.scrollBehaviorEnabled                     << 12
-            & key.mode                                      << 13; // Keep this last.
+            & key.individualTransformPropertiesEnabled      << 13
+            & key.overscrollBehaviorEnabled                 << 14
+            & key.mode                                      << 15; // Keep this last.
         hash ^= WTF::intHash(bits);
         return hash;
     }

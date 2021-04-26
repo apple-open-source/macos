@@ -29,7 +29,6 @@
 #if PLATFORM(MAC)
 
 #import "APINavigation.h"
-#import "VersionChecks.h"
 #import "WKFrameInfo.h"
 #import "WKInspectorWKWebView.h"
 #import "WKNavigationAction.h"
@@ -43,6 +42,8 @@
 #import "WebInspectorProxy.h"
 #import "WebInspectorUtilities.h"
 #import "WebPageProxy.h"
+#import "_WKInspectorConfigurationInternal.h"
+#import <WebCore/VersionChecks.h>
 #import <wtf/WeakObjCPtr.h>
 
 @interface WKInspectorViewController () <WKUIDelegate, WKNavigationDelegate, WKInspectorWKWebViewDelegate>
@@ -52,12 +53,15 @@
     NakedPtr<WebKit::WebPageProxy> _inspectedPage;
     RetainPtr<WKInspectorWKWebView> _webView;
     WeakObjCPtr<id <WKInspectorViewControllerDelegate>> _delegate;
+    _WKInspectorConfiguration *_configuration;
 }
 
-- (instancetype)initWithInspectedPage:(NakedPtr<WebKit::WebPageProxy>)inspectedPage
+- (instancetype)initWithConfiguration:(_WKInspectorConfiguration *)configuration inspectedPage:(NakedPtr<WebKit::WebPageProxy>)inspectedPage
 {
     if (!(self = [super init]))
         return nil;
+
+    _configuration = [configuration copy];
 
     // The (local) inspected page is nil if the controller is hosting a Remote Web Inspector view.
     _inspectedPage = inspectedPage;
@@ -87,7 +91,7 @@
     // Construct lazily so the client can set the delegate before the WebView is created.
     if (!_webView) {
         NSRect initialFrame = NSMakeRect(0, 0, WebKit::WebInspectorProxy::initialWindowWidth, WebKit::WebInspectorProxy::initialWindowHeight);
-        _webView = adoptNS([[WKInspectorWKWebView alloc] initWithFrame:initialFrame configuration:[self configuration]]);
+        _webView = adoptNS([[WKInspectorWKWebView alloc] initWithFrame:initialFrame configuration:self.webViewConfiguration]);
         [_webView setUIDelegate:self];
         [_webView setNavigationDelegate:self];
         [_webView setInspectorWKWebViewDelegate:self];
@@ -104,7 +108,7 @@
     _delegate = delegate;
 }
 
-- (WKWebViewConfiguration *)configuration
+- (WKWebViewConfiguration *)webViewConfiguration
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 
@@ -123,6 +127,8 @@
 
     preferences._diagnosticLoggingEnabled = YES;
 
+    [_configuration applyToWebViewConfiguration:configuration.get()];
+    
     if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewControllerInspectorIsUnderTest:)]) {
         if ([_delegate inspectorViewControllerInspectorIsUnderTest:self]) {
             preferences._hiddenPageDOMTimerThrottlingEnabled = NO;
@@ -227,8 +233,13 @@
 
     // Prevent everything else.
     decisionHandler(WKNavigationActionPolicyCancel);
-    
-    // And instead load it in the inspected page.
+
+    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewController:openURLExternally:)]) {
+        [_delegate inspectorViewController:self openURLExternally:navigationAction.request.URL];
+        return;
+    }
+
+    // Try to load the request in the inspected page if the delegate can't handle it.
     if (_inspectedPage)
         _inspectedPage->loadRequest(navigationAction.request);
 }
@@ -247,7 +258,7 @@
         return;
 
     OptionSet<WebCore::ReloadOption> reloadOptions;
-    if (WebKit::linkedOnOrAfter(WebKit::SDKVersion::FirstWithExpiredOnlyReloadBehavior))
+    if (WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstWithExpiredOnlyReloadBehavior))
         reloadOptions.add(WebCore::ReloadOption::ExpiredOnly);
 
     _inspectedPage->reload(reloadOptions);

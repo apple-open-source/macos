@@ -39,6 +39,7 @@
 #import <Security/SFAnalytics.h>
 #import "SFAnalyticsDefines.h"
 #import <CoreFoundation/CFPriv.h>
+#import <Foundation/NSXPCConnection_Private.h>
 
 static NSString* _path;
 static NSInteger _testnum;
@@ -371,8 +372,10 @@ static NSInteger _reporterWrites;
         _reporterWrites++;
     }).andReturn(YES);
 
-    [supd removeInstance];
-    _supd = [[supd alloc] initWithReporter:mockReporter];
+    NSXPCConnection* mockConnection = OCMClassMock([NSXPCConnection class]);
+    OCMStub([mockConnection valueForEntitlement:@"com.apple.private.securityuploadd"]).andReturn(@(YES));
+
+    _supd = [[supd alloc] initWithConnection:mockConnection reporter:mockReporter];
     _ckksAnalytics = [FakeCKKSAnalytics new];
     _sosAnalytics = [FakeSOSAnalytics new];
     _pcsAnalytics = [FakePCSAnalytics new];

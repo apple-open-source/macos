@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2014, 2017-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2014, 2017-2020 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -21,10 +21,14 @@
 #### Start of system configuration section. ####
 
 srcdir = @srcdir@
-docdir = @docdir@
-exampledir = @exampledir@
-top_builddir = @top_builddir@
+abs_srcdir = @abs_srcdir@
 top_srcdir = @top_srcdir@
+abs_top_srcdir = @abs_top_srcdir@
+top_builddir = @top_builddir@
+abs_top_builddir = @abs_top_builddir@
+exampledir = @exampledir@
+docdir = @docdir@
+scriptdir = $(top_srcdir)/scripts
 
 # Our install program supports extra flags...
 INSTALL = $(SHELL) $(top_srcdir)/install-sh -c
@@ -48,8 +52,10 @@ install_gid = 0
 
 SHELL = @SHELL@
 
-EXAMPLES = $(srcdir)/pam.conf $(srcdir)/sudo.conf $(srcdir)/sudoers \
-	   $(srcdir)/syslog.conf
+LOGSRVD_CONF = @LOGSRVD_CONF@
+
+EXAMPLES = $(srcdir)/pam.conf sudo.conf $(LOGSRVD_CONF) \
+	   $(srcdir)/sudoers $(srcdir)/syslog.conf
  
 VERSION = @PACKAGE_VERSION@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
@@ -61,12 +67,15 @@ depend:
 Makefile: $(srcdir)/Makefile.in
 	cd $(top_builddir) && ./config.status --file examples/Makefile
 
+sudo.conf: $(srcdir)/sudo.conf.in
+	cd $(top_builddir) && ./config.status --file examples/sudo.conf
+
 pre-install:
 
 install: install-doc
 
 install-dirs:
-	$(SHELL) $(top_srcdir)/mkinstalldirs $(DESTDIR)$(exampledir)
+	$(SHELL) $(scriptdir)/mkinstalldirs $(DESTDIR)$(exampledir)
 
 install-binaries:
 
@@ -74,6 +83,11 @@ install-includes:
 
 install-doc: install-dirs
 	for f in $(EXAMPLES); do $(INSTALL) $(INSTALL_OWNER) -m 0644 $$f $(DESTDIR)$(exampledir); done
+	test -r $(DESTDIR)$(sysconfdir)/sudo.conf || \
+	    $(INSTALL) $(INSTALL_OWNER) -m 0644 sudo.conf $(DESTDIR)$(sysconfdir)
+	if test -n "$(LOGSRVD_CONF)" -a ! -r $(DESTDIR)$(sysconfdir)/sudo_logsrvd.conf; then \
+	    $(INSTALL) $(INSTALL_OWNER) -m 0644 $(LOGSRVD_CONF) $(DESTDIR)$(sysconfdir); \
+	fi
 
 install-plugin:
 

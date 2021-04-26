@@ -56,7 +56,6 @@ extension NSError {
 }
 
 class Client: TrustedPeersHelperProtocol {
-
     let endpoint: NSXPCListenerEndpoint?
     let containerMap: ContainerMap
 
@@ -124,6 +123,7 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             os_log("Trust status failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                  egoPeerMachineID: nil,
                                                   status: TPPeerStatus.unknown,
                                                   viablePeerCountsByModelID: [:],
                                                   peerCountsByMachineID: [:],
@@ -774,6 +774,19 @@ class Client: TrustedPeersHelperProtocol {
             }
         } catch {
             os_log("removeEscrowCache failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+    func resetAccountCDPContents(withContainer container: String, context: String, reply: @escaping (Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("resetAccountCDPContents for %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.resetCDPAccountData{ error in
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("resetAccountCDPContents failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(error.sanitizeForClientXPC())
         }
     }

@@ -25,6 +25,7 @@
 
 #if OCTAGON
 
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation CKKSCurrentKeyPointer
@@ -132,15 +133,18 @@
 
 #pragma mark - Load from database
 
-+ (instancetype) fromDatabase: (CKKSKeyClass*) keyclass zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
     return [self fromDatabaseWhere: @{@"keyclass": keyclass, @"ckzone":zoneID.zoneName} error: error];
 }
 
-+ (instancetype) tryFromDatabase: (CKKSKeyClass*) keyclass zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
     return [self tryFromDatabaseWhere: @{@"keyclass": keyclass, @"ckzone":zoneID.zoneName} error: error];
 }
 
-+ (instancetype) forKeyClass: (CKKSKeyClass*) keyclass withKeyUUID: (NSString*) keyUUID zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (instancetype _Nullable)forKeyClass:(CKKSKeyClass*)keyclass withKeyUUID:(NSString*)keyUUID zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
     NSError* localerror = nil;
     CKKSCurrentKeyPointer* current = [self tryFromDatabase: keyclass zoneID:zoneID error: &localerror];
     if(localerror) {
@@ -200,6 +204,52 @@
                                         currentKeyUUID:row[@"currentKeyUUID"].asString
                                                 zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
                                        encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
+}
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                            resync:(BOOL)resync
+                       flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                             error:(NSError**)error
+{
+    // Pull out the old CKP, if it exists
+    NSError* ckperror = nil;
+    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)record.recordID.recordName) zoneID:record.recordID.zoneID error:&ckperror];
+    if(ckperror) {
+        ckkserror("ckkskey", record.recordID.zoneID, "error loading ckp: %@", ckperror);
+    }
+
+    if(resync) {
+        if(!oldckp) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: No current key pointer matching resynced CloudKit record: %@", record);
+        } else if(![oldckp matchesCKRecord:record]) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: Local current key pointer doesn't match resynced CloudKit record: %@ %@", oldckp, record);
+        } else {
+            ckksnotice("ckksresync", record.recordID.zoneID, "Current key pointer has 'changed', but it matches our local copy: %@", record);
+        }
+    }
+
+    NSError* localerror = nil;
+    CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord:record];
+
+    bool saved = [currentkey saveToDatabase:&localerror];
+    if(!saved || localerror != nil) {
+        ckkserror("ckkskey", record.recordID.zoneID, "Couldn't save current key pointer to database: %@: %@", currentkey, localerror);
+        ckksinfo("ckkskey", record.recordID.zoneID, "CKRecord was %@", record);
+
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    if([oldckp matchesCKRecord:record]) {
+        ckksnotice("ckkskey", record.recordID.zoneID, "Current key pointer modification doesn't change anything interesting; skipping reprocess: %@", record);
+    } else {
+        // We've saved a new key in the database; trigger a rekey operation.
+        [flagHandler _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
+    }
+
+    return YES;
 }
 
 @end

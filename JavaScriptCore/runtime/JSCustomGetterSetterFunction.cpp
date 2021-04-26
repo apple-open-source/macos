@@ -33,7 +33,9 @@ namespace JSC {
 
 const ClassInfo JSCustomGetterSetterFunction::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCustomGetterSetterFunction) };
 
-EncodedJSValue JSC_HOST_CALL JSCustomGetterSetterFunction::customGetterSetterFunctionCall(JSGlobalObject* globalObject, CallFrame* callFrame)
+static JSC_DECLARE_HOST_FUNCTION(customGetterSetterFunctionCall);
+
+JSC_DEFINE_HOST_FUNCTION(customGetterSetterFunctionCall, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -45,7 +47,8 @@ EncodedJSValue JSC_HOST_CALL JSCustomGetterSetterFunction::customGetterSetterFun
     if (customGetterSetterFunction->isSetter()) {
         CustomGetterSetter::CustomSetter setter = customGetterSetter->setter();
         ASSERT(setter);
-        callCustomSetter(globalObject, setter, true, thisValue, callFrame->argument(0));
+        scope.release();
+        setter(globalObject, JSValue::encode(thisValue), JSValue::encode(callFrame->argument(0)));
         return JSValue::encode(jsUndefined());
     }
 
@@ -55,7 +58,7 @@ EncodedJSValue JSC_HOST_CALL JSCustomGetterSetterFunction::customGetterSetterFun
             return throwVMDOMAttributeGetterTypeError(globalObject, scope, domAttribute.classInfo, customGetterSetterFunction->propertyName());
     }
 
-    return customGetterSetter->getter()(globalObject, JSValue::encode(thisValue), customGetterSetterFunction->propertyName());
+    RELEASE_AND_RETURN(scope, customGetterSetter->getter()(globalObject, JSValue::encode(thisValue), customGetterSetterFunction->propertyName()));
 }
 
 JSCustomGetterSetterFunction::JSCustomGetterSetterFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* globalObject, Structure* structure, const Type type, const PropertyName& propertyName)

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -180,13 +180,16 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.asn1";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(BUILT_PRODUCTS_DIR)/asn1_$(INPUT_FILE_BASE).c",
 				"$(BUILT_PRODUCTS_DIR)/include/$(INPUT_FILE_BASE)_asn1.h",
 				"$(BUILT_PRODUCTS_DIR)/include/$(INPUT_FILE_BASE)_asn1-priv.h",
 			);
-			script = "sh xcscripts/compile-asn1.sh";
+			runOncePerArchitecture = 0;
+			script = "sh xcscripts/compile-asn1.sh\n";
 		};
 /* End PBXBuildRule section */
 

@@ -81,10 +81,13 @@ public:
     CanvasRenderingContext2D* getContext2d(const String&);
 
 #if ENABLE(WEBGL)
+    using WebGLVersion = GraphicsContextGLWebGLVersion;
     static bool isWebGLType(const String&);
-    WebGLRenderingContextBase* createContextWebGL(const String&, WebGLContextAttributes&& = { });
-    WebGLRenderingContextBase* getContextWebGL(const String&, WebGLContextAttributes&& = { });
+    static WebGLVersion toWebGLVersion(const String&);
+    WebGLRenderingContextBase* createContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
+    WebGLRenderingContextBase* getContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
 #endif
+
 #if ENABLE(WEBGPU)
     static bool isWebGPUType(const String&);
     GPUCanvasContext* createContextWebGPU(const String&);
@@ -113,10 +116,8 @@ public:
 #endif
 
     Image* copiedImage() const final;
-    void clearCopiedImage();
+    void clearCopiedImage() const final;
     RefPtr<ImageData> getImageData();
-    void makePresentationCopy();
-    void clearPresentationCopy();
 
     SecurityOrigin* securityOrigin() const final;
 
@@ -129,7 +130,7 @@ public:
 
     // FIXME: Only some canvas rendering contexts need an ImageBuffer.
     // It would be better to have the contexts own the buffers.
-    void setImageBufferAndMarkDirty(std::unique_ptr<ImageBuffer>&&);
+    void setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&&);
 
     WEBCORE_EXPORT static void setMaxPixelMemoryForTesting(size_t);
 
@@ -199,7 +200,6 @@ private:
 
     bool m_isSnapshotting { false };
 
-    mutable RefPtr<Image> m_presentedImage;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
 };
 
@@ -216,4 +216,3 @@ private:
     static bool checkTagName(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && checkTagName(downcast<WebCore::Node>(target)); }
 };
 }
-

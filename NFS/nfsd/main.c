@@ -708,7 +708,6 @@ config_loop(void)
 			 */
 			if (exports_fd != -1) {
 				(void) close(exports_fd);
-				exports_fd = -1;
 			}
 			if ((exports_fd = open(exportsfilepath,
 					       O_RDONLY)) == -1) {

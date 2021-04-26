@@ -559,8 +559,8 @@ _dispatch_kevent_drain(dispatch_kevent_t ke)
 			// when the process exists but is a zombie. As a workaround, we
 			// simulate an exit event for any EVFILT_PROC with an invalid pid.
 			ke->flags  = EV_UDATA_SPECIFIC | EV_ONESHOT | EV_DELETE;
-			ke->fflags = NOTE_EXIT;
-			ke->data   = 0;
+			ke->fflags = NOTE_EXIT | NOTE_EXITSTATUS;
+			ke->data   = 0; // Fake exit status
 			_dispatch_kevent_debug("synthetic NOTE_EXIT", ke);
 		} else {
 			return _dispatch_kevent_print_error(ke);

@@ -84,7 +84,8 @@ class StorageSignedFunctionPointer {
             return 0;
         } else {
             return (uintptr_t)
-                ptrauth_auth_and_resign(fn, ptrauth_key_function_pointer, 0,
+                ptrauth_auth_and_resign(fn, ptrauth_key_function_pointer,
+                                        ptrauth_function_pointer_type_discriminator(Fn),
                                         Key, &bits);
         }
     }
@@ -111,7 +112,7 @@ class StorageSignedFunctionPointer {
         if (ptr == 0) {
             return nullptr;
         } else {
-            return ptrauth_auth_function((Fn)ptr, Key, &bits);
+            return (Fn)ptrauth_auth_function((void *)ptr, Key, &bits);
         }
     }
 

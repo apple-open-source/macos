@@ -33,28 +33,22 @@
 
 namespace WebKit {
 
-InspectorDelegate::InspectorDelegate(WKWebView *webView)
-    : m_webView(webView)
+InspectorDelegate::InspectorDelegate(_WKInspector *inspector, id <_WKInspectorDelegate> delegate)
+    : m_inspector(inspector)
+    , m_delegate(delegate)
 {
+    m_delegateMethods.inspectorDidEnableBrowserDomain = [delegate respondsToSelector:@selector(inspectorDidEnableBrowserDomain:)];
+    m_delegateMethods.inspectorDidDisableBrowserDomain = [delegate respondsToSelector:@selector(inspectorDidDisableBrowserDomain:)];
+    m_delegateMethods.inspectorOpenURLExternally = [delegate respondsToSelector:@selector(inspector:openURLExternally:)];
+
+    inspector->_inspector->setInspectorClient(delegate ? makeUnique<InspectorClient>(*this) : nullptr);
 }
 
-std::unique_ptr<API::InspectorClient> InspectorDelegate::createInspectorClient()
-{
-    return makeUnique<InspectorClient>(*this);
-}
+InspectorDelegate::~InspectorDelegate() = default;
 
 RetainPtr<id <_WKInspectorDelegate>> InspectorDelegate::delegate()
 {
     return m_delegate.get();
-}
-
-void InspectorDelegate::setDelegate(id <_WKInspectorDelegate> delegate)
-{
-    m_delegate = delegate;
-
-    m_delegateMethods.webviewDidAttachInspector = [delegate respondsToSelector:@selector(_webView:didAttachLocalInspector:)];
-    m_delegateMethods.webViewBrowserDomainEnabledForInspector = [delegate respondsToSelector:@selector(_webView:browserDomainEnabledForInspector:)];
-    m_delegateMethods.webViewBrowserDomainDisabledForInspector = [delegate respondsToSelector:@selector(_webView:browserDomainDisabledForInspector:)];
 }
 
 InspectorDelegate::InspectorClient::InspectorClient(InspectorDelegate& delegate)
@@ -64,40 +58,40 @@ InspectorDelegate::InspectorClient::InspectorClient(InspectorDelegate& delegate)
 
 InspectorDelegate::InspectorClient::~InspectorClient() = default;
 
-void InspectorDelegate::InspectorClient::didAttachLocalInspector(WebPageProxy&, WebInspectorProxy& inspector)
+void InspectorDelegate::InspectorClient::browserDomainEnabled(WebInspectorProxy&)
 {
-    if (!m_inspectorDelegate.m_delegateMethods.webviewDidAttachInspector)
+    if (!m_inspectorDelegate.m_delegateMethods.inspectorDidEnableBrowserDomain)
         return;
 
     auto& delegate = m_inspectorDelegate.m_delegate;
     if (!delegate)
         return;
 
-    [delegate _webView:m_inspectorDelegate.m_webView.get().get() didAttachLocalInspector:wrapper(inspector)];
+    [delegate inspectorDidEnableBrowserDomain:m_inspectorDelegate.m_inspector.get().get()];
 }
 
-void InspectorDelegate::InspectorClient::browserDomainEnabled(WebPageProxy&, WebInspectorProxy& inspector)
+void InspectorDelegate::InspectorClient::browserDomainDisabled(WebInspectorProxy&)
 {
-    if (!m_inspectorDelegate.m_delegateMethods.webViewBrowserDomainEnabledForInspector)
+    if (!m_inspectorDelegate.m_delegateMethods.inspectorDidDisableBrowserDomain)
         return;
 
     auto& delegate = m_inspectorDelegate.m_delegate;
     if (!delegate)
         return;
 
-    [delegate _webView:m_inspectorDelegate.m_webView.get().get() browserDomainEnabledForInspector:wrapper(inspector)];
+    [delegate inspectorDidDisableBrowserDomain:m_inspectorDelegate.m_inspector.get().get()];
 }
 
-void InspectorDelegate::InspectorClient::browserDomainDisabled(WebPageProxy&, WebInspectorProxy& inspector)
+void InspectorDelegate::InspectorClient::openURLExternally(WebInspectorProxy&, const String& url)
 {
-    if (!m_inspectorDelegate.m_delegateMethods.webViewBrowserDomainDisabledForInspector)
+    if (!m_inspectorDelegate.m_delegateMethods.inspectorOpenURLExternally)
         return;
 
     auto& delegate = m_inspectorDelegate.m_delegate;
     if (!delegate)
         return;
 
-    [delegate _webView:m_inspectorDelegate.m_webView.get().get() browserDomainDisabledForInspector:wrapper(inspector)];
+    [delegate inspector:m_inspectorDelegate.m_inspector.get().get() openURLExternally:[NSURL URLWithString:url]];
 }
 
 } // namespace WebKit

@@ -508,7 +508,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }];
     [defaultActions addObject:openInDefaultBrowserAction];
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     NSString *externalApplicationName = appLink.targetApplicationProxy.localizedName;
+ALLOW_DEPRECATED_DECLARATIONS_END
     if (!externalApplicationName)
         return YES;
 
@@ -561,6 +563,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeShare assistant:self]];
     }
 
+#if ENABLE(IMAGE_EXTRACTION)
+    if (elementInfo.type == _WKActivatedElementTypeImage || [elementInfo image]) {
+        if ([_delegate respondsToSelector:@selector(actionSheetAssistant:shouldIncludeImageExtractionActionForElement:)] && [_delegate actionSheetAssistant:self shouldIncludeImageExtractionActionForElement:elementInfo])
+            [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeImageExtraction assistant:self]];
+    }
+#endif
+
     return defaultActions;
 }
 
@@ -583,6 +592,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeSaveImage assistant:self]];
     if (!targetURL.scheme.length || [targetURL.scheme caseInsensitiveCompare:@"javascript"] != NSOrderedSame)
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeCopy assistant:self]];
+
+#if ENABLE(IMAGE_EXTRACTION)
+    if ([_delegate respondsToSelector:@selector(actionSheetAssistant:shouldIncludeImageExtractionActionForElement:)] && [_delegate actionSheetAssistant:self shouldIncludeImageExtractionActionForElement:elementInfo])
+        [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeImageExtraction assistant:self]];
+#endif
 
     return defaultActions;
 }
@@ -832,6 +846,11 @@ static NSArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr<NSArra
             [delegate actionSheetAssistant:self shareElementWithImage:element.image rect:element.boundingRect];
         else
             [delegate actionSheetAssistant:self shareElementWithURL:element.URL ?: element.imageURL rect:element.boundingRect];
+        break;
+    case _WKElementActionTypeImageExtraction:
+#if ENABLE(IMAGE_EXTRACTION)
+        [delegate actionSheetAssistant:self handleImageExtraction:element.image];
+#endif
         break;
     default:
         ASSERT_NOT_REACHED();

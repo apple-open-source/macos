@@ -89,7 +89,6 @@ public:
 
 protected:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
-    void computePreferredLogicalWidths() override;
 
     bool shouldResetChildLogicalHeightBeforeLayout(const RenderBox&) const override { return m_shouldResetChildLogicalHeightBeforeLayout; }
 
@@ -108,7 +107,7 @@ private:
 
     struct LineContext;
     
-    bool hasOrthogonalFlow(const RenderBox& child) const;
+    bool mainAxisIsChildInlineAxis(const RenderBox&) const;
     bool isColumnFlow() const;
     bool isLeftToRightFlow() const;
     bool isMultiline() const;
@@ -144,11 +143,11 @@ private:
     bool useChildAspectRatio(const RenderBox& child) const;
     LayoutUnit computeMainSizeFromAspectRatioUsing(const RenderBox& child, Length crossSizeLength) const;
     void setFlowAwareLocationForChild(RenderBox& child, const LayoutPoint&);
-    LayoutUnit computeInnerFlexBaseSizeForChild(RenderBox& child, LayoutUnit mainAxisBorderAndPadding, bool relayoutChildren);
+    LayoutUnit computeInnerFlexBaseSizeForChild(RenderBox& child, LayoutUnit mainAxisBorderAndPadding);
     void adjustAlignmentForChild(RenderBox& child, LayoutUnit);
     ItemPosition alignmentForChild(const RenderBox& child) const;
-    bool mainAxisLengthIsDefinite(const RenderBox& child, const Length& flexBasis) const;
-    bool crossAxisLengthIsDefinite(const RenderBox& child, const Length& flexBasis) const;
+    bool childMainSizeIsDefinite(const RenderBox&, const Length& flexBasis) const;
+    bool childCrossSizeIsDefinite(const RenderBox&, const Length& flexBasis) const;
     bool needToStretchChildLogicalHeight(const RenderBox& child) const;
     bool childHasIntrinsicMainAxisSize(const RenderBox& child) const;
     Overflow mainAxisOverflowForChild(const RenderBox& child) const;
@@ -162,7 +161,7 @@ private:
     void updateAutoMarginsInMainAxis(RenderBox& child, LayoutUnit autoMarginOffset);
     bool hasAutoMarginsInCrossAxis(const RenderBox& child) const;
     bool updateAutoMarginsInCrossAxis(RenderBox& child, LayoutUnit availableAlignmentSpace);
-    void repositionLogicalHeightDependentFlexItems(Vector<LineContext>&);
+    void repositionLogicalHeightDependentFlexItems(Vector<LineContext>&, LayoutUnit gapBetweenLines);
     LayoutUnit clientLogicalBottomAfterRepositioning();
     
     LayoutUnit availableAlignmentSpaceForChild(LayoutUnit lineCrossAxisExtent, const RenderBox& child);
@@ -179,11 +178,11 @@ private:
     void freezeViolations(Vector<FlexItem*>&, LayoutUnit& availableFreeSpace, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink);
     
     void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& child);
-    void setOverrideMainAxisContentSizeForChild(RenderBox& child, LayoutUnit childPreferredSize);
+    void setOverridingMainSizeForChild(RenderBox&, LayoutUnit);
     void prepareChildForPositionedLayout(RenderBox& child);
-    void layoutAndPlaceChildren(LayoutUnit& crossAxisOffset, Vector<FlexItem>&, LayoutUnit availableFreeSpace, bool relayoutChildren, Vector<LineContext>&);
+    void layoutAndPlaceChildren(LayoutUnit& crossAxisOffset, Vector<FlexItem>&, LayoutUnit availableFreeSpace, bool relayoutChildren, Vector<LineContext>&, LayoutUnit gapBetweenItems);
     void layoutColumnReverse(const Vector<FlexItem>&, LayoutUnit crossAxisOffset, LayoutUnit availableFreeSpace);
-    void alignFlexLines(Vector<LineContext>&);
+    void alignFlexLines(Vector<LineContext>&, LayoutUnit gapBetweenLines);
     void alignChildren(const Vector<LineContext>&);
     void applyStretchAlignmentToChild(RenderBox& child, LayoutUnit lineCrossAxisExtent);
     void flipForRightToLeftColumn(const Vector<LineContext>& lineContexts);
@@ -192,7 +191,10 @@ private:
     void appendChildFrameRects(ChildFrameRects&);
     void repaintChildrenDuringLayoutIfMoved(const ChildFrameRects&);
 
-    bool hasPercentHeightDescendants(const RenderBox&) const;
+    bool childHasPercentHeightDescendants(const RenderBox&) const;
+
+    enum class GapType { BetweenLines, BetweenItems };
+    LayoutUnit computeGap(GapType) const;
 
     // This is used to cache the preferred size for orthogonal flow children so we
     // don't have to relayout to get it
@@ -210,7 +212,6 @@ private:
     HashSet<const RenderBox*> m_relaidOutChildren;
     
     mutable OrderIterator m_orderIterator { *this };
-    Vector<RenderBox*> m_reversedOrderIteratorForHitTesting;
     int m_numberOfInFlowChildrenOnFirstLine { -1 };
     
     // This is SizeIsUnknown outside of layoutBlock()

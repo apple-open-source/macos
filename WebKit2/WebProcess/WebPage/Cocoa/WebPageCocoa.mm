@@ -81,11 +81,7 @@ void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 
     m_dataDetectionContext = parameters.dataDetectionContext;
 
-    if (parameters.neHelperExtensionHandle)
-        SandboxExtension::consumePermanently(*parameters.neHelperExtensionHandle);
-    if (parameters.neSessionManagerExtensionHandle)
-        SandboxExtension::consumePermanently(*parameters.neSessionManagerExtensionHandle);
-    NetworkExtensionContentFilter::setHasConsumedSandboxExtensions(parameters.neHelperExtensionHandle.hasValue() && parameters.neSessionManagerExtensionHandle.hasValue());
+    consumeNetworkExtensionSandboxExtensions(parameters.networkExtensionSandboxExtensionHandles);
 
 #if PLATFORM(IOS)
     if (parameters.contentFilterExtensionHandle)
@@ -231,7 +227,7 @@ void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& re
     if (replacementEditingRange.location != notFound) {
         auto replacementRange = EditingRange::toRange(frame, replacementEditingRange);
         if (replacementRange)
-            frame.selection().setSelection(VisibleSelection { *replacementRange, SEL_DEFAULT_AFFINITY });
+            frame.selection().setSelection(VisibleSelection { *replacementRange });
     }
 
     if (options.registerUndoGroup)
@@ -410,6 +406,16 @@ void WebPage::getPlatformEditorStateCommon(const Frame& frame, EditorState& resu
     }
 
     postLayoutData.baseWritingDirection = frame.editor().baseWritingDirectionForSelectionStart();
+}
+
+void WebPage::consumeNetworkExtensionSandboxExtensions(const SandboxExtension::HandleArray& networkExtensionsHandles)
+{
+#if ENABLE(CONTENT_FILTERING)
+    SandboxExtension::consumePermanently(networkExtensionsHandles);
+    NetworkExtensionContentFilter::setHasConsumedSandboxExtensions(networkExtensionsHandles.size());
+#else
+    UNUSED_PARAM(networkExtensionsHandles);
+#endif
 }
 
 } // namespace WebKit

@@ -33,7 +33,6 @@
 #include "AudioBus.h"
 
 #include "DenormalDisabler.h"
-
 #include "SincResampler.h"
 #include "VectorMath.h"
 #include <algorithm>
@@ -42,9 +41,7 @@
 
 namespace WebCore {
 
-using namespace VectorMath;
-
-const unsigned MaxBusChannels = 32;
+constexpr unsigned MaxBusChannels = 32;
 
 RefPtr<AudioBus> AudioBus::create(unsigned numberOfChannels, size_t length, bool allocate)
 {
@@ -57,9 +54,6 @@ RefPtr<AudioBus> AudioBus::create(unsigned numberOfChannels, size_t length, bool
 
 AudioBus::AudioBus(unsigned numberOfChannels, size_t length, bool allocate)
     : m_length(length)
-    , m_busGain(1)
-    , m_isFirstTime(true)
-    , m_sampleRate(0)
 {
     m_channels.reserveInitialCapacity(numberOfChannels);
 
@@ -322,9 +316,8 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
         const float* sourceR = sourceBusSafe.channelByType(ChannelRight)->data();
 
         float* destination = channelByType(ChannelLeft)->mutableData();
-        float scale = 0.5;
-        vsma(sourceL, 1, &scale, destination, 1, length());
-        vsma(sourceR, 1, &scale, destination, 1, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceL, 0.5, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceR, 0.5, destination, length());
     } else if (numberOfSourceChannels == 4 && numberOfDestinationChannels == 1) {
         // Down-mixing: 4 -> 1
         // output = 0.25 * (input.L + input.R + input.SL + input.SR)
@@ -334,12 +327,11 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
         auto* sourceSR = sourceBus.channelByType(ChannelSurroundRight)->data();
 
         auto* destination = channelByType(ChannelLeft)->mutableData();
-        float scale = 0.25;
 
-        vsma(sourceL, 1, &scale, destination, 1, length());
-        vsma(sourceR, 1, &scale, destination, 1, length());
-        vsma(sourceSL, 1, &scale, destination, 1, length());
-        vsma(sourceSR, 1, &scale, destination, 1, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceL, 0.25, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceR, 0.25, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSL, 0.25, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSR, 0.25, destination, length());
     } else if (numberOfSourceChannels == 6 && numberOfDestinationChannels == 1) {
         // Down-mixing: 5.1 -> 1
         // output = sqrt(1/2) * (input.L + input.R) + input.C + 0.5 * (input.SL + input.SR)
@@ -351,13 +343,12 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
 
         auto* destination = channelByType(ChannelLeft)->mutableData();
         float scaleSqrtHalf = sqrtf(0.5);
-        float scaleHalf = 0.5f;
 
-        vsma(sourceL, 1, &scaleSqrtHalf, destination, 1, length());
-        vsma(sourceR, 1, &scaleSqrtHalf, destination, 1, length());
-        vadd(sourceC, 1, destination, 1, destination, 1, length());
-        vsma(sourceSL, 1, &scaleHalf, destination, 1, length());
-        vsma(sourceSR, 1, &scaleHalf, destination, 1, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceL, scaleSqrtHalf, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceR, scaleSqrtHalf, destination, length());
+        VectorMath::add(sourceC, destination, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSL, 0.5, destination, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSR, 0.5, destination, length());
     } else if (numberOfSourceChannels == 4 && numberOfDestinationChannels == 2) {
         // Down-mixing: 4 -> 2
         // output.L = 0.5 * (input.L + input.SL)
@@ -369,12 +360,11 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
 
         auto* destinationL = channelByType(ChannelLeft)->mutableData();
         auto* destinationR = channelByType(ChannelRight)->mutableData();
-        float scaleHalf = 0.5f;
 
-        vsma(sourceL, 1, &scaleHalf, destinationL, 1, length());
-        vsma(sourceSL, 1, &scaleHalf, destinationL, 1, length());
-        vsma(sourceR, 1, &scaleHalf, destinationR, 1, length());
-        vsma(sourceSR, 1, &scaleHalf, destinationR, 1, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceL, 0.5, destinationL, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSL, 0.5, destinationL, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceR, 0.5, destinationR, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSR, 0.5, destinationR, length());
     } else if (numberOfSourceChannels == 6 && numberOfDestinationChannels == 2) {
         // Down-mixing: 5.1 -> 2
         // output.L = input.L + sqrt(1/2) * (input.C + input.SL)
@@ -389,12 +379,12 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
         float* destinationR = channelByType(ChannelRight)->mutableData();
         float scaleSqrtHalf = sqrtf(0.5);
 
-        vadd(sourceL, 1, destinationL, 1, destinationL, 1, length());
-        vsma(sourceC, 1, &scaleSqrtHalf, destinationL, 1, length());
-        vsma(sourceSL, 1, &scaleSqrtHalf, destinationL, 1, length());
-        vadd(sourceR, 1, destinationR, 1, destinationR, 1, length());
-        vsma(sourceC, 1, &scaleSqrtHalf, destinationR, 1, length());
-        vsma(sourceSR, 1, &scaleSqrtHalf, destinationR, 1, length());
+        VectorMath::add(sourceL, destinationL, destinationL, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceC, scaleSqrtHalf, destinationL, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSL, scaleSqrtHalf, destinationL, length());
+        VectorMath::add(sourceR, destinationR, destinationR, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceC, scaleSqrtHalf, destinationR, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceSR, scaleSqrtHalf, destinationR, length());
     } else if (numberOfSourceChannels == 6 && numberOfDestinationChannels == 4) {
         // Down-mixing: 5.1 -> 4
         // output.L = input.L + sqrt(1/2) * input.C
@@ -409,10 +399,10 @@ void AudioBus::speakersSumFromByDownMixing(const AudioBus& sourceBus)
         auto* destinationR = channelByType(ChannelRight)->mutableData();
         auto scaleSqrtHalf = sqrtf(0.5);
 
-        vadd(sourceL, 1, destinationL, 1, destinationL, 1, length());
-        vsma(sourceC, 1, &scaleSqrtHalf, destinationL, 1, length());
-        vadd(sourceR, 1, destinationR, 1, destinationR, 1, length());
-        vsma(sourceC, 1, &scaleSqrtHalf, destinationR, 1, length());
+        VectorMath::add(sourceL, destinationL, destinationL, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceC, scaleSqrtHalf, destinationL, length());
+        VectorMath::add(sourceR, destinationR, destinationR, length());
+        VectorMath::multiplyByScalarThenAddToOutput(sourceC, scaleSqrtHalf, destinationR, length());
         channel(2)->sumFrom(sourceBus.channel(4));
         channel(3)->sumFrom(sourceBus.channel(5));
     } else {
@@ -437,7 +427,7 @@ void AudioBus::discreteSumFrom(const AudioBus& sourceBus)
     }
 }
 
-void AudioBus::copyWithGainFrom(const AudioBus &sourceBus, float* lastMixGain, float targetGain)
+void AudioBus::copyWithGainFrom(const AudioBus& sourceBus, float gain)
 {
     if (!topologyMatches(sourceBus)) {
         ASSERT_NOT_REACHED();
@@ -456,7 +446,7 @@ void AudioBus::copyWithGainFrom(const AudioBus &sourceBus, float* lastMixGain, f
         return;
 
     // If it is copying from the same bus and no need to change gain, just return.
-    if (this == &sourceBus && *lastMixGain == targetGain && targetGain == 1)
+    if (this == &sourceBus && gain == 1)
         return;
 
     AudioBus& sourceBusSafe = const_cast<AudioBus&>(sourceBus);
@@ -468,67 +458,19 @@ void AudioBus::copyWithGainFrom(const AudioBus &sourceBus, float* lastMixGain, f
         destinations[i] = channel(i)->mutableData();
     }
 
-    // We don't want to suddenly change the gain from mixing one time slice to the next,
-    // so we "de-zipper" by slowly changing the gain each sample-frame until we've achieved the target gain.
-    
-    // Take master bus gain into account as well as the targetGain.
-    float totalDesiredGain = static_cast<float>(m_busGain * targetGain);
-
-    // First time, snap directly to totalDesiredGain.
-    float gain = static_cast<float>(m_isFirstTime ? totalDesiredGain : *lastMixGain);
-    m_isFirstTime = false;
-
-    const float DezipperRate = 0.005f;
     unsigned framesToProcess = length();
 
-    // If the gain is within epsilon of totalDesiredGain, we can skip dezippering. 
-    // FIXME: this value may need tweaking.
-    const float epsilon = 0.001f; 
-    float gainDiff = fabs(totalDesiredGain - gain);
-
-    // Number of frames to de-zipper before we are close enough to the target gain.
-    // FIXME: framesToDezipper could be smaller when target gain is close enough within this process loop.
-    unsigned framesToDezipper = (gainDiff < epsilon) ? 0 : framesToProcess; 
-
-    if (framesToDezipper) {
-        if (!m_dezipperGainValues.get() || m_dezipperGainValues->size() < framesToDezipper)
-            m_dezipperGainValues = makeUnique<AudioFloatArray>(framesToDezipper);
-
-        float* gainValues = m_dezipperGainValues->data();
-        for (unsigned i = 0; i < framesToDezipper; ++i) {
-            gain += (totalDesiredGain - gain) * DezipperRate;
-        
-            // FIXME: If we are clever enough in calculating the framesToDezipper value, we can probably get
-            // rid of this DenormalDisabler::flushDenormalFloatToZero() call.
-            gain = DenormalDisabler::flushDenormalFloatToZero(gain);
-            *gainValues++ = gain;
-        }
-
-        for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex) {
-            vmul(sources[channelIndex], 1, m_dezipperGainValues->data(), 1, destinations[channelIndex], 1, framesToDezipper);
-            sources[channelIndex] += framesToDezipper;
-            destinations[channelIndex] += framesToDezipper;
-        }
-    } else
-        gain = totalDesiredGain;
-
-    // Apply constant gain after de-zippering has converged on target gain.
-    if (framesToDezipper < framesToProcess) {
-        // Handle gains of 0 and 1 (exactly) specially.
-        if (gain == 1) {
-            for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-                memcpy(destinations[channelIndex], sources[channelIndex], (framesToProcess - framesToDezipper) * sizeof(*destinations[channelIndex]));
-        } else if (!gain) {
-            for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-                memset(destinations[channelIndex], 0, (framesToProcess - framesToDezipper) * sizeof(*destinations[channelIndex]));
-        } else {
-            for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-                vsmul(sources[channelIndex], 1, &gain, destinations[channelIndex], 1, framesToProcess - framesToDezipper);
-        }
+    // Handle gains of 0 and 1 (exactly) specially.
+    if (gain == 1) {
+        for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
+            memcpy(destinations[channelIndex], sources[channelIndex], framesToProcess * sizeof(*destinations[channelIndex]));
+    } else if (!gain) {
+        for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
+            memset(destinations[channelIndex], 0, framesToProcess * sizeof(*destinations[channelIndex]));
+    } else {
+        for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
+            VectorMath::multiplyByScalar(sources[channelIndex], gain, destinations[channelIndex], framesToProcess);
     }
-
-    // Save the target gain as the starting point for next time around.
-    *lastMixGain = gain;
 }
 
 void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus &sourceBus, float* gainValues, unsigned numberOfGainValues)
@@ -556,7 +498,7 @@ void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus &sourceBus, f
         if (sourceBus.numberOfChannels() == numberOfChannels())
             source = sourceBus.channel(channelIndex)->data();
         float* destination = channel(channelIndex)->mutableData();
-        vmul(source, 1, gainValues, 1, destination, 1, numberOfGainValues);
+        VectorMath::multiply(source, gainValues, destination, numberOfGainValues);
     }
 }
 
@@ -614,8 +556,7 @@ RefPtr<AudioBus> AudioBus::createBySampleRateConverting(const AudioBus* sourceBu
         const float* source = resamplerSourceBus->channel(i)->data();
         float* destination = destinationBus->channel(i)->mutableData();
 
-        SincResampler resampler(sampleRateRatio);
-        resampler.process(source, destination, sourceLength);
+        SincResampler::processBuffer(source, destination, sourceLength, sampleRateRatio);
     }
 
     destinationBus->clearSilentFlag();
@@ -642,8 +583,7 @@ RefPtr<AudioBus> AudioBus::createByMixingToMono(const AudioBus* sourceBus)
             float* destination = destinationBus->channel(0)->mutableData();
         
             // Do the mono mixdown.
-            for (unsigned i = 0; i < n; ++i)
-                destination[i] = (sourceL[i] + sourceR[i]) / 2;
+            VectorMath::addVectorsThenMultiplyByScalar(sourceL, sourceR, 0.5, destination, n);
 
             destinationBus->clearSilentFlag();
             destinationBus->setSampleRate(sourceBus->sampleRate());    

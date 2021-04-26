@@ -39,6 +39,7 @@
 #include <Security/SecCertificateInternal.h>
 #include "trust/trustd/SecTrustServer.h"
 #include "trust/trustd/TrustURLSessionDelegate.h"
+#include "trust/trustd/TrustURLSessionCache.h"
 #include <stdlib.h>
 #include <mach/mach_time.h>
 
@@ -47,9 +48,14 @@
 
 typedef void (*CompletionHandler)(void *context, CFArrayRef parents);
 
-/* CA Issuer lookup code. */
 @interface CAIssuerDelegate: TrustURLSessionDelegate
+@end
+
+@interface CAIssuerContext : TrustURLSessionContext
 @property (assign) CompletionHandler callback;
+@end
+
+@implementation CAIssuerContext
 @end
 
 static NSArray *certificatesFromData(NSData *data) {
@@ -85,12 +91,12 @@ static NSArray *certificatesFromData(NSData *data) {
 }
 
 @implementation CAIssuerDelegate
-- (BOOL)fetchNext:(NSURLSession *)session {
-    SecPathBuilderRef builder = (SecPathBuilderRef)self.context;
+- (BOOL)fetchNext:(NSURLSession *)session context:(TrustURLSessionContext *)urlContext  {
+    SecPathBuilderRef builder = (SecPathBuilderRef)urlContext.context;
     TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
 
     BOOL result = false;
-    if (!(result = [super fetchNext:session]) && analytics) {
+    if (!(result = [super fetchNext:session context:urlContext]) && analytics) {
         analytics->ca_issuer_fetches++;
     }
     return result;
@@ -100,9 +106,17 @@ static NSArray *certificatesFromData(NSData *data) {
     /* call the superclass's method to set taskTime and expiration */
     [super URLSession:session task:task didCompleteWithError:error];
 
-    __block SecPathBuilderRef builder =(SecPathBuilderRef)self.context;
+    NSUUID *taskId = [task.originalRequest taskId];
+    CAIssuerContext *urlContext = (CAIssuerContext *)[self contextForTask:taskId];
+    if (!urlContext) {
+        secerror("failed to find context for %@", taskId);
+        return;
+    }
+
+    __block SecPathBuilderRef builder =(SecPathBuilderRef)urlContext.context;
     if (!builder) {
         /* We already returned to the PathBuilder state machine. */
+        [self removeTask:taskId];
         return;
     }
 
@@ -114,9 +128,9 @@ static NSArray *certificatesFromData(NSData *data) {
         if (analytics) {
             analytics->ca_issuer_fetch_failed++;
         }
-    } else if (self.response) {
+    } else if (urlContext.response) {
         /* Get the parent cert from the data */
-        parents = certificatesFromData(self.response);
+        parents = certificatesFromData(urlContext.response);
         if (analytics && !parents) {
             analytics->ca_issuer_unsupported_data = true;
         } else if (analytics && [parents count] > 1) {
@@ -127,29 +141,37 @@ static NSArray *certificatesFromData(NSData *data) {
     if (parents)  {
         /* Found some parents, add to cache, close session, and return to SecPathBuilder */
         secdebug("caissuer", "found parents for %@", task.originalRequest.URL);
-        SecCAIssuerCacheAddCertificates((__bridge CFArrayRef)parents, (__bridge CFURLRef)task.originalRequest.URL, self.expiration);
-        self.context = nil; // set the context to NULL before we call back because the callback may free the builder
-        [session invalidateAndCancel];
+        SecCAIssuerCacheAddCertificates((__bridge CFArrayRef)parents, (__bridge CFURLRef)task.originalRequest.URL, urlContext.expiration);
+        urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
         dispatch_async(SecPathBuilderGetQueue(builder), ^{
-            self.callback(builder, (__bridge CFArrayRef)parents);
+            urlContext.callback(builder, (__bridge CFArrayRef)parents);
         });
     } else {
         secdebug("caissuer", "no parents for %@", task.originalRequest.URL);
-        if ([self fetchNext:session]) { // Try the next CAIssuer URI
-            /* no fetch scheduled, close this session and jump back into the state machine on the builder's queue */
+        if ([self fetchNext:session context:urlContext]) { // Try the next CAIssuer URI
+            /* no fetch scheduled, jump back into the state machine on the builder's queue */
             secdebug("caissuer", "no more fetches. returning to builder");
-            self.context = nil; // set the context to NULL before we call back because the callback may free the builder
-            [session invalidateAndCancel];
+            urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
             dispatch_async(SecPathBuilderGetQueue(builder), ^{
-                self.callback(builder, NULL);
+                urlContext.callback(builder, NULL);
             });
         }
     }
+    // We've either kicked off a new task or returned to the builder, so we're done with this task.
+    [self removeTask:taskId];
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)taskMetrics {
     secdebug("caissuer", "got metrics with task interval %f", taskMetrics.taskInterval.duration);
-    SecPathBuilderRef builder =(SecPathBuilderRef)self.context;
+
+    NSUUID *taskId = [task.originalRequest taskId];
+    TrustURLSessionContext *urlContext = [self contextForTask:taskId];
+    if (!urlContext) {
+        secerror("failed to find context for %@", taskId);
+        return;
+    }
+
+    SecPathBuilderRef builder =(SecPathBuilderRef)urlContext.context;
     if (builder) {
         TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
         if (analytics) {
@@ -236,32 +258,19 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (
             return true;
         }
 
-        NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-        config.timeoutIntervalForResource = TrustURLSessionGetResourceTimeout();
-        config.HTTPAdditionalHeaders = @{@"User-Agent" : @"com.apple.trustd/2.0"};
+        static TrustURLSessionCache *sessionCache = NULL;
+        static CAIssuerDelegate *delegate = NULL;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            delegate = [[CAIssuerDelegate alloc] init];
+            sessionCache = [[TrustURLSessionCache alloc] initWithDelegate:delegate];
+        });
 
         NSData *auditToken = CFBridgingRelease(SecPathBuilderCopyClientAuditToken(builder));
-        if (auditToken) {
-            config._sourceApplicationAuditTokenData = auditToken;
-        }
-
-        CAIssuerDelegate *delegate = [[CAIssuerDelegate alloc] init];
-        delegate.context = context;
-        delegate.callback = callback;
-        delegate.URIs = nsIssuers;
-        delegate.URIix = 0;
-
-        NSOperationQueue *queue = [[NSOperationQueue alloc] init];
-
-        NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
-        secdebug("caissuer", "created URLSession for %@", certificate);
-
-        bool result = false;
-        if ((result = [delegate fetchNext:session])) {
-            /* no fetch scheduled, close the session */
-            [session invalidateAndCancel];
-        }
-        return result;
+        NSURLSession *session = [sessionCache sessionForAuditToken:auditToken];
+        CAIssuerContext *urlContext = [[CAIssuerContext alloc] initWithContext:context uris:nsIssuers];
+        urlContext.callback = callback;
+        return [delegate fetchNext:session context:urlContext];
     }
 }
 

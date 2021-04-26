@@ -45,7 +45,8 @@ OctagonState* const EscrowRequestStateWaitForUnlock = (OctagonState*)@"wait_for_
                                                      initialState:EscrowRequestStateNothingToDo
                                                             queue:_queue
                                                       stateEngine:self
-                                                 lockStateTracker:lockStateTracker];
+                                                 lockStateTracker:lockStateTracker
+                                              reachabilityTracker:nil];
 
         _forceIgnoreCloudServicesRateLimiting = false;
     }

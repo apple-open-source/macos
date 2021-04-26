@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "WebEvent.h"
 #include "WebFramePolicyListenerProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <wtf/Forward.h>
@@ -51,11 +50,11 @@ class PolicyClient {
 public:
     virtual ~PolicyClient() { }
 
-    virtual void decidePolicyForNavigationAction(WebKit::WebPageProxy&, WebKit::WebFrameProxy*, const WebKit::NavigationActionData&, WebKit::WebFrameProxy*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object*)
+    virtual void decidePolicyForNavigationAction(WebKit::WebPageProxy&, WebKit::WebFrameProxy*, Ref<API::NavigationAction>&&, WebKit::WebFrameProxy*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object*)
     {
         listener->use();
     }
-    virtual void decidePolicyForNewWindowAction(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, const WebKit::NavigationActionData&, const WebCore::ResourceRequest&, const WTF::String&, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object*)
+    virtual void decidePolicyForNewWindowAction(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, Ref<API::NavigationAction>&&, const WebCore::ResourceRequest&, const WTF::String&, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, API::Object*)
     {
         listener->use();
     }

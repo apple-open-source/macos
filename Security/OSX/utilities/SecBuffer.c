@@ -29,9 +29,9 @@ void PerformWithBuffer(size_t size, void (^operation)(size_t size, uint8_t *buff
 }
 
 void PerformWithBufferAndClear(size_t size, void (^operation)(size_t size, uint8_t *buffer)) {
-    PerformWithBuffer(size, ^(size_t size, uint8_t *buffer) {
-        operation(size, buffer);
+    PerformWithBuffer(size, ^(size_t buf_size, uint8_t *buffer) {
+        operation(buf_size, buffer);
         
-        bzero(buffer, size);
+        bzero(buffer, buf_size);
     });
 }

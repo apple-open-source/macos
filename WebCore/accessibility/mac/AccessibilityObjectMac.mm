@@ -28,6 +28,7 @@
 #import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
 #import "ElementAncestorIterator.h"
+#import "FrameView.h"
 #import "HTMLFieldSetElement.h"
 #import "HTMLInputElement.h"
 #import "LocalizedStrings.h"
@@ -69,6 +70,26 @@ void AccessibilityObject::overrideAttachmentParent(AXCoreObject* parent)
     ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
+FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
+{
+    // WebKit1 code path... platformWidget() exists.
+    auto* frameView = documentFrameView();
+    if (frameView && frameView->platformWidget()) {
+        CGPoint point = CGPointMake(rect.x(), rect.y());
+        CGSize size = CGSizeMake(rect.size().width(), rect.size().height());
+        CGRect cgRect = CGRectMake(point.x, point.y, size.width, size.height);
+
+        NSRect nsRect = NSRectFromCGRect(cgRect);
+        NSView *view = frameView->documentView();
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        nsRect = [[view window] convertRectToScreen:[view convertRect:nsRect toView:nil]];
+        ALLOW_DEPRECATED_DECLARATIONS_END
+        return NSRectToCGRect(nsRect);
+    }
+
+    return convertFrameToSpace(rect, space);
+}
+
 // On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
 bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
 {
@@ -84,8 +105,9 @@ bool AccessibilityObject::accessibilityIgnoreAttachment() const
         return true;
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if ([wrapper() attachmentView])
-        return [[wrapper() attachmentView] accessibilityIsIgnored];
+    id attachmentView = widget ? NSAccessibilityUnignoredDescendant(widget->platformWidget()) : nil;
+    if (attachmentView)
+        return [attachmentView accessibilityIsIgnored];
     ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Attachments are ignored by default (unless we determine that we should expose them).
@@ -258,6 +280,13 @@ String AccessibilityObject::rolePlatformDescription() const
     return String();
 }
 
+AXTextMarkerRangeRef AccessibilityObject::textMarkerRangeForNSRange(const NSRange& range) const
+{
+    return textMarkerRangeFromVisiblePositions(axObjectCache(),
+        visiblePositionForIndex(range.location),
+        visiblePositionForIndex(range.location + range.length));
+}
+
 namespace Accessibility {
 
 PlatformRoleMap createPlatformRoleMap()
@@ -373,6 +402,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Div, NSAccessibilityGroupRole },
         { AccessibilityRole::Form, NSAccessibilityGroupRole },
         { AccessibilityRole::SpinButton, NSAccessibilityIncrementorRole },
+        { AccessibilityRole::SpinButtonPart, @"AXIncrementorArrow" },
         { AccessibilityRole::Footer, NSAccessibilityGroupRole },
         { AccessibilityRole::ToggleButton, NSAccessibilityCheckBoxRole },
         { AccessibilityRole::Canvas, NSAccessibilityImageRole },

@@ -208,6 +208,39 @@ finish:
     return result;
 }
 
+CFArrayRef pathsForURLs(CFArrayRef urls) {
+    CFArrayRef        result = NULL;
+    CFIndex           count  = CFArrayGetCount(urls);
+    CFMutableArrayRef paths  = CFArrayCreateMutable(
+                                     kCFAllocatorDefault,
+                                     count,
+                                     &kCFTypeArrayCallBacks);
+
+    if (!paths) {
+        goto finish;
+    }
+
+    for (CFIndex i = 0; i < count; i++) {
+        CFURLRef url = CFArrayGetValueAtIndex(urls, i);
+        if (CFGetTypeID(url) != CFURLGetTypeID()) {
+            SAFE_RELEASE_NULL(paths);
+            goto finish;
+        }
+
+        CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
+        if (!path) {
+            SAFE_RELEASE_NULL(paths);
+            goto finish;
+        }
+        CFArrayAppendValue(paths, path);
+        SAFE_RELEASE(path);
+    }
+    result = paths;
+
+finish:
+    return result;
+}
+
 /*********************************************************************
 *********************************************************************/
 OSReturn KextManagerLoadKextWithIdentifier(
@@ -223,7 +256,16 @@ OSReturn KextManagerLoadKextWithIdentifier(
     }
 
     if (shimmingEnabled()) {
-        result = kernelmanagement_load_kext_identifier(kextIdentifier);
+        CFArrayRef dependencyKextAndFolderPaths = NULL;
+        if (dependencyKextAndFolderURLs) {
+            dependencyKextAndFolderPaths = pathsForURLs(dependencyKextAndFolderURLs);
+            if (!dependencyKextAndFolderPaths) {
+                result = kOSKextReturnNoMemory;
+                goto finish;
+            }
+        }
+        result = kernelmanagement_load_kext_identifier(kextIdentifier, dependencyKextAndFolderPaths);
+        SAFE_RELEASE(dependencyKextAndFolderPaths);
     } else {
         requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
             /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
@@ -262,7 +304,16 @@ OSReturn KextManagerLoadKextWithURL(
     }
 
     if (shimmingEnabled()) {
-        result = kernelmanagement_load_kext_url(kextURL);
+        CFArrayRef dependencyKextAndFolderPaths = NULL;
+        if (dependencyKextAndFolderURLs) {
+            CFArrayRef dependencyKextAndFolderPaths = pathsForURLs(dependencyKextAndFolderURLs);
+            if (!dependencyKextAndFolderPaths) {
+                result = kOSKextReturnNoMemory;
+                goto finish;
+            }
+        }
+        result = kernelmanagement_load_kext_url(kextURL, dependencyKextAndFolderPaths);
+        SAFE_RELEASE(dependencyKextAndFolderPaths);
     } else {
         requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
             /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
@@ -313,8 +364,12 @@ OSReturn KextManagerUnloadKextWithIdentifier(
     OSKextSetLogFilter(kOSKextLogSilentFilter, /* kernelFlag */ false);
     OSKextSetLogFilter(kOSKextLogSilentFilter, /* kernelFlag */ true);
 
-    result = OSKextUnloadKextWithIdentifier(kextIdentifier,
-        /* terminateServicesAndRemovePersonalities */ TRUE);
+    if (shimmingEnabled()) {
+        result = kernelmanagement_unload_kext_identifier(kextIdentifier);
+    } else {
+        result = OSKextUnloadKextWithIdentifier(kextIdentifier,
+            /* terminateServicesAndRemovePersonalities */ TRUE);
+    }
 
 finish:
 

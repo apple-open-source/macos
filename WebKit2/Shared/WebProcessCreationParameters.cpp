@@ -56,6 +56,9 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << containerCachesDirectoryExtensionHandle;
     encoder << containerTemporaryDirectoryExtensionHandle;
 #endif
+#if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
+    encoder << enableRemoteWebInspectorExtensionHandle;
+#endif
     encoder << webCoreLoggingChannels;
     encoder << webKitLoggingChannels;
 #if ENABLE(MEDIA_STREAM)
@@ -85,6 +88,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
     encoder << textCheckerState;
     encoder << fullKeyboardAccessEnabled;
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) && PLATFORM(IOS)
+    encoder << hasMouseDevice;
+#endif
+    encoder << hasStylusDevice;
     encoder << defaultRequestTimeoutInterval;
     encoder << backForwardCacheCapacity;
 #if PLATFORM(COCOA)
@@ -108,7 +115,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << notificationPermissions;
 #endif
 
-    encoder << plugInAutoStartOrigins;
     encoder << memoryCacheDisabled;
     encoder << attrStyleEnabled;
 
@@ -118,20 +124,12 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << hasRichContentServices;
 #endif
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    encoder << pluginLoadClientPolicies;
-#endif
-
 #if PLATFORM(COCOA)
     IPC::encode(encoder, networkATSContext.get());
 #endif
 
 #if PLATFORM(WAYLAND)
     encoder << waylandCompositorDisplayName;
-#endif
-
-#if USE(SOUP)
-    encoder << proxySettings;
 #endif
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
@@ -161,9 +159,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
     encoder << containerManagerExtensionHandle;
     encoder << mobileGestaltExtensionHandle;
+    encoder << launchServicesExtensionHandle;
 
-#if PLATFORM(IOS_FAMILY)
     encoder << diagnosticsExtensionHandles;
+#if PLATFORM(IOS_FAMILY)
     encoder << dynamicMachExtensionHandles;
     encoder << dynamicIOKitExtensionHandles;
 #endif
@@ -182,8 +181,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
 
 #if PLATFORM(COCOA)
-    // FIXME(207716): The following should be removed when the GPU process is complete.
-    encoder << mediaExtensionHandles;
 #if ENABLE(CFPREFS_DIRECT_MODE)
     encoder << preferencesExtensionHandles;
 #endif
@@ -195,6 +192,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
     encoder << overrideUserInterfaceIdiomAndScale;
+#endif
+
+#if HAVE(IOSURFACE)
+    encoder << maximumIOSurfaceSize;
 #endif
 }
 
@@ -238,6 +239,14 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.containerTemporaryDirectoryExtensionHandle = WTFMove(*containerTemporaryDirectoryExtensionHandle);
 
 #endif
+#if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
+    Optional<SandboxExtension::Handle> enableRemoteWebInspectorExtensionHandle;
+    decoder >> enableRemoteWebInspectorExtensionHandle;
+    if (!enableRemoteWebInspectorExtensionHandle)
+        return false;
+    parameters.enableRemoteWebInspectorExtensionHandle = WTFMove(*enableRemoteWebInspectorExtensionHandle);
+#endif
+
     if (!decoder.decode(parameters.webCoreLoggingChannels))
         return false;
     if (!decoder.decode(parameters.webKitLoggingChannels))
@@ -297,6 +306,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.fullKeyboardAccessEnabled))
         return false;
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) && PLATFORM(IOS)
+    if (!decoder.decode(parameters.hasMouseDevice))
+        return false;
+#endif
+    if (!decoder.decode(parameters.hasStylusDevice))
+        return false;
     if (!decoder.decode(parameters.defaultRequestTimeoutInterval))
         return false;
     if (!decoder.decode(parameters.backForwardCacheCapacity))
@@ -346,8 +361,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-    if (!decoder.decode(parameters.plugInAutoStartOrigins))
-        return false;
     if (!decoder.decode(parameters.memoryCacheDisabled))
         return false;
     if (!decoder.decode(parameters.attrStyleEnabled))
@@ -362,11 +375,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    if (!decoder.decode(parameters.pluginLoadClientPolicies))
-        return false;
-#endif
-
 #if PLATFORM(COCOA)
     if (!IPC::decode(decoder, parameters.networkATSContext))
         return false;
@@ -374,11 +382,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 
 #if PLATFORM(WAYLAND)
     if (!decoder.decode(parameters.waylandCompositorDisplayName))
-        return false;
-#endif
-
-#if USE(SOUP)
-    if (!decoder.decode(parameters.proxySettings))
         return false;
 #endif
 
@@ -438,13 +441,19 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.mobileGestaltExtensionHandle = WTFMove(*mobileGestaltExtensionHandle);
 
-#if PLATFORM(IOS_FAMILY)
+    Optional<Optional<SandboxExtension::Handle>> launchServicesExtensionHandle;
+    decoder >> launchServicesExtensionHandle;
+    if (!launchServicesExtensionHandle)
+        return false;
+    parameters.launchServicesExtensionHandle = WTFMove(*launchServicesExtensionHandle);
+
     Optional<SandboxExtension::HandleArray> diagnosticsExtensionHandles;
     decoder >> diagnosticsExtensionHandles;
     if (!diagnosticsExtensionHandles)
         return false;
     parameters.diagnosticsExtensionHandles = WTFMove(*diagnosticsExtensionHandles);
 
+#if PLATFORM(IOS_FAMILY)
     Optional<SandboxExtension::HandleArray> dynamicMachExtensionHandles;
     decoder >> dynamicMachExtensionHandles;
     if (!dynamicMachExtensionHandles)
@@ -496,14 +505,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 #endif
 
 #if PLATFORM(COCOA)
-    // FIXME(207716): The following should be removed when the GPU process is complete.
-    Optional<SandboxExtension::HandleArray> mediaExtensionHandles;
-    decoder >> mediaExtensionHandles;
-    if (!mediaExtensionHandles)
-        return false;
-    parameters.mediaExtensionHandles = WTFMove(*mediaExtensionHandles);
-    // FIXME(207716): End region to remove.
-
 #if ENABLE(CFPREFS_DIRECT_MODE)
     Optional<Optional<SandboxExtension::HandleArray>> preferencesExtensionHandles;
     decoder >> preferencesExtensionHandles;
@@ -527,6 +528,11 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!overrideUserInterfaceIdiomAndScale)
         return false;
     parameters.overrideUserInterfaceIdiomAndScale = WTFMove(*overrideUserInterfaceIdiomAndScale);
+#endif
+
+#if HAVE(IOSURFACE)
+    if (!decoder.decode(parameters.maximumIOSurfaceSize))
+        return false;
 #endif
 
     return true;

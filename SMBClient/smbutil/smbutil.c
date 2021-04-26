@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved
+ * Copyright (c) 2001 - 2020 Apple Inc. All rights reserved
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -69,7 +69,9 @@ static struct commands {
 	{"view",		cmd_view,		view_usage},
 	{"dfs",			cmd_dfs,		dfs_usage},
 	{"identity",	cmd_identity,	identity_usage},
-    {"statshares",        cmd_statshares,   statshares_usage},
+    {"statshares",  cmd_statshares, statshares_usage},
+    {"multichannel", cmd_multichannel, multichannel_usage},
+    {"snapshot",    cmd_snapshot, snapshot_usage},
 	{NULL, NULL, NULL}
 };
 
@@ -183,13 +185,15 @@ help(void) {
 	fprintf(stderr, "\n");
 	fprintf(stderr, "usage: %s [-hv] subcommand [args]\n", __progname);
 	fprintf(stderr, "where subcommands are:\n"
-	" help		display help on specified subcommand\n"
-	" lookup 	resolve NetBIOS name to IP address\n"
-	" status 	resolve IP address or DNS name to NetBIOS names\n"
-	" view		list resources on specified host\n"
-	" dfs		list DFS referrals\n"
-	" identity	identity of the user as known by the specified host\n"
-    " statshares	list the attributes of mounted share(s)\n"
+	" help          display help on specified subcommand\n"
+	" lookup        resolve NetBIOS name to IP address\n"
+	" status        resolve IP address or DNS name to NetBIOS names\n"
+	" view          list resources on specified host\n"
+	" dfs           list DFS referrals\n"
+	" identity      identity of the user as known by the specified host\n"
+    " statshares    list the attributes of mounted share(s)\n"
+    " multichannel  list the attributes of the channels of mounted share(s)\n"
+    " snapshot      list snapshots for the mount path \n"
 	"\n");
 	exit(1);
 }

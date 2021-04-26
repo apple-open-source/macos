@@ -364,6 +364,15 @@ exec_stty(
 	return TCL_OK;
 }
 
+static void
+set_int_result(Tcl_Interp *interp,
+	       int result)
+{
+	char buf[20];
+	sprintf(buf, "%d", result);
+	Tcl_SetResult(interp, buf, TCL_VOLATILE);
+}
+
 /*ARGSUSED*/
 static int
 Exp_SttyCmd(
@@ -448,7 +457,8 @@ Exp_SttyCmd(
 					no_args = FALSE;
 					exp_ioctled_devtty = TRUE;
 				} else {
-		    Tcl_SetResult (interp, exp_win_rows_get(), TCL_VOLATILE);
+					int rows = exp_win_rows_get();
+					set_int_result(interp, rows);
 					return TCL_OK;
 				}
 			} else if (streq(*argv,"columns")) {
@@ -458,7 +468,8 @@ Exp_SttyCmd(
 					no_args = FALSE;
 					exp_ioctled_devtty = TRUE;
 				} else {
-		    Tcl_SetResult (interp, exp_win_columns_get(), TCL_VOLATILE);
+					int columns = exp_win_columns_get();
+					set_int_result(interp, columns);
 					return TCL_OK;
 				}
 			} else {
@@ -517,7 +528,8 @@ Exp_SttyCmd(
 					argv++;
 					no_args = FALSE;
 				} else {
-		    Tcl_SetResult (interp, exp_win2_rows_get(fd), TCL_VOLATILE);
+					int rows = exp_win2_rows_get(fd);
+					set_int_result(interp, rows);
 					goto done;
 				}
 			} else if (streq(*argv,"columns")) {
@@ -526,7 +538,8 @@ Exp_SttyCmd(
 					argv++;
 					no_args = FALSE;
 				} else {
-		    Tcl_SetResult (interp, exp_win2_columns_get(fd), TCL_VOLATILE);
+					int columns = exp_win2_columns_get(fd);
+					set_int_result(interp, columns);
 					goto done;
 				}
 			} else if (streq(*argv,"<")) {

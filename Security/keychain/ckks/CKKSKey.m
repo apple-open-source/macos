@@ -28,6 +28,7 @@
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
 #import "keychain/ckks/CKKSPeerProvider.h"
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include <Security/SecItem.h>
@@ -806,6 +807,23 @@
 
 }
 
++ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    __block NSNumber *result = nil;
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                      columns:@[@"count(rowid)"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(rowid)"].asNSNumberInteger;
+                                   }
+                                        error: error];
+    return result;
+}
+
 + (NSDictionary<NSString*,NSNumber*>*)countsByClass:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
@@ -863,6 +881,79 @@
         *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSProtobufFailure description:@"Data failed to parse as a CKKSSerializedKey"];
     }
     return nil;
+}
+
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                            resync:(BOOL)resync
+                       flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                             error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    if(resync) {
+        NSError* resyncerror = nil;
+
+        CKKSKey* key = [CKKSKey tryFromDatabaseAnyState:record.recordID.recordName zoneID:record.recordID.zoneID error:&resyncerror];
+        if(resyncerror) {
+            ckkserror("ckksresync", record.recordID.zoneID, "error loading key: %@", resyncerror);
+        }
+        if(!key) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: No sync key matching resynced CloudKit record: %@", record);
+        } else if(![key matchesCKRecord:record]) {
+            ckkserror("ckksresync", record.recordID.zoneID, "BUG: Local sync key doesn't match resynced CloudKit record(s): %@ %@", key, record);
+        } else {
+            ckksnotice("ckksresync", record.recordID.zoneID, "Already know about this sync key, skipping update: %@", record);
+            return YES;
+        }
+    }
+
+    CKKSKey* remotekey = [[CKKSKey alloc] initWithCKRecord:record];
+
+    // Do we already know about this key?
+    CKKSKey* possibleLocalKey = [CKKSKey tryFromDatabase:remotekey.uuid
+                                                  zoneID:record.recordID.zoneID
+                                                   error:&localerror];
+    if(localerror) {
+        ckkserror("ckkskey", record.recordID.zoneID, "Error finding existing local key for %@: %@", remotekey, localerror);
+        // Go on, assuming there isn't a local key
+
+        localerror = nil;
+    } else if(possibleLocalKey && [possibleLocalKey matchesCKRecord:record]) {
+        // Okay, nothing new here. Update the CKRecord and move on.
+        // Note: If the new record doesn't match the local copy, we have to go through the whole dance below
+        possibleLocalKey.storedCKRecord = record;
+        bool newKeySaved = [possibleLocalKey saveToDatabase:&localerror];
+
+        if(!newKeySaved || localerror) {
+            ckkserror("ckkskey", record.recordID.zoneID, "Couldn't update existing key: %@: %@", possibleLocalKey, localerror);
+            if(error) {
+                *error = localerror;
+            }
+            return NO;
+        }
+        return YES;
+    }
+
+    // Drop into the synckeys table as a 'remote' key, then ask for a rekey operation.
+    remotekey.state = SecCKKSProcessedStateRemote;
+    remotekey.currentkey = false;
+
+    bool remoteKeySaved = [remotekey saveToDatabase:&localerror];
+    if(!remoteKeySaved || localerror) {
+        ckkserror("ckkskey", record.recordID.zoneID, "Couldn't save key record to database: %@: %@", remotekey, localerror);
+        ckksinfo("ckkskey", record.recordID.zoneID, "CKRecord was %@", record);
+
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    // We've saved a new key in the database; trigger a rekey operation.
+    [flagHandler _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
+
+    return YES;
 }
 
 @end

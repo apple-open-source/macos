@@ -57,9 +57,9 @@
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>
-		<string>xp_sear_trust</string>
+		<string>xp_swe_network_perf</string>
 		<key>splunk_bagURL</key>
-		<string>https://xp.apple.com/config/1/report/xp_sear_trust</string>
+		<string>https://xp.apple.com/config/1/report/xp_swe_network_perf</string>
 		<key>disableClientId</key>
 		<true/>
 	</dict>

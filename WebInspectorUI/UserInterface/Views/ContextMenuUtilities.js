@@ -35,8 +35,6 @@ WI.addMouseDownContextMenuHandlers = function(element, populateContextMenuCallba
         if (ignoreMouseDown)
             return;
 
-        ignoreMouseDown = true;
-
         let contextMenu = WI.ContextMenu.createFromEvent(event);
         contextMenu.addBeforeShowCallback(() => {
             ignoreMouseDown = false;
@@ -44,6 +42,7 @@ WI.addMouseDownContextMenuHandlers = function(element, populateContextMenuCallba
 
         populateContextMenuCallback(contextMenu, event);
 
+        ignoreMouseDown = !contextMenu.isEmpty();
         contextMenu.show();
     });
 
@@ -73,21 +72,31 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
     if (contextMenu.__domBreakpointItemsAdded)
         return;
 
-    if (!contextMenu.__localOverrideItemsAdded && WI.NetworkManager.supportsLocalResourceOverrides()) {
+    if (!contextMenu.__localOverrideItemsAdded && WI.NetworkManager.supportsOverridingResponses()) {
         contextMenu.__localOverrideItemsAdded = true;
 
         if (WI.networkManager.canBeOverridden(sourceCode)) {
             contextMenu.appendSeparator();
-            contextMenu.appendItem(WI.UIString("Create Local Override"), async () => {
-                let resource = sourceCode;
-                let localResourceOverride = await resource.createLocalResourceOverride();
+
+            if (WI.NetworkManager.supportsOverridingRequests()) {
+                contextMenu.appendItem(WI.UIString("Create Request Local Override"), async () => {
+                    let localResourceOverride = await sourceCode.createLocalResourceOverride(WI.LocalResourceOverride.InterceptType.Request);
+                    WI.networkManager.addLocalResourceOverride(localResourceOverride);
+                    WI.showLocalResourceOverride(localResourceOverride, {
+                        initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                    });
+                });
+            }
+
+            contextMenu.appendItem(WI.UIString("Create Response Local Override"), async () => {
+                let localResourceOverride = await sourceCode.createLocalResourceOverride(WI.LocalResourceOverride.InterceptType.Response);
                 WI.networkManager.addLocalResourceOverride(localResourceOverride);
                 WI.showLocalResourceOverride(localResourceOverride, {
                     initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
                 });
             });
         } else {
-            let localResourceOverride = WI.networkManager.localResourceOverrideForURL(sourceCode.url);
+            let localResourceOverride = WI.networkManager.localResourceOverridesForURL(sourceCode.url)[0];
             if (localResourceOverride) {
                 contextMenu.appendSeparator();
 
@@ -110,7 +119,7 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
 
     contextMenu.appendSeparator();
 
-    if (location && (sourceCode instanceof WI.Script || (sourceCode instanceof WI.Resource && sourceCode.type === WI.Resource.Type.Script && !sourceCode.isLocalResourceOverride))) {
+    if (location && (sourceCode instanceof WI.Script || (sourceCode instanceof WI.Resource && sourceCode.type === WI.Resource.Type.Script && !sourceCode.localResourceOverride))) {
         let existingBreakpoint = WI.debuggerManager.breakpointForSourceCodeLocation(location);
         if (existingBreakpoint) {
             contextMenu.appendItem(WI.UIString("Delete Breakpoint"), () => {
@@ -118,7 +127,7 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
             });
         } else {
             contextMenu.appendItem(WI.UIString("Add Breakpoint"), () => {
-                WI.debuggerManager.addBreakpoint(new WI.Breakpoint(location));
+                WI.debuggerManager.addBreakpoint(new WI.JavaScriptBreakpoint(location));
             });
         }
     }
@@ -143,7 +152,7 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
 
     WI.appendContextMenuItemsForURL(contextMenu, sourceCode.url, {sourceCode, location});
 
-    if (sourceCode instanceof WI.Resource && !sourceCode.isLocalResourceOverride) {
+    if (sourceCode instanceof WI.Resource && !sourceCode.localResourceOverride) {
         if (sourceCode.urlComponents.scheme !== "data") {
             contextMenu.appendItem(WI.UIString("Copy as cURL"), () => {
                 InspectorFrontendHost.copyText(sourceCode.generateCURLCommand());
@@ -394,7 +403,7 @@ WI.appendContextMenuItemsForDOMNodeBreakpoints = function(contextMenu, domNode, 
     let subMenu = contextMenu.appendSubMenuItem(WI.UIString("Break on"));
 
     for (let type of Object.values(WI.DOMBreakpoint.Type)) {
-        let label = WI.DOMBreakpointTreeElement.displayNameForType(type);
+        let label = WI.DOMBreakpoint.displayNameForType(type);
         let breakpoint = breakpoints.find((breakpoint) => breakpoint.type === type);
 
         subMenu.appendCheckboxItem(label, function() {
@@ -405,16 +414,26 @@ WI.appendContextMenuItemsForDOMNodeBreakpoints = function(contextMenu, domNode, 
         }, !!breakpoint);
     }
 
+    if (breakpoints.length && !WI.isShowingSourcesTab()) {
+        contextMenu.appendItem(breakpoints.length === 1 ? WI.UIString("Reveal Breakpoint in Sources Tab") : WI.UIString("Reveal Breakpoints in Sources Tab"), () => {
+            WI.showSourcesTab({
+                representedObjectToSelect: breakpoints.length === 1 ? breakpoints[0] : domNode,
+            });
+        });
+    }
+
     contextMenu.appendSeparator();
 
-    if (breakpoints.length) {
+    if (breakpoints.length === 1)
+        WI.BreakpointPopover.appendContextMenuItems(contextMenu, breakpoints[0], options.popoverTargetElement);
+    else if (breakpoints.length) {
         let shouldEnable = breakpoints.some((breakpoint) => breakpoint.disabled);
-        contextMenu.appendItem(shouldEnable ? WI.UIString("Enable Breakpoint") : WI.UIString("Disable Breakpoint"), () => {
+        contextMenu.appendItem(shouldEnable ? WI.UIString("Enable Breakpoints") : WI.UIString("Disable Breakpoints"), () => {
             for (let breakpoint of breakpoints)
                 breakpoint.disabled = !shouldEnable;
         });
 
-        contextMenu.appendItem(WI.UIString("Delete Breakpoint"), () => {
+        contextMenu.appendItem(WI.UIString("Delete Breakpoints"), () => {
             for (let breakpoint of breakpoints)
                 WI.domDebuggerManager.removeDOMBreakpoint(breakpoint);
         });
