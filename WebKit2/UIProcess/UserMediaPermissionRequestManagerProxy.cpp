@@ -618,14 +618,15 @@ void UserMediaPermissionRequestManagerProxy::checkUserMediaPermissionForSpeechRe
 
     auto request = UserMediaPermissionRequestProxy::create(*this, 0, frameIdentifier, frameIdentifier, requestingOrigin.isolatedCopy(), topOrigin.isolatedCopy(), Vector<WebCore::CaptureDevice> { device }, { }, { }, WTFMove(completionHandler));
 
+    // FIXME: Use switch on action.
     auto action = getRequestAction(request.get());
     if (action == RequestAction::Deny) {
-        completionHandler(false);
+        request->decisionCompletionHandler()(false);
         return;
     }
     
     if (action == RequestAction::Grant) {
-        completionHandler(true);
+        request->decisionCompletionHandler()(true);
         return;
     }
 
@@ -699,8 +700,10 @@ void UserMediaPermissionRequestManagerProxy::computeFilteredDeviceList(bool reve
 
     RealtimeMediaSourceCenter::singleton().getMediaStreamDevices([this, weakThis = makeWeakPtr(this), revealIdsAndLabels, completion = WTFMove(completion)] (auto&& devices) mutable {
 
-        if (!weakThis)
+        if (!weakThis) {
             completion({ });
+            return;
+        }
 
         unsigned cameraCount = 0;
         unsigned microphoneCount = 0;

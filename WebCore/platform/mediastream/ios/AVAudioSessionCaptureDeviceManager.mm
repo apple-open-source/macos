@@ -167,7 +167,7 @@ void AVAudioSessionCaptureDeviceManager::refreshAudioCaptureDevices()
     dispatch_sync(m_dispatchQueue, makeBlockPtr([&] {
         newAudioDevices = retrieveAudioSessionCaptureDevices();
     }).get());
-    setAudioCaptureDevices(WTFMove(newAudioDevices));
+    setAudioCaptureDevices(WTFMove(newAudioDevices).isolatedCopy());
 }
 
 void AVAudioSessionCaptureDeviceManager::getCaptureDevices(CompletionHandler<void(Vector<CaptureDevice>&&)>&& completion)
@@ -182,7 +182,7 @@ void AVAudioSessionCaptureDeviceManager::getCaptureDevices(CompletionHandler<voi
 
     dispatch_async(m_dispatchQueue, makeBlockPtr([this, completion = WTFMove(completion)] () mutable {
         auto newAudioDevices = retrieveAudioSessionCaptureDevices();
-        callOnWebThreadOrDispatchAsyncOnMainThread(makeBlockPtr([this, completion = WTFMove(completion), newAudioDevices = WTFMove(newAudioDevices)] () mutable {
+        callOnWebThreadOrDispatchAsyncOnMainThread(makeBlockPtr([this, completion = WTFMove(completion), newAudioDevices = WTFMove(newAudioDevices).isolatedCopy()] () mutable {
             setAudioCaptureDevices(WTFMove(newAudioDevices));
             completion(copyToVector(*m_devices));
         }).get());
@@ -202,11 +202,12 @@ void AVAudioSessionCaptureDeviceManager::activateAudioSession()
 
 Vector<AVAudioSessionCaptureDevice> AVAudioSessionCaptureDeviceManager::retrieveAudioSessionCaptureDevices() const
 {
-    Vector<AVAudioSessionCaptureDevice> newAudioDevices;
     auto *defaultInput = [m_audioSession currentRoute].inputs.firstObject;
-    newAudioDevices.reserveInitialCapacity([m_audioSession availableInputs].count);
+    auto availableInputs = [m_audioSession availableInputs];
 
-    for (AVAudioSessionPortDescription *portDescription in [m_audioSession availableInputs])
+    Vector<AVAudioSessionCaptureDevice> newAudioDevices;
+    newAudioDevices.reserveInitialCapacity(availableInputs.count);
+    for (AVAudioSessionPortDescription *portDescription in availableInputs)
         newAudioDevices.uncheckedAppend(AVAudioSessionCaptureDevice::create(portDescription, defaultInput));
 
     return newAudioDevices;

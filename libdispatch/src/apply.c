@@ -185,9 +185,7 @@ _dispatch_apply_f(dispatch_queue_global_t dq, dispatch_apply_t da,
 	_dispatch_thread_event_init(&da->da_event);
 	// FIXME: dq may not be the right queue for the priority of `head`
 	_dispatch_trace_item_push_list(dq, head, tail);
-	if ((dx_type(dq) == DISPATCH_QUEUE_GLOBAL_ROOT_TYPE)) {
-		_dispatch_root_queue_push_inline(dq, head, tail, continuation_cnt);
-	}
+	_dispatch_root_queue_push_inline(dq, head, tail, continuation_cnt);
 	// Call the first element directly
 	_dispatch_apply_invoke_and_wait(da);
 }
@@ -269,27 +267,26 @@ DISPATCH_ALWAYS_INLINE
 static inline dispatch_queue_global_t
 _dispatch_apply_root_queue(dispatch_queue_t dq)
 {
+	dispatch_queue_t tq = NULL;
+
 	if (dq) {
-
 		while (unlikely(dq->do_targetq)) {
-			dispatch_queue_t tq = dq->do_targetq;
+			tq = dq->do_targetq;
 
-			// We're trying to go wide on a custom priority workloop. Just put all
-			// the dispatch_apply continuations on the workloop and go serial
-			// instead.
-			//
-			// We have to do this dance because the custom pri workloop's target
-			// queue is not actually used for making thread requests.
-			if (_dispatch_is_custom_pri_workloop(tq)) {
+			// If the current root is a custom pri workloop, select it. We have
+			// to this check here because custom pri workloops have a fake
+			// bottom targetq.
+			if (_dispatch_is_custom_pri_workloop(dq)) {
 				return upcast(dq)._dgq;
 			}
+
 			dq = tq;
 		}
+	}
 
-		// if the current root queue is a pthread root queue, select it
-		if (!_dispatch_is_in_root_queues_array(dq)) {
-			return upcast(dq)._dgq;
-		}
+	// if the current root queue is a pthread root queue, select it
+	if (dq && !_dispatch_is_in_root_queues_array(dq)) {
+		return upcast(dq)._dgq;
 	}
 
 	pthread_priority_t pp = _dispatch_get_priority();
@@ -359,11 +356,16 @@ dispatch_apply_f(size_t iterations, dispatch_queue_t _dq, void *ctxt,
 #endif
 	da->da_flags = 0;
 
-	if (unlikely(_dispatch_is_custom_pri_workloop(dq->do_targetq))) {
-		/* We're targetting a custom pri workloop, go straight to caller
-		 * draining it, we don't want to go wide for these high priority threads
-		 */
-		goto default_apply;
+	if (unlikely(_dispatch_is_custom_pri_workloop(dq))) {
+		uint64_t dq_state = os_atomic_load(&dq->dq_state, relaxed);
+
+		if (_dq_state_drain_locked_by_self(dq_state)) {
+			// We're already draining on the custom priority workloop, don't go
+			// wide, just call inline serially
+			return _dispatch_apply_serial(da);
+		} else {
+			return dispatch_async_and_wait_f(dq, da, _dispatch_apply_serial);
+		}
 	}
 
 	if (unlikely(dq->dq_width == 1 || thr_cnt <= 1)) {
@@ -378,7 +380,6 @@ dispatch_apply_f(size_t iterations, dispatch_queue_t _dq, void *ctxt,
 		}
 	}
 
-default_apply:;
 	dispatch_thread_frame_s dtf;
 	_dispatch_thread_frame_push(&dtf, dq);
 	_dispatch_apply_f(upcast(dq)._dgq, da, _dispatch_apply_invoke);

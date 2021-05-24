@@ -29,6 +29,8 @@
 #ifndef _SYS_PTHREAD_INTERNAL_H_
 #define _SYS_PTHREAD_INTERNAL_H_
 
+#include <TargetConditionals.h>
+
 #include <pthread/bsdthread_private.h>
 #include <pthread/priority_private.h>
 #include <pthread/workqueue_syscalls.h>
@@ -52,6 +54,12 @@ struct ksyn_waitq_element;
  * as a bitmask, to inform userspace of the supported feature set. Old releases of OS X return
  * from this call either zero or -1, allowing us to return a positive number for feature bits.
  */
+
+/* Note: This 'feature' is determined by an entitlement.
+ * XXX Re-order to the end of the list when practical.
+ */
+#define PTHREAD_FEATURE_JIT_ALLOWLIST	0x200		/* Enforce JIT callback allowlist */
+
 #define PTHREAD_FEATURE_DISPATCHFUNC	0x01		/* same as WQOPS_QUEUE_NEWSPISUPP, checks for dispatch function support */
 #define PTHREAD_FEATURE_FINEPRIO		0x02		/* are fine grained prioirities available */
 #define PTHREAD_FEATURE_BSDTHREADCTL	0x04		/* is the bsdthread_ctl syscall available */
@@ -93,6 +101,16 @@ struct _pthread_registration_data {
  */
 #define ECVCLEARED	0x100
 #define ECVPREPOST	0x200
+
+#if !defined(VARIANT_DYLD)
+#define VARIANT_DYLD 0
+#endif // !defined(VARIANT_DYLD)
+
+#if TARGET_OS_OSX && TARGET_CPU_ARM64 && !VARIANT_DYLD
+#define _PTHREAD_CONFIG_JIT_WRITE_PROTECT 1
+#else
+#define _PTHREAD_CONFIG_JIT_WRITE_PROTECT 0
+#endif
 
 #ifdef KERNEL
 

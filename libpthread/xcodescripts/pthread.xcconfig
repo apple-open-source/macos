@@ -100,13 +100,21 @@ ALIAS_LDFLAGS = -Wl,-alias_list,$(SRCROOT)/xcodescripts/pthread.aliases $(LEGACY
 // umbrella keeping an i386 slice. Instead, ld64 has changed so that the
 // i386 simulator_support slice of libpthread doesn't use lazy binding and so
 // doesn't need -ldyld.
-// So, to break the dependency cycle, macOS libpthread will not link libdyld.
-// All other platforms (including DriverKit on macOS) will continue to link
-// libdyld.
+// So, to break the dependency cycle, macOS i386 libpthread will not link
+// libdyld.  All other platforms (including DriverKit on macOS) will continue to
+// link libdyld.
 MACOS_NO_LIBDYLD_LDFLAGS = -ldyld
-MACOS_NO_LIBDYLD_LDFLAGS[sdk=macos*] =
+MACOS_NO_LIBDYLD_LDFLAGS[sdk=macos*][arch=i386] =
 
-DYLIB_LDFLAGS = -Wl,-umbrella,System -L$(SDK_INSTALL_ROOT)/usr/lib/system -lsystem_kernel -lsystem_platform $(MACOS_NO_LIBDYLD_LDFLAGS) // Don't add compiler_rt or libdyld
+MACOS_LIBMACHO_LDFLAGS =
+MACOS_LIBMACHO_LDFLAGS[sdk=macosx*] = -Wl,-upward-lmacho
+MACOS_LIBMACHO_LDFLAGS[sdk=macosx*][arch=i386] =
+MACOS_LIBMACHO_LDFLAGS[sdk=macosx*][arch=x86_64*] =
+
+// Don't add compiler_rt or libdyld
+DYLIB_LDFLAGS_COMMON = -Wl,-umbrella,System -L$(SDK_INSTALL_ROOT)/usr/lib/system -lsystem_kernel -lsystem_platform
+DYLIB_LDFLAGS = $(DYLIB_LDFLAGS_COMMON) $(MACOS_NO_LIBDYLD_LDFLAGS) $(MACOS_LIBMACHO_LDFLAGS)
+
 OTHER_LDFLAGS = $(ALIAS_LDFLAGS) $(DYLIB_LDFLAGS) $(DIRTY_LDFLAGS) $(CR_LDFLAGS) $(PLATFORM_LDFLAGS) $(SIMULATOR_LDFLAGS)
 
 SIMULATOR_LDFLAGS =

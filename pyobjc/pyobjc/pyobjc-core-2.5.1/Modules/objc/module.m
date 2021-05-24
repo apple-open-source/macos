@@ -1940,6 +1940,34 @@ static char* keywords[] = { "name", "type", "magic", NULL };
 	return v;
 }
 
+#if PyObjC_BUILD_RELEASE >= 1016
+static PyObject*
+mod_dyld_shared_cache_contains_path(PyObject* mod __attribute__((__unused__)), PyObject* object)
+{
+	if (@available(macOS 10.16, *)) {
+		if (!PyUnicode_Check(object)) {
+			PyErr_SetString(PyExc_TypeError, "Expecting a string");
+			return NULL;
+		}
+		PyObject* bytes = PyUnicode_AsEncodedString(object, NULL, NULL);
+		if (bytes == NULL) {
+			return NULL;
+		}
+
+		char *path = PyObjCUtil_Strdup(PyBytes_AsString(object));
+		Py_DECREF(bytes);
+		if (path == NULL) {
+			return NULL;
+		}
+		int result = _dyld_shared_cache_contains_path(path);
+		PyMem_Free(path);
+		return PyBool_FromLong(result);
+	} else {
+		PyErr_SetString(PyExc_NotImplementedError, "_dyld_shared_cache_contains_path not available");
+		return NULL;
+	}
+}
+#endif /* PyObjC_BUILD_RELEASE >= 1016 */
 
 static PyMethodDef mod_methods[] = {
 	{
@@ -2065,6 +2093,13 @@ static PyMethodDef mod_methods[] = {
 		METH_VARARGS|METH_KEYWORDS, PyObjC_removeAssociatedObjects_doc },
 
 #endif /* PyObjC_BUILD_RELEASE >= 1006 */
+
+#if PyObjC_BUILD_RELEASE >= 1016
+	{
+	 "_dyld_shared_cache_contains_path", (PyCFunction)mod_dyld_shared_cache_contains_path,
+		METH_O,"_dyld_shared_cache_contains_path(path)",
+	},
+#endif /* PyObjC_BUILD_RELEASE >= 1016 */
 
 	{ "_loadConstant", (PyCFunction)PyObjC_LoadConstant,
 		METH_VARARGS|METH_KEYWORDS, "(PRIVATE)" },
@@ -2227,6 +2262,16 @@ PyObjC_MODULE_INIT(_objc)
 		PyObjC_INITERROR();
 	}
 	/* use PyDict_SetItemString for the retain, non-heap types can't be dealloc'ed */
+
+#if PyObjC_BUILD_RELEASE >= 1016
+	if (@available(macOS 10.16, *)) {
+		/* pass */
+	} else {
+		if (PyDict_DelItemString(d, "_dyld_shared_cache_contains_path") < 0) {
+			PyErr_Clear();
+		}
+	}
+#endif /* PyObjC_BUILD_RELEASE >= 1016 */
 
 	if (PyDict_SetItemString(d, "objc_class", (PyObject*)&PyObjCClass_Type) < 0) {
 		PyObjC_INITERROR();

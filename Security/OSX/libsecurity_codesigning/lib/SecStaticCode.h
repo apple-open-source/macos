@@ -189,6 +189,7 @@ CF_ENUM(uint32_t) {
 	kSecCSSingleThreaded = 1 << 12,
 	// NOTE: These values have gaps for internal usage.
 	kSecCSAllowNetworkAccess CF_ENUM_AVAILABLE(11_3, 14_5) = 1 << 16,
+	kSecCSFastExecutableValidation CF_ENUM_AVAILABLE(11_3, 14_5) = 1 << 17,
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

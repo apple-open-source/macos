@@ -924,6 +924,7 @@
 		72FA386021AF9D5A006F4D73 /* HIDAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72FA385F21AF9D5A006F4D73 /* HIDAnalytics.framework */; };
 		7E4B843024241FEB007674AB /* TestIOHIDLibUserClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E4B842F24241FEB007674AB /* TestIOHIDLibUserClient.m */; };
 		7E534CFE245787730061B91F /* TestPhaseKeyboardEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */; };
+		7E5B348625E9B4DA00EF1CD2 /* TestUPSConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */; };
 		7E70831F242C4C4400DAA1F9 /* IOHIDEventDummyService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */; };
 		7E708320242C4C5300DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
 		7E708324242C4FBB00DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
@@ -3499,6 +3500,7 @@
 		74E71AE61540A25F00D5C0B3 /* Info-IOHIDFamily-Embedded-eOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOHIDFamily-Embedded-eOS.plist"; sourceTree = "<group>"; };
 		7E4B842F24241FEB007674AB /* TestIOHIDLibUserClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDLibUserClient.m; sourceTree = "<group>"; };
 		7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestPhaseKeyboardEvents.m; sourceTree = "<group>"; };
+		7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestUPSConstants.m; sourceTree = "<group>"; };
 		7E708312242C49B900DAA1F9 /* IOHIDEventDummyService.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDEventDummyService.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventDummyService.h; sourceTree = "<group>"; };
 		7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventDummyService.cpp; sourceTree = "<group>"; };
@@ -5663,6 +5665,7 @@
 				6C2890061FB26D4600245AE7 /* TestHIDElementAndValue.m */,
 				6C2890071FB26D4600245AE7 /* TestHIDManagerDQ.m */,
 				6C00782A1FCE327700B9DAB9 /* TestUPSClass.m */,
+				7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */,
 				6C93BF351FD5F5BF0026F8F5 /* TestQueueClass.m */,
 				725078C7200FDFF000D33BAA /* TestObsoleteDevice.m */,
 				725078C6200FDFF000D33BAA /* TestHIDFramework.m */,
@@ -9259,6 +9262,7 @@
 				D808E2982148A6F1001CCFC4 /* TestHIDDeviceSeize.m in Sources */,
 				725078C8200FDFF000D33BAA /* TestHIDFramework.m in Sources */,
 				6C00782B1FCE327700B9DAB9 /* TestUPSClass.m in Sources */,
+				7E5B348625E9B4DA00EF1CD2 /* TestUPSConstants.m in Sources */,
 				D8F1FF6B212E26AA00F5FA10 /* TestIOHIDEventDriver_HIDHeadsetRemoteTelephonyAndMediaPlayback.m in Sources */,
 				721DE34A2149C53800E82E6B /* TestIOHIDPointerScrollFilter.m in Sources */,
 				D862CB761E245616001AE29F /* TestFastPath.m in Sources */,

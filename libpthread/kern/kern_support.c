@@ -496,11 +496,18 @@ _bsdthread_terminate(__unused struct proc *p,
 			kret = mach_vm_behavior_set(user_map, freeaddr, freesize, VM_BEHAVIOR_REUSABLE);
 #if MACH_ASSERT
 			if (kret != KERN_SUCCESS && kret != KERN_INVALID_ADDRESS) {
-				os_log_error(OS_LOG_DEFAULT, "unable to make thread stack reusable (kr: %d)", kret);
+				os_log_error(OS_LOG_DEFAULT, "unable to make main thread stack reusable (kr: %d)", kret);
 			}
 #endif
-			kret = kret ? kret : mach_vm_protect(user_map, freeaddr, freesize, FALSE, VM_PROT_NONE);
-			assert(kret == KERN_SUCCESS || kret == KERN_INVALID_ADDRESS);
+
+			if (kret == KERN_SUCCESS) {
+				kret = mach_vm_protect(user_map, freeaddr, freesize, FALSE, VM_PROT_NONE);
+#if MACH_ASSERT
+				if (kret != KERN_SUCCESS && kret != KERN_INVALID_ADDRESS) {
+					os_log_error(OS_LOG_DEFAULT, "unable to make main thread stack PROT_NONE (kr: %d)", kret);
+				}
+#endif
+			}
 		} else {
 			kret = mach_vm_deallocate(pthread_kern->current_map(), freeaddr, freesize);
 			if (kret != KERN_SUCCESS) {
@@ -664,6 +671,13 @@ _bsdthread_register(struct proc *p,
 
 	/* return the supported feature set as the return value. */
 	*retval = PTHREAD_FEATURE_SUPPORTED;
+
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	if (pthread_kern->proc_get_pthread_jit_allowlist &&
+			pthread_kern->proc_get_pthread_jit_allowlist(p)) {
+		*retval |= PTHREAD_FEATURE_JIT_ALLOWLIST;
+	}
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 
 	return(0);
 }

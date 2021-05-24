@@ -272,7 +272,7 @@ void AppleUserHIDEventService::dispatchScrollWheelEventWithFixed(AbsoluteTime   
                                                                 IOOptionBits                options)
 {
     require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
-    super::dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1, deltaAxis2, deltaAxis3);
+    super::dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1, deltaAxis2, deltaAxis3, options);
 exit:
     return;
 }

@@ -302,13 +302,17 @@ static IOReturn _commit(void *iunknown,
         for (uint32_t i = 0; i < count; i++) {
             HIDLibElement *element = [_elements objectAtIndex:i];
             size_t elementSize = 0;
+            uint64_t regID;
+            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
+
             ret = [_device setValue:element.elementRef
                               value:element.valueRef
                             timeout:0
                            callback:nil
                             context:nil
                             options:kHIDSetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:setValue ...:%x", ret));
+
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#x):setValue ...:%#x", regID, ret));
             
             elementSize = sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(element.valueRef);
             dataSize += elementSize;
@@ -325,7 +329,6 @@ static IOReturn _commit(void *iunknown,
             dataOffset += elementVal->length + sizeof(IOHIDElementValueHeader);
         }
 
-
         ret = IOConnectCallMethod(_device.connect,
                                   kIOHIDLibUserClientPostElementValues,
                                   NULL,
@@ -339,7 +342,9 @@ static IOReturn _commit(void *iunknown,
         free(elementData);
 
         if (ret) {
-            HIDLogError("kIOHIDLibUserClientPostElementValues:%x",ret);
+            uint64_t regID;
+            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
+            HIDLogError("kIOHIDLibUserClientPostElementValues(%#llx):%#x", regID, ret);
         }
     } else {
         size_t cookiesSize = count * sizeof(uint32_t);
@@ -356,6 +361,8 @@ static IOReturn _commit(void *iunknown,
             size_t elementValueSize = sizeof(IOHIDElementValue) + _IOHIDElementGetLength(element.elementRef);
             IOHIDValueRef valueRef = element.valueRef;
             outputSize += elementValueSize;
+            uint64_t regID;
+            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
 
             ret = [_device getValue:element.elementRef
                               value:&valueRef
@@ -363,7 +370,7 @@ static IOReturn _commit(void *iunknown,
                            callback:nil
                             context:nil
                             options:kHIDGetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:setValue ...:%x", ret));
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#x):setValue ...:%#x", regID, ret));
         }
         cookies = malloc(cookiesSize);
         require_action(cookies, exit, ret = kIOReturnNoMemory);
@@ -390,7 +397,9 @@ static IOReturn _commit(void *iunknown,
                                   outputValues,
                                   &outputSize);
         if (ret != kIOReturnSuccess) {
-            HIDLogError("kIOHIDLibUserClientUpdateElementValues:%x", ret);
+            uint64_t regID;
+            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
+            HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret);
             free(cookies);
             free(outputValues);
             goto exit;

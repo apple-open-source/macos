@@ -16,15 +16,26 @@
 			<string>added kqueue</string>
 			<string>added rb tree for responses</string>
 			<string>added SecureTransport</string>
-			<string>backport CVE-2020-12243 (ITS#9202)</string>
-			<string>backport CVE-2019-13565 (ITS#9052)</string>
-			<string>backport CVE-2019-13057 (ITS#9038)</string>
-			<string>backport CVE-2015-1545 (ITS#8027)</string>
-			<string>backport CVE-2013-4449 (ITS#7723)</string>
-			<string>backport CVE-2012-2668 (ITS#7285)</string>
 			<string>backport CVE-2012-1164 (ITS#7143)</string>
+			<string>backport CVE-2012-2668 (ITS#7285)</string>
+			<string>backport CVE-2013-4449 (ITS#7723)</string>
+			<string>backport CVE-2015-1545 (ITS#8027)</string>
+			<string>backport CVE-2019-13057 (ITS#9038)</string>
+			<string>backport CVE-2019-13565 (ITS#9052)</string>
+			<string>backport CVE-2020-12243 (ITS#9202)</string>
 			<string>backport CVE-2020-25710 (ITS#9384)</string>
 			<string>backport CVE-2020-25709 (ITS#9383)</string>
+			<string>backport CVE-2020-36221 (ITS#9404 & 9424)</string>
+			<string>backport CVE-2020-36222 (ITS#9406 & 9407)</string>
+			<string>backport CVE-2020-36223 (ITS#9408)</string>
+			<string>backport CVE-2020-36224 (ITS#9409)</string>
+			<string>backport CVE-2020-36225 (ITS#9412)</string>
+			<string>backport CVE-2020-36226 (ITS#9413)</string>
+			<string>backport CVE-2020-36227 (ITS#9428)</string>
+			<string>backport CVE-2020-36228 (ITS#9427)</string>
+			<string>backport CVE-2020-36229 (ITS#9425)</string>
+			<string>backport CVE-2020-36230 (ITS#9423)</string>
+			<string>backport CVE-2021-27212 (ITS#9454)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>

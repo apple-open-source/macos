@@ -73,6 +73,12 @@
 #include <os/thread_self_restrict.h>
 #include <os/tsd.h>
 
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+#include <mach-o/dyld_priv.h>
+#include <mach-o/loader.h>
+#include <mach-o/getsect.h>
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+
 // Default stack size is 512KB; independent of the main thread's stack size.
 #define DEFAULT_STACK_SIZE (size_t)(512 * 1024)
 
@@ -1154,23 +1160,207 @@ pthread_setname_np(const char *name)
 
 #if TARGET_OS_OSX
 
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+
+#if !__LP64__
+#error _PTHREAD_CONFIG_JIT_WRITE_PROTECT should imply __LP64__
+#endif // !__LP64__
+
+static union _pthread_jit_config_u {
+	struct {
+		bool allowlist_enabled;
+		bool allowlist_frozen;
+		uint32_t allowlist_count;
+		pthread_jit_write_callback_t allowlist[];
+	};
+	uint8_t page[PAGE_MAX_SIZE];
+} _pthread_jit_config OS_ALIGNED(PAGE_MAX_SIZE);
+
+_Static_assert(sizeof(_pthread_jit_config) == PAGE_MAX_SIZE,
+		"_pthread_jit_config size must be PAGE_MAX_SIZE");
+
+#define _PTHREAD_JIT_ALLOWLIST_CAPACITY \
+		((PAGE_MAX_SIZE - offsetof(union _pthread_jit_config_u, allowlist)) / \
+		sizeof(pthread_jit_write_callback_t))
+
+static void
+_pthread_jit_write_protect_global_init(void)
+{
+	bool allowlist_feature_enabled =
+			(__pthread_supported_features & PTHREAD_FEATURE_JIT_ALLOWLIST);
+	if (os_thread_self_restrict_rwx_is_supported() &&
+			allowlist_feature_enabled) {
+		union _pthread_jit_config_u *config = &_pthread_jit_config;
+
+		uintptr_t alignment = ((uintptr_t)config) % PAGE_MAX_SIZE;
+		if (alignment != 0) {
+			PTHREAD_INTERNAL_CRASH(alignment, "jit config invalid alignment");
+		}
+
+		// Remap the config page as permanent.  Note that this discards any
+		// previous content, so all changes to the config must come _after_ this
+		// point.
+		//
+		// TODO: find a suitable tag for this memory (rdar://75202626)
+		mach_vm_address_t allocaddr = (mach_vm_address_t)config;
+		kern_return_t kr = mach_vm_map(mach_task_self(), &allocaddr,
+				sizeof(*config), PAGE_MAX_SIZE - 1,
+				VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE | VM_FLAGS_PERMANENT,
+				MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
+				VM_INHERIT_DEFAULT);
+		if (kr != KERN_SUCCESS || allocaddr != (mach_vm_address_t)config) {
+			PTHREAD_INTERNAL_CRASH(kr, "jit config vm_map PERMANENT failed");
+		}
+
+		config->allowlist_enabled = true;
+	}
+}
+
+static void
+_pthread_jit_write_protect_bulk_image_load_callback(unsigned int image_count,
+		const struct mach_header *mhs[], __unused const char *paths[])
+{
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+
+	// Ignore dlopen()s
+	if (config->allowlist_frozen) {
+		return;
+	}
+
+	for (unsigned int i = 0; i < image_count; i++) {
+		const struct mach_header_64 *mh = (const struct mach_header_64 *)mhs[i];
+
+		if (mh->flags & MH_DYLIB_IN_CACHE) {
+			// Internal code should use os_thread_self_restrict_rwx*()
+			continue;
+		}
+
+		unsigned long size = 0;
+		uint8_t *data = getsectiondata(mh, "__DATA_CONST", "__pth_jit_func",
+				&size);
+		if (!data || !size ||
+				(size % sizeof(pthread_jit_write_callback_t) != 0)) {
+			continue;
+		}
+
+		const pthread_jit_write_callback_t *image_allowlist =
+				(const pthread_jit_write_callback_t *)data;
+		size_t image_allowlist_count = size / sizeof(image_allowlist[0]);
+
+		// Copy allowed function pointers from the section up to the
+		// NULL-terminator
+		for (size_t j = 0; j < image_allowlist_count && image_allowlist[j]; j++) {
+			if (config->allowlist_count >= _PTHREAD_JIT_ALLOWLIST_CAPACITY) {
+				PTHREAD_CLIENT_CRASH(config->allowlist_count,
+						"Too many pthread jit write callbacks");
+			}
+
+			config->allowlist[config->allowlist_count] = image_allowlist[j];
+			config->allowlist_count++;
+		}
+	}
+}
+
+static void
+_pthread_jit_write_protect_late_init(void)
+{
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+	if (config->allowlist_enabled) {
+		// Iterate all initial images for allowed functions
+		_dyld_register_for_bulk_image_loads(
+				_pthread_jit_write_protect_bulk_image_load_callback);
+
+		// Since there's no way to un-register the image load callback, just
+		// remember that we're no longer interested in new images
+		config->allowlist_frozen = true;
+
+		// By protecting config read-only with set_maximum, prevent an attack
+		// from later altering its protection back to writeable.
+		kern_return_t kr = mach_vm_protect(mach_task_self(),
+				(mach_vm_address_t)config, sizeof(*config),
+				/* set_maximum */ true, VM_PROT_READ);
+		if (kr != KERN_SUCCESS) {
+			PTHREAD_INTERNAL_CRASH(kr, "jit config vm_protect() failed");
+		}
+	}
+}
+
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+
+
 void
 pthread_jit_write_protect_np(int enable)
 {
-        if (!os_thread_self_restrict_rwx_is_supported()) {
-                return;
-        }
+	if (!os_thread_self_restrict_rwx_is_supported()) {
+		return;
+	}
 
-        if (enable) {
-                os_thread_self_restrict_rwx_to_rx();
-        } else {
-                os_thread_self_restrict_rwx_to_rw();
-        }
+	if (enable) {
+		os_thread_self_restrict_rwx_to_rx();
+	} else {
+		os_thread_self_restrict_rwx_to_rw();
+	}
+
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	// Validate _after_ toggling.
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+	if (config->allowlist_enabled) {
+		if (!enable) {
+			os_thread_self_restrict_rwx_to_rx();
+		}
+
+		PTHREAD_CLIENT_CRASH(0,
+				"pthread_jit_write_protect_np() disallowed by allowlist");
+	}
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 }
 
-int pthread_jit_write_protect_supported_np()
+int
+pthread_jit_write_protect_supported_np()
 {
-       return os_thread_self_restrict_rwx_is_supported();
+	return os_thread_self_restrict_rwx_is_supported();
+}
+
+int
+pthread_jit_write_with_callback_np(pthread_jit_write_callback_t callback,
+		void *ctx)
+{
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	if (!os_thread_self_restrict_rwx_is_supported()) {
+		return callback(ctx);
+	}
+
+	// The toggle to RW must come before validation.  If we validate before
+	// toggling, an attack might try to jump into the middle of the body after
+	// the validation.
+	os_thread_self_restrict_rwx_to_rw();
+
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+	if (config->allowlist_enabled) {
+		uint32_t i;
+		for (i = 0; i < config->allowlist_count; i++) {
+			if (config->allowlist[i] == callback) {
+				break;
+			}
+		}
+
+		if (i == config->allowlist_count) {
+			// Just to be safe, toggle back to RX before bailing out
+			os_thread_self_restrict_rwx_to_rx();
+
+			PTHREAD_CLIENT_CRASH((uintptr_t)callback,
+					"pthread_jit_write_with_callback_np() callback not in allowlist");
+		}
+	}
+
+	int rv = callback(ctx);
+
+	os_thread_self_restrict_rwx_to_rx();
+
+	return rv;
+#else // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	return callback(ctx);
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 }
 
 #endif // TARGET_OS_OSX
@@ -1842,6 +2032,9 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 	// Have pthread_key and pthread_mutex do their init envvar checks.
 	_pthread_key_global_init(envp);
 	_pthread_mutex_global_init(envp, &registration_data);
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	_pthread_jit_write_protect_global_init();
+#endif
 
 #if PTHREAD_DEBUG_LOG
 	_SIMPLE_STRING path = _simple_salloc();
@@ -1854,6 +2047,18 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 
 	return 0;
 }
+
+// NOTE: all releases aligned with macOS 11.4 export __pthread_late_init(), but
+// it is only currently called on TARGET_OS_OSX.
+void
+__pthread_late_init(const char *envp[], const char *apple[],
+		const struct ProgramVars *vars)
+{
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	_pthread_jit_write_protect_late_init();
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+}
+
 #endif // !VARIANT_DYLD
 
 void

@@ -1297,9 +1297,12 @@ krb5_cc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 {
     krb5_error_code ret;
 
-    if (strcmp(from->ops->prefix, to->ops->prefix) != 0) {
+    if ((strcmp(from->ops->prefix, to->ops->prefix) != 0
+	 && *to->ops->can_move_from == NULL)
+	|| (*to->ops->can_move_from != NULL
+	    && (*to->ops->can_move_from)(context, from) == 0) ) {
 	krb5_set_error_message(context, KRB5_CC_NOSUPP,
-			       N_("Moving credentials between diffrent "
+			       N_("Moving credentials between different "
 				  "types not yet supported (from %s to %s)", ""),
 			       from->ops->prefix, to->ops->prefix);
 	return KRB5_CC_NOSUPP;

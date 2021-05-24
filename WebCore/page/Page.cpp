@@ -53,6 +53,7 @@
 #include "EmptyClients.h"
 #include "Event.h"
 #include "EventHandler.h"
+#include "EventLoop.h"
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
 #include "FocusController.h"
@@ -3286,10 +3287,15 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
 
 void Page::didFinishLoadingImageForElement(HTMLImageElement& element)
 {
-    auto protectedElement = makeRef(element);
-    if (auto frame = makeRefPtr(element.document().frame()))
+    element.document().eventLoop().queueTask(TaskSource::Networking, [element = makeRef(element)]() {
+        auto frame = makeRefPtr(element->document().frame());
+        if (!frame)
+            return;
+
         frame->editor().revealSelectionIfNeededAfterLoadingImageForElement(element);
-    chrome().client().didFinishLoadingImageForElement(element);
+        if (auto* page = frame->page(); element->document().frame() == frame)
+            page->chrome().client().didFinishLoadingImageForElement(element);
+    });
 }
 
 #if ENABLE(TEXT_AUTOSIZING)

@@ -283,6 +283,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_relative.elements);
     OSSafeReleaseNULL(_multiAxis.elements);
     OSSafeReleaseNULL(_digitizer.transducers);
+    OSSafeReleaseNULL(_digitizer.buttons);
     OSSafeReleaseNULL(_digitizer.touchCancelElement);
     OSSafeReleaseNULL(_digitizer.deviceModeElement);
     OSSafeReleaseNULL(_digitizer.relativeScanTime);
@@ -315,6 +316,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_proximity.elements);
     OSSafeReleaseNULL(_phase.phaseElements);
     OSSafeReleaseNULL(_phase.longPress);
+    
 
     if (_commandGate) {
         if ( _workLoop ) {
@@ -1749,10 +1751,11 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
 {
     IOHIDElement *          parent          = NULL;
     bool                    result          = false;
-
+    bool application = false;
+    
     parent = element;
     while ( (parent = parent->getParentElement()) ) {
-        bool application = false;
+        application = false;
         switch ( parent->getCollectionType() ) {
             case kIOHIDElementCollectionTypeLogical:
             case kIOHIDElementCollectionTypePhysical:
@@ -1787,6 +1790,21 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
     
     require_action(parent, exit, result=false);
   
+    // Treat only top level button usage as global
+    if (parent->getUsagePage() == kHIDPage_Digitizer && element->getUsagePage() == kHIDPage_Button && application) {
+        
+        if ( !_digitizer.buttons ) {
+            _digitizer.buttons = OSArray::withCapacity(4);
+            require(_digitizer.buttons, exit);
+        }
+
+        _digitizer.buttons->setObject(element);
+        
+        // we can return here as it will not be added to transducer index0
+        // let's not do that as it might break some application checking child
+        // element of transducerIndex 0
+    }
+    
     if (element->getUsagePage() == kHIDPage_AppleVendorMultitouch && element->getUsage() == kHIDUsage_AppleVendorMultitouch_TouchCancel) {
         OSSafeReleaseNULL(_digitizer.touchCancelElement);
         element->retain();
@@ -1822,6 +1840,7 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
             setProperty(kIOHIDReportIntervalKey, reportInterval, 32);
         }
     }
+    
     
     switch ( parent->getUsage() ) {
         case kHIDUsage_Dig_DeviceSettings:
@@ -3274,6 +3293,44 @@ exit:
 }
 
 //====================================================================================================
+// IOHIDEventDriver::getButtonStateFromElements
+//====================================================================================================
+UInt32 IOHIDEventDriver::getButtonStateFromElements(OSArray * elements) {
+    UInt32 buttonState = 0;
+    
+    UInt32                  elementIndex    = 0;
+    UInt32                  elementCount    = 0;
+    
+    require_quiet(elements, exit);
+  
+    for (elementIndex=0, elementCount=elements->getCount(); elementIndex<elementCount; elementIndex++) {
+        IOHIDElement *  element;
+        UInt32          usagePage;
+        UInt32          usage;
+        UInt32          value;
+        
+        element = OSDynamicCast(IOHIDElement, elements->getObject(elementIndex));
+        if ( !element ) {
+            continue;
+        }
+    
+        usagePage   = element->getUsagePage();
+        usage       = element->getUsage();
+        value       = element->getValue();
+        
+        switch ( usagePage ) {
+            case kHIDPage_Button: {
+                setButtonState(&buttonState, (usage - 1), value);
+                break;
+            }
+        }
+    }
+exit:
+    return buttonState;
+    
+}
+
+//====================================================================================================
 // IOHIDEventDriver::handleDigitizerCollectionReport
 //====================================================================================================
 void IOHIDEventDriver::handleDigitizerCollectionReport(AbsoluteTime timeStamp, UInt32 reportID) {
@@ -3306,7 +3363,9 @@ void IOHIDEventDriver::handleDigitizerCollectionReport(AbsoluteTime timeStamp, U
     }
 
     require_quiet(_digitizer.transducers, exit);
-  
+    
+    buttons |= getButtonStateFromElements(_digitizer.buttons);
+    
     for (index=0, count = _digitizer.transducers->getCount(); index<count; index++) {
         DigitizerTransducer * transducer = NULL;
         
@@ -3595,10 +3654,11 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                         break;
                 }
                 break;
-            case kHIDPage_Button:
+            case kHIDPage_Button: {
                 setButtonState(&buttonState, (usage - 1), value);
                 handled    |= (elementIsCurrent | (buttonState != 0));
                 break;
+            }
             case kHIDPage_Digitizer:
                 switch ( usage ) {
                     case kHIDUsage_Dig_TransducerIndex:
@@ -3686,15 +3746,15 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     if (transducerType == kDigitizerTransducerTypeFinger || transducerType == kDigitizerTransducerTypeHand) {
        transducerType = isFinger ? kDigitizerTransducerTypeFinger : kDigitizerTransducerTypeHand;
     }
-    
-    event = IOHIDEvent::digitizerEvent(timeStamp, transducerID, transducerType, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, eventOptions);
-    require(event, exit);
-
+        
     // tip pressure shouldn't decide touch,
     // it can only change button state
     if ( tipPressure ) {
         setButtonState ( &buttonState, 0, tipPressure);
     }
+    
+    event = IOHIDEvent::digitizerEvent(timeStamp, transducerID, transducerType, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, eventOptions);
+    require(event, exit);
 
     event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
 

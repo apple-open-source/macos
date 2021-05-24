@@ -99,15 +99,11 @@ kcm_ccache_new_client(krb5_context context,
     }
 
     if (ret == KRB5_FCC_NOFILE) {
-	ret = kcm_ccache_new(context, name, &ccache);
+	ret = kcm_ccache_new_internal(context, name, client->uid, client->session, &ccache);
 	if (ret) {
 	    kcm_log(1, "Failed to initialize cache %s", name);
 	    return ret;
 	}
-
-	/* bind to current client */
-	ccache->uid = client->uid;
-	ccache->session = client->session;
 
 	/* 
 	 * add notification when the session goes away, so we can

@@ -140,6 +140,17 @@
  */
 #define kRecoveryBootModeSFRUpdate "update-sfr"
 
+/* Forces entry into the RecoveryOS to require a passcode to unlock device
+ Set by: MDMClient
+ Cleared by: recoveryosd and/or InstallDVDSpringboard
+ 
+ If set by an MDM administrator or another client, the system will enter into
+ the RecoveryOS on boot. An app will be launched asking the user for the passcode.
+ If the passcode matches what is expected then this is cleared.
+ 
+ */
+#define kRecoveryBootModeSystemPasscodeLocked "system-passcode-locked"
+
 /* The kernel */
 #define kDefaultKernelPath  "/System/Library/Kernels/kernel"
 //#define kDefaultKernel      "/mach_kernel"

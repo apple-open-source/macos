@@ -2360,8 +2360,6 @@
 		D458C512214E20850043D982 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D458C511214E20840043D982 /* XCTest.framework */; };
 		D458C515214E286C0043D982 /* PolicyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D458C513214E27620043D982 /* PolicyTests.m */; };
 		D458C516214E286D0043D982 /* PolicyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D458C513214E27620043D982 /* PolicyTests.m */; };
-		D458C517214E2C690043D982 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */; };
-		D458C51A214E2CC80043D982 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */; };
 		D458C51C214E2DEB0043D982 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D458C4C5214E1A400043D982 /* Assets.xcassets */; };
 		D458C51F214E2E0C0043D982 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D458C51E214E2E0C0043D982 /* Main.storyboard */; };
 		D458C520214E33260043D982 /* ECTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4AC5766214E195300A32C01 /* ECTests.m */; };
@@ -2544,6 +2542,14 @@
 		D4C6C5CF1FB3B44D007EA57E /* libarchive.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4C6C5CE1FB3B44C007EA57E /* libarchive.2.dylib */; };
 		D4C6C5D01FB3B45E007EA57E /* libarchive.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4C6C5CE1FB3B44C007EA57E /* libarchive.2.dylib */; };
 		D4C7CD661E71E92D00139817 /* MobileAsset.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7273402816CAFB3C0096622A /* MobileAsset.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		D4C88D88262E5DB20006FFB1 /* si-27-cms-parse.m in Sources */ = {isa = PBXBuildFile; fileRef = D4C88D87262E5DB20006FFB1 /* si-27-cms-parse.m */; };
+		D4C88D8B262E66420006FFB1 /* si-27-cms-parse in Resources */ = {isa = PBXBuildFile; fileRef = D4C88D8A262E660A0006FFB1 /* si-27-cms-parse */; };
+		D4C88D8C262E666B0006FFB1 /* si-27-cms-parse in Resources */ = {isa = PBXBuildFile; fileRef = D4C88D8A262E660A0006FFB1 /* si-27-cms-parse */; };
+		D4C88D8D262E667C0006FFB1 /* si-27-cms-parse in Resources */ = {isa = PBXBuildFile; fileRef = D4C88D8A262E660A0006FFB1 /* si-27-cms-parse */; };
+		D4C88D8E262E67D90006FFB1 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D458C51B214E2CFF0043D982 /* si-20-sectrust-policies-data */; };
+		D4C88D8F262E67DF0006FFB1 /* si-87-sectrust-name-constraints in Resources */ = {isa = PBXBuildFile; fileRef = D4056A1E22712D750026E24E /* si-87-sectrust-name-constraints */; };
+		D4C88D90262E67F30006FFB1 /* si-20-sectrust-policies-data in Resources */ = {isa = PBXBuildFile; fileRef = D458C51B214E2CFF0043D982 /* si-20-sectrust-policies-data */; };
+		D4C88D91262E67F80006FFB1 /* si-87-sectrust-name-constraints in Resources */ = {isa = PBXBuildFile; fileRef = D4056A1E22712D750026E24E /* si-87-sectrust-name-constraints */; };
 		D4D1CBB425AD0AAF0068595B /* CertificateServerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4D1CBB325AD0AAF0068595B /* CertificateServerTests.m */; };
 		D4D1CBB525AD0AAF0068595B /* CertificateServerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4D1CBB325AD0AAF0068595B /* CertificateServerTests.m */; };
 		D4D1CF3125AD37260068595B /* TrustServerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4D1CF3025AD37260068595B /* TrustServerTests.m */; };
@@ -2591,8 +2597,6 @@
 		D4FD4221217D7B2E002B7EE2 /* PathScoringTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4FD421F217D7B27002B7EE2 /* PathScoringTests.m */; };
 		D4FD4224217D7BE4002B7EE2 /* libarchive.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D4FD4223217D7BE3002B7EE2 /* libarchive.2.tbd */; };
 		D4FD4225217D7BEE002B7EE2 /* libarchive.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D4FD4223217D7BE3002B7EE2 /* libarchive.2.tbd */; };
-		D4FD4226217D7C41002B7EE2 /* si-87-sectrust-name-constraints in Resources */ = {isa = PBXBuildFile; fileRef = D4C6C5C71FB2AD3F007EA57E /* si-87-sectrust-name-constraints */; };
-		D4FD4227217D7C4F002B7EE2 /* si-87-sectrust-name-constraints in Resources */ = {isa = PBXBuildFile; fileRef = D4C6C5C71FB2AD3F007EA57E /* si-87-sectrust-name-constraints */; };
 		DA20716222E9367500E209E4 /* NSError+UsefulConstructors.m in Sources */ = {isa = PBXBuildFile; fileRef = DCAE1DD62073FCDE00B4F687 /* NSError+UsefulConstructors.m */; };
 		DA2C402E2189302F005F1CC3 /* mach_notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = DA2C402D2189302E005F1CC3 /* mach_notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		DA2F591823A32BC100C30285 /* SoftLinking.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA2F591523A32BB400C30285 /* SoftLinking.framework */; };
@@ -5921,31 +5925,6 @@
 		EB0E1B912358FAC6002B6037 /* SOSAccountConfiguration.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB0E1AC72352A81E002B6037 /* SOSAccountConfiguration.proto */; };
 		EB0E1B942358FAF3002B6037 /* SOSAccountConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0E1B932358FADE002B6037 /* SOSAccountConfiguration.m */; };
 		EB1055791E14DF570003C309 /* SecCertificateFuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = EB10556B1E14DC0F0003C309 /* SecCertificateFuzzer.c */; };
-		EB1055831E14E1F90003C309 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7947431C146214E500D638A3 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt */; };
-		EB1055841E14E1F90003C309 /* Invalid-www.cybersecurity.my.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 794743191462137C00D638A3 /* Invalid-www.cybersecurity.my.crt */; };
-		EB1055851E14E1F90003C309 /* Digisign-Server-ID-Enrich-Entrust-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 79679E251462028800CF997F /* Digisign-Server-ID-Enrich-Entrust-Cert.crt */; };
-		EB1055861E14E1F90003C309 /* Invalid-webmail.jaring.my.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 79679E261462028800CF997F /* Invalid-webmail.jaring.my.crt */; };
-		EB1055871E14E2060003C309 /* DigiNotar_Root_CA_G2-RootCertificate.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECF21416E20400947741 /* DigiNotar_Root_CA_G2-RootCertificate.crt */; };
-		EB1055881E14E2060003C309 /* Invalid-CertiID_Enterprise_Certificate_Authority.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECEA1416DB2200947741 /* Invalid-CertiID_Enterprise_Certificate_Authority.crt */; };
-		EB1055891E14E2060003C309 /* Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECEB1416DB2200947741 /* Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt */; };
-		EB10558A1E14E2060003C309 /* Invalid-diginotarpkioverheidcaoverheid.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECEC1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheid.crt */; };
-		EB10558B1E14E2060003C309 /* Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECED1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt */; };
-		EB10558C1E14E2060003C309 /* Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECEE1416DB2200947741 /* Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt */; };
-		EB10558E1E14E2060003C309 /* staatdernederlandenorganisatieca-g2-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECF01416DB2200947741 /* staatdernederlandenorganisatieca-g2-Cert.crt */; };
-		EB10558F1E14E2060003C309 /* staatdernederlandenoverheidca-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C3CECF11416DB2200947741 /* staatdernederlandenoverheidca-Cert.crt */; };
-		EB1055901E14E2060003C309 /* Invalid-webmail.portofamsterdam.nl.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C8B91C51416EB6A00A254E2 /* Invalid-webmail.portofamsterdam.nl.crt */; };
-		EB1055921E14E2060003C309 /* DigiNotarCA2007RootCertificate.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50ACFC1410671D00EE92DE /* DigiNotarCA2007RootCertificate.crt */; };
-		EB1055931E14E2060003C309 /* Invalid-asterisk.google.com.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50ACFD1410671D00EE92DE /* Invalid-asterisk.google.com.crt */; };
-		EB1055941E14E2060003C309 /* Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50ACFE1410671D00EE92DE /* Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt */; };
-		EB1055951E14E2060003C309 /* Invalid-webmail.terneuzen.nl-diginotar-services.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50ACFF1410671D00EE92DE /* Invalid-webmail.terneuzen.nl-diginotar-services.crt */; };
-		EB1055961E14E2060003C309 /* Invalid-www.maestre.com-diginotal.extended.validation.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD001410671D00EE92DE /* Invalid-www.maestre.com-diginotal.extended.validation.crt */; };
-		EB1055971E14E2060003C309 /* Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD011410671D00EE92DE /* Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt */; };
-		EB1055981E14E2060003C309 /* diginotar-public-ca-2025-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD021410671D00EE92DE /* diginotar-public-ca-2025-Cert.crt */; };
-		EB1055991E14E2060003C309 /* diginotar-services-1024-entrust-secure-server-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD031410671D00EE92DE /* diginotar-services-1024-entrust-secure-server-Cert.crt */; };
-		EB10559A1E14E2060003C309 /* diginotar-services-diginotar-root-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD041410671D00EE92DE /* diginotar-services-diginotar-root-Cert.crt */; };
-		EB10559B1E14E2060003C309 /* diginotar.cyberca-gte.global.root-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD051410671D00EE92DE /* diginotar.cyberca-gte.global.root-Cert.crt */; };
-		EB10559C1E14E2060003C309 /* diginotar.extended.validation-diginotar.root.ca-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD061410671D00EE92DE /* diginotar.extended.validation-diginotar.root.ca-Cert.crt */; };
-		EB10559D1E14E2060003C309 /* diginotar.root.ca-entrust-secure-server-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C50AD071410671D00EE92DE /* diginotar.root.ca-entrust-secure-server-Cert.crt */; };
 		EB10559E1E14E39D0003C309 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E43C48C1B00D07000E5ECB2 /* CoreFoundation.framework */; };
 		EB10559F1E14E3A80003C309 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D82BD316A5EADA0078DFE5 /* Security.framework */; };
 		EB108F261E6CE4D2003B0456 /* KCPairingTest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB413B7E1E663A8300592085 /* KCPairingTest.m */; };
@@ -11113,31 +11092,6 @@
 			dstPath = "$(SECURITY_FUZZER_BASE_DIR)/data/$(TARGET_NAME)";
 			dstSubfolderSpec = 0;
 			files = (
-				EB1055831E14E1F90003C309 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt in CopyFiles */,
-				EB1055841E14E1F90003C309 /* Invalid-www.cybersecurity.my.crt in CopyFiles */,
-				EB1055851E14E1F90003C309 /* Digisign-Server-ID-Enrich-Entrust-Cert.crt in CopyFiles */,
-				EB1055861E14E1F90003C309 /* Invalid-webmail.jaring.my.crt in CopyFiles */,
-				EB1055871E14E2060003C309 /* DigiNotar_Root_CA_G2-RootCertificate.crt in CopyFiles */,
-				EB1055881E14E2060003C309 /* Invalid-CertiID_Enterprise_Certificate_Authority.crt in CopyFiles */,
-				EB1055891E14E2060003C309 /* Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt in CopyFiles */,
-				EB10558A1E14E2060003C309 /* Invalid-diginotarpkioverheidcaoverheid.crt in CopyFiles */,
-				EB10558B1E14E2060003C309 /* Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt in CopyFiles */,
-				EB10558C1E14E2060003C309 /* Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt in CopyFiles */,
-				EB10558E1E14E2060003C309 /* staatdernederlandenorganisatieca-g2-Cert.crt in CopyFiles */,
-				EB10558F1E14E2060003C309 /* staatdernederlandenoverheidca-Cert.crt in CopyFiles */,
-				EB1055901E14E2060003C309 /* Invalid-webmail.portofamsterdam.nl.crt in CopyFiles */,
-				EB1055921E14E2060003C309 /* DigiNotarCA2007RootCertificate.crt in CopyFiles */,
-				EB1055931E14E2060003C309 /* Invalid-asterisk.google.com.crt in CopyFiles */,
-				EB1055941E14E2060003C309 /* Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt in CopyFiles */,
-				EB1055951E14E2060003C309 /* Invalid-webmail.terneuzen.nl-diginotar-services.crt in CopyFiles */,
-				EB1055961E14E2060003C309 /* Invalid-www.maestre.com-diginotal.extended.validation.crt in CopyFiles */,
-				EB1055971E14E2060003C309 /* Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt in CopyFiles */,
-				EB1055981E14E2060003C309 /* diginotar-public-ca-2025-Cert.crt in CopyFiles */,
-				EB1055991E14E2060003C309 /* diginotar-services-1024-entrust-secure-server-Cert.crt in CopyFiles */,
-				EB10559A1E14E2060003C309 /* diginotar-services-diginotar-root-Cert.crt in CopyFiles */,
-				EB10559B1E14E2060003C309 /* diginotar.cyberca-gte.global.root-Cert.crt in CopyFiles */,
-				EB10559C1E14E2060003C309 /* diginotar.extended.validation-diginotar.root.ca-Cert.crt in CopyFiles */,
-				EB10559D1E14E2060003C309 /* diginotar.root.ca-entrust-secure-server-Cert.crt in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -11309,7 +11263,6 @@
 		0C0BDB441756868B00BC1A7E /* testlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testlist.h; sourceTree = "<group>"; };
 		0C0C4F83216FB55600C14C61 /* EscrowKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscrowKeys.swift; sourceTree = "<group>"; };
 		0C0C4F84216FB56B00C14C61 /* BottledPeer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottledPeer.swift; sourceTree = "<group>"; };
-		0C0C88771CCEC5BD00617D1B /* si-82-sectrust-ct-data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-82-sectrust-ct-data"; path = "../OSX/shared_regressions/si-82-sectrust-ct-data"; sourceTree = "<group>"; };
 		0C0CB73723AD71400020C6BF /* Container_EscrowRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Container_EscrowRecords.swift; sourceTree = "<group>"; };
 		0C0CEC9D1DA45EA200C22FBC /* recovery_key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = recovery_key.h; sourceTree = "<group>"; };
 		0C0CEC9E1DA45EA200C22FBC /* recovery_key.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = recovery_key.m; sourceTree = "<group>"; };
@@ -11722,15 +11675,6 @@
 		4C2F81D40BF121D2003C4F77 /* SecRandom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecRandom.h; path = base/SecRandom.h; sourceTree = "<group>"; };
 		4C32C0AF0A4975F6002891BD /* Security.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C35DC37094F9120002917C4 /* Security-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Security-Info.plist"; sourceTree = "<group>"; };
-		4C3CECEA1416DB2200947741 /* Invalid-CertiID_Enterprise_Certificate_Authority.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-CertiID_Enterprise_Certificate_Authority.crt"; sourceTree = "<group>"; };
-		4C3CECEB1416DB2200947741 /* Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt"; sourceTree = "<group>"; };
-		4C3CECEC1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheid.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-diginotarpkioverheidcaoverheid.crt"; sourceTree = "<group>"; };
-		4C3CECED1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt"; sourceTree = "<group>"; };
-		4C3CECEE1416DB2200947741 /* Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt; sourceTree = "<group>"; };
-		4C3CECEF1416DB2200947741 /* Ministerie_van_Defensie_Certificatie_Autoriteit.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = Ministerie_van_Defensie_Certificatie_Autoriteit.crt; sourceTree = "<group>"; };
-		4C3CECF01416DB2200947741 /* staatdernederlandenorganisatieca-g2-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "staatdernederlandenorganisatieca-g2-Cert.crt"; sourceTree = "<group>"; };
-		4C3CECF11416DB2200947741 /* staatdernederlandenoverheidca-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "staatdernederlandenoverheidca-Cert.crt"; sourceTree = "<group>"; };
-		4C3CECF21416E20400947741 /* DigiNotar_Root_CA_G2-RootCertificate.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DigiNotar_Root_CA_G2-RootCertificate.crt"; sourceTree = "<group>"; };
 		4C3DD6AE179755560093F9D8 /* NSDate+TimeIntervalDescription.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSDate+TimeIntervalDescription.h"; sourceTree = "<group>"; };
 		4C3DD6AF179755560093F9D8 /* NSDate+TimeIntervalDescription.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDate+TimeIntervalDescription.m"; sourceTree = "<group>"; };
 		4C4296300BB0A68200491999 /* SecTrustSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTrustSettings.h; path = trust/headers/SecTrustSettings.h; sourceTree = "<group>"; };
@@ -11739,19 +11683,6 @@
 		4C4CB7100DDA44900026B660 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		4C4CE9070AF81ED80056B01D /* TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = TODO; sourceTree = "<group>"; };
 		4C4CE9120AF81F0E0056B01D /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
-		4C50ACFC1410671D00EE92DE /* DigiNotarCA2007RootCertificate.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = DigiNotarCA2007RootCertificate.crt; sourceTree = "<group>"; };
-		4C50ACFD1410671D00EE92DE /* Invalid-asterisk.google.com.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-asterisk.google.com.crt"; sourceTree = "<group>"; };
-		4C50ACFE1410671D00EE92DE /* Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt"; sourceTree = "<group>"; };
-		4C50ACFF1410671D00EE92DE /* Invalid-webmail.terneuzen.nl-diginotar-services.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-webmail.terneuzen.nl-diginotar-services.crt"; sourceTree = "<group>"; };
-		4C50AD001410671D00EE92DE /* Invalid-www.maestre.com-diginotal.extended.validation.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-www.maestre.com-diginotal.extended.validation.crt"; sourceTree = "<group>"; };
-		4C50AD011410671D00EE92DE /* Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt"; sourceTree = "<group>"; };
-		4C50AD021410671D00EE92DE /* diginotar-public-ca-2025-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar-public-ca-2025-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD031410671D00EE92DE /* diginotar-services-1024-entrust-secure-server-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar-services-1024-entrust-secure-server-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD041410671D00EE92DE /* diginotar-services-diginotar-root-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar-services-diginotar-root-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD051410671D00EE92DE /* diginotar.cyberca-gte.global.root-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar.cyberca-gte.global.root-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD061410671D00EE92DE /* diginotar.extended.validation-diginotar.root.ca-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar.extended.validation-diginotar.root.ca-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD071410671D00EE92DE /* diginotar.root.ca-entrust-secure-server-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diginotar.root.ca-entrust-secure-server-Cert.crt"; sourceTree = "<group>"; };
-		4C50AD2F1410689300EE92DE /* Expectations.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expectations.plist; sourceTree = "<group>"; };
 		4C52D0B416EFC61E0079966E /* CircleJoinRequested */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CircleJoinRequested; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C52D0B916EFC61E0079966E /* CircleJoinRequested.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CircleJoinRequested.m; sourceTree = "<group>"; };
 		4C52D0BD16EFC61E0079966E /* Readme.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Readme.txt; sourceTree = "<group>"; };
@@ -11777,7 +11708,6 @@
 		4C84DA6217207E8D00AEE225 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		4C87F3A70D611C26000E7104 /* SecTrustPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTrustPriv.h; path = trust/headers/SecTrustPriv.h; sourceTree = "<group>"; };
 		4C8A38C817B93DF10001B4C0 /* CloudServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudServices.framework; path = System/Library/PrivateFrameworks/CloudServices.framework; sourceTree = SDKROOT; };
-		4C8B91C51416EB6A00A254E2 /* Invalid-webmail.portofamsterdam.nl.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-webmail.portofamsterdam.nl.crt"; sourceTree = "<group>"; };
 		4C8E99C20FC601D50072EB4C /* SecFrameworkStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecFrameworkStrings.h; sourceTree = "<group>"; };
 		4C8FD03D099D5C91006867B6 /* SecCertificate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecCertificate.h; path = trust/headers/SecCertificate.h; sourceTree = "<group>"; };
 		4C8FD03E099D5C91006867B6 /* SecTrust.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecTrust.h; path = trust/headers/SecTrust.h; sourceTree = "<group>"; };
@@ -12044,11 +11974,7 @@
 		7913B2110D172B3900601FE9 /* sslServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sslServer; sourceTree = BUILT_PRODUCTS_DIR; };
 		791766DD0DD0162C00F3B974 /* SecCertificateRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCertificateRequest.h; path = trust/headers/SecCertificateRequest.h; sourceTree = "<group>"; };
 		7940D4110C3ACF9000FDB5D8 /* SecDH.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecDH.h; sourceTree = "<group>"; };
-		794743191462137C00D638A3 /* Invalid-www.cybersecurity.my.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-www.cybersecurity.my.crt"; sourceTree = "<group>"; };
-		7947431C146214E500D638A3 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Digisign-Server-ID-Enrich-GTETrust-Cert.crt"; sourceTree = "<group>"; };
 		795CA9CC0D38435E00BAE6A2 /* p12pbegen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = p12pbegen.h; sourceTree = "<group>"; };
-		79679E251462028800CF997F /* Digisign-Server-ID-Enrich-Entrust-Cert.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Digisign-Server-ID-Enrich-Entrust-Cert.crt"; sourceTree = "<group>"; };
-		79679E261462028800CF997F /* Invalid-webmail.jaring.my.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Invalid-webmail.jaring.my.crt"; sourceTree = "<group>"; };
 		79EF5B6C0D3D6A31009F5270 /* SecImportExport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecImportExport.h; path = keychain/headers/SecImportExport.h; sourceTree = "<group>"; };
 		79EF5B720D3D6AFE009F5270 /* p12import.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = p12import.h; sourceTree = "<group>"; };
 		8E02FA691107BE460043545E /* pbkdf2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pbkdf2.h; sourceTree = "<group>"; };
@@ -12484,7 +12410,6 @@
 		D4A7DD7320A26CF900F51F3F /* AuthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthKit.framework; path = System/Library/PrivateFrameworks/AuthKit.framework; sourceTree = SDKROOT; };
 		D4AA0D9922FB959600D77FA4 /* si-29-cms-chain-mode.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-29-cms-chain-mode.m"; sourceTree = "<group>"; };
 		D4AA0D9C22FB962300D77FA4 /* si-29-cms-chain-mode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "si-29-cms-chain-mode.h"; sourceTree = "<group>"; };
-		D4AA64831E97270300D317ED /* si-18-certificate-parse */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-18-certificate-parse"; path = "OSX/shared_regressions/si-18-certificate-parse"; sourceTree = SOURCE_ROOT; };
 		D4AC5764214E195200A32C01 /* VerifyDateTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = VerifyDateTests.m; path = tests/TrustTests/EvaluationTests/VerifyDateTests.m; sourceTree = "<group>"; };
 		D4AC5765214E195300A32C01 /* VerifyDateTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = VerifyDateTests_data.h; path = tests/TrustTests/EvaluationTests/VerifyDateTests_data.h; sourceTree = "<group>"; };
 		D4AC5766214E195300A32C01 /* ECTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ECTests.m; path = tests/TrustTests/EvaluationTests/ECTests.m; sourceTree = "<group>"; };
@@ -12516,9 +12441,10 @@
 		D4C573C3255B6A1800AB5D78 /* si-26-cms-apple-signed-samples.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-26-cms-apple-signed-samples.m"; sourceTree = "<group>"; };
 		D4C5749F255B6AA600AB5D78 /* si-26-cms-apple-signed-samples.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "si-26-cms-apple-signed-samples.h"; sourceTree = "<group>"; };
 		D4C578E6255B746600AB5D78 /* PolicyInterfaceTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PolicyInterfaceTests.m; path = tests/TrustTests/FrameworkTests/PolicyInterfaceTests.m; sourceTree = "<group>"; };
-		D4C6C5C71FB2AD3F007EA57E /* si-87-sectrust-name-constraints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "si-87-sectrust-name-constraints"; sourceTree = "<group>"; };
 		D4C6C5CB1FB3B3CC007EA57E /* libarchive.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libarchive.tbd; path = usr/lib/libarchive.tbd; sourceTree = SDKROOT; };
 		D4C6C5CE1FB3B44C007EA57E /* libarchive.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libarchive.2.dylib; path = /usr/lib/libarchive.2.dylib; sourceTree = SDKROOT; };
+		D4C88D87262E5DB20006FFB1 /* si-27-cms-parse.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-27-cms-parse.m"; sourceTree = "<group>"; };
+		D4C88D8A262E660A0006FFB1 /* si-27-cms-parse */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "si-27-cms-parse"; path = "OSX/shared_regressions/si-27-cms-parse"; sourceTree = SOURCE_ROOT; };
 		D4CF6E63211588660014647E /* SecSMIME.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SecSMIME.h; path = libsecurity_smime/lib/SecSMIME.h; sourceTree = SOURCE_ROOT; };
 		D4CF6E64211588670014647E /* cmspriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cmspriv.h; path = libsecurity_smime/lib/cmspriv.h; sourceTree = SOURCE_ROOT; };
 		D4CF6E65211588670014647E /* cmspubkey.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = cmspubkey.c; path = libsecurity_smime/lib/cmspubkey.c; sourceTree = SOURCE_ROOT; };
@@ -12553,13 +12479,10 @@
 		D4D1D1D125AFDA3D0068595B /* TrustServerTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = TrustServerTests_data.h; path = tests/TrustTests/DaemonTests/TrustServerTests_data.h; sourceTree = "<group>"; };
 		D4D1FDDC21165F8B003538E2 /* libsecurity_cms_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_cms_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4D718341E04A721000AE7A6 /* spbkdf-01-hmac-sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "spbkdf-01-hmac-sha256.c"; sourceTree = "<group>"; };
-		D4D886BE1CEB9F3B00DC7583 /* ssl-policy-certs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "ssl-policy-certs"; sourceTree = "<group>"; };
-		D4D886E81CEBDD2A00DC7583 /* nist-certs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "nist-certs"; sourceTree = "<group>"; };
 		D4D92DA32277E6D10009A7CF /* PathParseTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = PathParseTests_data.h; path = tests/TrustTests/EvaluationTests/PathParseTests_data.h; sourceTree = "<group>"; };
 		D4D92DA422788FEB0009A7CF /* NISTTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = NISTTests.m; path = tests/TrustTests/EvaluationTests/NISTTests.m; sourceTree = "<group>"; };
 		D4D92DA72278904F0009A7CF /* nist-certs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "nist-certs"; path = "SecurityTests/nist-certs"; sourceTree = "<group>"; };
 		D4EA5CF622B225C000883439 /* LoggingServerTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LoggingServerTests.m; path = tests/TrustTests/DaemonTests/LoggingServerTests.m; sourceTree = "<group>"; };
-		D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-20-sectrust-policies-data"; path = "../OSX/shared_regressions/si-20-sectrust-policies-data"; sourceTree = "<group>"; };
 		D4EF321E215F0F76000A31A5 /* SecTrustStoreServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SecTrustStoreServer.m; sourceTree = "<group>"; };
 		D4EF3222215F102F000A31A5 /* CTTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = CTTests_data.h; path = tests/TrustTests/EvaluationTests/CTTests_data.h; sourceTree = "<group>"; };
 		D4FA5BD8259D0FCB00EDB660 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -14964,7 +14887,6 @@
 		DCE4E6A71D7A38C000AFB96E /* security2.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = security2.1; sourceTree = "<group>"; };
 		DCE4E6D71D7A420D00AFB96E /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OSX/SecurityTestsOSX/main.m; sourceTree = "<group>"; };
 		DCE4E6E71D7A427200AFB96E /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/SecurityFoundation.framework; sourceTree = DEVELOPER_DIR; };
-		DCE4E72E1D7A436300AFB96E /* si-82-sectrust-ct-logs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "si-82-sectrust-ct-logs.plist"; path = "OSX/shared_regressions/si-82-sectrust-ct-logs.plist"; sourceTree = SOURCE_ROOT; };
 		DCE4E7B21D7A43B500AFB96E /* SecurityTestsOSX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecurityTestsOSX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DCE4E7C01D7A463E00AFB96E /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = System/Library/Frameworks/SecurityFoundation.framework; sourceTree = SDKROOT; };
 		DCE4E7CC1D7A4AED00AFB96E /* sectests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sectests; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -18643,36 +18565,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		4C50ACFB1410671D00EE92DE /* DigiNotar */ = {
-			isa = PBXGroup;
-			children = (
-				4C3CECF21416E20400947741 /* DigiNotar_Root_CA_G2-RootCertificate.crt */,
-				4C3CECEA1416DB2200947741 /* Invalid-CertiID_Enterprise_Certificate_Authority.crt */,
-				4C3CECEB1416DB2200947741 /* Invalid-DigiNotar_PKIoverheid_CA_Organisatie_-_G2-Cert.crt */,
-				4C3CECEC1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheid.crt */,
-				4C3CECED1416DB2200947741 /* Invalid-diginotarpkioverheidcaoverheidenbedrijven-Cert.crt */,
-				4C3CECEE1416DB2200947741 /* Ministerie_van_Defensie_Certificatie_Autoriteit_G2.crt */,
-				4C3CECEF1416DB2200947741 /* Ministerie_van_Defensie_Certificatie_Autoriteit.crt */,
-				4C3CECF01416DB2200947741 /* staatdernederlandenorganisatieca-g2-Cert.crt */,
-				4C3CECF11416DB2200947741 /* staatdernederlandenoverheidca-Cert.crt */,
-				4C8B91C51416EB6A00A254E2 /* Invalid-webmail.portofamsterdam.nl.crt */,
-				4C50AD2F1410689300EE92DE /* Expectations.plist */,
-				4C50ACFC1410671D00EE92DE /* DigiNotarCA2007RootCertificate.crt */,
-				4C50ACFD1410671D00EE92DE /* Invalid-asterisk.google.com.crt */,
-				4C50ACFE1410671D00EE92DE /* Invalid-muisonline.omnyacc-denhelder.nl-diginotar.cyberca.crt */,
-				4C50ACFF1410671D00EE92DE /* Invalid-webmail.terneuzen.nl-diginotar-services.crt */,
-				4C50AD001410671D00EE92DE /* Invalid-www.maestre.com-diginotal.extended.validation.crt */,
-				4C50AD011410671D00EE92DE /* Invalid-www.mobilehostingservices.nl-diginotar-services-1024.crt */,
-				4C50AD021410671D00EE92DE /* diginotar-public-ca-2025-Cert.crt */,
-				4C50AD031410671D00EE92DE /* diginotar-services-1024-entrust-secure-server-Cert.crt */,
-				4C50AD041410671D00EE92DE /* diginotar-services-diginotar-root-Cert.crt */,
-				4C50AD051410671D00EE92DE /* diginotar.cyberca-gte.global.root-Cert.crt */,
-				4C50AD061410671D00EE92DE /* diginotar.extended.validation-diginotar.root.ca-Cert.crt */,
-				4C50AD071410671D00EE92DE /* diginotar.root.ca-entrust-secure-server-Cert.crt */,
-			);
-			path = DigiNotar;
-			sourceTree = "<group>";
-		};
 		4C52D0B616EFC61E0079966E /* CircleJoinRequested */ = {
 			isa = PBXGroup;
 			children = (
@@ -19135,17 +19027,6 @@
 			);
 			name = ipc;
 			path = ../ipc;
-			sourceTree = "<group>";
-		};
-		79679E241462028800CF997F /* DigicertMalaysia */ = {
-			isa = PBXGroup;
-			children = (
-				7947431C146214E500D638A3 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt */,
-				794743191462137C00D638A3 /* Invalid-www.cybersecurity.my.crt */,
-				79679E251462028800CF997F /* Digisign-Server-ID-Enrich-Entrust-Cert.crt */,
-				79679E261462028800CF997F /* Invalid-webmail.jaring.my.crt */,
-			);
-			path = DigicertMalaysia;
 			sourceTree = "<group>";
 		};
 		A640B72225CB99600098A4A4 /* codesigning_api_tests */ = {
@@ -23202,6 +23083,7 @@
 				DC0B62271D90973900D43BCB /* si-25-cms-skid.m */,
 				D4C573C3255B6A1800AB5D78 /* si-26-cms-apple-signed-samples.m */,
 				D4C5749F255B6AA600AB5D78 /* si-26-cms-apple-signed-samples.h */,
+				D4C88D87262E5DB20006FFB1 /* si-27-cms-parse.m */,
 				D4AA0D9922FB959600D77FA4 /* si-29-cms-chain-mode.m */,
 				D4AA0D9C22FB962300D77FA4 /* si-29-cms-chain-mode.h */,
 				DCC78DCA1D8085FC00865A7C /* si-30-keychain-upgrade.c */,
@@ -24974,15 +24856,7 @@
 				DCE4E6D61D7A420100AFB96E /* SecurityTestsOSX */,
 				4CC92ABA15A3B3D900C6D578 /* testlist.h */,
 				4CC92B1B15A3BF2F00C6D578 /* testmain.c */,
-				D4D886E81CEBDD2A00DC7583 /* nist-certs */,
-				D4D886BE1CEB9F3B00DC7583 /* ssl-policy-certs */,
-				D4AA64831E97270300D317ED /* si-18-certificate-parse */,
-				D4EC94FA1CEA482D0083E753 /* si-20-sectrust-policies-data */,
-				0C0C88771CCEC5BD00617D1B /* si-82-sectrust-ct-data */,
-				DCE4E72E1D7A436300AFB96E /* si-82-sectrust-ct-logs.plist */,
-				D4C6C5C71FB2AD3F007EA57E /* si-87-sectrust-name-constraints */,
-				4C50ACFB1410671D00EE92DE /* DigiNotar */,
-				79679E241462028800CF997F /* DigicertMalaysia */,
+				D4C88D8A262E660A0006FFB1 /* si-27-cms-parse */,
 				E710C74B1331946500F85568 /* Supporting Files */,
 				0CB321F01464A95F00587CD3 /* CreateCerts.sh */,
 			);
@@ -31971,6 +31845,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4C88D8D262E667C0006FFB1 /* si-27-cms-parse in Resources */,
 				52A23EDD161DEC3F00E271E0 /* Default-568h@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -32038,6 +31913,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4C88D91262E67F80006FFB1 /* si-87-sectrust-name-constraints in Resources */,
+				D4C88D90262E67F30006FFB1 /* si-20-sectrust-policies-data in Resources */,
 				D41324132549E55C0062995A /* DigiNotar in Resources */,
 				D413225D2549E4AF0062995A /* DigicertMalaysia in Resources */,
 				D478A4572532762E00283EB9 /* TestTrustdInitialization-data in Resources */,
@@ -32046,9 +31923,7 @@
 				D4231149237261F8000E470A /* SMIMEPolicyTests-data in Resources */,
 				D4056A2022712D750026E24E /* ssl-policy-certs in Resources */,
 				D4AC8BEF213212A7006E9871 /* si-18-certificate-parse in Resources */,
-				D458C51A214E2CC80043D982 /* si-20-sectrust-policies-data in Resources */,
 				D453A4BC2122236D00850A26 /* si-82-sectrust-ct-data in Resources */,
-				D4FD4226217D7C41002B7EE2 /* si-87-sectrust-name-constraints in Resources */,
 				D477CB79237E484300C02355 /* si-88-sectrust-valid-data in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -32066,6 +31941,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4C88D8F262E67DF0006FFB1 /* si-87-sectrust-name-constraints in Resources */,
+				D4C88D8E262E67D90006FFB1 /* si-20-sectrust-policies-data in Resources */,
 				D41324EE2549E56F0062995A /* DigiNotar in Resources */,
 				D41321822549E49B0062995A /* DigicertMalaysia in Resources */,
 				D4B2966A22DBFDC700DCF250 /* TestCopyProperties_ios-data in Resources */,
@@ -32073,10 +31950,8 @@
 				D4231148237261F8000E470A /* SMIMEPolicyTests-data in Resources */,
 				D4056A1F22712D750026E24E /* ssl-policy-certs in Resources */,
 				D4AC8BEE21321291006E9871 /* si-18-certificate-parse in Resources */,
-				D458C517214E2C690043D982 /* si-20-sectrust-policies-data in Resources */,
 				D407292A2531387F0084D96B /* TestTrustdInitialization-data in Resources */,
 				D4A0F8C2211E6A2F00443CA1 /* si-82-sectrust-ct-data in Resources */,
-				D4FD4227217D7C4F002B7EE2 /* si-87-sectrust-name-constraints in Resources */,
 				D477CB78237E482800C02355 /* si-88-sectrust-valid-data in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -32176,6 +32051,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4C88D8C262E666B0006FFB1 /* si-27-cms-parse in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32219,6 +32095,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4C88D8B262E66420006FFB1 /* si-27-cms-parse in Resources */,
 				52A23EDC161DEC3800E271E0 /* Default-568h@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -35282,6 +35159,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D4AD87701E452CE000CA1B7F /* si-68-secmatchissuer.c in Sources */,
+				D4C88D88262E5DB20006FFB1 /* si-27-cms-parse.m in Sources */,
 				EB6928CA1D9C9E1800062A18 /* rk_01_recoverykey.m in Sources */,
 				D42CDC351DC12FE90090E2C9 /* si-66-smime.c in Sources */,
 				B61577F41F20513C004A3930 /* padding-00-mmcs.c in Sources */,

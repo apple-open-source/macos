@@ -123,6 +123,7 @@ OSStatus SecStaticCodeEnableOnlineNotarizationCheck(SecStaticCodeRef code, Boole
         errSecCSResourcesNotFound if the resources in the bundle could not be loaded.
         errSecCSResourcesNotSealed if the requested resource was found but cannot be verified.
         errSecCSBadResource if the resource couldn't be found or was altered.
+        errSecCSSignatureFailed if the executable resource was found and was altered.
  */
 OSStatus SecStaticCodeValidateResourceWithErrors(SecStaticCodeRef code, CFURLRef resourcePath, SecCSFlags flags, CFErrorRef *errors) __SPI_AVAILABLE(macos(11.3));
 

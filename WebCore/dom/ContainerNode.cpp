@@ -126,6 +126,8 @@ ALWAYS_INLINE NodeVector ContainerNode::removeAllChildrenWithScriptAssertion(Chi
             willCreatePossiblyOrphanedTreeByRemoval(child.get());
     }
 
+    ASSERT_WITH_SECURITY_IMPLICATION(!document().selection().selection().isOrphan());
+
     if (deferChildrenChanged == DeferChildrenChanged::No)
         childrenChanged(ContainerNode::ChildChange { ChildChange::Type::AllChildrenRemoved, nullptr, nullptr, source });
 
@@ -192,6 +194,8 @@ ALWAYS_INLINE bool ContainerNode::removeNodeWithScriptAssertion(Node& childToRem
     if (source == ChildChange::Source::API && subtreeObservability == RemovedSubtreeObservability::MaybeObservableByRefPtr)
         willCreatePossiblyOrphanedTreeByRemoval(&childToRemove);
 
+    ASSERT_WITH_SECURITY_IMPLICATION(!document().selection().selection().isOrphan());
+
     // FIXME: Move childrenChanged into ScriptDisallowedScope block.
     childrenChanged(change);
 
@@ -206,6 +210,7 @@ static ALWAYS_INLINE void executeNodeInsertionWithScriptAssertion(ContainerNode&
 {
     NodeVector postInsertionNotificationTargets;
     {
+        WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
         if (UNLIKELY(containerNode.isShadowRoot() || containerNode.isInShadowTree()))
@@ -624,6 +629,9 @@ void ContainerNode::removeBetween(Node* previousChild, Node* nextChild, Node& ol
     ASSERT(oldChild.parentNode() == this);
 
     destroyRenderTreeIfNeeded(oldChild);
+
+    if (UNLIKELY(hasShadowRootContainingSlots()))
+        shadowRoot()->willRemoveAssignedNode(oldChild);
 
     if (nextChild) {
         nextChild->setPreviousSibling(previousChild);

@@ -274,7 +274,7 @@ static CCCryptorStatus validate_gcm_params(CCAlgorithm alg, CCOperation op, cons
     if(keyLength<AESGCM_BLOCK_LEN || ivLen<AESGCM_MIN_IV_LEN)
         return kCCParamError;
     
-    if(key==NULL || iv==NULL || tag==NULL || dataOut==NULL)
+    if(key==NULL || iv==NULL || tag==NULL || (dataInLength != 0 && dataOut==NULL))
         return kCCParamError;
     
     return kCCSuccess;

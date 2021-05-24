@@ -92,7 +92,7 @@
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
 
     SecSecurityClientAppClipToRegular();
-    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementRestoreKeychain, @YES);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementRestoreKeychain, kCFBooleanTrue);
 
     // Code lovingly adapted from si-33-keychain-backup
     NSData* keybag;

@@ -38,7 +38,7 @@
  */
 
 krb5_error_code
-kcm_ccache_acquire(krb5_context context,
+kcm_ccache_acquire_locked(krb5_context context,
 		   kcm_ccache ccache,
 		   time_t *expire)
 {
@@ -56,13 +56,15 @@ kcm_ccache_acquire(krb5_context context,
 
     /* We need a cached key or keytab to acquire credentials */
     if (ccache->flags & KCM_FLAGS_USE_PASSWORD) {
-	if (ccache->password == NULL)
+	if (ccache->password == NULL) {
 	    krb5_abortx(context,
 			"kcm_ccache_acquire: KCM_FLAGS_USE_PASSWORD without password");
+	}
     } else if (ccache->flags & KCM_FLAGS_USE_KEYTAB) {
-	if (ccache->keytab == NULL)
+	if (ccache->keytab == NULL) {
 	    krb5_abortx(context,
 			"kcm_ccache_acquire: KCM_FLAGS_USE_KEYTAB without keytab");
+	}
     } else {
 	kcm_log(0, "Cannot acquire initial credentials for cache %s without key",
 		ccache->name);

@@ -260,6 +260,7 @@
 		E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F715B7513200270056 /* spinlock_private.h */; };
 		E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; };
 		E4F449CC1E82D03500A7FB9A /* private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9153095167ACC22006BB094 /* private.h */; };
+		F744601D25E8C35C00ED1ED9 /* jit_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F744601C25E8C34900ED1ED9 /* jit_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -491,6 +492,7 @@
 		E4F449A01E82C1F000A7FB9A /* libpthread_armv81.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_armv81.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4F449A31E82CF0100A7FB9A /* resolver.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = resolver.xcconfig; sourceTree = "<group>"; };
 		E4F449D41E82D03500A7FB9A /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F744601C25E8C34900ED1ED9 /* jit_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jit_private.h; sourceTree = "<group>"; };
 		FC30E28D16A747AD00A25B5F /* synch_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = synch_internal.h; sourceTree = "<group>"; };
 		FC5A372417CEB3D6008C323E /* _pthread_attr_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _pthread_attr_t.h; sourceTree = "<group>"; };
 		FC5A372517CEB3D6008C323E /* _pthread_cond_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _pthread_cond_t.h; sourceTree = "<group>"; };
@@ -563,6 +565,7 @@
 		6E8C8C2E22BDC9DE00136359 /* pthread */ = {
 			isa = PBXGroup;
 			children = (
+				F744601C25E8C34900ED1ED9 /* jit_private.h */,
 				6E5869C620C8FE8300F1CB75 /* dependency_private.h */,
 				E4657D4017284F7B007D1847 /* introspection_private.h */,
 				C9A325F015B7513200270056 /* posix_sched.h */,
@@ -929,6 +932,7 @@
 				C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */,
 				6ED6E66122BFF81D00CE82C2 /* inline_internal.h in Headers */,
 				C99AD87B15DEC4BC0009A6F8 /* posix_sched.h in Headers */,
+				F744601D25E8C35C00ED1ED9 /* jit_private.h in Headers */,
 				C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */,
 				C98C95D918FF1F4E005654FB /* spawn.h in Headers */,
 				C99AD87C15DEC5290009A6F8 /* spinlock_private.h in Headers */,

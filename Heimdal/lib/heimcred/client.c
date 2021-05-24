@@ -678,9 +678,16 @@ HeimCredMove(CFUUIDRef from, CFUUIDRef to)
     UpdateImpersonateBundle(request);
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+
+    bool result = true;
+
+    if (xpc_dictionary_get_value(reply, "error") != NULL) {
+	result = false;
+    }
+
     xpc_release(request);
     xpc_release(reply);
-    return true;
+    return result;
 }
 
 CFDictionaryRef

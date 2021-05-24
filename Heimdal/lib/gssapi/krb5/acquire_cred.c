@@ -1078,7 +1078,19 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     if (kret)
 	goto out;
 
-    kret = krb5_cc_new_unique(context, cache_name, NULL, &ccache);
+#ifdef HAVE_XCC
+    //if the supplied cache name is XCACHE, then create a temp cache
+    const krb5_cc_ops *ops;
+    ops = krb5_cc_get_prefix_ops(context, cache_name);
+    if ((ops == &krb5_xcc_api_ops
+	 || ops == &krb5_xcc_ops
+	 || ops == &krb5_xcc_temp_api_ops)) {
+	kret = krb5_cc_new_unique(context, "XCTEMP", NULL, &ccache);
+    } else
+#endif
+    {
+	kret = krb5_cc_new_unique(context, cache_name, NULL, &ccache);
+    }
     if (kret)
 	goto out;
 
@@ -1307,7 +1319,15 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     /*
      * If we have a credential with the same name, lets overwrite it
      */
-    
+#ifdef HAVE_XCC
+    // if the ccache is a temp cache and there is not a cache to replace, then create a new xcache for the creds
+    ops = krb5_cc_get_ops(context, ccache);
+    if (ops == &krb5_xcc_temp_api_ops && !ccachereplace) {
+	kret = krb5_cc_new_unique(context, "XCACHE", NULL, &ccachereplace);
+	if (kret)
+	    goto out;
+    }
+#endif
     if (ccachereplace) {
 	kret = krb5_cc_move(context, ccache, ccachereplace);
 	if (kret)

@@ -20,7 +20,7 @@ kcm_access (
 	kcm_ccache /*ccache*/);
 
 krb5_error_code
-kcm_principal_access(
+kcm_principal_access_locked(
 	krb5_context /*context*/,
 	kcm_client */*client*/,
 	krb5_principal server /*server*/,
@@ -31,7 +31,7 @@ void
 kcm_cache_remove_session (pid_t /*session*/);
 
 krb5_error_code
-kcm_ccache_acquire (
+kcm_ccache_acquire_locked (
 	krb5_context /*context*/,
 	kcm_ccache /*ccache*/,
 	time_t */*expire*/);
@@ -54,7 +54,7 @@ kcm_ccache_enqueue_default (
 	krb5_creds */*newcred*/);
 
 struct kcm_creds *
-kcm_ccache_find_cred_uuid (
+kcm_ccache_find_cred_uuid_locked (
 	krb5_context /*context*/,
 	kcm_ccache /*ccache*/,
 	kcmuuid_t /*uuid*/);
@@ -92,6 +92,13 @@ kcm_ccache_new (
 	kcm_ccache */*ccache*/);
 
 krb5_error_code
+kcm_ccache_new_internal(krb5_context context,
+	       const char *name,
+	       uid_t uid,
+	       pid_t session,
+	       kcm_ccache *ccache);
+
+krb5_error_code
 kcm_ccache_new_client (
 	krb5_context /*context*/,
 	kcm_client */*client*/,
@@ -103,7 +110,7 @@ char *kcm_ccache_nextid (
 	uid_t /*uid*/);
 
 krb5_error_code
-kcm_ccache_refresh (
+kcm_ccache_refresh_locked (
 	krb5_context /*context*/,
 	kcm_ccache /*ccache*/,
 	time_t */*expire*/);
@@ -222,7 +229,7 @@ kcm_internal_ccache (
 	krb5_ccache /*id*/);
 
 int
-kcm_is_same_session (
+kcm_is_same_session_locked (
 	kcm_client */*client*/,
 	uid_t /*uid*/,
 	pid_t /*session*/);

@@ -255,7 +255,6 @@ _SecTrustGetTypeID
 _SecTrustGetVerifyTime
 _SecTrustGetTrustExceptionsArray
 _SecTrustIsExpiredOnly
-_SecTrustIsTrustResultValid
 _SecTrustOTAPKIGetUpdatedAsset
 _SecTrustOTASecExperimentGetUpdatedAsset
 _SecTrustOTASecExperimentCopyAsset

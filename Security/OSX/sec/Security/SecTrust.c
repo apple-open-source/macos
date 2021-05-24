@@ -1638,35 +1638,6 @@ static CFArrayRef SecTrustGetCurrentAccessGroups(void) {
     return accessGroups;
 }
 
-bool SecTrustIsTrustResultValid(SecTrustRef trust, CFAbsoluteTime verifyTime) {
-    if (trust->_trustResult == kSecTrustResultInvalid) {
-        return false;
-    }
-
-    /* If the verify date is "far" from the current time, this trust object is "divorced from reality"
-     * and we should use the trust result alone to determine validity of the current result. */
-    CFAbsoluteTime currentTime = CFAbsoluteTimeGetCurrent();
-    if ((verifyTime > (currentTime + TRUST_TIME_LEEWAY)) ||
-        (verifyTime < (currentTime - TRUST_TIME_LEEWAY))) {
-        return true;
-    }
-
-    /* The trust result is valid if the current time is within the trust result lifetime */
-    CFDictionaryRef info = trust->_info;
-    if (!info) {
-        return false;
-    }
-    CFDateRef resultNotBefore = CFDictionaryGetValue(info, kSecTrustInfoResultNotBefore);
-    CFDateRef resultNotAfter = CFDictionaryGetValue(info, kSecTrustInfoResultNotAfter);
-    if (!resultNotBefore || !resultNotAfter || !isDate(resultNotBefore) || !isDate(resultNotAfter)) {
-        return false;
-    }
-    if (currentTime < CFDateGetAbsoluteTime(resultNotAfter) && currentTime > CFDateGetAbsoluteTime(resultNotBefore)) {
-        return true;
-    }
-    return false;
-}
-
 static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     __block OSStatus result;
     check(trust);
@@ -1676,7 +1647,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     __block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
     SecTrustAddPolicyAnchors(trust);
     dispatch_sync(trust->_trustQueue, ^{
-        if (SecTrustIsTrustResultValid(trust, verifyTime)) {
+        if (trust->_trustResult != kSecTrustResultInvalid) {
             result = errSecSuccess;
             return;
         }

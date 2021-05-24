@@ -88,18 +88,61 @@
 #ifndef VM_KERN_SITE_ZONE_VIEW
 #define VM_KERN_SITE_ZONE_VIEW 0x00001000
 #endif
+#ifndef KALLOC_SIZECLASSES
+#define KALLOC_SIZECLASSES 32
+/*
+ * Type of kalloc zone
+ */
+__options_decl(kalloc_zone_type, uint32_t, {
+    KALLOC_ZONE_NONE            = 0x00000000, /* Not kalloc zone */
+    KALLOC_ZONE_DEFAULT         = 0x00000001, /* default.kalloc zone */
+    KALLOC_ZONE_DATA            = 0x00000002, /* data.kalloc zone */
+    KALLOC_ZONE_KEXT            = 0x00000004, /* kext.kalloc zone*/
+    KALLOC_ZONE_TYPE            = 0x00000008, /* kalloc.type zone */
+#define KALLOC_ZONE_COUNT       5
+});
+const char *kalloc_zone_names[KALLOC_ZONE_COUNT] = {
+    "",
+    "default.kalloc.",
+    "data.kalloc.",
+    "kext.kalloc.",
+    "kalloc.type"
+};
+#endif
 
 #define streql(a, b)            (strcmp((a), (b)) == 0)
 #define strneql(a, b, n)        (strncmp((a), (b), (n)) == 0)
 #define PRINTK(fmt, value)      \
 	printf(fmt "K", (value) / 1024 )        /* ick */
 
+/*
+ * Globals that are used to accumulate kalloc zone info
+ */
+mach_zone_name_t *kalloc_zone_name = NULL;
+mach_zone_info_t *kalloc_zone_info = NULL;
+char *kalloc_zone_delta = NULL;
+uint64_t kalloc_info_idx = 0;
+
 static void usage(FILE *stream);
 static void printzone(mach_zone_name_t *, mach_zone_info_t *);
 static void colprintzone(mach_zone_name_t *, mach_zone_info_t *);
-static int  find_deltas(mach_zone_name_t *, mach_zone_info_t *, mach_zone_info_t *, char *, int, int);
 static void colprintzoneheader(void);
+static void PrintZones(mach_zone_name_t *names, mach_zone_info_t *info,
+                       unsigned int count, char *deltas,
+                       uint64_t *zoneElements);
 static boolean_t substr(const char *a, size_t alen, const char *b, size_t blen);
+static int  find_deltas(mach_zone_name_t *, mach_zone_info_t *, mach_zone_info_t *,
+                        char *, int, int);
+static bool sort_zones(mach_zone_name_t **name, mach_zone_info_t **info,
+                       char **deltas, unsigned int *infoCnt);
+static void free_zone_info_resources(mach_zone_name_t *name,
+                                     mach_zone_info_t *info,
+                                     unsigned int count, bool vm);
+static uint64_t get_kalloc_info_idx(uint64_t sizeclass);
+static char *get_kalloc_sizep(char *name);
+static kalloc_zone_type get_zone_type(mach_zone_name_t name);
+static void coalesce_kalloc(mach_zone_name_t name, mach_zone_info_t info,
+                            char *deltas);
 
 static int  SortName(void * thunk, const void * left, const void * right);
 static int  SortSize(void * thunk, const void * left, const void * right);
@@ -117,6 +160,7 @@ static boolean_t ShowLarge = TRUE;
 static boolean_t SortZones = FALSE;
 static boolean_t ColFormat = TRUE;
 static boolean_t PrintHeader = TRUE;
+static kalloc_zone_type CoalesceKalloc = KALLOC_ZONE_DEFAULT;
 
 static unsigned long long totalsize = 0;
 static unsigned long long totalused = 0;
@@ -187,7 +231,7 @@ sigintr(__unused int signum)
 static void
 usage(FILE *stream)
 {
-	fprintf(stream, "usage: %s [-w] [-s] [-c] [-h] [-H] [-t] [-d] [-l] [-L] [name]\n\n", program);
+	fprintf(stream, "usage: %s [-w] [-s] [-c] [-h] [-H] [-t] [-d] [-l] [-L] [-k] [-kt] [-kd] [name]\n\n", program);
 	fprintf(stream, "\t-w\tshow wasted memory for each zone\n");
 	fprintf(stream, "\t-s\tsort zones by wasted memory\n");
 	fprintf(stream, "\t-c\t(default) display output formatted in columns\n");
@@ -197,6 +241,9 @@ usage(FILE *stream)
 	fprintf(stream, "\t-d\tdisplay deltas over time\n");
 	fprintf(stream, "\t-l\t(default) display wired memory info after zone info\n");
 	fprintf(stream, "\t-L\tdo not show wired memory info, only show zone info\n");
+    fprintf(stream, "\t-k\tcoalesce all kalloc zones for specific size\n");
+    fprintf(stream, "\t-kt\tcoalesce kalloc type/kext zones with default\n");
+    fprintf(stream, "\t-kd\tcoalesce kalloc data zones with default\n");
 	fprintf(stream, "\nAny option (including default options) can be overridden by specifying the option in upper-case.\n\n");
 	exit(stream != stdout);
 }
@@ -213,9 +260,11 @@ main(int argc, char **argv)
 	mach_zone_info_t *max_info = NULL;
 	char            *deltas = NULL;
 	uint64_t        zoneElements;
+    unsigned all_infoCnt = 0;
+    bool replaced_resources = false;
 
 	kern_return_t   kr;
-	int             i, j;
+    int             i;
 	int             first_time = 1;
 	int     must_print = 1;
 	int             interval = 1;
@@ -256,6 +305,12 @@ main(int argc, char **argv)
 			usage(stdout);
 		} else if (streql(argv[i], "-H")) {
 			PrintHeader = FALSE;
+        } else if (streql(argv[i], "-k")) {
+            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT | KALLOC_ZONE_DATA);
+        } else if (streql(argv[i], "-kt")) {
+            CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT);
+        } else if (streql(argv[i], "-kd")) {
+            CoalesceKalloc |= KALLOC_ZONE_DATA;
 		} else if (streql(argv[i], "--")) {
 			i++;
 			break;
@@ -311,40 +366,36 @@ main(int argc, char **argv)
 			exit(1);
 		}
 
+        all_infoCnt = infoCnt;
+        if (CoalesceKalloc != KALLOC_ZONE_DEFAULT) {
+            all_infoCnt += KALLOC_SIZECLASSES;
+            kalloc_zone_name = (mach_zone_name_t *) calloc(KALLOC_SIZECLASSES, sizeof *name);
+            kalloc_zone_info = (mach_zone_info_t *) calloc(KALLOC_SIZECLASSES, sizeof *info);
+            if (!kalloc_zone_name || !kalloc_zone_info) {
+                fprintf(stderr, "%s: calloc failed to allocate memory\n", program);
+                exit(1);
+            }
+        }
+
 		if (first_time) {
-			deltas = (char *)malloc(infoCnt);
-			max_info = (mach_zone_info_t *)malloc((infoCnt * sizeof *info));
-		}
-
-		if (SortZones) {
-			for (i = 0; i < nameCnt - 1; i++) {
-				for (j = i + 1; j < nameCnt; j++) {
-					unsigned long long wastei, wastej;
-
-					wastei = (info[i].mzi_cur_size -
-					    (info[i].mzi_elem_size *
-					    info[i].mzi_count));
-					wastej = (info[j].mzi_cur_size -
-					    (info[j].mzi_elem_size *
-					    info[j].mzi_count));
-
-					if (wastej > wastei) {
-						mach_zone_info_t tinfo;
-						mach_zone_name_t tname;
-
-						tinfo = info[i];
-						info[i] = info[j];
-						info[j] = tinfo;
-
-						tname = name[i];
-						name[i] = name[j];
-						name[j] = tname;
-					}
-				}
-			}
+            deltas = (char *)malloc(all_infoCnt);
+            max_info = (mach_zone_info_t *)malloc((infoCnt * sizeof *info));
+            kalloc_zone_delta = deltas + infoCnt;
+            if (!deltas || !max_info) {
+                fprintf(stderr, "%s: malloc failed to allocate memory\n", program);
+                exit(1);
+            }
 		}
 
 		must_print = find_deltas(name, info, max_info, deltas, infoCnt, first_time);
+
+        if (SortZones) {
+            /*
+             * All parameters are updated when a additional buffer is required
+             * for sorting.
+             */
+            replaced_resources = sort_zones(&name, &info, &deltas, &infoCnt);
+        }
 		zoneElements = 0;
 		if (must_print) {
 			if (ColFormat) {
@@ -353,16 +404,11 @@ main(int argc, char **argv)
 				}
 				colprintzoneheader();
 			}
-			for (i = 0; i < nameCnt; i++) {
-				if (deltas[i]) {
-					if (ColFormat) {
-						colprintzone(&name[i], &info[i]);
-					} else {
-						printzone(&name[i], &info[i]);
-					}
-					zoneElements += info[i].mzi_count;
-				}
-			}
+            PrintZones(name, info, infoCnt, deltas, &zoneElements);
+            if (!SortZones && (CoalesceKalloc != KALLOC_ZONE_DEFAULT)) {
+                PrintZones(kalloc_zone_name, kalloc_zone_info, KALLOC_SIZECLASSES,
+                           kalloc_zone_delta, &zoneElements);
+            }
 		}
 
 		if (ShowLarge && first_time) {
@@ -372,26 +418,15 @@ main(int argc, char **argv)
 		}
 
 		first_time = 0;
-
-		if ((name != NULL) && (nameCnt != 0)) {
-			kr = vm_deallocate(mach_task_self(), (vm_address_t) name,
-			    (vm_size_t) (nameCnt * sizeof *name));
-			if (kr != KERN_SUCCESS) {
-				fprintf(stderr, "%s: vm_deallocate: %s\n",
-				    program, mach_error_string(kr));
-				exit(1);
-			}
-		}
-
-		if ((info != NULL) && (infoCnt != 0)) {
-			kr = vm_deallocate(mach_task_self(), (vm_address_t) info,
-			    (vm_size_t) (infoCnt * sizeof *info));
-			if (kr != KERN_SUCCESS) {
-				fprintf(stderr, "%s: vm_deallocate: %s\n",
-				    program, mach_error_string(kr));
-				exit(1);
-			}
-		}
+        
+        /*
+         * Clean up resources and reset deltas
+         */
+        free_zone_info_resources(name, info, infoCnt, !replaced_resources);
+        if (CoalesceKalloc != KALLOC_ZONE_DEFAULT) {
+            bzero(kalloc_zone_delta, KALLOC_SIZECLASSES);
+            kalloc_info_idx = 0;
+        }
 
 		if ((wiredInfo != NULL) && (wiredInfoCnt != 0)) {
 			kr = vm_deallocate(mach_task_self(), (vm_address_t) wiredInfo,
@@ -577,6 +612,21 @@ colprintzone(mach_zone_name_t *zone_name, mach_zone_info_t *info)
 	printf("\n");
 }
 
+static void
+PrintZones(mach_zone_name_t *names, mach_zone_info_t *info,
+           unsigned int count, char *deltas, uint64_t *zoneElements)
+{
+    for (unsigned int i = 0; i < count; i++) {
+        if (deltas[i]) {
+            if (ColFormat) {
+                colprintzone(&names[i], &info[i]);
+            } else {
+                printzone(&names[i], &info[i]);
+            }
+            *zoneElements += info[i].mzi_count;
+        }
+    }
+}
 
 static void
 colprintzoneheader(void)
@@ -608,6 +658,209 @@ colprintzoneheader(void)
 	printf("\n");
 }
 
+static void
+free_zone_info_resources(mach_zone_name_t *name, mach_zone_info_t *info,
+                         unsigned int count, bool vm)
+{
+    if (!vm) {
+        free(name);
+        free(info);
+        return;
+    }
+    
+    kern_return_t kr;
+    if ((name != NULL) && (count != 0)) {
+        kr = vm_deallocate(mach_task_self(), (vm_address_t) name,
+            (vm_size_t) (count * sizeof *name));
+        if (kr != KERN_SUCCESS) {
+            fprintf(stderr, "%s: vm_deallocate: %s\n",
+                program, mach_error_string(kr));
+            exit(1);
+        }
+    }
+
+    if ((info != NULL) && (count != 0)) {
+        kr = vm_deallocate(mach_task_self(), (vm_address_t) info,
+            (vm_size_t) (count * sizeof *info));
+        if (kr != KERN_SUCCESS) {
+            fprintf(stderr, "%s: vm_deallocate: %s\n",
+                program, mach_error_string(kr));
+            exit(1);
+        }
+    }
+    
+    if (CoalesceKalloc != KALLOC_ZONE_DEFAULT) {
+        free(kalloc_zone_name);
+        free(kalloc_zone_info);
+    }
+}
+
+/*
+ * Sort zones based on wasted memory (frag size + free size).
+ */
+static bool
+sort_zones(mach_zone_name_t **name, mach_zone_info_t **info, char **deltas,
+    unsigned int *infoCnt)
+{
+    unsigned int i, j;
+    mach_zone_name_t *all_name = *name;
+    mach_zone_info_t *all_info = *info;
+    char *all_deltas = *deltas;
+    unsigned int all_infoCnt = *infoCnt;
+    bool replaced_resources = false;
+    /*
+     * Combine accumulated kalloc zone info array with other
+     */
+    if (CoalesceKalloc != KALLOC_ZONE_DEFAULT) {
+        unsigned int tinfoCnt = all_infoCnt;
+        all_infoCnt += KALLOC_SIZECLASSES;
+        all_name = malloc(sizeof(mach_zone_name_t) * all_infoCnt);
+        all_info = malloc(sizeof(mach_zone_info_t) * all_infoCnt);
+        if (!all_name || !all_info) {
+            fprintf(stderr, "%s: malloc failed to allocate memory\n", program);
+            exit(1);
+        }
+        
+        size_t copy_size = sizeof(mach_zone_name_t) * tinfoCnt;
+        memcpy(all_name, *name, copy_size);
+        copy_size = sizeof(mach_zone_name_t) * KALLOC_SIZECLASSES;
+        memcpy(all_name + tinfoCnt, kalloc_zone_name, copy_size);
+        
+        copy_size = sizeof(mach_zone_info_t) * tinfoCnt;
+        memcpy(all_info, *info, copy_size);
+        copy_size = sizeof(mach_zone_info_t) * KALLOC_SIZECLASSES;
+        memcpy(all_info + tinfoCnt, kalloc_zone_info, copy_size);
+        
+        free_zone_info_resources(*name, *info, tinfoCnt, true);
+        replaced_resources = true;
+    }
+    for (i = 0; i < all_infoCnt - 1; i++) {
+        for (j = i + 1; j < all_infoCnt; j++) {
+            unsigned long long wastei, wastej;
+
+            wastei = (all_info[i].mzi_cur_size -
+                (all_info[i].mzi_elem_size *
+                all_info[i].mzi_count));
+            wastej = (all_info[j].mzi_cur_size -
+                (all_info[j].mzi_elem_size *
+                all_info[j].mzi_count));
+
+            if (wastej > wastei) {
+                mach_zone_info_t tinfo;
+                mach_zone_name_t tname;
+                char tdelta;
+
+                tinfo = all_info[i];
+                all_info[i] = all_info[j];
+                all_info[j] = tinfo;
+
+                tname = all_name[i];
+                all_name[i] = all_name[j];
+                all_name[j] = tname;
+                
+                tdelta = all_deltas[i];
+                all_deltas[i] = all_deltas[j];
+                all_deltas[j] = tdelta;
+                
+            }
+        }
+    }
+    *name = all_name;
+    *info = all_info;
+    *deltas = all_deltas;
+    *infoCnt = all_infoCnt;
+    return replaced_resources;
+}
+
+/*
+ * Returns index in kalloc_zone_info with matching sizeclass.
+ */
+static uint64_t
+get_kalloc_info_idx(uint64_t sizeclass)
+{
+    for (uint64_t i = 0; i < kalloc_info_idx; i++) {
+        mach_zone_info_t kzi = kalloc_zone_info[i];
+        if (kzi.mzi_elem_size == sizeclass) {
+            return i;
+        }
+    }
+    assert(kalloc_info_idx < KALLOC_SIZECLASSES - 1);
+    return kalloc_info_idx++;
+}
+
+/*
+ * In Azul size from name and element size can be different due
+ * to slack space redistribution, therefore use size from name.
+ */
+static char *
+get_kalloc_sizep(char *name)
+{
+    for (uint64_t i = strlen(name); i > 0; i--) {
+        if (name[i] == '.') {
+            return &name[i+1];
+        }
+    }
+    return NULL;
+}
+
+/*
+ * Determine kalloc type for zone based on name.
+ */
+static kalloc_zone_type
+get_zone_type(mach_zone_name_t name)
+{
+    kalloc_zone_type type = KALLOC_ZONE_NONE;
+    for (uint32_t i = 1; i < KALLOC_ZONE_COUNT; i++) {
+        const char *kalloc_name = kalloc_zone_names[i];
+        if (strncmp(name.mzn_name, kalloc_name, strlen(kalloc_name)) == 0) {
+            type = 1 << (i - 1);
+            break;
+        }
+    }
+    return type;
+}
+
+/*
+ * Aggregate zone info's of requested kalloc zones.
+ */
+static void
+coalesce_kalloc(mach_zone_name_t name, mach_zone_info_t info, char *deltas)
+{
+    kalloc_zone_type kalloc_type = get_zone_type(name);
+    if (kalloc_type == KALLOC_ZONE_NONE) {
+        return;
+    }
+    
+    if (kalloc_type & CoalesceKalloc) {
+        uint64_t idx = get_kalloc_info_idx(info.mzi_elem_size);
+        mach_zone_info_t *kzi = kalloc_zone_info + idx;
+        mach_zone_name_t *kzn = kalloc_zone_name + idx;
+        if (*deltas) {
+            kalloc_zone_delta[idx] = 1;
+            *deltas = 0;
+        }
+        kzi->mzi_count += info.mzi_count;
+        kzi->mzi_cur_size += info.mzi_cur_size;
+        if (idx == kalloc_info_idx - 1) {
+            /*
+             * First time assignments for specific size
+             */
+            snprintf(kzn->mzn_name, ZONE_NAME_MAX_LEN, "kalloc.%s",
+                     get_kalloc_sizep(name.mzn_name));
+            kzi->mzi_alloc_size = info.mzi_alloc_size;
+            kzi->mzi_elem_size = info.mzi_elem_size;
+            kzi->mzi_exhaustible = info.mzi_exhaustible;
+        }
+        if (GET_MZI_COLLECTABLE_FLAG(info.mzi_collectable)) {
+            SET_MZI_COLLECTABLE_BYTES(kzi->mzi_collectable,
+                GET_MZI_COLLECTABLE_BYTES(kzi->mzi_collectable) +
+                GET_MZI_COLLECTABLE_BYTES(info.mzi_collectable));
+        }
+        kzi->mzi_sum_size += info.mzi_sum_size;
+        kzi->mzi_max_size += info.mzi_max_size;
+    }
+}
+
 int
 find_deltas(mach_zone_name_t *name, mach_zone_info_t *info, mach_zone_info_t *max_info,
     char *deltas, int cnt, int first_time)
@@ -627,6 +880,14 @@ find_deltas(mach_zone_name_t *name, mach_zone_info_t *info, mach_zone_info_t *ma
 				found_one = 1;
 			}
 		}
+        /*
+         * Caolesce kalloc zones outside the above if to ensure that we
+         * consider all other kalloc zones for the size when one of them hits
+         * conditions other than first_time.
+         */
+        if (CoalesceKalloc != KALLOC_ZONE_DEFAULT) {
+            coalesce_kalloc(name[i], *info, &deltas[i]);
+        }
 		info++;
 		max_info++;
 	}

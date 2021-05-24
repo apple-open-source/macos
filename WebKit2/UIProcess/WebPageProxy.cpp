@@ -2395,6 +2395,31 @@ void WebPageProxy::layerTreeCommitComplete()
 }
 #endif
 
+void WebPageProxy::stopMakingViewBlankDueToLackOfRenderingUpdate()
+{
+#if PLATFORM(COCOA)
+    ASSERT(m_hasUpdatedRenderingAfterDidCommitLoad);
+    RELEASE_LOG_IF_ALLOWED(Process, "stopMakingViewBlankDueToLackOfRenderingUpdate:");
+    pageClient().makeViewBlank(false);
+#endif
+}
+
+// If we have not painted yet since the last load commit, then we are likely still displaying the previous page.
+// Displaying a JS prompt for the new page with the old page behind would be confusing so we make the view blank
+// until the next paint in such case.
+void WebPageProxy::makeViewBlankIfUnpaintedSinceLastLoadCommit()
+{
+#if PLATFORM(COCOA)
+    if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
+        static bool shouldMakeViewBlank = linkedOnOrAfter(WebCore::SDKVersion::FirstWithBlankViewOnJSPrompt);
+        if (shouldMakeViewBlank) {
+            RELEASE_LOG_IF_ALLOWED(Process, "makeViewBlankIfUnpaintedSinceLastLoadCommit: Making the view blank because of a JS prompt before the first paint for its page");
+            pageClient().makeViewBlank(true);
+        }
+    }
+#endif
+}
+
 void WebPageProxy::discardQueuedMouseEvents()
 {
     while (m_mouseEventQueue.size() > 1)
@@ -2895,7 +2920,7 @@ void WebPageProxy::handlePreventableTouchEvent(NativeWebTouchEvent& event)
     TrackingType touchEventsTrackingType = touchEventTrackingType(event);
     if (touchEventsTrackingType == TrackingType::NotTracking) {
         if (!isHandlingPreventableTouchStart())
-            pageClient().doneDeferringTouchStart(false);
+            pageClient().doneDeferringNativeGestures(false);
         return;
     }
 
@@ -2910,17 +2935,16 @@ void WebPageProxy::handlePreventableTouchEvent(NativeWebTouchEvent& event)
         handleUnpreventableTouchEvent(event);
         didReceiveEvent(event.type(), false);
         if (!isHandlingPreventableTouchStart())
-            pageClient().doneDeferringTouchStart(false);
+            pageClient().doneDeferringNativeGestures(false);
         return;
     }
 
     if (event.type() == WebEvent::TouchStart) {
         ++m_handlingPreventableTouchStartCount;
         Function<void(bool, CallbackBase::Error)> completionHandler = [this, protectedThis = makeRef(*this), event](bool handled, CallbackBase::Error error) {
-            bool didFinishDeferringTouchStart = false;
-            ASSERT_IMPLIES(event.type() == WebEvent::TouchStart, m_handlingPreventableTouchStartCount);
-            if (event.type() == WebEvent::TouchStart && m_handlingPreventableTouchStartCount)
-                didFinishDeferringTouchStart = !--m_handlingPreventableTouchStartCount;
+            ASSERT(m_handlingPreventableTouchStartCount);
+            if (m_handlingPreventableTouchStartCount)
+                --m_handlingPreventableTouchStartCount;
 
             bool handledOrFailedWithError = handled || error != CallbackBase::Error::None || m_handledSynchronousTouchEventWhileDispatchingPreventableTouchStart;
             if (!isHandlingPreventableTouchStart())
@@ -2931,9 +2955,8 @@ void WebPageProxy::handlePreventableTouchEvent(NativeWebTouchEvent& event)
 
             didReceiveEvent(event.type(), handledOrFailedWithError);
             pageClient().doneWithTouchEvent(event, handledOrFailedWithError);
-
-            if (didFinishDeferringTouchStart)
-                pageClient().doneDeferringTouchStart(handledOrFailedWithError);
+            if (!isHandlingPreventableTouchStart())
+                pageClient().doneDeferringNativeGestures(handledOrFailedWithError);
         };
 
         auto callbackID = m_callbacks.put(WTFMove(completionHandler), m_process->throttler().backgroundActivity("WebPageProxy::handlePreventableTouchEvent"_s));
@@ -2950,7 +2973,7 @@ void WebPageProxy::handlePreventableTouchEvent(NativeWebTouchEvent& event)
     didReceiveEvent(event.type(), handled);
     pageClient().doneWithTouchEvent(event, handled);
     if (!isHandlingPreventableTouchStart())
-        pageClient().doneDeferringTouchStart(handled);
+        pageClient().doneDeferringNativeGestures(handled);
     else if (handled)
         m_handledSynchronousTouchEventWhileDispatchingPreventableTouchStart = true;
     m_process->stopResponsivenessTimer();
@@ -4630,10 +4653,12 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
     m_hasCommittedAnyProvisionalLoads = true;
     m_process->didCommitProvisionalLoad();
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
     if (frame->isMainFrame()) {
-        m_hasReceivedLayerTreeTransactionAfterDidCommitLoad = false;
+        m_hasUpdatedRenderingAfterDidCommitLoad = false;
+#if PLATFORM(IOS_FAMILY)
         m_firstLayerTreeTransactionIdAfterDidCommitLoad = downcast<RemoteLayerTreeDrawingAreaProxy>(*drawingArea()).nextLayerTreeTransactionID();
+#endif
     }
 #endif
 
@@ -5891,13 +5916,15 @@ void WebPageProxy::showContactPicker(const WebCore::ContactsRequestData& request
     pageClient().showContactPicker(requestData, WTFMove(completionHandler));
 }
     
-void WebPageProxy::printFrame(FrameIdentifier frameID, CompletionHandler<void()>&& completionHandler)
+void WebPageProxy::printFrame(FrameIdentifier frameID, const String& title, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(!m_isPerformingDOMPrintOperation);
     m_isPerformingDOMPrintOperation = true;
 
     WebFrameProxy* frame = m_process->webFrame(frameID);
     MESSAGE_CHECK(m_process, frame);
+
+    frame->didChangeTitle(title);
 
     m_uiClient->printFrame(*this, *frame, [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] () mutable {
         endPrinting(); // Send a message synchronously while m_isPerformingDOMPrintOperation is still true.

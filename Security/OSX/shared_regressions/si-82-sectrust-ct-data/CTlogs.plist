@@ -146,5 +146,21 @@
 		<key>operator</key>
 		<string>sugar</string>
 	</dict>
+	<dict>
+		<key>description</key>
+		<string>butter</string>
+		<key>key</key>
+		<data>MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDH3+ICRtk2yzuDVqQqfzEZjTolXEJE231xMfH5WqbsbgKMWzVLb6N53Tu0HE1BrEGLRys0l9+a5FFNPu9ZD8+g==</data>
+		<key>operator</key>
+		<string>butter</string>
+	</dict>
+	<dict>
+		<key>description</key>
+		<string>salt</string>
+		<key>key</key>
+		<data>MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGGqtoLdUmLWG4HztrrF1ywuXPPsp59pOgyWtSKabhDJOi8xyTtf8WMxCGl6LyKg+jl5QnT9MRpT5P3BkNfrljg==</data>
+		<key>operator</key>
+		<string>salt</string>
+	</dict>
 </array>
 </plist>

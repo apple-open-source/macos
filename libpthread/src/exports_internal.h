@@ -59,6 +59,11 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 		const char *envp[], const char *apple[],
 		const struct ProgramVars *vars);
 
+OS_EXPORT
+void
+__pthread_late_init(const char *envp[], const char *apple[],
+		const struct ProgramVars *vars);
+
 OS_EXPORT OS_NORETURN
 void
 thread_start(pthread_t self, mach_port_t kport,

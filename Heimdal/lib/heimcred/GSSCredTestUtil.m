@@ -258,6 +258,29 @@
 }
 
 #pragma mark -
+#pragma mark move
+
++ (BOOL)move:(struct peer * _Nullable)peer from:(CFUUIDRef)from to:(CFUUIDRef)to
+{
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "move");
+    xpc_dictionary_set_int64(request, "version", 0);
+
+    HeimCredSetUUID(request, "from", from);
+    HeimCredSetUUID(request, "to", to);
+
+    xpc_object_t reply = xpc_dictionary_create(NULL, NULL, 0);
+    do_Move(peer, request, reply);
+
+    xpc_object_t error = xpc_dictionary_get_dictionary(reply, "error");
+    if (error) {
+	return NO;
+    }
+
+   return YES;
+}
+
+#pragma mark -
 #pragma mark fetch
 
 + (BOOL)fetchCredential:(struct peer *)peer uuid:(CFUUIDRef)uuid

@@ -406,6 +406,9 @@ static void SOSPeerInfoSetViews(SOSPeerInfoRef pi, CFSetRef newviews) {
 }
 
 static bool SOSPeerInfoViewIsValid(SOSPeerInfoRef pi, CFStringRef viewname) {
+    if(SOSViewsIsV0Subview(viewname) && SOSVisibleKeychainNotAllowed()) {
+        return false;
+    }
     return true;
 }
 
@@ -499,7 +502,6 @@ errOut:
     return removed;
 }
 
-
 SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
     SOSViewResultCode retval = kSOSCCNoSuchView;
     CFSetRef views = NULL;
@@ -530,10 +532,30 @@ fail:
     return retval;
 }
 
+bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringRef viewName) {
+    if(SOSViewsIsV0Subview(viewName) && SOSVisibleKeychainNotAllowed()) {
+        return false;
+    }
+    
+    SOSViewResultCode viewResult = SOSViewsQuery(peerInfo, viewName, NULL);
+    
+    return kSOSCCViewMember == viewResult || kSOSCCViewPending == viewResult || kSOSCCViewNotMember == viewResult;
+}
 
 /* Need XPC way to carry CFSets of views */
+bool SOSViewSetIntersectsV0(CFSetRef theSet) {
+    return CFSetIntersects(theSet, SOSViewsGetV0ViewSet());
+}
 
-
+bool SOSPeerInfoV0ViewsEnabled(SOSPeerInfoRef pi) {
+    if(!pi) {
+        return false;
+    }
+    CFSetRef piViews = SOSPeerInfoCopyEnabledViews(pi);
+    bool retval = SOSViewSetIntersectsV0(piViews);
+    CFReleaseNull(piViews);
+    return retval;
+}
 
 xpc_object_t CreateXPCObjectWithCFSetRef(CFSetRef setref, CFErrorRef *error) {
     xpc_object_t result = NULL;

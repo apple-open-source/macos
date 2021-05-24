@@ -172,12 +172,14 @@ OSStatus SecStaticCodeValidateResourceWithErrors(SecStaticCodeRef staticCodeRef,
 		| kSecCSStrictValidateStructure
 		| kSecCSRestrictSidebandData
 		| kSecCSCheckGatekeeperArchitectures
+		| kSecCSSkipRootVolumeExceptions
 		| kSecCSAllowNetworkAccess
+		| kSecCSFastExecutableValidation
 	);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
 	code->setValidationFlags(flags);
-	code->staticValidateResource(cfString(resourcePath), flags);
+	code->staticValidateResource(cfString(resourcePath), flags, NULL);
 
 	END_CSAPI_ERRORS
 }

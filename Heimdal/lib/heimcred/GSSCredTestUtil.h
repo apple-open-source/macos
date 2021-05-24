@@ -61,6 +61,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)createNTLMCredential:(struct peer * _Nullable)peer attributes:(CFDictionaryRef _Nullable)attributes returningDictionary:(CFDictionaryRef _Nullable *_Nonnull)dict;
 
 #pragma mark -
+#pragma mark move
+
++ (BOOL)move:(struct peer * _Nullable)peer from:(CFUUIDRef)from to:(CFUUIDRef)to;
+
+#pragma mark -
 #pragma mark fetch
 
 + (BOOL)fetchCredential:(struct peer * _Nullable)peer uuid:(CFUUIDRef)uuid;

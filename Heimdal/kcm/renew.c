@@ -33,7 +33,7 @@
 #include "kcm_locl.h"
 
 krb5_error_code
-kcm_ccache_refresh(krb5_context context,
+kcm_ccache_refresh_locked(krb5_context context,
 		   kcm_ccache ccache,
 		   time_t *expire)
 {
@@ -50,7 +50,6 @@ kcm_ccache_refresh(krb5_context context,
     KCM_ASSERT_VALID(ccache);
 
     kcm_log(0, "Refresh credentials");
-
     if (ccache->client == NULL) {
 	/* no primary principal */
 	kcm_log(0, "Renew credentials requested but no client principal");

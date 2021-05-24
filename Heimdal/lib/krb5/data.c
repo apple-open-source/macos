@@ -102,7 +102,7 @@ krb5_free_data(krb5_context context,
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_data_alloc(krb5_data *p, size_t len)
 {
-    p->data = malloc(len);
+    p->data = calloc(1, len);
     if(len && p->data == NULL)
 	return ENOMEM;
     p->length = len;

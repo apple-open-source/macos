@@ -434,9 +434,6 @@ loser:
         PORT_ArenaRelease(cx->our_pool, state->our_mark);
         state->our_mark = NULL;
     }
-    if (new_state != NULL) {
-        PORT_Free(new_state);
-    }
     return NULL;
 }
 
@@ -1794,19 +1791,13 @@ sec_asn1d_parse_bit_string (sec_asn1d_state *state,
     /*PORT_Assert (state->pending > 0); */
     PORT_Assert (state->place == beforeBitString);
 
-    if ((state->pending == 0) || (state->contents_length == 1)) {
+    if (state->pending == 0) {
 		if (state->dest != NULL) {
 			SecAsn1Item *item = (SecAsn1Item *)(state->dest);
 			item->Data = NULL;
 			item->Length = 0;
 			state->place = beforeEndOfContents;
-		}
-		if(state->contents_length == 1) {
-			/* skip over (unused) remainder byte */
-			return 1;
-		}
-		else {
-			return 0;
+            return 0;
 		}
     }
 

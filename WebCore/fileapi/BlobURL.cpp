@@ -52,6 +52,18 @@ URL BlobURL::createInternalURL()
     return createBlobURL("blobinternal://");
 }
 
+static const Document* blobOwner(const SecurityOrigin& blobOrigin)
+{
+    if (!isMainThread())
+        return nullptr;
+
+    for (const auto* document : Document::allDocuments()) {
+        if (&document->securityOrigin() == &blobOrigin)
+            return document;
+    }
+    return nullptr;
+}
+
 String BlobURL::getOrigin(const URL& url)
 {
     ASSERT(url.protocolIs(kBlobProtocol));
@@ -59,6 +71,16 @@ String BlobURL::getOrigin(const URL& url)
     unsigned startIndex = url.pathStart();
     unsigned endIndex = url.pathAfterLastSlash();
     return url.string().substring(startIndex, endIndex - startIndex - 1);
+}
+
+URL BlobURL::getOriginURL(const URL& url)
+{
+    ASSERT(url.protocolIs(kBlobProtocol));
+    if (auto blobOrigin = ThreadableBlobRegistry::getCachedOrigin(url)) {
+      if (auto* document = blobOwner(*blobOrigin))
+          return document->url();
+    }
+    return SecurityOrigin::extractInnerURL(url);
 }
 
 URL BlobURL::createBlobURL(const String& originString)

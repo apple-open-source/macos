@@ -1,3 +1,191 @@
+2021-04-23  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276324. rdar://problem/77086404
+
+    FullGCActivityCallback should use the percentage of pages uncompressed in RAM to determine deferral.
+    https://bugs.webkit.org/show_bug.cgi?id=224817
+    
+    Reviewed by Filip Pizlo.
+    
+    Source/JavaScriptCore:
+    
+    Right now we try to determine if too many pages are paged out by
+    dereferencing them and bailing out of the GC if we go over a
+    deadline. While this works if the only goal is to avoid causing
+    extensive thrashing on spinny disks (HDD), it doesn't prevent
+    thrashing when access to disk is fast (e.g. SSD). This is because
+    on fast disks the proportional time to load the memory from disk
+    is much lower. Additionally, on SSDs in particular we don't want
+    to load the pages into RAM then bail as that will force a
+    different page onto disk, increasing wear.
+    
+    This patch switches to asking the OS if each MarkedBlock is paged
+    out. Then if we are over a threshold we wait until we would have
+    GC'd anyway. This patch uses the (maxVMGrowthFactor - 1) as the
+    percentage of "slow" pages (paged out or compressed) needed to
+    defer the GC. The idea behind that threshold is that if we add
+    that many pages then the same number of pages would be forced
+    out of RAM for us to do a GC anyway (in the limit).
+    
+    * heap/BlockDirectory.cpp:
+    (JSC::BlockDirectory::updatePercentageOfPagedOutPages):
+    (JSC::BlockDirectory::isPagedOut): Deleted.
+    * heap/BlockDirectory.h:
+    * heap/FullGCActivityCallback.cpp:
+    (JSC::FullGCActivityCallback::doCollection):
+    * heap/Heap.cpp:
+    (JSC::Heap::isPagedOut):
+    * heap/Heap.h:
+    * heap/MarkedSpace.cpp:
+    (JSC::MarkedSpace::isPagedOut):
+    * heap/MarkedSpace.h:
+    * runtime/OptionsList.h:
+    
+    Source/WebKit:
+    
+    Add mincore to the acceptable syscall list.
+    
+    * WebProcess/com.apple.WebProcess.sb.in:
+    
+    Source/WTF:
+    
+    Add a noexcept flavor of FunctionTraits. On Linux mincore (and probably other syscalls) are marked noexcept so the existing overloads don't work.
+    
+    * wtf/FunctionTraits.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276324 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-20  Keith Miller  <keith_miller@apple.com>
+
+            FullGCActivityCallback should use the percentage of pages uncompressed in RAM to determine deferral.
+            https://bugs.webkit.org/show_bug.cgi?id=224817
+
+            Reviewed by Filip Pizlo.
+
+            Add a noexcept flavor of FunctionTraits. On Linux mincore (and probably other syscalls) are marked noexcept so the existing overloads don't work.
+
+            * wtf/FunctionTraits.h:
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r275003. rdar://problem/76411341
+
+    WTF::setPermissionsOfConfigPage() should allow its VM_FLAGS_PERMANENT workaround unconditionally.
+    https://bugs.webkit.org/show_bug.cgi?id=223725
+    rdar://75813316
+    
+    Reviewed by Saam Barati.
+    
+    If the OS does not support the flag, then we should not require it.
+    
+    * wtf/WTFConfig.cpp:
+    (WTF::setPermissionsOfConfigPage):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@275003 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-24  Mark Lam  <mark.lam@apple.com>
+
+            WTF::setPermissionsOfConfigPage() should allow its VM_FLAGS_PERMANENT workaround unconditionally.
+            https://bugs.webkit.org/show_bug.cgi?id=223725
+            rdar://75813316
+
+            Reviewed by Saam Barati.
+
+            If the OS does not support the flag, then we should not require it.
+
+            * wtf/WTFConfig.cpp:
+            (WTF::setPermissionsOfConfigPage):
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274898. rdar://problem/76412278
+
+    Don't require VM_FLAGS_PERMANENT on the simulator builds
+    https://bugs.webkit.org/show_bug.cgi?id=223649
+    <rdar://problem/75747788>
+    
+    Reviewed by Alexey Proskuryakov.
+    
+    Since VM_FLAGS_PERMANENT must be supported by the kernel, let's make
+    it so that the vm_map that passes this flag in can fail when running
+    on the simulator. This is to support the use case of running a newer
+    simulator on an older OS. When the call to vm_map fails when running
+    on the simulator, we try again without the VM_FLAGS_PERMANENT flag.
+    
+    * wtf/WTFConfig.cpp:
+    (WTF::setPermissionsOfConfigPage):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274898 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-23  Saam Barati  <sbarati@apple.com>
+
+            Don't require VM_FLAGS_PERMANENT on the simulator builds
+            https://bugs.webkit.org/show_bug.cgi?id=223649
+            <rdar://problem/75747788>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Since VM_FLAGS_PERMANENT must be supported by the kernel, let's make
+            it so that the vm_map that passes this flag in can fail when running
+            on the simulator. This is to support the use case of running a newer
+            simulator on an older OS. When the call to vm_map fails when running
+            on the simulator, we try again without the VM_FLAGS_PERMANENT flag.
+
+            * wtf/WTFConfig.cpp:
+            (WTF::setPermissionsOfConfigPage):
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274325. rdar://problem/76416354
+
+    Adopt VM_FLAGS_PERMANENT for the config vm mapping
+    https://bugs.webkit.org/show_bug.cgi?id=222086
+    <rdar://74402690>
+    
+    Reviewed by Yusuke Suzuki and Mark Lam.
+    
+    Source/JavaScriptCore:
+    
+    * runtime/JSCConfig.h:
+    (JSC::Config::configureForTesting):
+    
+    Source/WebKit:
+    
+    * Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceMain.mm:
+    (WebKit::XPCServiceMain):
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    * wtf/Threading.cpp:
+    (WTF::initialize):
+    * wtf/WTFConfig.cpp:
+    (WTF::setPermissionsOfConfigPage):
+    * wtf/WTFConfig.h:
+    (WTF::setPermissionsOfConfigPage):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274325 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-11  Saam Barati  <sbarati@apple.com>
+
+            Adopt VM_FLAGS_PERMANENT for the config vm mapping
+            https://bugs.webkit.org/show_bug.cgi?id=222086
+            <rdar://74402690>
+
+            Reviewed by Yusuke Suzuki and Mark Lam.
+
+            * wtf/PlatformHave.h:
+            * wtf/Threading.cpp:
+            (WTF::initialize):
+            * wtf/WTFConfig.cpp:
+            (WTF::setPermissionsOfConfigPage):
+            * wtf/WTFConfig.h:
+            (WTF::setPermissionsOfConfigPage):
+
 2021-02-17  Ruben Turcios  <rubent_22@apple.com>
 
         Cherry-pick r272621. rdar://problem/74410131

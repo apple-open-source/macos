@@ -394,9 +394,9 @@ protected:
     uint16_t disableAccess(IOPCIConfigEntry * device, bool disable);
     void    restoreAccess(IOPCIConfigEntry * device, UInt16 command);
     void    bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child);
-    void    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
-								uint32_t deallocTypes, uint32_t freeTypes,
-								IOPCIConfigEntry ** childList);
+    bool    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
+                              uint32_t deallocTypes, uint32_t freeTypes,
+                              IOPCIConfigEntry ** childList);
 	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
     void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);

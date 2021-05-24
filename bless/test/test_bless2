@@ -1223,7 +1223,7 @@ def setupBootPlist(new_uuid):
 def setupLocalPolicy(src, prebmnt, uuid):
     docmd(['defaults', 'write', '/Library/Preferences/com.apple.security.bootpolicy', 'Entitlements', '-string', 'always'])
 
-    err = docmd(['/usr/local/bin/personalize_macos', '-v', src.apfsVmntpt])
+    err = docmd(['/usr/local/bin/personalize_macos', '-v', src.apfsVmntpt, '--output', src.apfsVmntpt])
     if err:
         return err
 

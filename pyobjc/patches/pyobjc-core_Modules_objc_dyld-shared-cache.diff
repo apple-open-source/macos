@@ -1,0 +1,113 @@
+diff --git a/pyobjc-core-2.5.1/Lib/objc/_dyld.py b/pyobjc-core-2.5.1/Lib/objc/_dyld.py
+index 00d608d..a5ecf08 100644
+--- a/pyobjc-core-2.5.1/Lib/objc/_dyld.py
++++ b/pyobjc-core-2.5.1/Lib/objc/_dyld.py
+@@ -10,6 +10,19 @@ __all__ = [
+ import os, sys
+ from objc._framework import infoForFramework
+ 
++try:
++    from objc._objc import _dyld_shared_cache_contains_path
++except ImportError:
++    _dyld_shared_cache_contains_path = None
++
++
++def dyld_shared_cache_contains_path(p):
++    if _dyld_shared_cache_contains_path is None:
++        return False
++    try:
++        return _dyld_shared_cache_contains_path(p)
++    except NotImplementedError:
++        return False
+ 
+ # These are the defaults as per man dyld(1)
+ #
+@@ -82,6 +95,9 @@ def dyld_framework(filename, framework_name, version=None):
+ 
+ 
+     for f in inject_suffixes(_search()):
++        if dyld_shared_cache_contains_path(f):
++            return f
++
+         if os.path.exists(f):
+             return f
+     # raise ..
+@@ -103,6 +119,8 @@ def dyld_library(filename, libname):
+         for path in spath.split(':'):
+             yield os.path.join(path, libname)
+     for f in inject_suffixes(_search()):
++        if dyld_shared_cache_contains_path(f):
++            return f
+         if os.path.exists(f):
+             return f
+     raise ValueError("dylib %s could not be found" %(filename,))
+diff --git a/pyobjc-core-2.5.1/Modules/objc/module.m b/pyobjc-core-2.5.1/Modules/objc/module.m
+index 25ade4f..8c3e554 100644
+--- a/pyobjc-core-2.5.1/Modules/objc/module.m
++++ b/pyobjc-core-2.5.1/Modules/objc/module.m
+@@ -1940,6 +1940,34 @@ static void typecode2typecode(char* buf)
+ 	return v;
+ }
+ 
++#if PyObjC_BUILD_RELEASE >= 1016
++static PyObject*
++mod_dyld_shared_cache_contains_path(PyObject* mod __attribute__((__unused__)), PyObject* object)
++{
++	if (@available(macOS 10.16, *)) {
++		if (!PyUnicode_Check(object)) {
++			PyErr_SetString(PyExc_TypeError, "Expecting a string");
++			return NULL;
++		}
++		PyObject* bytes = PyUnicode_AsEncodedString(object, NULL, NULL);
++		if (bytes == NULL) {
++			return NULL;
++		}
++
++		char *path = PyObjCUtil_Strdup(PyBytes_AsString(object));
++		Py_DECREF(bytes);
++		if (path == NULL) {
++			return NULL;
++		}
++		int result = _dyld_shared_cache_contains_path(path);
++		PyMem_Free(path);
++		return PyBool_FromLong(result);
++	} else {
++		PyErr_SetString(PyExc_NotImplementedError, "_dyld_shared_cache_contains_path not available");
++		return NULL;
++	}
++}
++#endif /* PyObjC_BUILD_RELEASE >= 1016 */
+ 
+ static PyMethodDef mod_methods[] = {
+ 	{
+@@ -2066,6 +2094,13 @@ static void typecode2typecode(char* buf)
+ 
+ #endif /* PyObjC_BUILD_RELEASE >= 1006 */
+ 
++#if PyObjC_BUILD_RELEASE >= 1016
++	{
++	 "_dyld_shared_cache_contains_path", (PyCFunction)mod_dyld_shared_cache_contains_path,
++		METH_O,"_dyld_shared_cache_contains_path(path)",
++	},
++#endif /* PyObjC_BUILD_RELEASE >= 1016 */
++
+ 	{ "_loadConstant", (PyCFunction)PyObjC_LoadConstant,
+ 		METH_VARARGS|METH_KEYWORDS, "(PRIVATE)" },
+ 
+@@ -2228,6 +2263,16 @@ static void typecode2typecode(char* buf)
+ 	}
+ 	/* use PyDict_SetItemString for the retain, non-heap types can't be dealloc'ed */
+ 
++#if PyObjC_BUILD_RELEASE >= 1016
++	if (@available(macOS 10.16, *)) {
++		/* pass */
++	} else {
++		if (PyDict_DelItemString(d, "_dyld_shared_cache_contains_path") < 0) {
++			PyErr_Clear();
++		}
++	}
++#endif /* PyObjC_BUILD_RELEASE >= 1016 */
++
+ 	if (PyDict_SetItemString(d, "objc_class", (PyObject*)&PyObjCClass_Type) < 0) {
+ 		PyObjC_INITERROR();
+ 	}

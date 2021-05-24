@@ -11,6 +11,8 @@
 %endif
 %if HAVE_XCC
 &krb5_xcc_ops
+&krb5_xcc_api_ops
+&krb5_xcc_temp_api_ops
 _krb5_xcc_get_initial_ticket
 %endif
 &krb5_mcc_ops
@@ -756,6 +758,7 @@ HeimCredDoAuth
 &kHEIMAttrRetainStatus
 &kHEIMAttrBundleIdentifierACL
 &kHEIMAttrDefaultCredential
+&kHEIMAttrTemporaryCache
 &kHEIMAttrKerberosTicketGrantingTicket
 &kHEIMAttrAltDSID
 &kHEIMAttrUserID

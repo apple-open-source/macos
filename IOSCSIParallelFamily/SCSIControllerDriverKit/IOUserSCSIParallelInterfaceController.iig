@@ -70,7 +70,8 @@ typedef struct SCSIUserParallelTask
     SCSICommandDescriptorBlock  			fCommandDescriptorBlock;
     uint8_t                     			fCommandSize;
     uint8_t                     			fTransferDirection;
-    uint8_t                                 reserved[10];
+	uint32_t								fTimeoutInMilliSec;
+    uint8_t                                 reserved[6];
 } SCSIUserParallelTask;
 
 typedef struct SCSIUserParallelResponse

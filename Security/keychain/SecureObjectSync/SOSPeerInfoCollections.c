@@ -103,7 +103,9 @@ SOSPeerInfoRef SOSPeerInfoSetFindByID(CFSetRef set, CFStringRef id) {
 
 void CFArrayOfSOSPeerInfosSortByID(CFMutableArrayRef peerInfoArray)
 {
-    CFArraySortValues(peerInfoArray, CFRangeMake(0, CFArrayGetCount(peerInfoArray)), SOSPeerInfoCompareByID, NULL);
+    if(peerInfoArray && CFArrayGetCount(peerInfoArray) > 0) {
+        CFArraySortValues(peerInfoArray, CFRangeMake(0, CFArrayGetCount(peerInfoArray)), SOSPeerInfoCompareByID, NULL);
+    }
 }
 
 

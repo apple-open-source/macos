@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-03-10</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache 2.0</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>python_modules.txt</string>
+	<key>OpenSourceSHA256</key>
+	<string>5a60d3780149e13b7a6ff7ad6526b38846354d11a15e21068e57073e29e19bed</string>
+	<key>OpenSourceProject</key>
+	<string>cryptography</string>
+	<key>OpenSourceURL</key>
+	<string>https://files.pythonhosted.org/packages/d4/85/38715448253404186029c575d559879912eb8a1c5d16ad9f25d35f7c4f4c/cryptography-3.3.2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>3.3.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cryptography.io</string>
+</dict>
+</plist>

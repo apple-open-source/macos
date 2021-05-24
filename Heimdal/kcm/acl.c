@@ -43,7 +43,8 @@ kcm_access(krb5_context context,
     krb5_error_code ret;
 
     KCM_ASSERT_VALID(ccache);
-
+    
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
     if (ccache->flags & KCM_FLAGS_OWNER_IS_SYSTEM) {
 	/* Let root always read system caches */
 	if (CLIENT_IS_ROOT(client)) {
@@ -51,12 +52,13 @@ kcm_access(krb5_context context,
 	} else {
 	    ret = KRB5_FCC_PERM;
 	}
-    } else if (kcm_is_same_session(client, ccache->uid, ccache->session)) {
+    } else if (kcm_is_same_session_locked(client, ccache->uid, ccache->session)) {
 	/* same session same as owner */
 	ret = 0;
     } else {
 	ret = KRB5_FCC_PERM;
     }
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
     if (ret) {
 	kcm_log(2, "Process %d is not permitted to call %s on cache %s",
@@ -67,7 +69,7 @@ kcm_access(krb5_context context,
 }
 
 krb5_error_code
-kcm_principal_access(krb5_context context,
+kcm_principal_access_locked(krb5_context context,
 	   kcm_client *client,
 	   krb5_principal server,
 	   kcm_operation opcode,
@@ -85,7 +87,7 @@ kcm_principal_access(krb5_context context,
     
     //default to no access
     krb5_error_code ret = KRB5_FCC_PERM;
-    
+
     switch (client->iakerb_access) {
 	case IAKERB_NOT_CHECKED:
 	{
@@ -119,7 +121,7 @@ kcm_principal_access(krb5_context context,
 	    ret = KRB5_FCC_PERM;
 	    break;
     }
-    
+
     kcm_log(1, "kcm_principal_access: access %s", (ret==0 ? "allowed" : "denied"));
     return ret;
 }
@@ -132,13 +134,18 @@ kcm_chmod(krb5_context context,
 {
     KCM_ASSERT_VALID(ccache);
 
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
     /* System cache mode can only be set at startup */
-    if (ccache->flags & KCM_FLAGS_OWNER_IS_SYSTEM)
+    if (ccache->flags & KCM_FLAGS_OWNER_IS_SYSTEM) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	return KRB5_FCC_PERM;
+    }
 
-    if (ccache->uid != client->uid)
+    if (ccache->uid != client->uid) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	return KRB5_FCC_PERM;
-
+    }
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
     return 0;
 }
 
@@ -150,14 +157,17 @@ kcm_chown(krb5_context context,
 {
     KCM_ASSERT_VALID(ccache);
 
-    /* System cache owner can only be set at startup */
-    if (ccache->flags & KCM_FLAGS_OWNER_IS_SYSTEM)
-	return KRB5_FCC_PERM;
-
-    if (ccache->uid != client->uid && client->uid != 0)
-	return KRB5_FCC_PERM;
-
     HEIMDAL_MUTEX_lock(&ccache->mutex);
+    /* System cache mode can only be set at startup */
+    if (ccache->flags & KCM_FLAGS_OWNER_IS_SYSTEM) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
+	return KRB5_FCC_PERM;
+    }
+
+    if (ccache->uid != client->uid) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
+	return KRB5_FCC_PERM;
+    }
 
     ccache->uid = uid;
 

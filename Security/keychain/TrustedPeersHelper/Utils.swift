@@ -58,3 +58,13 @@ extension SignedPeerDynamicInfo {
         return TPPeerDynamicInfo(data: self.peerDynamicInfo, sig: self.sig)
     }
 }
+
+extension TPPolicyVersion: Comparable {
+    public static func < (lhs: TPPolicyVersion, rhs: TPPolicyVersion) -> Bool {
+        if lhs.versionNumber != rhs.versionNumber {
+            return lhs.versionNumber < rhs.versionNumber
+        } else {
+            return lhs.policyHash < rhs.policyHash
+        }
+    }
+}

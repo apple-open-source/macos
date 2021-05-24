@@ -37,6 +37,7 @@
 #include "keychain/SecureObjectSync/SOSCircle.h"
 #include "keychain/SecureObjectSync/SOSInternal.h"
 #include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
+#include "keychain/SecureObjectSync/SOSPeerInfoPriv.h"
 
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 #include "SOSRegressionUtilities.h"
@@ -340,27 +341,35 @@ SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
     SecKeyRef publicKey = NULL;
     CFDictionaryRef gestalt = NULL;
 
-    require(outSigningKey, exit);
-    *outSigningKey = GeneratePermanentFullECKey(256, name, error);
-    require(*outSigningKey, exit);
-    
-    require(outOctagonSigningKey, exit);
-    *outOctagonSigningKey = GeneratePermanentFullECKey(384, name, error);
-    require(*outOctagonSigningKey, exit);
-
-    require(outOctagonEncryptionKey, exit);
-    *outOctagonEncryptionKey = GeneratePermanentFullECKey(384, name, error);
-    require(*outOctagonEncryptionKey, exit);
-
     gestalt = SOSCreatePeerGestaltFromName(name);
     require(gestalt, exit);
 
-    result = SOSFullPeerInfoCreate(NULL, gestalt,
+    require(outSigningKey, exit);
+    *outSigningKey = GeneratePermanentFullECKey(256, name, error);
+    require(*outSigningKey, exit);
+        
+    if(outOctagonSigningKey && outOctagonEncryptionKey) {
+        require(outOctagonSigningKey, exit);
+        *outOctagonSigningKey = GeneratePermanentFullECKey(384, name, error);
+        require(*outOctagonSigningKey, exit);
+
+        require(outOctagonEncryptionKey, exit);
+        *outOctagonEncryptionKey = GeneratePermanentFullECKey(384, name, error);
+        require(*outOctagonEncryptionKey, exit);
+        result = SOSFullPeerInfoCreate(NULL, gestalt,
+                                       NULL,
+                                       *outSigningKey,
+                                       *outOctagonSigningKey,
+                                       *outOctagonEncryptionKey,
+                                       error);
+    } else {
+        result = SOSFullPeerInfoCreate(NULL, gestalt,
                                    NULL,
                                    *outSigningKey,
-                                   *outOctagonSigningKey,
-                                   *outOctagonEncryptionKey,
+                                   NULL,
+                                   NULL,
                                    error);
+    }
 
 exit:
     CFReleaseNull(gestalt);
@@ -368,6 +377,90 @@ exit:
 
     return result;
 }
+
+// MARK: ----- Circle/Peer Creators and Authenticators
+
+SOSFullPeerInfoRef SOSTestV0FullPeerInfo(CFStringRef name, SecKeyRef userKey, CFStringRef OSName, SOSPeerInfoDeviceClass devclass) {
+    CFErrorRef error = NULL;
+    SecKeyRef signingKey = NULL;
+    SecKeyRef octagonSigningKey = NULL;
+    SecKeyRef octagonEncryptionKey = NULL;
+    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(name, &signingKey, &octagonSigningKey, &octagonEncryptionKey, NULL);
+    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
+    pi->version = 0;
+    CFMutableDictionaryRef gestalt = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryAddValue(gestalt, kPIUserDefinedDeviceNameKey, name);
+    if(SOSPeerInfo_unknown != devclass) {
+        CFDictionaryAddValue(gestalt, kPIDeviceModelNameKey, SOSModelFromType(devclass));
+        CFDictionaryAddValue(gestalt, kPIOSVersionKey, OSName);
+    }
+    SOSFullPeerInfoUpdateGestalt(fpi, gestalt, NULL);
+    if(!SOSFullPeerInfoPromoteToApplication(fpi, userKey, &error)) {
+        CFReleaseNull(fpi);
+    }
+    CFReleaseNull(gestalt);
+    return fpi;
+}
+
+SOSFullPeerInfoRef SOSTestFullPeerInfo(CFStringRef name, SecKeyRef userKey, CFStringRef OSName, SOSPeerInfoDeviceClass devclass) {
+    CFErrorRef error = NULL;
+    SecKeyRef signingKey = NULL;
+    SecKeyRef octagonSigningKey = NULL;
+    SecKeyRef octagonEncryptionKey = NULL;
+    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(name, &signingKey, &octagonSigningKey, &octagonEncryptionKey, NULL);
+    CFMutableDictionaryRef gestalt = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryAddValue(gestalt, kPIUserDefinedDeviceNameKey, name);
+    if(SOSPeerInfo_unknown != devclass) {
+        CFDictionaryAddValue(gestalt, kPIDeviceModelNameKey, SOSModelFromType(devclass));
+        CFDictionaryAddValue(gestalt, kPIOSVersionKey, OSName);
+    }
+    SOSFullPeerInfoUpdateGestalt(fpi, gestalt, NULL);
+    if(!SOSFullPeerInfoPromoteToApplication(fpi, userKey, &error)) {
+        CFReleaseNull(fpi);
+    }
+    CFReleaseNull(gestalt);
+    return fpi;
+}
+
+// to use this function the first peer must be valid
+SOSCircleRef SOSTestCircle(SecKeyRef userKey, void * firstFpiv, ... ) {
+    CFErrorRef error = NULL;
+    SOSFullPeerInfoRef firstFpi = (SOSFullPeerInfoRef) firstFpiv;
+    SOSCircleRef circle = SOSCircleCreate(kCFAllocatorDefault, CFSTR("oak"), &error);
+    CFSetAddValue(circle->peers, SOSFullPeerInfoGetPeerInfo(firstFpi));
+
+    va_list argp;
+    va_start(argp, firstFpiv);
+    SOSFullPeerInfoRef fpi = NULL;
+    while((fpi = va_arg(argp, SOSFullPeerInfoRef)) != NULL) {
+        CFSetAddValue(circle->peers, SOSFullPeerInfoGetPeerInfo(fpi));
+    }
+    va_end(argp);
+
+    SOSCircleGenerationSign(circle, userKey, firstFpi, &error);
+    CFReleaseNull(error);
+
+    return circle;
+}
+
+SecKeyRef SOSMakeUserKeyForPassword(const char *passwd) {
+    CFDataRef password = CFDataCreate(NULL, (uint8_t *) passwd, strlen(passwd));
+    CFErrorRef error = NULL;
+    CFDataRef parameters = SOSUserKeyCreateGenerateParameters(NULL);
+    SecKeyRef userKey = SOSUserKeygen(password, parameters, &error);
+    CFReleaseSafe(password);
+    CFReleaseNull(parameters);
+    CFReleaseNull(error);
+    return userKey;
+}
+
+bool SOSPeerValidityCheck(SOSFullPeerInfoRef fpi, SecKeyRef userKey, CFErrorRef *error) {
+    SecKeyRef pubKey = SecKeyCopyPublicKey(userKey);
+    bool retval = SOSPeerInfoApplicationVerify(SOSFullPeerInfoGetPeerInfo(fpi), pubKey, error);
+    CFReleaseNull(pubKey);
+    return retval;
+}
+
 
 // MARK: ----- MAC Address -----
 

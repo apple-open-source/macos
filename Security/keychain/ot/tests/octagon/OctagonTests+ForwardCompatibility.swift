@@ -126,6 +126,43 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
+
+        let policy = self.injectedManager!.policy
+        XCTAssertNotNil(policy, "asdf")
+
+        XCTAssertEqual(policy?.version.versionNumber ?? 0, newPolicy.version.versionNumber, "CKKS policy should have new policy version")
+
+        // Cause a TPH+securityd restart, and ensure that the new policy can be gotten from TPH
+        self.tphClient.containerMap.removeAllContainers()
+        self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
+
+        let refetchPolicyExpectation = self.expectation(description: "refetchPolicy callback occurs")
+        self.cuttlefishContext.rpcRefetchCKKSPolicy { error in
+            XCTAssertNil(error, "Should be no error refetching the policy")
+            refetchPolicyExpectation.fulfill()
+        }
+        self.wait(for: [refetchPolicyExpectation], timeout: 10)
+
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        self.cuttlefishContext.cuttlefishXPCWrapper.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+            XCTAssertNil(error, "Should be no error getting dump")
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let policies = dump!["registeredPolicyVersions"] as? [String]
+            XCTAssertNotNil(policies, "policies should not be nil")
+
+            XCTAssert(policies?.contains("\(newPolicy.version.versionNumber), \(newPolicy.version.policyHash)") == true, "Registered policies should include newPolicy")
+
+            dumpCallback.fulfill()
+        }
+        self.wait(for: [dumpCallback], timeout: 10)
+
+        let statusExpectation = self.expectation(description: "status callback occurs")
+        self.cuttlefishContext.rpcStatus { result, error in
+            XCTAssertNil(error, "Should have no error getting status")
+            XCTAssertNotNil(result, "Should have some staatus")
+            statusExpectation.fulfill()
+        }
+        self.wait(for: [statusExpectation], timeout: 10)
     }
 
     func testRejectVouchingForPeerWithUnknownNewPolicy() throws {

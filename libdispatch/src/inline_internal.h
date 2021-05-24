@@ -1963,7 +1963,7 @@ DISPATCH_ALWAYS_INLINE DISPATCH_CONST
 inline bool
 _dispatch_is_custom_pri_workloop(dispatch_queue_t dq)
 {
-	return dq == (dispatch_queue_t) _dispatch_custom_workloop_root_queue._as_dq;
+	return (dq->do_targetq) == (dispatch_queue_t) _dispatch_custom_workloop_root_queue._as_dq;
 }
 
 DISPATCH_ALWAYS_INLINE DISPATCH_CONST

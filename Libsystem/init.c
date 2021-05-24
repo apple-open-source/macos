@@ -51,6 +51,7 @@
 extern void mach_init(void);			// from libsystem_kernel.dylib
 extern void __libplatform_init(void *future_use, const char *envp[], const char *apple[], const struct ProgramVars *vars);
 extern void __pthread_init(const struct _libpthread_functions *libpthread_funcs, const char *envp[], const char *apple[], const struct ProgramVars *vars);	// from libsystem_pthread.dylib
+extern void __pthread_late_init(const char *envp[], const char *apple[], const struct ProgramVars *vars);	// from libsystem_pthread.dylib
 extern void __malloc_init(const char *apple[]); // from libsystem_malloc.dylib
 extern void __keymgr_initializer(void);		// from libkeymgr.dylib
 extern void _dyld_initializer(void);		// from libdyld.dylib
@@ -230,6 +231,10 @@ libSystem_initializer(int argc,
 
 	_dyld_initializer();
 	_libSystem_ktrace_init_func(DYLD);
+
+#if TARGET_OS_OSX
+	__pthread_late_init(envp, apple, vars);
+#endif
 
 	libdispatch_init();
 	_libSystem_ktrace_init_func(LIBDISPATCH);

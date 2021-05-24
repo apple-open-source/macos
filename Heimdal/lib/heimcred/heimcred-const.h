@@ -86,6 +86,7 @@ HEIMCRED_CONST(CFTypeRef, kHEIMAttrRetainStatus); /* CFNumberRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrBundleIdentifierACL); /* CFArray[bundle-id] */
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrDefaultCredential); /* BooleanRef */
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrTemporaryCache); /* BooleanRef */
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrKerberosTicketGrantingTicket); /* BooleanRef */
 

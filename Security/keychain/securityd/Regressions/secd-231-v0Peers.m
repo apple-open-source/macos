@@ -53,24 +53,6 @@
 #include "SecdTestKeychainUtilities.h"
 #if SOS_ENABLED
 
-static void testView(SOSAccount* account, SOSViewResultCode expected, CFStringRef view, SOSViewActionCode action, char *label) {
-    CFErrorRef error = NULL;
-    SOSViewResultCode vcode = 9999;
-    switch(action) {
-        case kSOSCCViewQuery:
-            vcode = [account.trust viewStatus:account name:view err:&error];
-            break;
-        case kSOSCCViewEnable:
-        case kSOSCCViewDisable: // fallthrough
-            vcode = [account.trust updateView:account name:view code:action err:&error];
-            break;
-        default:
-            break;
-    }
-    is(vcode, expected, "%s (%@)", label, error);
-    CFReleaseNull(error);
-}
-
 static void tests(void)
 {
     CFErrorRef error = NULL;
@@ -80,12 +62,8 @@ static void tests(void)
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
 
     SOSAccount* alice_account = CreateAccountForLocalChanges( CFSTR("Alice"), CFSTR("TestSource"));
-    SOSAccount* bob_account = CreateAccountForLocalChanges(CFSTR("Bob"), CFSTR("TestSource"));
-    
-    ok(SOSAccountAssertUserCredentialsAndUpdate(bob_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
-    
-    // Bob wins writing at this point, feed the changes back to alice.
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
+        
+    is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
 
     ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
@@ -93,11 +71,13 @@ static void tests(void)
     ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
-
-    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
-    CFReleaseNull(error);
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
+    
+    // this is going to construct a V0 peer, and have alice plant it into the circle.
+    SecKeyRef correctUserKey = alice_account.accountPrivateKey;
+    SOSFullPeerInfoRef bobsV0FPI = SOSTestV0FullPeerInfo(CFSTR("Bob"), correctUserKey, CFSTR("12A365"), SOSPeerInfo_iOS);
+    SOSCircleRef aliceAccountCircle = alice_account.trust.trustedCircle;
+    SOSCircleRequestAdmission(aliceAccountCircle, correctUserKey, bobsV0FPI, &error);
 
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
@@ -108,43 +88,31 @@ static void tests(void)
         CFReleaseNull(applicants);
     }
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
-
-    accounts_agree("bob&alice pair", bob_account, alice_account);
-    
-    SOSAccountUpdatePeerInfoAndPush(bob_account, NULL, &error, ^bool(SOSPeerInfoRef peer, CFErrorRef *error) {
-        ok(peer, "bob should have the peerInfo");
-
-        SOSViewResultCode vr = SOSViewsEnable(peer, kSOSViewKeychainV0, NULL);
-        
-        ok(vr == kSOSCCViewMember, "Set Virtual View manually");
-        return true;
-    });
-    
-    testView(bob_account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Bob's Account expected kSOSKeychainV0 enabled");
-
-    is(ProcessChangesUntilNoChange(changes, bob_account, alice_account, NULL), 2, "updates");
-
-    CFArrayRef peers = SOSAccountCopyViewUnawarePeers_wTxn(bob_account, &error);
+    is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
+     
+    CFArrayRef peers = SOSAccountCopyViewUnawarePeers_wTxn(alice_account, &error);
     ok(peers, "peers should not be nil");
     is(CFArrayGetCount(peers), 1, "count should be 1");
-    SOSPeerInfoRef bobPeer = (SOSPeerInfoRef)CFArrayGetValueAtIndex(peers, 0);
-    ok(CFStringCompare(SOSPeerInfoGetPeerID(bobPeer), SOSPeerInfoGetPeerID(bob_account.peerInfo), 0) == kCFCompareEqualTo, "PeerInfo's should be equal");
+    if(CFArrayGetCount(peers) > 0) {
+        SOSPeerInfoRef bobPeer = (SOSPeerInfoRef)CFArrayGetValueAtIndex(peers, 0);
+        ok(CFStringCompare(SOSPeerInfoGetPeerID(bobPeer), SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(bobsV0FPI)), 0) == kCFCompareEqualTo, "PeerInfo's should be equal");
     
-    [alice_account removeV0Peers:^(bool removedV0Peer, NSError *error) {
-        is(removedV0Peer, true, "v0 peer should be removed");
-    }];
+        [alice_account removeV0Peers:^(bool removedV0Peer, NSError *error) {
+            is(removedV0Peer, true, "v0 peer should be removed");
+        }];
     
-    is(ProcessChangesUntilNoChange(changes, bob_account, alice_account, NULL), 2, "updates");
+        is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
+    }
     
-    is([bob_account getCircleStatus:&error], kSOSCCNotInCircle, "Bob should not be in the circle");
+    
+    is(SOSCircleCountPeers(alice_account.trust.trustedCircle), 1, "Bob should not be in the circle");
 
     CFReleaseNull(changes);
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
+    CFReleaseNull(bobsV0FPI);
 
     alice_account = nil;
-    bob_account = nil;
     SOSTestCleanup();
 }
 #endif

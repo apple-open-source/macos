@@ -647,8 +647,18 @@ get_new_tickets(krb5_context context,
 
     krb5_process_last_request(context, opt, icc);
 
-    ret = krb5_cc_new_unique(context, krb5_cc_get_type(context, ccache),
-			     NULL, &tempccache);
+#ifdef HAVE_XCC
+    if ((ccache->ops == &krb5_xcc_api_ops
+	 || ccache->ops == &krb5_xcc_ops
+	 || ccache->ops == &krb5_xcc_temp_api_ops)) {
+	ret = krb5_cc_new_unique(context, "XCTEMP",
+				 NULL, &tempccache);
+    } else
+#endif
+    {
+	ret = krb5_cc_new_unique(context, krb5_cc_get_type(context, ccache),
+				 NULL, &tempccache);
+    }
     if (ret)
 	krb5_err (context, 1, ret, "krb5_cc_new_unique");
 

@@ -93,6 +93,7 @@
 #include "pthread/qos_private.h"
 #include "pthread/tsd_private.h"
 #include "pthread/stack_np.h"
+#include "pthread/jit_private.h"
 
 #include "imports_internal.h"
 #include "prototypes_internal.h"

@@ -97,6 +97,8 @@ extern const CFStringRef kSOSCountKey;
 
 dispatch_queue_t SOSCCCredentialQueue(void);
 
+bool SOSVisibleKeychainNotAllowed(void);
+
 // Returns false unless errorCode is 0.
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef descriptionString, ...);
 

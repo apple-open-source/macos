@@ -263,9 +263,6 @@ os_log_t GSSHelperOSLog(void)
 	os_log_debug(GSSHelperOSLog(), "using clientName: %@", clientName);
     }
     
-    //make a temp cache to store the cred.  if it is successful, then move it.
-    krb5_cc_new_unique(context, "XCACHE", [clientName UTF8String], &tempcache);
-    
     /* Find principal */
     ret = krb5_parse_name(context, [clientName UTF8String], &in.client);
     if (ret) {
@@ -300,8 +297,6 @@ os_log_t GSSHelperOSLog(void)
     krb5_get_init_creds_opt_set_default_flags(context, "gsscred", realm, opt);
     if (opt->flags & KRB5_GET_INIT_CREDS_OPT_TKT_LIFE)
 	in.times.endtime = time(NULL) + opt->tkt_life;
-    else
-	in.times.endtime = time(NULL) + 10 * 60 * 60;  //default to 10 hours
     
     if (opt->flags & KRB5_GET_INIT_CREDS_OPT_RENEW_LIFE)
 	in.times.renew_till = time(NULL) + opt->renew_life;
@@ -364,25 +359,31 @@ os_log_t GSSHelperOSLog(void)
 		     clientName, ret);
 	goto out;
     }
-      
+
+    //make a temp cache to store the cred.  if it is successful, then save it in the real cache.
+    ret = krb5_cc_new_unique(context, "XCTEMP", [clientName UTF8String], &tempcache);
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "error in krb5_cc_initialize: %d", ret);
+	goto out;
+    }
+
     ret = krb5_cc_initialize(context, tempcache, in.client);
-    if(ret) {
+    if (ret) {
 	os_log_error(GSSHelperOSLog(), "error in krb5_cc_initialize: %d", ret);
 	goto out;
     }
 
     ret = krb5_cc_store_cred(context, tempcache, out);
-    if(ret) {
+    if (ret) {
 	krb5_warn(context, ret, "krb5_cc_initialize");
 	os_log_error(GSSHelperOSLog(), "error in krb5_cc_store_cred: %d", ret);
 	goto out;
     }
 
-    ret = krb5_cc_move(context, tempcache, ccache);
+    //store the new cred in the "real" cache.  it is stored instead of moved from the other cache to prevent false default cred elections and to retain the stored config and labels in the original cache.
+    ret = krb5_cc_store_cred(context, ccache, out);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to move cache: %d, %d", peer.session, ret);
-    } else {
-	tempcache = NULL;  //this is set to NULL because move will destroy and free it
+	os_log_error(GSSHelperOSLog(), "unable to save cred in cache: %d, %d", peer.session, ret);
     }
     
     expire = out->times.endtime;
@@ -396,7 +397,7 @@ os_log_t GSSHelperOSLog(void)
     if (ccache)
 	krb5_cc_close(context, ccache);
     if (tempcache)
-	krb5_cc_close(context, tempcache);
+	krb5_cc_destroy(context, tempcache);
     
     krb5_free_cred_contents(context, &in);
     krb5_free_context(context);

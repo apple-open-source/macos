@@ -1185,13 +1185,13 @@ static NSArray *keychainCerts = nil;
                                                                      withExtension:@"plist"
                                                                       subdirectory:@"si-82-sectrust-ct-data"];
     trustedCTLogs = [NSArray arrayWithContentsOfURL:trustedLogsURL];
+}
 
+- (void)setUp {
     // set test root to be a fake system root
-    SecCertificateRef system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"];
     NSData *rootHash = [NSData dataWithBytes:_system_root_hash length:sizeof(_system_root_hash)];
     CFPreferencesSetAppValue(CFSTR("TestCTRequiredSystemRoot"), (__bridge CFDataRef)rootHash, CFSTR("com.apple.security"));
     CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-    CFReleaseNull(system_root);
 }
 
 #if !TARGET_OS_BRIDGE
@@ -1942,6 +1942,80 @@ errOut:
     CFReleaseNull(trust);
     CFReleaseNull(error);
 
+}
+
+- (void)testCTPolicyV2 {
+    SecCertificateRef system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_root"];
+    SecCertificateRef six_month_leaf_1 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_six_months_1_sct"];
+    SecCertificateRef six_month_leaf_2 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_six_months_2_scts"];
+    SecCertificateRef one_year_leaf_2_before = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_one_year_2_scts_before"];
+    SecCertificateRef one_year_leaf_2_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_one_year_2_scts_after"];
+    SecCertificateRef one_year_leaf_3_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"policyv2_one_year_3_scts_after"];
+
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:641000000.0]; // April 24, 2021 at 4:33:20 PM PDT
+
+    // Set root as system root
+    CFDataRef rootHash = SecCertificateCopySHA256Digest(system_root);
+    CFPreferencesSetAppValue(CFSTR("TestCTRequiredSystemRoot"), rootHash, CFSTR("com.apple.security"));
+    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
+    CFReleaseNull(rootHash);
+
+    // < 180 days, after, 1 SCT -> fail
+    TestTrustEvaluation *test = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)six_month_leaf_1]
+                                                                         policies:@[(__bridge id)policy]];
+    [test setAnchors:@[(__bridge id)system_root]];
+    [test setVerifyDate:date];
+    [test setTrustedCTLogs:trustedCTLogs];
+#if !TARGET_OS_BRIDGE
+    XCTAssertFalse([test evaluate:nil]);
+#else
+    XCTAssertTrue([test evaluate:nil]);
+#endif
+
+    // < 180 days, after, 2 SCTs -> success
+    test = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)six_month_leaf_2]
+                                                    policies:@[(__bridge id)policy]];
+    [test setAnchors:@[(__bridge id)system_root]];
+    [test setVerifyDate:date];
+    [test setTrustedCTLogs:trustedCTLogs];
+    XCTAssertTrue([test evaluate:nil]);
+
+    // > 180 days, < 15 months, before, 2 SCTs -> success
+    test = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)one_year_leaf_2_before]
+                                                    policies:@[(__bridge id)policy]];
+    [test setAnchors:@[(__bridge id)system_root]];
+    [test setVerifyDate:date];
+    [test setTrustedCTLogs:trustedCTLogs];
+    XCTAssertTrue([test evaluate:nil]);
+
+    // > 180 days, < 15 months, after, 2 SCTs -> success
+    test = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)one_year_leaf_2_after]
+                                                    policies:@[(__bridge id)policy]];
+    [test setAnchors:@[(__bridge id)system_root]];
+    [test setVerifyDate:date];
+    [test setTrustedCTLogs:trustedCTLogs];
+#if !TARGET_OS_BRIDGE
+    XCTAssertFalse([test evaluate:nil]);
+#else
+    XCTAssertTrue([test evaluate:nil]);
+#endif
+
+    // > 180 days, < 15 months, before, 3 SCTs -> success
+    test = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)one_year_leaf_3_after]
+                                                    policies:@[(__bridge id)policy]];
+    [test setAnchors:@[(__bridge id)system_root]];
+    [test setVerifyDate:date];
+    [test setTrustedCTLogs:trustedCTLogs];
+    XCTAssertTrue([test evaluate:nil]);
+
+    CFReleaseNull(system_root);
+    CFReleaseNull(six_month_leaf_1);
+    CFReleaseNull(six_month_leaf_2);
+    CFReleaseNull(one_year_leaf_2_before);
+    CFReleaseNull(one_year_leaf_2_after);
+    CFReleaseNull(one_year_leaf_3_after);
+    CFReleaseNull(policy);
 }
 
 @end

@@ -33,7 +33,10 @@
 #include <CoreFoundation/CFError.h>
 #include <Security/SecKey.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#include "keychain/SecureObjectSync/SOSPeerInfoPriv.h"
 #include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
+#include "keychain/SecureObjectSync/SOSCircle.h"
+#include "keychain/SecureObjectSync/SOSCirclePriv.h"
 #include <TargetConditionals.h>
 
 __BEGIN_DECLS
@@ -77,6 +80,24 @@ SOSCreateFullPeerInfoFromName(CFStringRef name,
                               SecKeyRef* outOctagonSigningKey,
                               SecKeyRef* outOctagonEncryptionKey,
                               CFErrorRef *error);
+
+SOSFullPeerInfoRef SOSTestV0FullPeerInfo(CFStringRef name, SecKeyRef userKey, CFStringRef OSName, SOSPeerInfoDeviceClass devclass);
+SOSFullPeerInfoRef SOSTestFullPeerInfo(CFStringRef name, SecKeyRef userKey, CFStringRef OSName, SOSPeerInfoDeviceClass devclass);
+SOSCircleRef SOSTestCircle(SecKeyRef userKey, void * firstFpiv, ... );
+SecKeyRef SOSMakeUserKeyForPassword(const char *passwd);
+bool SOSPeerValidityCheck(SOSFullPeerInfoRef fpi, SecKeyRef userKey, CFErrorRef *error);
+
+
+static CFStringRef SOSModelFromType(SOSPeerInfoDeviceClass cls) {
+    switch(cls) {
+        case SOSPeerInfo_macOS: return CFSTR("Mac Pro");
+        case SOSPeerInfo_iOS: return CFSTR("iPhone");
+        case SOSPeerInfo_iCloud: return CFSTR("iCloud");
+        case SOSPeerInfo_watchOS: return CFSTR("needWatchOSDeviceName");
+        case SOSPeerInfo_tvOS: return CFSTR("needTVOSDeviceName");
+        default: return CFSTR("GENERICOSTHING");
+    }
+}
 
 __END_DECLS
 

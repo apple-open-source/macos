@@ -89,6 +89,7 @@ ifeq ($(AEP),YES)
 	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p2 < $(SRCROOT)/patches/bool-signed-char-bitfield.diff)
 	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p1 < $(SRCROOT)/patches/pyobjc-core_Modules_objc-varargs.diff)
 	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p0 < $(SRCROOT)/patches/pyobjc-core_Modules_objc_ptrauth.diff)
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p2 < $(SRCROOT)/patches/pyobjc-core_Modules_objc_dyld-shared-cache.diff)
 	rm -rf $(SRCROOT)/$(Project)/pyobjc-framework-PreferencePanes-2.5.1/Examples/EnvironmentPrefs/Dutch.lproj
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
 	    echo '#' > $$z || exit 1; \

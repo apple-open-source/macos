@@ -53,7 +53,7 @@
 #import "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 #import "keychain/ot/OTManager.h"
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
-#import "NSError+UsefulConstructors.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "utilities/SecCoreAnalytics.h"
 #include <utilities/SecCFWrappers.h>
@@ -255,7 +255,6 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
         if (!account)
             secnotice("account", "Got NULL creating account");
     }
-
     [account startStateMachine];
 
 done:
@@ -563,6 +562,7 @@ static SOSAccount* GetSharedAccount(bool onlyIfItExists) {
                 secerror("Failed to transform account into data, error: %@", flattenFailError);
             }
         };
+        
         // TODO: We should not be doing extra work whenever securityd is launched, let's see if we can eliminate this call
         SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_get_global_queue(SOS_ACCOUNT_PRIORITY, 0), NULL);
  
@@ -689,6 +689,16 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
             }
         }
 #endif
+        // Enforce MDM profile Restrictions
+        do_with_account(^(SOSAccountTransaction* txn) {
+            if(SOSVisibleKeychainNotAllowed()) {
+                SOSAccount *account = txn.account;
+                if([account isInCircle:(NULL)] && SOSPeerInfoV0ViewsEnabled(txn.account.peerInfo)) {
+                    secnotice("views", "Cannot have visible keychain views due to profile restrictions");
+                    [txn.account.trust updateViewSets:txn.account enabled:nil disabled:SOSViewsGetV0ViewSet()];
+                }
+            }
+        });
 
         do_with_account(^(SOSAccountTransaction* txn) {
             SOSAccount *account = txn.account;
@@ -832,6 +842,11 @@ bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews) {
     __block bool status = false;
 
     do_with_account_if_after_first_unlock(NULL, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        // Block enabling V0 views if managed preferences doesn't allow it.
+        if(SOSVisibleKeychainNotAllowed() && enabledViews && CFSetGetCount(enabledViews) && SOSViewSetIntersectsV0(enabledViews)) {
+            secnotice("views", "Cannot enable visible keychain views due to profile restrictions");
+            return false;
+        }
         status = [txn.account.trust updateViewSets:txn.account enabled:enabledViews disabled:disabledViews];
         return true;
     });

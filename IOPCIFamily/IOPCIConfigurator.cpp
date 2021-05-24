@@ -1280,6 +1280,14 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 				childRange->start = 0;
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
+#if !ACPI_SUPPORT
+			else if (oneChild
+					&& (kPCIHotPlugTunnel == child->supportsHotPlug))
+			{
+				// Use maximum possible ranges if this is the only child bridge.
+				childRange->flags |= kIOPCIRangeFlagMaximizeSize;
+			}
+#endif
 			else if (child->linkInterrupts 
 				&& (kPCIStatic != (kPCIHPTypeMask & child->supportsHotPlug)))
 			{
@@ -1647,7 +1655,7 @@ bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEn
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
+bool CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
 								uint32_t deallocTypes, uint32_t freeTypes,
 								IOPCIConfigEntry ** childList)
 {
@@ -1711,6 +1719,8 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
 		IODelete(dead, IOPCIConfigEntry, 1);
 		DLOG("deleted %p, bridges %d devices %d\n", dead, fBridgeCount, fDeviceCount);
 	}
+
+    return ((childList == NULL) || (didKeep == false));
 }
 
 //---------------------------------------------------------------------------
@@ -1769,11 +1779,25 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
 
     DLOG("bridge %p dead child at " D() "\n", bridge, DEVICE_IDENT(dead));
 	markChanged(dead);
-	bridgeRemoveChild(bridge, dead,
-                        kIOPCIRangeAllMask, kIOPCIRangeAllBridgeMask, &pendingList);
+    bool deleted = bridgeRemoveChild(bridge, dead,
+                                     kIOPCIRangeAllMask, kIOPCIRangeAllBridgeMask, &pendingList);
 	if (pendingList)
     {
 		bridgeMoveChildren(bridge, pendingList);
+    }
+
+    if(   (deleted == false)
+       && (dead->dtNub != NULL)
+       && (dead->dtNub->inPlane(gIOServicePlane) == false))
+    {
+        // detach from device tree plane before deleting the node
+        dead->dtNub->detachAbove(gIODTPlane);
+
+        DLOG("bridge %p dead child at " D() " never entered service plane\n", bridge, DEVICE_IDENT(dead));
+        // remove the dead child from the IODeviceTree plane as it never entered into the IOService plane
+        // and termination will never happen for the nub
+        bridgeRemoveChild(bridge, dead,
+                          kIOPCIRangeAllBarsMask, kIOPCIRangeAllBarsMask, NULL);
     }
 }
 

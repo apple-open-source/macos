@@ -59,8 +59,7 @@
 #include "keychain/SecureObjectSync/generated_source/SOSAccountConfiguration.h"
 
 
-#import "SecdWatchdog.h"
-
+#import "ipc/SecdWatchdog.h"
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecFileLocations.h>
@@ -1643,6 +1642,11 @@ bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, CFE
 {
     bool result = false;
     CFMutableSetRef peersToRemove = NULL;
+    
+    CFStringArrayPerformWithDescription(peers, ^(CFStringRef description) {
+        secnotice("circleOps", "Attempting to remove peer set %@", description);
+    });
+    
     SecKeyRef user_key = SOSAccountGetPrivateCredential(account, error);
     if (!user_key) {
         secnotice("circleOps", "Can't remove without userKey");

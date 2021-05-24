@@ -112,7 +112,7 @@ private:
     void doneWithTouchEvent(const NativeWebTouchEvent&, bool wasEventHandled) override;
 #endif
 #if ENABLE(IOS_TOUCH_EVENTS)
-    void doneDeferringTouchStart(bool preventNativeGestures) override;
+    void doneDeferringNativeGestures(bool preventNativeGestures) override;
 #endif
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
     Ref<WebCore::ValidationBubble> createValidationBubble(const String& message, const WebCore::ValidationBubble::Settings&) final;
@@ -143,6 +143,8 @@ private:
     void setRemoteLayerTreeRootNode(RemoteLayerTreeNode*) override;
     CALayer* acceleratedCompositingRootLayer() const override;
     LayerHostingMode viewLayerHostingMode() override { return LayerHostingMode::OutOfProcess; }
+
+    void makeViewBlank(bool) final;
 
     RefPtr<ViewSnapshot> takeViewSnapshot(Optional<WebCore::IntRect>&&) override;
     void wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&) override;

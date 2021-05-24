@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 171
+Submission	= 173
 
 
 #
@@ -80,7 +80,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave " \
 			--disable-static \
 			--enable-ipv6 \
-			--with-perl-modules \
+			--without-perl-modules \
 			--disable-perl-cc-checks \
 			--disable-embedded-perl  \
 			--datarootdir=/usr/share \

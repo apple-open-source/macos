@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "SecdWatchdog.h"
+#import "ipc/SecdWatchdog.h"
 #include "utilities/debugging.h"
 #include <xpc/private.h>
 #import <xpc/private.h>

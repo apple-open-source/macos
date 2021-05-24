@@ -54,6 +54,7 @@
 #include "ClonedArguments.h"
 #include "CodeBlock.h"
 #include "CodeBlockSetInlines.h"
+#include "ConsoleClient.h"
 #include "ConsoleObject.h"
 #include "DateConstructor.h"
 #include "DatePrototype.h"
@@ -572,6 +573,19 @@ void JSGlobalObject::initializeAggregateErrorConstructor(LazyClassStructure::Ini
     init.setPrototype(AggregateErrorPrototype::create(init.vm, AggregateErrorPrototype::createStructure(init.vm, this, m_errorStructure.prototype(this))));
     init.setStructure(AggregateError::createStructure(init.vm, this, init.prototype));
     init.setConstructor(AggregateErrorConstructor::create(init.vm, AggregateErrorConstructor::createStructure(init.vm, this, m_errorStructure.constructor(this)), jsCast<AggregateErrorPrototype*>(init.prototype)));
+}
+
+SUPPRESS_ASAN inline void JSGlobalObject::initStaticGlobals(VM& vm)
+{
+    GlobalPropertyInfo staticGlobals[] = {
+        GlobalPropertyInfo(vm.propertyNames->NaN, jsNaN(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        GlobalPropertyInfo(vm.propertyNames->Infinity, jsNumber(std::numeric_limits<double>::infinity()), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        GlobalPropertyInfo(vm.propertyNames->undefinedKeyword, jsUndefined(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+#if ASSERT_ENABLED
+        GlobalPropertyInfo(vm.propertyNames->builtinNames().assertPrivateName(), JSFunction::create(vm, this, 1, String(), assertCall), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+#endif
+    };
+    addStaticGlobals(staticGlobals, WTF_ARRAY_LENGTH(staticGlobals));
 }
 
 void JSGlobalObject::init(VM& vm)
@@ -1349,15 +1363,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         putDirectWithoutTransition(vm, Identifier::fromString(vm, "__disableSuperSampler"), JSFunction::create(vm, this, 1, String(), disableSuperSampler), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
     }
 
-    GlobalPropertyInfo staticGlobals[] = {
-        GlobalPropertyInfo(vm.propertyNames->NaN, jsNaN(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        GlobalPropertyInfo(vm.propertyNames->Infinity, jsNumber(std::numeric_limits<double>::infinity()), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        GlobalPropertyInfo(vm.propertyNames->undefinedKeyword, jsUndefined(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-#if ASSERT_ENABLED
-        GlobalPropertyInfo(vm.propertyNames->builtinNames().assertPrivateName(), JSFunction::create(vm, this, 1, String(), assertCall), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-#endif
-    };
-    addStaticGlobals(staticGlobals, WTF_ARRAY_LENGTH(staticGlobals));
+    initStaticGlobals(vm);
     
     if (UNLIKELY(Options::useDollarVM()))
         exposeDollarVM(vm);
@@ -2068,7 +2074,7 @@ CallFrame* JSGlobalObject::deprecatedCallFrameForDebugger()
     return CallFrame::create(m_deprecatedCallFrameForDebugger);
 }
 
-void JSGlobalObject::exposeDollarVM(VM& vm)
+SUPPRESS_ASAN void JSGlobalObject::exposeDollarVM(VM& vm)
 {
     RELEASE_ASSERT(g_jscConfig.restrictedOptionsEnabled && Options::useDollarVM());
     if (hasOwnProperty(this, vm.propertyNames->builtinNames().dollarVMPrivateName()))
@@ -2311,6 +2317,11 @@ void JSGlobalObject::queueMicrotask(Ref<Microtask>&& task)
 void JSGlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception* exception)
 {
     dataLogLn("Uncaught Exception at run loop: ", exception->value());
+}
+
+void JSGlobalObject::setConsoleClient(WeakPtr<ConsoleClient>&& consoleClient)
+{
+    m_consoleClient = WTFMove(consoleClient);
 }
 
 void JSGlobalObject::setDebugger(Debugger* debugger)

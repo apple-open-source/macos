@@ -299,6 +299,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_27_cms_parse"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_29_cms_chain_mode"
             isEnabled = "NO">
          </CommandLineArgument>

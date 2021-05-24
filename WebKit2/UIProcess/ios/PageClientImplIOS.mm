@@ -447,9 +447,9 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& nativeWebTouc
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 
-void PageClientImpl::doneDeferringTouchStart(bool preventNativeGestures)
+void PageClientImpl::doneDeferringNativeGestures(bool preventNativeGestures)
 {
-    [m_contentView _doneDeferringTouchStart:preventNativeGestures];
+    [m_contentView _doneDeferringNativeGestures:preventNativeGestures];
 }
 
 #endif // ENABLE(IOS_TOUCH_EVENTS)
@@ -473,6 +473,11 @@ void PageClientImpl::setTextIndicatorAnimationProgress(float)
 
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
+}
+
+void PageClientImpl::makeViewBlank(bool makeBlank)
+{
+    [m_contentView layer].opacity = makeBlank ? 0 : 1;
 }
 
 void PageClientImpl::showSafeBrowsingWarning(const SafeBrowsingWarning& warning, CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)>&& completionHandler)

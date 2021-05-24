@@ -49,6 +49,7 @@
 #include <array>
 #include <wtf/HashSet.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 
 struct OpaqueJSClass;
 struct OpaqueJSClassContextData;
@@ -552,7 +553,7 @@ public:
     String m_evalDisabledErrorMessage;
     String m_webAssemblyDisabledErrorMessage;
     RuntimeFlags m_runtimeFlags;
-    ConsoleClient* m_consoleClient { nullptr };
+    WeakPtr<ConsoleClient> m_consoleClient;
     Optional<unsigned> m_stackTraceLimit;
 
 #if ASSERT_ENABLED
@@ -867,8 +868,8 @@ public:
     static ptrdiff_t globalLexicalBindingEpochOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_globalLexicalBindingEpoch); }
     unsigned* addressOfGlobalLexicalBindingEpoch() { return &m_globalLexicalBindingEpoch; }
 
-    void setConsoleClient(ConsoleClient* consoleClient) { m_consoleClient = consoleClient; }
-    ConsoleClient* consoleClient() const { return m_consoleClient; }
+    JS_EXPORT_PRIVATE void setConsoleClient(WeakPtr<ConsoleClient>&&);
+    WeakPtr<ConsoleClient> consoleClient() const { return m_consoleClient; }
 
     void setName(const String&);
     const String& name() const { return m_name; }
@@ -1100,6 +1101,7 @@ protected:
             , value(v)
             , attributes(a)
         {
+            ASSERT(Thread::current().stack().contains(this));
         }
 
         const Identifier identifier;
@@ -1122,6 +1124,7 @@ private:
     void initializeAggregateErrorConstructor(LazyClassStructure::Initializer&);
 
     JS_EXPORT_PRIVATE void init(VM&);
+    void initStaticGlobals(VM&);
     void fixupPrototypeChainWithObjectPrototype(VM&);
 
     JS_EXPORT_PRIVATE static void clearRareData(JSCell*);

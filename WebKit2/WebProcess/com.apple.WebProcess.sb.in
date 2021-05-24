@@ -1454,8 +1454,7 @@
         (fcntl-command F_OFD_SETLK))
 
     (allow system-fcntl
-        (fcntl-command F_GETPROTECTIONCLASS)
-        (fcntl-command F_SETPROTECTIONCLASS))
+        (fcntl-command F_GETPROTECTIONCLASS))
 )
 
 (when (defined? 'process-codesigning*)
@@ -1516,6 +1515,7 @@
         (syscall-number SYS_munmap)
         (syscall-number SYS_mprotect)
         (syscall-number SYS_madvise)
+        (syscall-number SYS_mincore)
         (syscall-number SYS_fcntl)
         (syscall-number SYS_select)
         (syscall-number SYS_fsync)

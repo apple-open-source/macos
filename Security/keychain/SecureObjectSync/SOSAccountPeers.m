@@ -125,16 +125,7 @@ CFArrayRef SOSAccountCopyViewUnaware(SOSAccount* account, CFErrorRef *error) {
         SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
             if (!SOSPeerInfoVersionHasV2Data(peer) ) {
                 sosArrayAppendPeerCopy(appendPeersTo, peer);
-            } else {
-                CFSetRef peerEnabledViews = SOSPeerInfoCopyEnabledViews(peer);
-                CFSetRef enabledV0Views = CFSetCreateIntersection(kCFAllocatorDefault, peerEnabledViews, SOSViewsGetV0ViewSet());
-                if(CFSetGetCount(enabledV0Views) != 0) {
-                    sosArrayAppendPeerCopy(appendPeersTo, peer);
-                }
-                CFReleaseNull(peerEnabledViews);
-                CFReleaseNull(enabledV0Views);
-            }
-        });
+            }        });
     });
 }
 

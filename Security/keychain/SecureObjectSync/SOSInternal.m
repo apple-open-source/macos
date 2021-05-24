@@ -51,6 +51,12 @@
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccpbkdf2.h>
 
+#if !TARGET_OS_OSX
+#import <SoftLinking/SoftLinking.h>
+#import <ManagedConfiguration/ManagedConfiguration.h>
+#import <ManagedConfiguration/MCProfileConnection_Misc.h>
+#endif
+
 #include <os/lock.h>
 
 #include <AssertMacros.h>
@@ -455,4 +461,30 @@ dispatch_queue_t SOSCCCredentialQueue(void) {
         credQueue = dispatch_queue_create("com.apple.SOSCredentialsQueue", DISPATCH_QUEUE_SERIAL);
     });
     return credQueue;
+}
+
+
+#if TARGET_OS_OSX
+#define KEYCHAINSYNCDISABLE "DisableKeychainCloudSync"
+#define ICLOUDMANAGEDENVIRONMENT "com.apple.icloud.managed"
+#else
+SOFT_LINK_FRAMEWORK(PrivateFrameworks, ManagedConfiguration)
+SOFT_LINK_CLASS(ManagedConfiguration, MCProfileConnection)
+#endif
+
+bool SOSVisibleKeychainNotAllowed(void) {
+    bool notAllowed = false;
+
+#if TARGET_OS_OSX
+    notAllowed = CFPreferencesGetAppBooleanValue(CFSTR(KEYCHAINSYNCDISABLE), CFSTR(ICLOUDMANAGEDENVIRONMENT), NULL);
+#else
+    Class mpc = getMCProfileConnectionClass();
+    MCProfileConnection *sharedConnection = [mpc sharedConnection];
+    notAllowed = ![sharedConnection isCloudKeychainSyncAllowed];
+#endif
+    
+    if(notAllowed) {
+        secnotice("views", "V0 views disabled by Managed Preferences Profile");
+    }
+    return notAllowed;
 }

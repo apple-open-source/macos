@@ -149,6 +149,7 @@ $(OBJROOT)/$(PROJECT):
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-openpty-include.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-system-version-compat.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-support-sealed-system-volume.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-CVE-2021-23336.patch)
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au

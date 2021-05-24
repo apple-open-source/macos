@@ -837,7 +837,7 @@ OSStatus prelogin_copy_pref_value(const char * _Nullable uuid, const char *user,
         prefs = [database globalPrefs:_uuid domain:_domain];
     }
     
-    if (!prefs) {
+    if (!prefs && !managed) {
         os_log_debug(AUTHD_LOG, "No pref found");
         return errAuthorizationInvalidSet;
     }

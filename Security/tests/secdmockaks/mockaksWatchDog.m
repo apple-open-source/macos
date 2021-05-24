@@ -7,7 +7,7 @@
 #import <OCMock/OCMock.h>
 
 #import "mockaksxcbase.h"
-#import "SecdWatchdog.h"
+#import "ipc/SecdWatchdog.h"
 
 @interface mockaksWatchDog : mockaksxcbase
 @property (assign) uint64_t diskusage;

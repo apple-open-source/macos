@@ -664,17 +664,6 @@ static inline int ProcessChangesUntilNoChange(CFMutableDictionaryRef changes, ..
 // MARK: Account creation
 //
 
-static CFStringRef modelFromType(SOSPeerInfoDeviceClass cls) {
-    switch(cls) {
-        case SOSPeerInfo_macOS: return CFSTR("Mac Pro");
-        case SOSPeerInfo_iOS: return CFSTR("iPhone");
-        case SOSPeerInfo_iCloud: return CFSTR("iCloud");
-        case SOSPeerInfo_watchOS: return CFSTR("needWatchOSDeviceName");
-        case SOSPeerInfo_tvOS: return CFSTR("needTVOSDeviceName");
-        default: return CFSTR("GENERICOSTHING");
-    }
-}
-
 static inline SOSAccount* CreateAccountForLocalChangesWithStartingAttributes(CFStringRef name, CFStringRef data_source_name, SOSPeerInfoDeviceClass devclass, CFStringRef serial, CFBooleanRef preferIDS, CFBooleanRef preferIDSFragmentation, CFBooleanRef preferIDSACKModel, CFStringRef transportType, CFStringRef deviceID) {
     
     SOSDataSourceFactoryRef factory = SOSTestDataSourceFactoryCreate();
@@ -685,7 +674,7 @@ static inline SOSAccount* CreateAccountForLocalChangesWithStartingAttributes(CFS
     
     CFMutableDictionaryRef gestalt = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     CFDictionaryAddValue(gestalt, kPIUserDefinedDeviceNameKey, name);
-    CFDictionaryAddValue(gestalt, kPIDeviceModelNameKey, modelFromType(devclass));
+    CFDictionaryAddValue(gestalt, kPIDeviceModelNameKey, SOSModelFromType(devclass));
     CFDictionaryAddValue(gestalt, kPIOSVersionKey, CFSTR("TESTRUN"));
     
     CFMutableDictionaryRef testV2dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);

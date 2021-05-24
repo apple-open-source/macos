@@ -1,3 +1,777 @@
+2021-04-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276609. rdar://problem/77211512
+
+    numCalleeLocals, numParameters, and numVars should be unsigned
+    https://bugs.webkit.org/show_bug.cgi?id=224995
+    
+    Reviewed by Mark Lam.
+    
+    All of the various CodeBlock classes currently have the
+    numCalleeLocals and numVars marked as ints. I believe this is just
+    a historical artifact or because VirtualRegister's offset is an
+    int to make handling constants easier. Regardless, it's a bit
+    strange to not handle the sign conversion at the point of
+    comparison between a VirtualRegister offset and the local/var
+    count. This doesn't completely fix every place we use ints for
+    these values but starts on the right track. Lastly, I also added
+    some Check<unsigned>s to the wasm parser for sanity checking.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::setNumParameters):
+    (JSC::CodeBlock::ensureCatchLivenessIsComputedForBytecodeIndexSlow):
+    * bytecode/CodeBlock.h:
+    (JSC::CodeBlock::numParameters const):
+    (JSC::CodeBlock::numberOfArgumentsToSkip const):
+    (JSC::CodeBlock::numCalleeLocals const):
+    (JSC::CodeBlock::numVars const):
+    (JSC::CodeBlock::numTmps const):
+    (JSC::CodeBlock::addressOfNumParameters):
+    (JSC::CodeBlock::isTemporaryRegister):
+    * bytecode/UnlinkedCodeBlock.h:
+    (JSC::UnlinkedCodeBlock::numCalleeLocals const):
+    (JSC::UnlinkedCodeBlock::numVars const):
+    * bytecode/UnlinkedCodeBlockGenerator.h:
+    (JSC::UnlinkedCodeBlockGenerator::numCalleeLocals const):
+    (JSC::UnlinkedCodeBlockGenerator::numVars const):
+    (JSC::UnlinkedCodeBlockGenerator::setNumCalleeLocals):
+    (JSC::UnlinkedCodeBlockGenerator::setNumVars):
+    (JSC::UnlinkedCodeBlockGenerator::setNumParameters):
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::generate):
+    (JSC::BytecodeGenerator::emitPushFunctionNameScope):
+    * bytecompiler/BytecodeGeneratorBaseInlines.h:
+    (JSC::BytecodeGeneratorBase<Traits>::newRegister):
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::handleRecursiveTailCall):
+    (JSC::DFG::ByteCodeParser::inliningCost):
+    (JSC::DFG::ByteCodeParser::parseBlock):
+    * dfg/DFGOSREntrypointCreationPhase.cpp:
+    (JSC::DFG::OSREntrypointCreationPhase::run):
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::checkArgumentTypes):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::lower):
+    * ftl/FTLOSREntry.cpp:
+    (JSC::FTL::prepareOSREntry):
+    * interpreter/CallFrameClosure.h:
+    * interpreter/ProtoCallFrameInlines.h:
+    (JSC::ProtoCallFrame::init):
+    * jit/JIT.cpp:
+    (JSC::JIT::compileWithoutLinking):
+    * runtime/CommonSlowPaths.h:
+    (JSC::CommonSlowPaths::numberOfStackPaddingSlots):
+    (JSC::CommonSlowPaths::numberOfStackPaddingSlotsWithExtraSlots):
+    * wasm/WasmFunctionCodeBlock.h:
+    (JSC::Wasm::FunctionCodeBlock::numVars const):
+    (JSC::Wasm::FunctionCodeBlock::numCalleeLocals const):
+    (JSC::Wasm::FunctionCodeBlock::setNumVars):
+    (JSC::Wasm::FunctionCodeBlock::setNumCalleeLocals):
+    * wasm/WasmLLIntGenerator.cpp:
+    (JSC::Wasm::LLIntGenerator::push):
+    (JSC::Wasm::LLIntGenerator::getDropKeepCount):
+    (JSC::Wasm::LLIntGenerator::walkExpressionStack):
+    (JSC::Wasm::LLIntGenerator::checkConsistency):
+    (JSC::Wasm::LLIntGenerator::materializeConstantsAndLocals):
+    (JSC::Wasm::LLIntGenerator::splitStack):
+    (JSC::Wasm::LLIntGenerator::finalize):
+    (JSC::Wasm::LLIntGenerator::callInformationForCaller):
+    (JSC::Wasm::LLIntGenerator::addLoop):
+    (JSC::Wasm::LLIntGenerator::addTopLevel):
+    (JSC::Wasm::LLIntGenerator::addBlock):
+    (JSC::Wasm::LLIntGenerator::addIf):
+    (JSC::Wasm::LLIntGenerator::addElseToUnreachable):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276609 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-26  Keith Miller  <keith_miller@apple.com>
+
+            numCalleeLocals, numParameters, and numVars should be unsigned
+            https://bugs.webkit.org/show_bug.cgi?id=224995
+
+            Reviewed by Mark Lam.
+
+            All of the various CodeBlock classes currently have the
+            numCalleeLocals and numVars marked as ints. I believe this is just
+            a historical artifact or because VirtualRegister's offset is an
+            int to make handling constants easier. Regardless, it's a bit
+            strange to not handle the sign conversion at the point of
+            comparison between a VirtualRegister offset and the local/var
+            count. This doesn't completely fix every place we use ints for
+            these values but starts on the right track. Lastly, I also added
+            some Check<unsigned>s to the wasm parser for sanity checking.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::setNumParameters):
+            (JSC::CodeBlock::ensureCatchLivenessIsComputedForBytecodeIndexSlow):
+            * bytecode/CodeBlock.h:
+            (JSC::CodeBlock::numParameters const):
+            (JSC::CodeBlock::numberOfArgumentsToSkip const):
+            (JSC::CodeBlock::numCalleeLocals const):
+            (JSC::CodeBlock::numVars const):
+            (JSC::CodeBlock::numTmps const):
+            (JSC::CodeBlock::addressOfNumParameters):
+            (JSC::CodeBlock::isTemporaryRegister):
+            * bytecode/UnlinkedCodeBlock.h:
+            (JSC::UnlinkedCodeBlock::numCalleeLocals const):
+            (JSC::UnlinkedCodeBlock::numVars const):
+            * bytecode/UnlinkedCodeBlockGenerator.h:
+            (JSC::UnlinkedCodeBlockGenerator::numCalleeLocals const):
+            (JSC::UnlinkedCodeBlockGenerator::numVars const):
+            (JSC::UnlinkedCodeBlockGenerator::setNumCalleeLocals):
+            (JSC::UnlinkedCodeBlockGenerator::setNumVars):
+            (JSC::UnlinkedCodeBlockGenerator::setNumParameters):
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::generate):
+            (JSC::BytecodeGenerator::emitPushFunctionNameScope):
+            * bytecompiler/BytecodeGeneratorBaseInlines.h:
+            (JSC::BytecodeGeneratorBase<Traits>::newRegister):
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::handleRecursiveTailCall):
+            (JSC::DFG::ByteCodeParser::inliningCost):
+            (JSC::DFG::ByteCodeParser::parseBlock):
+            * dfg/DFGOSREntrypointCreationPhase.cpp:
+            (JSC::DFG::OSREntrypointCreationPhase::run):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::checkArgumentTypes):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::lower):
+            * ftl/FTLOSREntry.cpp:
+            (JSC::FTL::prepareOSREntry):
+            * interpreter/CallFrameClosure.h:
+            * interpreter/ProtoCallFrameInlines.h:
+            (JSC::ProtoCallFrame::init):
+            * jit/JIT.cpp:
+            (JSC::JIT::compileWithoutLinking):
+            * runtime/CommonSlowPaths.h:
+            (JSC::CommonSlowPaths::numberOfStackPaddingSlots):
+            (JSC::CommonSlowPaths::numberOfStackPaddingSlotsWithExtraSlots):
+            * wasm/WasmFunctionCodeBlock.h:
+            (JSC::Wasm::FunctionCodeBlock::numVars const):
+            (JSC::Wasm::FunctionCodeBlock::numCalleeLocals const):
+            (JSC::Wasm::FunctionCodeBlock::setNumVars):
+            (JSC::Wasm::FunctionCodeBlock::setNumCalleeLocals):
+            * wasm/WasmLLIntGenerator.cpp:
+            (JSC::Wasm::LLIntGenerator::push):
+            (JSC::Wasm::LLIntGenerator::getDropKeepCount):
+            (JSC::Wasm::LLIntGenerator::walkExpressionStack):
+            (JSC::Wasm::LLIntGenerator::checkConsistency):
+            (JSC::Wasm::LLIntGenerator::materializeConstantsAndLocals):
+            (JSC::Wasm::LLIntGenerator::splitStack):
+            (JSC::Wasm::LLIntGenerator::finalize):
+            (JSC::Wasm::LLIntGenerator::callInformationForCaller):
+            (JSC::Wasm::LLIntGenerator::addLoop):
+            (JSC::Wasm::LLIntGenerator::addTopLevel):
+            (JSC::Wasm::LLIntGenerator::addBlock):
+            (JSC::Wasm::LLIntGenerator::addIf):
+            (JSC::Wasm::LLIntGenerator::addElseToUnreachable):
+
+2021-04-23  Ruben Turcios  <rubent_22@apple.com>
+
+        Cherry-pick r276527. rdar://problem/77091667
+
+    [YARR Interpreter] Improper backtrack of parentheses with non-zero based greedy quantifiers
+    https://bugs.webkit.org/show_bug.cgi?id=224983
+    
+    Reviewed by Mark Lam.
+    
+    When we backtrack a parentheses with a greedy non zero based quantifier,
+    we don't properly restore for the case where we hadn't reached the minimum count.
+    We now save the input position on entry and restore it when we backtrack for
+    this case.  We also properly release the allocated ParenthesesDisjunctionContext's.
+    
+    * yarr/YarrInterpreter.cpp:
+    (JSC::Yarr::Interpreter::matchParentheses):
+    (JSC::Yarr::Interpreter::backtrackParentheses):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276527 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-23  Michael Saboff  <msaboff@apple.com>
+
+            [YARR Interpreter] Improper backtrack of parentheses with non-zero based greedy quantifiers
+            https://bugs.webkit.org/show_bug.cgi?id=224983
+
+            Reviewed by Mark Lam.
+
+            When we backtrack a parentheses with a greedy non zero based quantifier,
+            we don't properly restore for the case where we hadn't reached the minimum count.
+            We now save the input position on entry and restore it when we backtrack for
+            this case.  We also properly release the allocated ParenthesesDisjunctionContext's.
+
+            * yarr/YarrInterpreter.cpp:
+            (JSC::Yarr::Interpreter::matchParentheses):
+            (JSC::Yarr::Interpreter::backtrackParentheses):
+
+2021-04-23  Ruben Turcios  <rubent_22@apple.com>
+
+        Cherry-pick r276524. rdar://problem/77089783
+
+    Fix B3 strength reduction for shl.
+    https://bugs.webkit.org/show_bug.cgi?id=224913
+    rdar://76978874
+    
+    Reviewed by Michael Saboff.
+    
+    If the operation can potentially either underflow or overflow, then the result
+    can be any value.
+    
+    * b3/B3ReduceStrength.cpp:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276524 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-23  Mark Lam  <mark.lam@apple.com>
+
+            Fix B3 strength reduction for shl.
+            https://bugs.webkit.org/show_bug.cgi?id=224913
+            rdar://76978874
+
+            Reviewed by Michael Saboff.
+
+            If the operation can potentially either underflow or overflow, then the result
+            can be any value.
+
+            * b3/B3ReduceStrength.cpp:
+
+2021-04-23  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276324. rdar://problem/77086404
+
+    FullGCActivityCallback should use the percentage of pages uncompressed in RAM to determine deferral.
+    https://bugs.webkit.org/show_bug.cgi?id=224817
+    
+    Reviewed by Filip Pizlo.
+    
+    Source/JavaScriptCore:
+    
+    Right now we try to determine if too many pages are paged out by
+    dereferencing them and bailing out of the GC if we go over a
+    deadline. While this works if the only goal is to avoid causing
+    extensive thrashing on spinny disks (HDD), it doesn't prevent
+    thrashing when access to disk is fast (e.g. SSD). This is because
+    on fast disks the proportional time to load the memory from disk
+    is much lower. Additionally, on SSDs in particular we don't want
+    to load the pages into RAM then bail as that will force a
+    different page onto disk, increasing wear.
+    
+    This patch switches to asking the OS if each MarkedBlock is paged
+    out. Then if we are over a threshold we wait until we would have
+    GC'd anyway. This patch uses the (maxVMGrowthFactor - 1) as the
+    percentage of "slow" pages (paged out or compressed) needed to
+    defer the GC. The idea behind that threshold is that if we add
+    that many pages then the same number of pages would be forced
+    out of RAM for us to do a GC anyway (in the limit).
+    
+    * heap/BlockDirectory.cpp:
+    (JSC::BlockDirectory::updatePercentageOfPagedOutPages):
+    (JSC::BlockDirectory::isPagedOut): Deleted.
+    * heap/BlockDirectory.h:
+    * heap/FullGCActivityCallback.cpp:
+    (JSC::FullGCActivityCallback::doCollection):
+    * heap/Heap.cpp:
+    (JSC::Heap::isPagedOut):
+    * heap/Heap.h:
+    * heap/MarkedSpace.cpp:
+    (JSC::MarkedSpace::isPagedOut):
+    * heap/MarkedSpace.h:
+    * runtime/OptionsList.h:
+    
+    Source/WebKit:
+    
+    Add mincore to the acceptable syscall list.
+    
+    * WebProcess/com.apple.WebProcess.sb.in:
+    
+    Source/WTF:
+    
+    Add a noexcept flavor of FunctionTraits. On Linux mincore (and probably other syscalls) are marked noexcept so the existing overloads don't work.
+    
+    * wtf/FunctionTraits.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276324 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-20  Keith Miller  <keith_miller@apple.com>
+
+            FullGCActivityCallback should use the percentage of pages uncompressed in RAM to determine deferral.
+            https://bugs.webkit.org/show_bug.cgi?id=224817
+
+            Reviewed by Filip Pizlo.
+
+            Right now we try to determine if too many pages are paged out by
+            dereferencing them and bailing out of the GC if we go over a
+            deadline. While this works if the only goal is to avoid causing
+            extensive thrashing on spinny disks (HDD), it doesn't prevent
+            thrashing when access to disk is fast (e.g. SSD). This is because
+            on fast disks the proportional time to load the memory from disk
+            is much lower. Additionally, on SSDs in particular we don't want
+            to load the pages into RAM then bail as that will force a
+            different page onto disk, increasing wear.
+
+            This patch switches to asking the OS if each MarkedBlock is paged
+            out. Then if we are over a threshold we wait until we would have
+            GC'd anyway. This patch uses the (maxVMGrowthFactor - 1) as the
+            percentage of "slow" pages (paged out or compressed) needed to
+            defer the GC. The idea behind that threshold is that if we add
+            that many pages then the same number of pages would be forced
+            out of RAM for us to do a GC anyway (in the limit).
+
+            * heap/BlockDirectory.cpp:
+            (JSC::BlockDirectory::updatePercentageOfPagedOutPages):
+            (JSC::BlockDirectory::isPagedOut): Deleted.
+            * heap/BlockDirectory.h:
+            * heap/FullGCActivityCallback.cpp:
+            (JSC::FullGCActivityCallback::doCollection):
+            * heap/Heap.cpp:
+            (JSC::Heap::isPagedOut):
+            * heap/Heap.h:
+            * heap/MarkedSpace.cpp:
+            (JSC::MarkedSpace::isPagedOut):
+            * heap/MarkedSpace.h:
+            * runtime/OptionsList.h:
+
+2021-04-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r276155. rdar://problem/76781047
+
+    Before deleting a MarkedBlock we do not need to clear its m_directory pointer.
+    https://bugs.webkit.org/show_bug.cgi?id=224677
+    
+    Reviewed by Yusuke Suzuki.
+    
+    Right now when we are about to free a MarkedBlock we clear the
+    m_directory pointer in the MarkedBlock's Handle. This has the
+    downside, however, of potentially paging in the footer from disk /
+    the compressor, which some data we have seen shows is happening.
+    This patch prevents this uncessary store to hopefully reduce the
+    number of pageins/decompressions caused by Safari web content.
+    
+    * heap/BlockDirectory.cpp:
+    (JSC::BlockDirectory::removeBlock):
+    (JSC::BlockDirectory::removeBlockForDeletion):
+    * heap/BlockDirectory.h:
+    * heap/MarkedBlock.cpp:
+    (JSC::MarkedBlock::Handle::~Handle):
+    * heap/MarkedSpace.cpp:
+    (JSC::MarkedSpace::freeBlock):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276155 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-16  Keith Miller  <keith_miller@apple.com>
+
+            Before deleting a MarkedBlock we do not need to clear its m_directory pointer.
+            https://bugs.webkit.org/show_bug.cgi?id=224677
+
+            Reviewed by Yusuke Suzuki.
+
+            Right now when we are about to free a MarkedBlock we clear the
+            m_directory pointer in the MarkedBlock's Handle. This has the
+            downside, however, of potentially paging in the footer from disk /
+            the compressor, which some data we have seen shows is happening.
+            This patch prevents this uncessary store to hopefully reduce the
+            number of pageins/decompressions caused by Safari web content.
+
+            * heap/BlockDirectory.cpp:
+            (JSC::BlockDirectory::removeBlock):
+            (JSC::BlockDirectory::removeBlockForDeletion):
+            * heap/BlockDirectory.h:
+            * heap/MarkedBlock.cpp:
+            (JSC::MarkedBlock::Handle::~Handle):
+            * heap/MarkedSpace.cpp:
+            (JSC::MarkedSpace::freeBlock):
+
+2021-04-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r275233. rdar://problem/76727522
+
+    Ensure that GlobalPropertyInfo is allocated on the stack.
+    https://bugs.webkit.org/show_bug.cgi?id=223911
+    
+    Unreviewed test gardening.
+    
+    Rebaseline builtins generator tests after r275212.
+    
+    * Scripts/tests/builtins/expected/WebCoreJSBuiltins.h-result:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@275233 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-30  Ryan Haddad  <ryanhaddad@apple.com>
+
+            Ensure that GlobalPropertyInfo is allocated on the stack.
+            https://bugs.webkit.org/show_bug.cgi?id=223911
+
+            Unreviewed test gardening.
+
+            Rebaseline builtins generator tests after r275212.
+
+            * Scripts/tests/builtins/expected/WebCoreJSBuiltins.h-result:
+
+2021-04-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r275845. rdar://problem/76727387
+
+    Modernize uses of ConsoleClient
+    https://bugs.webkit.org/show_bug.cgi?id=224398
+    
+    Reviewed by David Kilzer.
+    
+    ConsoleClient acts like a delegate, so its callers
+    should be using weak references to it.
+    
+    Source/JavaScriptCore:
+    
+    * inspector/JSGlobalObjectInspectorController.cpp:
+    (Inspector::JSGlobalObjectInspectorController::consoleClient const):
+    * inspector/JSGlobalObjectInspectorController.h:
+    * runtime/ConsoleClient.h:
+    * runtime/ConsoleObject.cpp:
+    (JSC::consoleLogWithLevel):
+    (JSC::JSC_DEFINE_HOST_FUNCTION):
+    * runtime/JSGlobalObject.cpp:
+    (JSC::JSGlobalObject::init):
+    (JSC::JSGlobalObject::setConsoleClient):
+    * runtime/JSGlobalObject.h:
+    (JSC::JSGlobalObject::consoleClient const):
+    (JSC::JSGlobalObject::setConsoleClient): Deleted.
+    
+    Source/WebCore:
+    
+    * bindings/js/ScriptCachedFrameData.cpp:
+    (WebCore::ScriptCachedFrameData::restore):
+    * bindings/js/ScriptController.cpp:
+    (WebCore::ScriptController::initScriptForWindowProxy):
+    * bindings/js/WindowProxy.cpp:
+    (WebCore::WindowProxy::setDOMWindow):
+    * workers/WorkerOrWorkletScriptController.cpp:
+    (WebCore::WorkerOrWorkletScriptController::initScriptWithSubclass):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@275845 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-12  BJ Burg  <bburg@apple.com>
+
+            Modernize uses of ConsoleClient
+            https://bugs.webkit.org/show_bug.cgi?id=224398
+
+            Reviewed by David Kilzer.
+
+            ConsoleClient acts like a delegate, so its callers
+            should be using weak references to it.
+
+            * inspector/JSGlobalObjectInspectorController.cpp:
+            (Inspector::JSGlobalObjectInspectorController::consoleClient const):
+            * inspector/JSGlobalObjectInspectorController.h:
+            * runtime/ConsoleClient.h:
+            * runtime/ConsoleObject.cpp:
+            (JSC::consoleLogWithLevel):
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            * runtime/JSGlobalObject.cpp:
+            (JSC::JSGlobalObject::init):
+            (JSC::JSGlobalObject::setConsoleClient):
+            * runtime/JSGlobalObject.h:
+            (JSC::JSGlobalObject::consoleClient const):
+            (JSC::JSGlobalObject::setConsoleClient): Deleted.
+
+2021-04-15  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r275212. rdar://problem/76727522
+
+    Ensure that GlobalPropertyInfo is allocated on the stack.
+    https://bugs.webkit.org/show_bug.cgi?id=223911
+    rdar://75865742
+    
+    Reviewed by Yusuke Suzuki.
+    
+    Source/JavaScriptCore:
+    
+    We rely on GlobalPropertyInfo being allocated on the stack to allow its JSValue
+    value to be scanned by the GC.  Unfortunately, an ASAN compilation would choose
+    to allocate the GlobalPropertyInfo on a side buffer instead of directly on the
+    stack.  This prevents the GC from doing the needed scan.
+    
+    We'll fix this by suppressing ASAN on the functions that allocated GlobalPropertyInfo
+    arrays.  Also added an ASSERT in the GlobalPropertyInfo constructor to assert that
+    it is allocated on the stack.
+    
+    * Scripts/wkbuiltins/builtins_generate_internals_wrapper_implementation.py:
+    (BuiltinsInternalsWrapperImplementationGenerator.generate_initialize_method):
+    * runtime/JSGlobalObject.cpp:
+    (JSC::JSGlobalObject::initStaticGlobals):
+    (JSC::JSGlobalObject::init):
+    (JSC::JSGlobalObject::exposeDollarVM):
+    * runtime/JSGlobalObject.h:
+    (JSC::JSGlobalObject::GlobalPropertyInfo::GlobalPropertyInfo):
+    
+    Source/WebCore:
+    
+    * bindings/js/JSDOMGlobalObject.cpp:
+    (WebCore::JSDOMGlobalObject::addBuiltinGlobals):
+    * bindings/js/JSDOMWindowBase.cpp:
+    (WebCore::JSDOMWindowBase::finishCreation):
+    (WebCore::JSDOMWindowBase::initStaticGlobals):
+    * bindings/js/JSDOMWindowBase.h:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@275212 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-30  Mark Lam  <mark.lam@apple.com>
+
+            Ensure that GlobalPropertyInfo is allocated on the stack.
+            https://bugs.webkit.org/show_bug.cgi?id=223911
+            rdar://75865742
+
+            Reviewed by Yusuke Suzuki.
+
+            We rely on GlobalPropertyInfo being allocated on the stack to allow its JSValue
+            value to be scanned by the GC.  Unfortunately, an ASAN compilation would choose
+            to allocate the GlobalPropertyInfo on a side buffer instead of directly on the
+            stack.  This prevents the GC from doing the needed scan.
+
+            We'll fix this by suppressing ASAN on the functions that allocated GlobalPropertyInfo
+            arrays.  Also added an ASSERT in the GlobalPropertyInfo constructor to assert that
+            it is allocated on the stack.
+
+            * Scripts/wkbuiltins/builtins_generate_internals_wrapper_implementation.py:
+            (BuiltinsInternalsWrapperImplementationGenerator.generate_initialize_method):
+            * runtime/JSGlobalObject.cpp:
+            (JSC::JSGlobalObject::initStaticGlobals):
+            (JSC::JSGlobalObject::init):
+            (JSC::JSGlobalObject::exposeDollarVM):
+            * runtime/JSGlobalObject.h:
+            (JSC::JSGlobalObject::GlobalPropertyInfo::GlobalPropertyInfo):
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274325. rdar://problem/76416354
+
+    Adopt VM_FLAGS_PERMANENT for the config vm mapping
+    https://bugs.webkit.org/show_bug.cgi?id=222086
+    <rdar://74402690>
+    
+    Reviewed by Yusuke Suzuki and Mark Lam.
+    
+    Source/JavaScriptCore:
+    
+    * runtime/JSCConfig.h:
+    (JSC::Config::configureForTesting):
+    
+    Source/WebKit:
+    
+    * Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceMain.mm:
+    (WebKit::XPCServiceMain):
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    * wtf/Threading.cpp:
+    (WTF::initialize):
+    * wtf/WTFConfig.cpp:
+    (WTF::setPermissionsOfConfigPage):
+    * wtf/WTFConfig.h:
+    (WTF::setPermissionsOfConfigPage):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274325 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-11  Saam Barati  <sbarati@apple.com>
+
+            Adopt VM_FLAGS_PERMANENT for the config vm mapping
+            https://bugs.webkit.org/show_bug.cgi?id=222086
+            <rdar://74402690>
+
+            Reviewed by Yusuke Suzuki and Mark Lam.
+
+            * runtime/JSCConfig.h:
+            (JSC::Config::configureForTesting):
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274699. rdar://problem/76373830
+
+    JS->Wasm IC must save the tag registers if it uses them
+    https://bugs.webkit.org/show_bug.cgi?id=223491
+    <rdar://66445108>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * wasm/stress/save-tag-callee-saves-in-js-entrypoint-ic.js: Added.
+    (0x0b.WebAssembly.instantiate.wasm.then.e.const.mod.e.instance.exports.Test.prototype.get breakIt):
+    (0x0b.WebAssembly.instantiate.wasm.then.e.const.mod.e.instance.exports.Test):
+    (0x0b.WebAssembly.instantiate.wasm.then.e.const.obj.new.Test):
+    
+    Source/JavaScriptCore:
+    
+    It turns out, that when you use a callee save register, you should save it.
+    
+    * wasm/js/WebAssemblyFunction.cpp:
+    (JSC::WebAssemblyFunction::usesTagRegisters const):
+    (JSC::WebAssemblyFunction::calleeSaves const):
+    (JSC::WebAssemblyFunction::jsCallEntrypointSlow):
+    (JSC::WebAssemblyFunction::useTagRegisters const): Deleted.
+    * wasm/js/WebAssemblyFunction.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274699 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-18  Saam Barati  <sbarati@apple.com>
+
+            JS->Wasm IC must save the tag registers if it uses them
+            https://bugs.webkit.org/show_bug.cgi?id=223491
+            <rdar://66445108>
+
+            Reviewed by Yusuke Suzuki.
+
+            It turns out, that when you use a callee save register, you should save it.
+
+            * wasm/js/WebAssemblyFunction.cpp:
+            (JSC::WebAssemblyFunction::usesTagRegisters const):
+            (JSC::WebAssemblyFunction::calleeSaves const):
+            (JSC::WebAssemblyFunction::jsCallEntrypointSlow):
+            (JSC::WebAssemblyFunction::useTagRegisters const): Deleted.
+            * wasm/js/WebAssemblyFunction.h:
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274539. rdar://problem/76374197
+
+    Object allocation sinking phase should prioritize materializations with no dependencies before materializations with no reverse dependencies
+    https://bugs.webkit.org/show_bug.cgi?id=221069
+    <rdar://problem/73686589>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/allocation-sinking-scope-materialization-order.js: Added.
+    (var3.var2.x):
+    (var3):
+    
+    Source/JavaScriptCore:
+    
+    Suppose we have two scope objects, A and B. Let's say A points to B, so B is
+    A's parent scope. A then depends on B. B has no dependencies here. When deciding
+    an order to materialize scope objects, we should always do it in reverse dependency
+    order. So above, we should materialize B, then A.
+    
+    Inside object allocation sinking phase, when at an object materialization
+    site, we do track both dependencies and reverse dependencies. In the above
+    object graph, we'd attempt to materialize the objects in the right order,
+    always picking things with no dependencies first (and updating the list of
+    dependencies as we materialzed objects).
+    
+    The code was using an std::list to track things to materialize, and it had
+    notions for materializing something first, and materializing something last.
+    However, there was a bug in how the code managed to insert things when
+    it first inserted last followed by inserting first. This patch simplifies
+    the code and makes it do the right thing.
+    
+    * dfg/DFGObjectAllocationSinkingPhase.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274539 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-16  Saam Barati  <sbarati@apple.com>
+
+            Object allocation sinking phase should prioritize materializations with no dependencies before materializations with no reverse dependencies
+            https://bugs.webkit.org/show_bug.cgi?id=221069
+            <rdar://problem/73686589>
+
+            Reviewed by Yusuke Suzuki.
+
+            Suppose we have two scope objects, A and B. Let's say A points to B, so B is
+            A's parent scope. A then depends on B. B has no dependencies here. When deciding
+            an order to materialize scope objects, we should always do it in reverse dependency
+            order. So above, we should materialize B, then A.
+
+            Inside object allocation sinking phase, when at an object materialization
+            site, we do track both dependencies and reverse dependencies. In the above
+            object graph, we'd attempt to materialize the objects in the right order,
+            always picking things with no dependencies first (and updating the list of
+            dependencies as we materialzed objects).
+
+            The code was using an std::list to track things to materialize, and it had
+            notions for materializing something first, and materializing something last.
+            However, there was a bug in how the code managed to insert things when
+            it first inserted last followed by inserting first. This patch simplifies
+            the code and makes it do the right thing.
+
+            * dfg/DFGObjectAllocationSinkingPhase.cpp:
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r274288. rdar://problem/76415622
+
+    Web Inspector: Occasional crash under RemoteConnectionToTargetCocoa::close()
+    https://bugs.webkit.org/show_bug.cgi?id=223038
+    <rdar://74920246>
+    
+    Reviewed by Alex Christensen.
+    
+    * inspector/remote/cocoa/RemoteConnectionToTargetCocoa.mm:
+    (Inspector::RemoteConnectionToTarget::setup):
+    (Inspector::RemoteConnectionToTarget::close):
+    Don't use a capture default, and copy the targetIdentifier.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274288 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-11  BJ Burg  <bburg@apple.com>
+
+            Web Inspector: Occasional crash under RemoteConnectionToTargetCocoa::close()
+            https://bugs.webkit.org/show_bug.cgi?id=223038
+            <rdar://74920246>
+
+            Reviewed by Alex Christensen.
+
+            * inspector/remote/cocoa/RemoteConnectionToTargetCocoa.mm:
+            (Inspector::RemoteConnectionToTarget::setup):
+            (Inspector::RemoteConnectionToTarget::close):
+            Don't use a capture default, and copy the targetIdentifier.
+
+2021-04-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r273972. rdar://problem/76375074
+
+    OpGetPrivateName needs to be listed in FOR_EACH_OPCODE_WITH_VALUE_PROFILE
+    https://bugs.webkit.org/show_bug.cgi?id=222775
+    <rdar://74982634>
+    
+    Reviewed by Michael Saboff.
+    
+    JSTests:
+    
+    * stress/private-name-assignment-in-constructor.js: Added.
+    (Foo):
+    
+    Source/JavaScriptCore:
+    
+    Right now valueProfileForBytecodeIndex incorrectly returns null for op_get_private_name.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::valueProfileForBytecodeIndex):
+    * bytecode/Opcode.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@273972 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-05  Tadeu Zagallo  <tzagallo@apple.com>
+
+            OpGetPrivateName needs to be listed in FOR_EACH_OPCODE_WITH_VALUE_PROFILE
+            https://bugs.webkit.org/show_bug.cgi?id=222775
+            <rdar://74982634>
+
+            Reviewed by Michael Saboff.
+
+            Right now valueProfileForBytecodeIndex incorrectly returns null for op_get_private_name.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::valueProfileForBytecodeIndex):
+            * bytecode/Opcode.h:
+
 2021-02-17  Ruben Turcios  <rubent_22@apple.com>
 
         Cherry-pick r271767. rdar://problem/74409412

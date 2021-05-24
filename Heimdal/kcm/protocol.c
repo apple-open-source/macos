@@ -40,7 +40,7 @@ static void
 kcm_drop_default_cache(krb5_context context, kcm_client *client, char *name);
 
 int
-kcm_is_same_session(kcm_client *client, uid_t uid, pid_t session)
+kcm_is_same_session_locked(kcm_client *client, uid_t uid, pid_t session)
 {
     /*
      * Only same session
@@ -190,7 +190,9 @@ kcm_op_initialize(krb5_context context,
 	return ret;
     }
 
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
     ccache->client = principal;
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
     free(name);
 
@@ -275,8 +277,10 @@ kcm_op_store(krb5_context context,
 	return ret;
     }
 
-    ret = kcm_ccache_store_cred(context, ccache, &creds, 0);
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
+    ret = kcm_ccache_store_cred_internal(context, ccache, &creds, NULL, 0);
     if (ret) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	free(name);
 	krb5_free_cred_contents(context, &creds);
 	kcm_release_ccache(context, ccache);
@@ -285,6 +289,7 @@ kcm_op_store(krb5_context context,
 
     if (creds.client && krb5_principal_is_root_krbtgt(context, creds.server))
 	kcm_ccache_enqueue_default(context, ccache, &creds);
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
     free(name);
     kcm_release_ccache(context, ccache);
@@ -353,16 +358,20 @@ kcm_op_retrieve(krb5_context context,
 	goto out;
     }
 
-    ret = kcm_principal_access(context, client, mcreds.server, opcode, ccache);
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
+    ret = kcm_principal_access_locked(context, client, mcreds.server, opcode, ccache);
     if (ret) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	krb5_free_cred_contents(context, &mcreds);
 	kcm_release_ccache(context, ccache);
 	goto out;
     }
-    ret = kcm_ccache_retrieve_cred(context, ccache, flags,
+    ret = kcm_ccache_retrieve_cred_internal(context, ccache, flags,
 				   &mcreds, &credp);
     if (ret == 0)
 	ret = krb5_store_creds(response, credp);
+
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
     kcm_release_ccache(context, ccache);
     krb5_free_cred_contents(context, &mcreds);
@@ -403,10 +412,13 @@ kcm_op_get_principal(krb5_context context,
 	return ret;
     }
 
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
     if (ccache->client == NULL)
 	ret = KRB5_CC_NOTFOUND;
-    else
+    else {
 	ret = krb5_store_principal(response, ccache->client);
+    }
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
     free(name);
     kcm_release_ccache(context, ccache);
@@ -445,10 +457,10 @@ kcm_op_get_cred_uuid_list(krb5_context context,
     free(name);
     if (ret)
 	return ret;
-
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
     for (creds = ccache->creds ; creds ; creds = creds->next) {
 	
-	krb5_error_code accessRet = kcm_principal_access(context, client, creds->cred.server, opcode, ccache);
+	krb5_error_code accessRet = kcm_principal_access_locked(context, client, creds->cred.server, opcode, ccache);
 	if (accessRet) {
 	    continue;
 	}
@@ -460,7 +472,7 @@ kcm_op_get_cred_uuid_list(krb5_context context,
 	    break;
 	}
     }
-
+    HEIMDAL_MUTEX_unlock(&ccache->mutex);
     kcm_release_ccache(context, ccache);
 
     return ret;
@@ -507,19 +519,21 @@ kcm_op_get_cred_by_uuid(krb5_context context,
 	return KRB5_CC_IO;
     }
 
-    c = kcm_ccache_find_cred_uuid(context, ccache, uuid);
+    HEIMDAL_MUTEX_lock(&ccache->mutex);
+    c = kcm_ccache_find_cred_uuid_locked(context, ccache, uuid);
     if (c == NULL) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	kcm_release_ccache(context, ccache);
 	return KRB5_CC_END;
     }
 
-    ret = kcm_principal_access(context, client, c->cred.server, opcode, ccache);
+    ret = kcm_principal_access_locked(context, client, c->cred.server, opcode, ccache);
     if (ret) {
+	HEIMDAL_MUTEX_unlock(&ccache->mutex);
 	kcm_release_ccache(context, ccache);
 	return KRB5_CC_END;
     }
-    
-    HEIMDAL_MUTEX_lock(&ccache->mutex);
+
     ret = krb5_store_creds(response, &c->cred);
     HEIMDAL_MUTEX_unlock(&ccache->mutex);
 
@@ -1099,7 +1113,8 @@ kcm_op_get_cache_by_uuid(krb5_context context,
     return ret;
 }
 
-struct kcm_default_cache *default_caches;
+struct kcm_default_cache *default_caches;  //uses the def_cache_mutex
+HEIMDAL_MUTEX def_cache_mutex = HEIMDAL_MUTEX_INITIALIZER;
 
 static krb5_error_code
 kcm_op_get_default_cache(krb5_context context,
@@ -1114,13 +1129,16 @@ kcm_op_get_default_cache(krb5_context context,
     char *n = NULL;
 
     KCM_LOG_REQUEST(context, client, opcode);
-
+    HEIMDAL_MUTEX_lock(&def_cache_mutex);
     for (c = default_caches; c != NULL; c = c->next) {
-	if (kcm_is_same_session(client, c->uid, c->session)) {
+	// no separate mutex lock here for default cache entry
+	if (kcm_is_same_session_locked(client, c->uid, c->session)) {
 	    name = c->name;
 	    break;
 	}
     }
+    HEIMDAL_MUTEX_unlock(&def_cache_mutex);
+
     if (name == NULL)
 	name = n = kcm_ccache_first_name(client);
 
@@ -1141,8 +1159,10 @@ kcm_drop_default_cache(krb5_context context, kcm_client *client, char *name)
 {
     struct kcm_default_cache **c;
 
+    HEIMDAL_MUTEX_lock(&def_cache_mutex);
     for (c = &default_caches; *c != NULL; c = &(*c)->next) {
-	if (!kcm_is_same_session(client, (*c)->uid, (*c)->session))
+	// no separate mutex lock here for default cache entry
+	if (!kcm_is_same_session_locked(client, (*c)->uid, (*c)->session))
 	    continue;
 	if (strcmp((*c)->name, name) == 0) {
 	    struct kcm_default_cache *h = *c;
@@ -1152,6 +1172,7 @@ kcm_drop_default_cache(krb5_context context, kcm_client *client, char *name)
 	    break;
 	}
     }
+    HEIMDAL_MUTEX_unlock(&def_cache_mutex);
 }
 
 static krb5_error_code
@@ -1170,9 +1191,10 @@ kcm_op_set_default_cache(krb5_context context,
 	return ret;
 
     KCM_LOG_REQUEST_NAME(context, client, opcode, name);
-
+    HEIMDAL_MUTEX_lock(&def_cache_mutex);
     for (c = default_caches; c != NULL; c = c->next) {
-	if (kcm_is_same_session(client, c->uid, c->session))
+	// no separate mutex lock here for default cache entry
+	if (kcm_is_same_session_locked(client, c->uid, c->session))
 	    break;
     }
     if (c == NULL) {
@@ -1191,6 +1213,7 @@ kcm_op_set_default_cache(krb5_context context,
 	free(c->name);
 	c->name = name;
     }
+    HEIMDAL_MUTEX_unlock(&def_cache_mutex);
 
     return 0;
 }
@@ -1503,6 +1526,7 @@ kcm_parse_digest_one(krb5_context context, krb5_storage *sp)
     } else if (strcmp(type, "scram-cache") == 0) {
 	c->type = KCM_SCRAM_CRED;
     } else {
+	free(c);
 	free(type);
 	return EINVAL;
     }
@@ -1552,11 +1576,11 @@ kcm_parse_digest_one(krb5_context context, krb5_storage *sp)
     HEIMDAL_MUTEX_unlock(&cred_mutex);
 
  out:
-    free(type);
     if (ret) {
 	kcm_log(10, "failed to read %s: %d", type, ret);
 	/* free_cred(c); */
     }
+    free(type);
     return ret;
 }
 
@@ -1586,7 +1610,7 @@ find_ntlm_cred_locked(enum kcm_cred_type type, const char *user, const char *dom
     for (c = ntlm_head; c != NULL; c = c->next)
 	if (c->type == type && (user[0] == '\0' || strcasecmp(user, c->user) == 0) && 
 	    (domain == NULL || domain[0] == '\0' || strcasecmp(domain, c->domain) == 0) &&
-	    kcm_is_same_session(client, c->uid, c->session))
+	    kcm_is_same_session_locked(client, c->uid, c->session))
 	    return c;
 
     return NULL;
@@ -1663,10 +1687,10 @@ kcm_op_add_ntlm_cred(krb5_context context,
     cred->uid = client->uid;
     cred->session = client->session;
 
-    HEIMDAL_MUTEX_unlock(&cred_mutex);
-
     /* write response */
     (void)krb5_storage_write(response, &cred->uuid, sizeof(cred->uuid));
+
+    HEIMDAL_MUTEX_unlock(&cred_mutex);
 
     kcm_data_changed = 1;
 
@@ -1758,7 +1782,7 @@ kcm_op_del_cred(krb5_context context,
     for (cp = &ntlm_head; *cp != NULL; cp = &(*cp)->next) {
 	if ((*cp)->type == KCM_NTLM_CRED &&
 	    memcmp((*cp)->uuid, uuid, sizeof(uuid)) == 0 &&
-	    kcm_is_same_session(client, (*cp)->uid, (*cp)->session))
+	    kcm_is_same_session_locked(client, (*cp)->uid, (*cp)->session))
 	{
 	    c = *cp;
 	    *cp = c->next;
@@ -2377,7 +2401,7 @@ kcm_op_get_ntlm_user_list(krb5_context context,
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
     for (c = ntlm_head; c != NULL; c = c->next) {
-	if (c->type != KCM_NTLM_CRED || !kcm_is_same_session(client, c->uid, c->session))
+	if (c->type != KCM_NTLM_CRED || !kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 
 	ret = krb5_store_uint32(response, 1);
@@ -2512,7 +2536,7 @@ kcm_op_del_scram_cred(krb5_context context,
 
     for (cp = &ntlm_head; *cp != NULL; cp = &(*cp)->next) {
 	if ((*cp)->type == KCM_SCRAM_CRED && strcasecmp(user, (*cp)->user) == 0 &&
-	    kcm_is_same_session(client, (*cp)->uid, (*cp)->session))
+	    kcm_is_same_session_locked(client, (*cp)->uid, (*cp)->session))
 	{
 	    c = *cp;
 	    *cp = c->next;
@@ -2676,7 +2700,7 @@ kcm_op_get_scram_user_list(krb5_context context,
     KCM_LOG_REQUEST(context, client, opcode);
     HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
-	if (c->type != KCM_SCRAM_CRED || !kcm_is_same_session(client, c->uid, c->session))
+	if (c->type != KCM_SCRAM_CRED || !kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 
 	ret = krb5_store_uint32(response, 1);
@@ -2724,7 +2748,7 @@ kcm_op_retain_cred(krb5_context context,
 
     HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
-	if (!kcm_is_same_session(client, c->uid, c->session))
+	if (!kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 	
 	if (memcmp(uuid, c->uuid, sizeof(c->uuid)) == 0) {
@@ -2761,7 +2785,7 @@ kcm_op_release_cred(krb5_context context,
     for (cp = &ntlm_head; *cp != NULL; cp = &(*cp)->next) {
 	struct kcm_ntlm_cred *c = *cp;
 
-	if (!kcm_is_same_session(client, c->uid, c->session))
+	if (!kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 	
 	if (memcmp(uuid, c->uuid, sizeof(uuid)) == 0) {
@@ -2811,7 +2835,7 @@ kcm_op_cred_label_get(krb5_context context,
 
     HEIMDAL_MUTEX_lock(&cred_mutex);
     for (c = ntlm_head; c != NULL; c = c->next) {
-	if (!kcm_is_same_session(client, c->uid, c->session))
+	if (!kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 	
 	if (memcmp(uuid, c->uuid, sizeof(c->uuid)) == 0) {
@@ -2852,7 +2876,8 @@ kcm_op_cred_label_set(krb5_context context,
     krb5_data_zero(&data);
     char *label = NULL;
     ssize_t sret;
-    
+    krb5_error_code ret;
+
     KCM_LOG_REQUEST(context, client, opcode);
 
     sret = krb5_storage_read(request, &uuid, sizeof(uuid));
@@ -2861,20 +2886,32 @@ kcm_op_cred_label_set(krb5_context context,
 	return KRB5_CC_IO;
     }
     
-    krb5_ret_stringz(request, &label);
-    krb5_ret_data(request, &data);
+    ret = krb5_ret_stringz(request, &label);
+    if (ret)
+	return ret;
+    ret = krb5_ret_data(request, &data);
+    if (ret)
+    {
+	//input is incorrect
+	krb5_data_free(&data);
+	free(label);
+	return KRB5_CC_IO;
+    }
 
     HEIMDAL_MUTEX_lock(&cred_mutex);
 
     for (c = ntlm_head; c != NULL; c = c->next) {
 
-	if (!kcm_is_same_session(client, c->uid, c->session))
+	if (!kcm_is_same_session_locked(client, c->uid, c->session))
 	    continue;
 	
 	if (memcmp(uuid, c->uuid, sizeof(uuid)) == 0) {
 	    heim_string_t s;
 
 	    s = heim_string_create(label);
+	    if (s==NULL) {
+		break;
+	    }
 
 	    if (data.length) {
 		heim_data_t d;

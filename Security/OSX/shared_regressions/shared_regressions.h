@@ -10,6 +10,7 @@
 
 ONE_TEST(si_25_cms_skid)
 ONE_TEST(si_26_cms_apple_signed_samples)
+ONE_TEST(si_27_cms_parse)
 ONE_TEST(si_29_cms_chain_mode)
 ONE_TEST(si_34_cms_timestamp)
 ONE_TEST(si_35_cms_expiration_time)

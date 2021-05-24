@@ -1391,6 +1391,11 @@ SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode actionCode, CFEr
         setSOSDisabledError(error);
         return kSOSCCGeneralViewError;
     }
+    
+    if(SOSVisibleKeychainNotAllowed() && (actionCode == kSOSCCViewEnable) && view && SOSViewsIsV0Subview(view)) {
+        secnotice("views", "Cannot enable visible keychain views due to profile restrictions");
+        return false;
+    }
 
     if(actionCode == kSOSCCViewQuery) {
         uint64_t circleStat = SOSGetCachedCircleBitmask();
@@ -1420,6 +1425,11 @@ SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode actionCode, CFEr
 bool SOSCCViewSet(CFSetRef enabledViews, CFSetRef disabledViews) {
     IF_SOS_DISABLED {
         secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+    
+    if(SOSVisibleKeychainNotAllowed() && enabledViews && CFSetGetCount(enabledViews) && SOSViewSetIntersectsV0(enabledViews)) {
+        secnotice("views", "Cannot enable visible keychain views due to profile restrictions");
         return false;
     }
 

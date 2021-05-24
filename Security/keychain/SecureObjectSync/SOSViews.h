@@ -93,11 +93,10 @@ CFSetRef SOSViewCreateSetFromBitmask(uint64_t bitmask);
 void SOSViewsSetTestViewsSet(CFSetRef testViewNames);
 
 
-static inline bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringRef viewName) {
-    SOSViewResultCode viewResult = SOSViewsQuery(peerInfo, viewName, NULL);
-    
-    return kSOSCCViewMember == viewResult || kSOSCCViewPending == viewResult || kSOSCCViewNotMember == viewResult;
-}
+bool SOSViewSetIntersectsV0(CFSetRef theSet);
+bool SOSPeerInfoV0ViewsEnabled(SOSPeerInfoRef pi);
+
+bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringRef viewName);
 
 const char *SOSViewsXlateAction(SOSViewActionCode action);
 /* CFSet <-> XPC functions */

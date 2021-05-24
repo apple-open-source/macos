@@ -38,6 +38,8 @@
 #import "keychain/SecureObjectSync/SOSCloudCircle.h"
 #import "KeychainCircle/PairingChannel.h"
 #import <Security/SecBase.h>
+#import "keychain/SecureObjectSync/SOSViews.h"
+#import "keychain/SecureObjectSync/SOSInternal.h"
 
 const NSString* kSecEntitlementPrivateOctagonEscrow = @"com.apple.private.octagon.escrow-content";
 
@@ -1296,7 +1298,13 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 - (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews
 {
     if(OctagonIsEnabled()) {
+
         bool enableUserViews = [enabledViews containsObject:(__bridge NSString*)kSOSViewAutofillPasswords];
+        if(enableUserViews && SOSVisibleKeychainNotAllowed()) {
+            secnotice("clique-legacy", "Cannot enable visible keychain views due to profile restrictions");
+            return NO;
+        }
+
         NSError* octagonError = nil;
         // This function should log its success or failure
         BOOL result = [self setOctagonUserControllableViewsSyncEnabled:enableUserViews error:&octagonError];
@@ -1316,10 +1324,17 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     bool subTaskSuccess = false;
 
     if([OTClique platformSupportsSOS]) {
-        bool result = SOSCCViewSet((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews);
+        if(SOSVisibleKeychainNotAllowed() && enabledViews && [enabledViews count] && SOSViewSetIntersectsV0((__bridge CFSetRef)(enabledViews))) {
+            secnotice("clique-legacy", "Cannot enable visible keychain views due to profile restrictions");
+            enabledViews = nil;
+        }
 
-        BOOL viewSetResult = result ? YES : NO;
-        subTaskSuccess = result;
+        BOOL viewSetResult = NO;
+        if(enabledViews || disabledViews) {
+            bool result = SOSCCViewSet((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews);
+            viewSetResult = result ? YES : NO;
+            subTaskSuccess = result;
+        }
         OctagonSignpostEnd(signPost, OctagonSignpostNameViewSet, OctagonSignpostNumber1(OctagonSignpostNameViewSet), (int)subTaskSuccess);
         return viewSetResult;
     } else {

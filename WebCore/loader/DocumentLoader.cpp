@@ -627,9 +627,9 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
             return completionHandler(WTFMove(newRequest));
         }
         if (!portAllowed(newRequest.url())) {
-            RELEASE_LOG_IF_ALLOWED("willSendRequest: canceling - port not allowed");
+            RELEASE_LOG_IF_ALLOWED("willSendRequest: canceling - redirecting to a URL with a blocked port");
             if (m_frame)
-                m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Not allowed to use restricted network port: " + newRequest.url().string());
+                FrameLoader::reportBlockedLoadFailed(*m_frame, newRequest.url());
             cancelMainResourceLoad(frameLoader()->blockedError(newRequest));
             return completionHandler(WTFMove(newRequest));
         }
@@ -1720,7 +1720,8 @@ void DocumentLoader::setTitle(const StringWithDirection& title)
 
     frameLoader()->willChangeTitle(this);
     m_pageTitle = title;
-    frameLoader()->didChangeTitle(this);
+    if (frameLoader())
+        frameLoader()->didChangeTitle(this);
 }
 
 URL DocumentLoader::urlForHistory() const

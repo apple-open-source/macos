@@ -284,6 +284,16 @@ static void addStandardEventsToCred(HeimCredRef cred, struct HeimSession *sessio
     
 }
 
+static bool
+isTemporaryCache(CFDictionaryRef attributes)
+{
+    bool temporaryCache = false;
+    if (CFDictionaryContainsKey(attributes, kHEIMAttrTemporaryCache)) {
+	temporaryCache = (CFDictionaryGetValue(attributes, kHEIMAttrTemporaryCache) == kCFBooleanTrue);
+    }
+    return temporaryCache;
+}
+
 cache_read_status
 readCredCache(void)
 {
@@ -346,8 +356,10 @@ readCredCache(void)
 			if (cred && HeimCredAssignMech(cred, cfvalue)) {
 			    cred->attributes = CFRetain(cfvalue);
 			    CFDictionarySetValue(session->items, cred->uuid, cred);
-			    
-			    handleDefaultCredentialUpdate(session, cred, cred->attributes);
+
+			    if (!isTemporaryCache(cred->attributes)) {
+				handleDefaultCredentialUpdate(session, cred, cred->attributes);
+			    }
 			    addStandardEventsToCred(cred, session);
 			} else {
 			    /* dropping cred if mech assignment failed */
@@ -675,9 +687,11 @@ reElectMechCredential(const void *key, const void *value, void *context)
 	HeimCredRef cred = (__bridge HeimCredRef)obj;
 	CFUUIDRef parentUUID =  CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
 
-	//only caches with unexpired TGTs can be the default, so we look for the first valid TGT and set it's parent to be the default.
+	// only caches with unexpired TGTs can be the default, so we look for the first valid TGT and set it's parent to be the default.
+	// temporary caches cannot be the default
 	if (CFEqual(cred->mech->name, mech->name) &&  //only handle the current type of cred
 	    parentUUID != NULL &&
+	    !isTemporaryCache(cred->attributes) &&
 	    CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential) == kCFBooleanTrue) {
 
 	    NSDate *expire =  (__bridge NSDate*)CFDictionaryGetValue(cred->attributes, kHEIMAttrExpire);
@@ -862,6 +876,7 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     bool hasACL = false;
     CFErrorRef error = NULL;
     CFBooleanRef lead;
+    BOOL temporaryCache = false;
     os_log_debug(GSSOSLog(), "Begin Create Cred: %@", request);
     
     CFDictionaryRef attributes = HeimCredMessageCopyAttributes(request, "attributes", CFDictionaryGetTypeID());
@@ -872,6 +887,8 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	addErrorToReply(reply, error);
 	goto out;
     }
+
+    temporaryCache = isTemporaryCache(attributes);
 
     /* check if we are ok to link into this cred-tree */
     
@@ -952,7 +969,9 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     }
 
     updateStoreTime(cred, attrs);
-    handleDefaultCredentialUpdate(peer->session, cred, attrs);
+    if (!temporaryCache) {
+	handleDefaultCredentialUpdate(peer->session, cred, attrs);
+    }
     
 #if TARGET_OS_IOS
     if (HeimCredGlobalCTX.isMultiUser) {
@@ -1010,16 +1029,17 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     //if there is not a default cred cache, and we just created a TGT then trigger an election
     CFUUIDRef defcred = CFDictionaryGetValue(peer->session->defaultCredentials, cred->mech->name);
-    if ((defcred == NULL || CFDictionaryGetValue(peer->session->items, defcred) == NULL)
+    if (!temporaryCache
+	&& (defcred == NULL || CFDictionaryGetValue(peer->session->items, defcred) == NULL)
 	&& (lead = CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential))
 	&& CFBooleanGetValue(lead))
     {
 	peer->session->updateDefaultCredential = 1;
 	reElectDefaultCredential(peer);
     }
-    
+
     addStandardEventsToCred(cred, peer->session);
-    
+
     HeimCredMessageSetAttributes(reply, "attributes", cred->attributes);
     if (cred->mech->statusCallback!=NULL) {
 	CFTypeRef status = cred->mech->statusCallback(cred);
@@ -1366,6 +1386,18 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	}
     }
 
+    // temporary caches can not be set as default
+    CFBooleanRef defaultCache = CFDictionaryGetValue(replacementAttrs, kHEIMAttrDefaultCredential);
+    if (isTemporaryCache(cred->attributes) && defaultCache && CFBooleanGetValue(defaultCache)) {
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(attrs);
+	CFRELEASE_NULL(replacementAttrs);
+	goto out;
+    }
+
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     bool hasACLInAttributes = false;
     CFArrayRef acl = CFDictionaryGetValue(replacementAttrs, kHEIMAttrBundleIdentifierACL);
@@ -1628,16 +1660,30 @@ do_GetDefault(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 void
 do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 {
+    CFErrorRef error = NULL;
+
     CFUUIDRef from = HeimCredMessageCopyAttributes(request, "from", CFUUIDGetTypeID());
     CFUUIDRef to = HeimCredMessageCopyAttributes(request, "to", CFUUIDGetTypeID());
     
     if (from == NULL || to == NULL || CFEqual(from, to)) {
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
+
+	os_log_error(GSSOSLog(), "move missing required values");
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorMissingRequiredValue, keys, values, 1);
+	addErrorToReply(reply, error);
 	return;
     }
 
     if (!checkACLInCredentialChain(peer, from, NULL) || !checkACLInCredentialChain(peer, to, NULL)) {
+	os_log_error(GSSOSLog(), "no access to caches");
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorUnknownKey, keys, values, 1);
+	addErrorToReply(reply, error);
+
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
 	return;
@@ -1648,18 +1694,36 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     struct HeimMech *credToMech = NULL;
     
     if (credfrom == NULL) {
+	os_log_error(GSSOSLog(), "from is empty");
+	// this is not an error because the intent is to move the contents of "from" to "to".  while this cant really happen, there is nothing to move which means that "from" can safely be deleted.
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
 	return;
     }
     heim_assert(credfrom != credto, "must not be same");
 
+    if (credto && !CFEqual(credfrom->mech->name, credto->mech->name)) {
+	os_log_error(GSSOSLog(), "moving between mechs is not supported");
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
+	addErrorToReply(reply, error);
+
+	CFRELEASE_NULL(from);
+	CFRELEASE_NULL(to);
+	return;
+    }
+
     CFMutableDictionaryRef newattrs = CFDictionaryCreateMutableCopy(NULL, 0, credfrom->attributes);
     CFDictionaryRemoveValue(peer->session->items, from);
     credfrom = NULL;
 
+    if (isTemporaryCache(newattrs) && (credto == NULL || (credto && !isTemporaryCache(credto->attributes)))) {
+	CFDictionaryRemoveValue(newattrs, kHEIMAttrTemporaryCache);
+    }
+
     CFDictionarySetValue(newattrs, kHEIMAttrUUID, to);
-    
+
     if (credto == NULL) {
 	credto = HeimCredCreateItem(to);
 	heim_assert(credto != NULL, "out of memory");
@@ -1673,8 +1737,22 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     } else {
 	CFUUIDRef parentUUID = CFDictionaryGetValue(credto->attributes, kHEIMAttrParentCredential);
-	if (parentUUID)
+	if (parentUUID) {
 	    CFDictionarySetValue(newattrs, kHEIMAttrParentCredential, parentUUID);
+	}
+
+	// if the destination was the default credential, then keep it as the default
+	CFBooleanRef defaultCredential = CFDictionaryGetValue(credto->attributes, kHEIMAttrDefaultCredential);
+	if (defaultCredential != NULL && CFBooleanGetValue(defaultCredential)) {
+	    CFDictionarySetValue(newattrs, kHEIMAttrDefaultCredential, kCFBooleanTrue);
+	}
+
+	//if the "from" was the default, then keep it as the default
+	CFBooleanRef wasDefaultCredential = CFDictionaryGetValue(newattrs, kHEIMAttrDefaultCredential);
+	if (wasDefaultCredential != NULL && CFBooleanGetValue(wasDefaultCredential)) {
+	    CFDictionarySetValue(peer->session->defaultCredentials, credto->mech->name, credto->uuid);
+	}
+
 	CFRELEASE_NULL(credto->attributes);
 	credto->attributes = newattrs;
 	credToMech = credto->mech;
@@ -2333,6 +2411,7 @@ _HeimCredCreateBaseSchema(CFStringRef objectType)
     CFDictionarySetValue(schema, kHEIMAttrAltDSID, CFSTR("s"));
     CFDictionarySetValue(schema, kHEIMAttrUserID, CFSTR("n"));
     CFDictionarySetValue(schema, kHEIMAttrASID, CFSTR("n"));
+    CFDictionarySetValue(schema, kHEIMAttrTemporaryCache, CFSTR("b"));
 
 #if 0
     CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));

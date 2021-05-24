@@ -1052,32 +1052,4 @@ errOut:
     CFReleaseNull(trust);
 }
 
-- (void)testTrustResultValidityPeriod
-{
-    SecCertificateRef cert0 = NULL, cert1 = NULL;
-    SecPolicyRef policy = NULL;
-
-    cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
-    cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
-    policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
-
-    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1];
-
-    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)policy]];
-
-    // Never evaluated
-    XCTAssertFalse(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
-
-    // Evaluated but "divorced from reality"
-    (void)[eval evaluate:nil];
-    XCTAssert(SecTrustIsTrustResultValid(eval.trust, 0.0));
-
-    // These certs are expired, so we'd expect the validity window to be now  +/- TRUST_TIME_LEEWAY
-    XCTAssert(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
-
-    CFReleaseNull(cert0);
-    CFReleaseNull(cert1);
-    CFReleaseNull(policy);
-}
-
 @end

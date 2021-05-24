@@ -72,8 +72,9 @@ kcmss_initialize(krb5_context context,
     KCM_ASSERT_VALID(c);
 
     ret = kcm_zero_ccache_data_internal(context, c);
-    if (ret)
-	return ret;
+    if (ret) {
+    	return ret;
+    }
 
     ret = krb5_copy_principal(context, primary_principal,
 			      &c->client);

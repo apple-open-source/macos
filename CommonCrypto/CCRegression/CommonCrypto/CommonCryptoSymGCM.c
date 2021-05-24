@@ -170,6 +170,22 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
     retval = CCCryptorGCMOneshotDecrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagOut, tagOutlen);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCMOneshotDecrypt decryption", errOut);
     ok_memcmp(pt->bytes, plainDataOut, pt->len, "CCCryptorGCMOneshotDecrypt decryption data out");
+    
+    /* encrypt with NULL output when len(pt) == 0 */
+    cc_clear(16, tagOut);
+    cc_clear(ct->len, cipherDataOut);
+    if (dataLen == 0) {
+        retval = CCCryptorGCMOneshotEncrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, NULL, tagOut, tagOutlen);
+        ok_or_goto(retval == kCCSuccess, "CCCryptorGCMOneshotEncrypt encrypt, NULL output", errOut);
+        ok_memcmp(tag->bytes, tagOut, tagOutlen, "CCCryptorGCMOneshotEncrypt encrypt, NULL output, tag");
+    }
+    
+    /* decrypt with NULL output when len(ct) == 0 */
+    cc_clear(pt->len, plainDataOut);
+    if (dataLen == 0) {
+        retval = CCCryptorGCMOneshotDecrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, NULL, 0, NULL, tagOut, tagOutlen);
+        ok_or_goto(retval == kCCSuccess, "CCCryptorGCMOneshotDecrypt decryption, NULL output", errOut);
+    }
 
     /* invalid AES key lengths */
     retval = CCCryptorGCMOneshotEncrypt(alg, longKey->bytes, longKey->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagOut, tagOutlen);
@@ -480,7 +496,7 @@ AESGCMTests()
     return accum;
 }
 
-static int kTestTestCount = 1112;
+static int kTestTestCount = 1116;
 
 int
 CommonCryptoSymGCM(int __unused argc, char *const * __unused argv)

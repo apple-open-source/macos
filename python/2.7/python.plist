@@ -34,7 +34,10 @@
 			<string>backport REDoS fix in http.cookiejar (57240915)</string>
 			<string>backport fix for CVE-2018-20852 (60022673)</string>
 			<string>support Darwin ABI > 19 (64543229)</string>
-			<string>set SYSTEM_VERSION_COMPAT=1 (68669796)</string>
+			<string>set SYSTEM_VERSION_COMPAT=1 (68669796, 69461387, 70235207)</string>
+			<string>skip mtime check for bytecode on sealed APFS volumes (69179148)</string>
+			<string>backport fix for CVE-2021-23336</string>
+			<string>backport fix for CVE-2021-3177</string>
 		</array>
 	</dict>
 </array>

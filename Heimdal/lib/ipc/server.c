@@ -790,10 +790,11 @@ maybe_close(struct client *c)
 #endif
     close(c->fd); /* ref count fd close */
     free(c->inmsg);
-    free(c);
 
     if (c->streamcred)
 	heim_ipc_free_cred(c->streamcred);
+    
+    free(c);
 
     return 1;
 }

@@ -335,7 +335,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
         }
         case SMBIOC_NOTIFIER_UPDATE_INTERFACES:
         {
-            SMBDEBUG("SMBIOC_NOTIFIER_UPDATE_INTERFACES received.\n");
+            SMB_LOG_MC("SMBIOC_NOTIFIER_UPDATE_INTERFACES received.\n");
 
             struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
 

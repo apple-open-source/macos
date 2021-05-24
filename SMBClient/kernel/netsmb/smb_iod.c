@@ -257,6 +257,10 @@ smb_iod_rqprocessed(struct smb_rq *rqp, int error, int flags)
 	}
     else {
 		wakeup(&rqp->sr_state);
+        /* <74202808> smb_iod_waitrq could be waiting for internal rqp */
+        if (rqp->sr_flags & SMBR_INTERNAL) {
+            wakeup(&rqp->sr_iod->iod_flags);
+        }
     }
 	SMBRQ_SUNLOCK(rqp);
 }
@@ -2207,18 +2211,27 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
         rqp->sr_flags |= SMBR_ENQUEUED;
         TAILQ_INSERT_HEAD(&iod->iod_rqlist, rqp, sr_link);
 
-		SMB_IOD_RQUNLOCK(iod);
-		
+		/*
+		 * <76213940> Hold RQ lock during this loop to avoid a possible race
+		 * between a thread using the iod context to send a request and
+		 * iod_thread trying to send the enqueued request.
+		 */
+
+		// SMB_IOD_RQUNLOCK(iod);
+
 		for (;;) {
 			if (smb_iod_sendrq(iod, rqp) != 0) {
+				SMB_IOD_RQUNLOCK(iod);
 				smb_iod_start_reconnect(iod);
 				break;
 			}
 			/*
 			 * we don't need to lock state field here
 			 */
-			if (rqp->sr_state != SMBRQ_NOTSENT)
+			if (rqp->sr_state != SMBRQ_NOTSENT) {
+				SMB_IOD_RQUNLOCK(iod);
 				break;
+			}
 			ts.tv_sec = 1;
 			ts.tv_nsec = 0;
 			msleep(&iod->iod_flags, 0, PWAIT, "90sndw", &ts);
@@ -2476,6 +2489,20 @@ smb_iod_waitrq(struct smb_rq *rqp)
 			ts.tv_nsec = 0;
 			msleep(&iod->iod_flags, 0, PWAIT, "90irq", &ts);
 		}
+
+        /*
+         * <75867882> with requests that have the SMBR_INTERNAL flag set,
+         * SMBRQ_SLOCK(rqp) is being held by read thread in smb_iod_rqprocessed()
+         * when wakeup(&rqp->sr_iod->iod_flags) is called.
+         * Its possible that iod thread will wakeup and completely process the
+         * request, before smb_iod_rqprocessed() will do SMBRQ_SUNLOCK(rqp),
+         * so we MUST try taking out the SMBRQ_SLOCK here to ensure that
+         * smb_iod_rqprocessed() is done and its safe to free the rqp now.
+         */
+        SMBRQ_SLOCK(rqp);
+        /* If we got the lock, then smb_iod_rqprocessed() must be done */
+        SMBRQ_SUNLOCK(rqp);
+
 		smb_iod_removerq(rqp);
 		return rqp->sr_lerror;
 	}
@@ -4175,7 +4202,14 @@ exit:
 
     lck_mtx_unlock(&sessionp->iod_tailq_lock);
     
-    if (iod && (iod == inactive_iod)) {
+    /*
+     * <76213940> force_inactive is zero if we got called by smb_iod_main_ch_failover
+     * so we should change the iod and connection states. o.w changing the iod
+     * flags here can cause traffic on an inactive channel.
+     * We should probably take this code out and let the users of this function
+     * to handle the case of inactive channel being returned.
+     */
+    if (iod && (iod == inactive_iod) && (force_inactive == 0)) {
         SMB_IOD_FLAGSLOCK(iod);
         iod->iod_flags &= ~SMBIOD_INACTIVE_CHANNEL;
         SMB_IOD_FLAGSUNLOCK(iod);

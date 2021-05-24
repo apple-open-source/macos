@@ -202,6 +202,24 @@ __is_translated(void)
 }
 #endif /* TARGET_OS_OSX */
 
+
+#define LIBMALLOC_EXPERIMENT_FACTORS_KEY "MallocExperiment="
+#define LIBMALLOC_EXPERIMENT_DISABLE_MEDIUM (1ULL)
+static void
+__malloc_init_experiments(const char *str)
+{
+	uint64_t experiment_factors = 0;
+	str = strchr(str, '=');
+	if (str) {
+		experiment_factors = strtoull_l(str + 1, NULL, 16, NULL);
+	}
+	switch (experiment_factors) {
+	case LIBMALLOC_EXPERIMENT_DISABLE_MEDIUM:
+		magazine_medium_enabled = false;
+		break;
+	}
+}
+
 static void
 __malloc_init_from_bootargs(const char *bootargs)
 {
@@ -323,6 +341,7 @@ __malloc_init(const char *apple[])
 	}
 
 	const char **p;
+	const char *malloc_experiments = NULL;
 	for (p = apple; p && *p; p++) {
 		if (strstr(*p, "malloc_entropy") == *p) {
 			int count = __entropy_from_kernel(*p);
@@ -331,7 +350,9 @@ __malloc_init(const char *apple[])
 			if (sizeof(malloc_entropy) / sizeof(malloc_entropy[0]) == count) {
 				_malloc_entropy_initialized = true;
 			}
-			break;
+		}
+		if (strstr(*p, LIBMALLOC_EXPERIMENT_FACTORS_KEY) == *p) {
+			malloc_experiments = *p;
 		}
 	}
 	if (!_malloc_entropy_initialized) {
@@ -339,6 +360,9 @@ __malloc_init(const char *apple[])
 		_malloc_entropy_initialized = true;
 	}
 
+	if (malloc_experiments) {
+		__malloc_init_experiments(malloc_experiments);
+	}
 	__malloc_init_from_bootargs(bootargs);
 	mvm_aslr_init();
 

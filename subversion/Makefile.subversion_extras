@@ -29,7 +29,9 @@ Install_Target  = install
 Install_Flags   = DESTDIR=$(DSTROOT)
 
 # multi-version support
-VERSIONERDIR := /usr/local/versioner
+_VERSIONERDIR := /usr/local/versioner
+# Look for /usr/local/versioner in $(SDKROOT), defaulting to /usr/local/versioner
+VERSIONERDIR := $(or $(wildcard $(SDKROOT)$(_VERSIONERDIR)),$(_VERSIONERDIR))
 
 #-------------------------------------------------------------------------
 # Patch subversion's Makefile and Makefile.PL just after running configure
@@ -67,7 +69,9 @@ $(ConfigStamp2): $(ConfigStamp)
 	    -e '/^swig_pl_libdir/s,$${exec_prefix}/lib,$${RPATHVERS},' \
 	    '$(BuildDirectory)/Makefile.bak' > '$(BuildDirectory)/Makefile'
 	mv '$(BuildDirectory)/$(MAKEFILEPL)' '$(BuildDirectory)/$(MAKEFILEPL).bak'
-	sed 's,-L/usr/lib,,' '$(BuildDirectory)/$(MAKEFILEPL).bak' > '$(BuildDirectory)/$(MAKEFILEPL)'
+	sed -e 's,-L/usr/lib,,' \
+	    -e '/lddlflags/s/$(PERLVERS)/$$(VERSIONER_PERL_VERSION)/g' \
+	    '$(BuildDirectory)/$(MAKEFILEPL).bak' > '$(BuildDirectory)/$(MAKEFILEPL)'
 	# 57510742 - Hack around ExtUtils-MakeMaker not searching $SDKROOT/usr/local/lib nor understanding .tbd files
 	mkdir -p $(BuildDirectory)/subversion/libsvn_client/.libs
 	mkdir -p $(BuildDirectory)/subversion/libsvn_delta/.libs
@@ -104,6 +108,15 @@ PERLVERSIONS := $(VERSIONERDIR)/perl/versions
 PERLSUBDEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
 PERLDEFAULT := $(shell grep '^$(PERLSUBDEFAULT)' $(PERLVERSIONS))
 PERLUNORDEREDVERS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
+
+# Force only using 5.18 for the WebKit build due to buggy 5.28 in Jazz
+# rdar://75237599 ([19H15/Xcode 12D4e] Error when running './Tools/Scripts/webkit-patch setup-git-clone' with latest SVN)
+ifeq ($(MACOSX_DEPLOYMENT_TARGET),10.15)
+    PERLSUBDEFAULT := 5.18
+    PERLDEFAULT := 5.18
+    PERLUNORDEREDVERS := 5.18
+endif
+
 # do default version last
 PERLORDEREDVERS := $(filter-out $(PERLDEFAULT),$(PERLUNORDEREDVERS)) $(PERLDEFAULT)
 PERLTOPDIR := $(BuildDirectory)/subversion/bindings/swig/perl

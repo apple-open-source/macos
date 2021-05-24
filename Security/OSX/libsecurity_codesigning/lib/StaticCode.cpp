@@ -69,6 +69,7 @@
 #include <dispatch/private.h>
 #include <os/assumes.h>
 #include <os/feature_private.h>
+#include <os/variant_private.h>
 #include <regex.h>
 #import <utilities/entitlements.h>
 
@@ -121,6 +122,19 @@ static bool isCurrentProcessPlatform(void)
 	return sIsPlatform;
 }
 
+/// Determines if the item qualifies for a resource validity exemption based on its filesystem location.
+static bool itemQualifiesForResourceExemption(string &item)
+{
+	if (isOnRootFilesystem(item.c_str())) {
+		return true;
+	}
+	if (os_variant_allows_internal_security_policies("com.apple.security.codesigning")) {
+		if (isPathPrefix("/AppleInternal/", item)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 //
 // Construct a SecStaticCode object given a disk representation object
@@ -1303,7 +1317,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 
 	if (doit) {
 		string root = cfStringRelease(copyCanonicalPath());
-		bool itemIsOnRootFS = isOnRootFilesystem(root.c_str());
+		bool itemIsOnRootFS = itemQualifiesForResourceExemption(root);
 		bool skipRootVolumeExceptions = (mValidationFlags & kSecCSSkipRootVolumeExceptions);
 		bool useRootFSPolicy = itemIsOnRootFS && !skipRootVolumeExceptions;
 
@@ -1421,7 +1435,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 					if (useRootFSPolicy) {
 						CFRef<CFURLRef> itemURL = makeCFURL(relpath, false, resourceBase());
 						string itemPath = cfString(itemURL);
-						if (isOnRootFilesystem(itemPath.c_str())) {
+						if (itemQualifiesForResourceExemption(itemPath)) {
 							secinfo("staticCode", "resource validation on root volume skipped: %s", itemPath.c_str());
 							needsValidation = false;
 						}
@@ -2515,7 +2529,7 @@ void SecStaticCode::staticValidateCore(SecCSFlags flags, const SecRequirement *r
     }
 }
 
-void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags)
+void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags, const SecRequirement *req)
 {
 	// resourcePath is always the absolute path to the resource, each analysis can make a relative path
 	// if it needs one.  Passing through relative paths but then needing to re-create the full path is
@@ -2525,24 +2539,37 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 	// Validate the resource is inside the outer bundle by finding the bundle's resource path in the string
 	// of the full resource.  If its a prefix match this will also compute the remaining relative path
 	// that we'll need later.
-	string baseResourcePath = cfString(resourceBase());
-	string relativePath = pathRemaining(resourcePath, baseResourcePath);
-	if (relativePath == "") {
-		// The resource is not a prefix match with the bundle or the arguments are bad.
-		secerror("Requested resource was not within the code object: %s, %s", resourcePath.c_str(), baseResourcePath.c_str());
-		MacOSError::throwMe(errSecParam);
+	string baseResourcePath;
+	string relativePath;
+
+	if (this->mainExecutablePath() == resourcePath) {
+		// Nothing to do here, we're just validating the main executable so proceed
+		// to the validation below.
+	} else {
+		baseResourcePath = cfString(resourceBase());
+		relativePath = pathRemaining(resourcePath, baseResourcePath);
+		if (relativePath == "") {
+			// The resource is not a prefix match with the bundle or the arguments are bad.
+			secerror("Requested resource was not within the code object: %s, %s", resourcePath.c_str(), baseResourcePath.c_str());
+			MacOSError::throwMe(errSecParam);
+		}
 	}
 
+	// In general, we never want to be validating executables of the bundles as we traverse, so just ensure the
+	// bit is always set to skip them as we go.
+	flags = addFlags(flags, kSecCSDoNotValidateExecutable);
 
-	// First special case is the main executable.
+	// First special case is the main executable, which means we're about to validate it as part of the
+	// static validation here.
 	bool needsAdditionalValidation = true;
 	if (this->mainExecutablePath() == resourcePath) {
 		needsAdditionalValidation = false;
-		flags = clearFlags(flags, kSecCSDoNotValidateExecutable);
-	} else {
-		// If the target is not the main executable, always set this flag so the core validation
-		// does not validate the main executable too.
-		flags = addFlags(flags, kSecCSDoNotValidateExecutable);
+
+		// If the caller did not request fast validation of an executable, ensure we clear the 'do
+		// not validate' bit here before validating.
+		if (!isFlagSet(flags, kSecCSFastExecutableValidation)) {
+			flags = clearFlags(flags, kSecCSDoNotValidateExecutable);
+		}
 	}
 
 	// The Info.plist is covered by the core validation, so there's no more work to be done.
@@ -2552,11 +2579,23 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 
 	// Perform basic validation of the code object itself, since thats required for the rest of the comparison
 	// to be valid.
-	staticValidateCore(flags, NULL);
+	this->staticValidateCore(flags, NULL);
+	if (req) {
+		// If we have an explicit requirement we must meet and fail, then it should actually
+		// be recorded as the resource being modified.
+		this->validateRequirement(req->requirement(), errSecCSBadResource);
+	}
 
 	if (!needsAdditionalValidation) {
 		// staticValidateCore has already validated the main executable so we're all done!
 		return;
+	}
+
+	if (!isFlagSet(flags, kSecCSSkipRootVolumeExceptions)) {
+		if (itemQualifiesForResourceExemption(resourcePath)) {
+			secinfo("staticCode", "Requested resource was on root filesystem: %s", resourcePath.c_str());
+			return;
+		}
 	}
 
 	// We need to load resource rules to be able to do a single file resource comparison against.
@@ -2589,10 +2628,32 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 		AutoFileDesc fd = AutoFileDesc(resourcePath);
 		bool isSymlink = fd.isA(S_IFLNK);
 
-		// Now run just a single file resource validation with a ValidationContext that will
-		// immediately throw an error if any issues are encountered.
-		ValidationContext *context = new ValidationContext(*this);
-		validateResource(files, relativePath, isSymlink, *context, flags, version);
+		// Since this is a direct file match, if its for a nested bundle then we want to enable executable
+		// validation based on whether fast executable validation was requested.
+		if (!isFlagSet(flags, kSecCSFastExecutableValidation)) {
+			flags = clearFlags(flags, kSecCSDoNotValidateExecutable);
+		}
+
+		ResourceSeal seal(file);
+		if (seal.nested()) {
+			CFRef<SecRequirementRef> req;
+			if (SecRequirementCreateWithString(seal.requirement(), kSecCSDefaultFlags, &req.aref())) {
+				MacOSError::throwMe(errSecCSResourcesInvalid);
+			}
+
+			// If the resource seal indicates this is nested code, create a new code object for this
+			// nested code and then validate the resource within that object.
+			SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(resourcePath));
+			subcode->initializeFromParent(*this);
+			// If there was an exact match but its nested code, then the ask is really to validate the
+			// main executable of the nested code.
+			subcode->staticValidateResource(subcode->mainExecutablePath(), flags, SecRequirement::required(req));
+		} else {
+			// For other resource types, just a single file resource validation with a ValidationContext that
+			// will immediately throw an error if any issues are encountered.
+			ValidationContext *context = new ValidationContext(*this);
+			validateResource(files, relativePath, isSymlink, *context, flags, version);
+		}
 	} else {
 		// It wasn't a simple file resource within the current code signature, so we're looking for a nested code.
 		__block bool itemFound = false;
@@ -2605,13 +2666,18 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 
 				ResourceSeal seal(file);
 				if (seal.nested()) {
+					CFRef<SecRequirementRef> req;
+					if (SecRequirementCreateWithString(seal.requirement(), kSecCSDefaultFlags, &req.aref())) {
+						MacOSError::throwMe(errSecCSResourcesInvalid);
+					}
+
 					// If the resource seal indicates this is nested code, create a new code object for this
 					// nested code and then validate the resource within that object.
 					CFRef<CFURLRef> itemURL = makeCFURL(subpath, false, resourceBase());
 					string fullPath = cfString(itemURL);
 					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(fullPath));
 					subcode->initializeFromParent(*this);
-					subcode->staticValidateResource(resourcePath, flags);
+					subcode->staticValidateResource(resourcePath, flags, SecRequirement::required(req));
 				} else {
 					// Any other type of nested resource is not ok, so just bail.
 					secerror("Unexpected item hit traversing resource: %@", file);

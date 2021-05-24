@@ -197,16 +197,18 @@ xcc_resolve(krb5_context context, krb5_ccache *id, const char *res)
 }
 
 static krb5_error_code
-xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid)
+xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid, bool isTemporaryCache)
 {
     const void *keys[] = {
     	(void *)kHEIMObjectType,
 	(void *)kHEIMAttrType,
+	(void *)kHEIMAttrTemporaryCache,
 	(void *)kHEIMAttrUUID
     };
     const void *values[] = {
 	(void *)kHEIMObjectKerberos,
 	(void *)kHEIMTypeKerberos,
+	(isTemporaryCache ? kCFBooleanTrue : kCFBooleanFalse),
 	(void *)uuid
     };
     CFDictionaryRef attrs;
@@ -258,7 +260,7 @@ xcc_gen_new(krb5_context context, krb5_ccache *id)
     
     x = XCACHE(*id);
 
-    ret = xcc_create(context, x, NULL);
+    ret = xcc_create(context, x, NULL, ((*id)->ops == &krb5_xcc_temp_api_ops));
 	
     return ret;
 }
@@ -285,7 +287,7 @@ xcc_initialize(krb5_context context,
 	return krb5_enomem(context);
 
     if (x->cred == NULL) {
-	ret = xcc_create(context, x, x->uuid);
+	ret = xcc_create(context, x, x->uuid, (id->ops == &krb5_xcc_temp_api_ops));
 	if (ret)
 	    return ret;
     } else {
@@ -655,6 +657,12 @@ xcc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
 }
 
 static krb5_error_code KRB5_CALLCONV
+xcc_temp_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
+{
+    return KRB5_CC_END;
+}
+
+static krb5_error_code KRB5_CALLCONV
 get_cache_next(krb5_context context, krb5_cc_cursor cursor, const krb5_cc_ops *ops, krb5_ccache *id)
 {
     struct xcc_cursor *c = cursor;
@@ -708,6 +716,12 @@ xcc_api_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache 
 #endif
 }
 
+static krb5_error_code KRB5_CALLCONV
+xcc_temp_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
+{
+    //temp caches do not need to be used in cache cursors
+    return KRB5_CC_END;
+}
 
 static krb5_error_code KRB5_CALLCONV
 xcc_end_cache_get(krb5_context context, krb5_cc_cursor cursor)
@@ -958,6 +972,18 @@ xcc_copy_data(krb5_context context, krb5_ccache id, /* heim_dict_t */ void *keys
     return 0;
 }
 
+static int KRB5_CALLCONV
+xcc_can_move_from(krb5_context context, krb5_ccache fromid)
+{
+    //moves between other xcaches are allowed
+    if (fromid->ops == &krb5_xcc_api_ops
+	|| fromid->ops == &krb5_xcc_ops
+	|| fromid->ops == &krb5_xcc_temp_api_ops) {
+	return true;
+    }
+    return false;
+}
+
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 _krb5_xcc_get_initial_ticket(krb5_context context,
 			     krb5_ccache id,
@@ -1066,7 +1092,10 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops = {
     NULL,
     NULL,
     xcc_set_acl,
-    xcc_copy_data
+    xcc_copy_data,
+    NULL, /* copy_query */
+    NULL, /* store_data */
+    xcc_can_move_from,
 };
 
 /**
@@ -1109,7 +1138,56 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_api_ops = {
     NULL,
     NULL,
     xcc_set_acl,
-    xcc_copy_data
+    xcc_copy_data,
+    NULL, /* copy_query */
+    NULL, /* store_data */
+    xcc_can_move_from,
+};
+
+/**
+ * Variable containing the TEMP XCACHE  based credential cache implemention.
+ *
+ * @ingroup krb5_ccache
+ */
+
+KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_temp_api_ops = {
+    KRB5_CC_OPS_VERSION,
+    "XCTEMP",
+    xcc_get_name,
+    xcc_resolve,
+    xcc_gen_new,
+    xcc_initialize,
+    xcc_destroy,
+    xcc_close,
+    xcc_store_cred,
+    NULL, /* acc_retrieve */
+    xcc_get_principal,
+    xcc_get_first,
+    xcc_get_next,
+    xcc_end_get,
+    xcc_remove_cred,
+    NULL, //xcc_set_flags,
+    xcc_get_version,
+    xcc_temp_get_cache_first,
+    xcc_temp_get_cache_next,
+    NULL, //xcc_end_cache_get,
+    xcc_move,
+    NULL, //xcc_api_get_default_name,
+    NULL, //xcc_set_default,
+    xcc_lastchange,
+    NULL, /* set_kdc_offset */
+    NULL, /* get_kdc_offset */
+    NULL, //xcc_hold,
+    NULL, //xcc_unhold,
+    xcc_get_uuid,
+    xcc_api_resolve_by_uuid,
+    NULL,
+    NULL,
+    xcc_set_acl, //xcc_set_acl,
+    xcc_copy_data,
+    NULL, /* copy_query */
+    NULL, /* store_data */
+    xcc_can_move_from,
 };
 
 #endif /* HAVE_XCC */

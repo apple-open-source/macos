@@ -1553,7 +1553,10 @@ static int parseValuesReturnFilter (
 		} else {
 			send_ldap_result( op, rs );
 		}
-		if( op->o_vrFilter != NULL) vrFilter_free( op, op->o_vrFilter ); 
+		if( op->o_vrFilter != NULL) {
+			vrFilter_free( op, op->o_vrFilter );
+			op->o_vrFilter = NULL;
+		}
 	}
 #ifdef LDAP_DEBUG
 	else {

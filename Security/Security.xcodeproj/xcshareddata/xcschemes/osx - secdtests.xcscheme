@@ -288,6 +288,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_231_v0Peers"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-v"
             isEnabled = "NO">
          </CommandLineArgument>

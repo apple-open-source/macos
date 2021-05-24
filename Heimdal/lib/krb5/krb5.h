@@ -546,6 +546,7 @@ typedef struct krb5_cc_ops {
     krb5_error_code (KRB5_CALLCONV * copy_data)(krb5_context, krb5_ccache, /* heim_array_t */ void *, /* heim_dict_t */ void **);
     krb5_error_code (KRB5_CALLCONV * copy_query)(krb5_context, krb5_ccache, /* heim_dict_t */ void *, /* heim_array_t */ void **);
     krb5_error_code (KRB5_CALLCONV * store_data)(krb5_context, krb5_ccache, /* heim_dict_t */ void *);
+    int (KRB5_CALLCONV * can_move_from)(krb5_context, krb5_ccache /* from */);
 } krb5_cc_ops;
 
 #define KRB5_ACL_BUNDLEID_ARRAY	"kHEIMAttrBundleIdentifierACL"
@@ -1005,6 +1006,7 @@ extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_scc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_api_ops;
+extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_temp_api_ops;
 
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_fkt_ops;
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_wrfkt_ops;

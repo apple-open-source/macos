@@ -1296,7 +1296,7 @@
 
 }
 
-- (void)testPrivilidgedAccessToPassword {
+- (void)testPrivilegedAccessToPassword {
     HeimCredGlobalCTX.isMultiUser = NO;
     [GSSCredTestUtil freePeer:self.peer];
     struct peer *gssdPeer = [GSSCredTestUtil createPeer:@"com.apple.gssd" identifier:0];
@@ -1418,6 +1418,556 @@
     NSNumber *perm = attributes[NSFilePosixPermissions];
     XCTAssertEqualObjects(perm, @(S_IRUSR|S_IWUSR), "Archive file permissions should be readable and writable by owner only");
 
+}
+
+- (void)testMoveKerberosToKerberos
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "to" cache
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveKerberosToKerberosWithACL
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    NSDictionary *attributes = @{(id)kHEIMAttrBundleIdentifierACL:@[@"*", @"com.apple.foo"]};
+    _entitlements = @[@"com.apple.private.gssapi.allowwildcardacl"];
+    uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:fromUUID attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
+    XCTAssertEqual(result, 0, "Saving ACL should work");
+
+    //create "to" cache
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    NSArray *afterAcl = CFDictionaryGetValue(afterAttributes, kHEIMAttrBundleIdentifierACL);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertEqual(afterAcl.count, 3, "the after acl should have three entries");
+    XCTAssertTrue([afterAcl containsObject:@"*"] && [afterAcl containsObject:@"com.apple.foo"] && [afterAcl containsObject:@"com.apple.fake"], "the acl should have all the original source values");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveKerberosToKerberosWhereFromIsDefault
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "to" cache
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+					 (id)kHEIMAttrLeadCredential:@YES,
+					 (id)kHEIMAttrAuthTime:[NSDate date],
+					 (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+					 (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertEqual(defCred, toUUID, "the only cache should be the default");
+
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveKerberosToKerberosWhereToIsDefault
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create "to" cache first so it is default
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+					 (id)kHEIMAttrLeadCredential:@YES,
+					 (id)kHEIMAttrAuthTime:[NSDate date],
+					 (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+					 (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertEqual(defCred, toUUID, "the only cache should be the default");
+
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveTempKerberosToKerberos
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create temporary "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
+    };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "to" cache
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    XCTAssertFalse(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should not be a temporary cache");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveTempKerberosToNewCache
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create temporary "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
+    };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "to" cache identifier
+    CFUUIDRef toUUID = CFUUIDCreate(NULL);
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    XCTAssertFalse(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should not be a temporary cache");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testMoveTempKerberosToKerberosTemp
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create temporary "from" cache
+    CFUUIDRef fromUUID = NULL;
+    NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
+    };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&fromUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)fromUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef fromTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&fromTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    //create "to" cache
+
+    CFUUIDRef toUUID = NULL;
+    NSDictionary *toParentAttributes = @{ (id)kHEIMAttrTemporaryCache:@YES,
+    };
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toParentAttributes returningUuid:&toUUID];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    CFUUIDRef toTGT = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)toChildAttributes returningUuid:&toTGT];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 4, "There should be two parents and two children");
+
+
+    //the from tgt should be in the to cache when it is complete
+    CFDictionaryRef beforeAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&beforeAttributes];
+    CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
+    XCTAssertTrue(worked, "Move should be successful");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
+    CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
+    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
+    XCTAssertTrue(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should be a temporary cache");
+
+    CFRELEASE_NULL(fromUUID);
+    CFRELEASE_NULL(fromTGT);
+    CFRELEASE_NULL(toUUID);
+    CFRELEASE_NULL(toTGT);
+    CFRELEASE_NULL(beforeAttributes);
+    CFRELEASE_NULL(afterAttributes);
+}
+
+- (void)testTempCacheNeverDefault
+{
+    HeimCredGlobalCTX.isMultiUser = NO;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //create temporary cache
+    CFUUIDRef uuid = NULL;
+    NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
+    };
+    BOOL worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)parentAttributes returningUuid:&uuid];
+    XCTAssertTrue(worked, "Credential cache should be created successfully");
+
+    NSDictionary *childAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)uuid,
+				       (id)kHEIMAttrLeadCredential:@YES,
+				       (id)kHEIMAttrAuthTime:[NSDate date],
+				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+
+    };
+
+    CFUUIDRef tgt = NULL;
+    worked = [GSSCredTestUtil createCredential:self.peer name:@"test@EXAMPLE.COM" attributes:(__bridge CFDictionaryRef)childAttributes returningUuid:&tgt];
+    XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], 2, "There should be one parent and one child");
+
+    CFDictionaryRef afterAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&afterAttributes];
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertNotEqual(defCred, uuid, "the temp cache should not be the default");
+    XCTAssertTrue(CFBooleanGetValue(CFDictionaryGetValue(afterAttributes, kHEIMAttrTemporaryCache)), "the temp cache should be a temp cache.");
+
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertFalse(hasDefaultAttribute, "the temp cache should not have the default attribute");
+
+    // test setting as default
+    NSDictionary *attributes = @{(id)kHEIMAttrDefaultCredential:@YES};
+    uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)attributes returningDictionary:NULL];
+    XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Changing the default credential should fail");
+
+    // test load/save
+    [GSSCredTestUtil freePeer:self.peer];
+
+    CFRELEASE_NULL(HeimCredCTX.sessions);
+    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    readCredCache();
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFDictionaryRef afterLoadAttributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&afterLoadAttributes];
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertNotEqual(defCred, uuid, "the temp cache should not be the default after load");
+
+    hasDefaultAttribute = CFDictionaryContainsKey(afterLoadAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertFalse(hasDefaultAttribute, "the temp cache should not have the default attribute after load");
+    XCTAssertTrue(CFBooleanGetValue(CFDictionaryGetValue(afterAttributes, kHEIMAttrTemporaryCache)), "the temp cache should be a temp cache after load.");
+
+    CFRELEASE_NULL(uuid);
+    CFRELEASE_NULL(tgt);
+    CFRELEASE_NULL(afterAttributes);
 }
 
 // mocks

@@ -371,6 +371,28 @@ done:
     return ret;
 }
 
+/// Modify the binary at the provided path by overwriting a few bytes in the executable pages (beyond the header).
+static void
+modifyBinaryPage(const char *path)
+{
+    UnixPlusPlus::AutoFileDesc fd = UnixPlusPlus::AutoFileDesc();
+    fd.open(path, O_RDWR);
+
+    Universal uv = Universal(fd);
+    Universal::Architectures architectures;
+    uv.architectures(architectures);
+
+    for (Universal::Architectures::const_iterator arch = architectures.begin(); arch != architectures.end(); ++arch) {
+        unique_ptr<MachO> slice(uv.architecture(*arch));
+        // Skip ahead to about 3 pages into the slice to skip past the header.
+        size_t location = slice->offset() + (3 * 0x400);
+        INFO("modifying binary at offset: %lx", location);
+        lseek(fd, location, SEEK_SET);
+        const char *data = "ERROR";
+        write(fd, data, strlen(data));
+    }
+}
+
 static int
 CheckSingleResourceValidationAPI(void)
 {
@@ -482,12 +504,100 @@ CheckSingleResourceValidationAPI(void)
         FAIL("Failed to succeed validation of nested code: %d", status);
         goto done;
     }
+    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Info.plist /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Info.plist");
+
+    // Verify that if a nested bundle has its resource modified, its noticed during default validation.
+    modifyBinaryPage("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari");
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari"), kSecCSDefaultFlags, &error);
+    if (status != errSecCSSignatureFailed) {
+        FAIL("Failed to detect tampering in main executable: %d", status);
+        goto done;
+    }
+
+    // And confirm that validating it by the bundle itself behaves the same.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc"), kSecCSDefaultFlags, &error);
+    if (status != errSecCSSignatureFailed) {
+        FAIL("Failed to detect tampering in main executable (bundle): %d", status);
+        goto done;
+    }
+
+    // Verify that if a nested bundle has its resource modified and the 'fast validation' flag is used, its not noticed during resource validation.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to allow tampered executable with fast validation: %d", status);
+        goto done;
+    }
+
+    // And confirm that validating it by the bundle itself behaves the same.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to allow tampered executable with fast validation (bundle): %d", status);
+        goto done;
+    }
+    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari");
 
     PASS("All SecStaticCodeValidateResourceWithErrors passed");
     ret = 0;
 
 done:
     system("rm -rf  /tmp/Safari.app");
+    return ret;
+}
+
+static int
+CheckSingleResourceValidationAPIPolicy(void)
+{
+    int ret = -1;
+    CFRef<CFURLRef> url;
+    CFRef<SecStaticCodeRef> codeRef;
+    OSStatus status = 0;
+    SecPointer<SecStaticCode> code;
+    CFErrorRef error = NULL;
+
+    BEGIN();
+
+    url.take(CFURLCreateWithString(NULL, CFSTR("/System/Applications/Calculator.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Speakable.plist"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate app in ARV: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Speakable.plist"), kSecCSSkipRootVolumeExceptions, &error);
+    if (status != errSecCSResourcesNotSealed) {
+        FAIL("Failed to reject app in ARV with kSecCSSkipRootVolumeExceptions: %d", status);
+        goto done;
+    }
+
+    url.take(CFURLCreateWithString(NULL, CFSTR("/AppleInternal/Applications/CatalogInspector.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create apple internal SecStaticCode: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/AppleInternal/Applications/CatalogInspector.app/Contents/Resources/pkg.tiff"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate apple internal app resource: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/AppleInternal/Applications/CatalogInspector.app/Contents/Resources/pkg.tiff"), kSecCSSkipRootVolumeExceptions, &error);
+    if (status != errSecCSResourcesNotSealed) {
+        FAIL("Failed to reject apple internal app with kSecCSSkipRootVolumeExceptions: %d", status);
+        goto done;
+    }
+
+    PASS("All SecStaticCodeValidateResourceWithErrors passed");
+    ret = 0;
+
+done:
     return ret;
 }
 
@@ -742,6 +852,7 @@ int main(int argc, const char *argv[])
         CheckAppleProcessCanDenyNetworkWithFlag,
         Check_SecStaticCodeEnableOnlineNotarizationCheck,
         CheckSingleResourceValidationAPI,
+        CheckSingleResourceValidationAPIPolicy,
         CheckPathHelpers,
         CheckValidityWithRevocationTraversal,
     };

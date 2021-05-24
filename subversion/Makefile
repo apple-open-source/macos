@@ -28,6 +28,7 @@ Patches        = build_get-py-info.py.diff \
 
 Extra_Make_Flags = -j $(shell sysctl -n hw.activecpu)
 Extra_Cxx_Flags = -stdlib=libc++
+Extra_CPP_Flags = -include $(SRCROOT)/sqlite_hack.h
 Extra_LD_Flags =
 
 ifndef SDKROOT

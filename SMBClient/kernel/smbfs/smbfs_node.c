@@ -3115,7 +3115,7 @@ AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, uint32_t rights,
 		return;
 	}
 	
-    /* Create a new fileRefEntry and insert it into the hp list */
+    /* Create a new fileRefEntry and insert it into the np list */
     SMB_MALLOC(entry, struct fileRefEntry *, sizeof (struct fileRefEntry),
                M_TEMP, M_WAITOK);
     entry->refcnt = 0;
@@ -4195,7 +4195,7 @@ smb2fs_reconnect(struct smbmount *smp)
      * loop again until there are no more vnodes that need to be reopened.
      */
     done = 0;
-    
+    error = 0;
     while (done == 0) {
         /* Assume there are no files to be reopened */
         done = 1;
@@ -4256,9 +4256,14 @@ smb2fs_reconnect(struct smbmount *smp)
                 /*
                  * Always check f_openDenyList too in case we need to remove all
                  * those fids too.
+                 * <74202808> If failed to reopen any of the files needed to be
+                 * reopened during TM reconnect, no need to reopen any other
+                 * file as reconnect will fail anyway. not clearing the error
+                 * will clean up without trying to reopen.
                  */
-                
-                error = 0;
+                if ((sessionp->session_misc_flags & SMBV_MNT_TIME_MACHINE) == 0) {
+                    error = 0;
+                }
                 
                 /*
                  * Reopen any fids on the f_openDenyList

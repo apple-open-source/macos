@@ -2435,6 +2435,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
             if (found->inPlane(gIOServicePlane))  continue;
             nub = OSDynamicCast(IOPCIDevice, found);
             if (!nub) continue;
+            if (nub->reserved->configEntry == NULL) continue;
             propTable = found->getPropertyTable();
 			nub->retain();
 			initializeNub(nub, propTable);

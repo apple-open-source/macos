@@ -1202,6 +1202,7 @@ class Container: NSObject {
             d["machineIDsDisallowed"] = midList.machineIDs(in: .disallowed).sorted()
             d["modelRecoverySigningPublicKey"] = self.model.recoverySigningPublicKey()
             d["modelRecoveryEncryptionPublicKey"] = self.model.recoveryEncryptionPublicKey()
+            d["registeredPolicyVersions"] = self.model.allRegisteredPolicyVersions().sorted().map { policyVersion in "\(policyVersion.versionNumber), \(policyVersion.policyHash)" }
 
             reply(d, nil)
         }
@@ -2792,23 +2793,32 @@ class Container: NSObject {
                 return
             }
 
-            do {
-                let syncingPolicy = try self.syncingPolicyFor(modelID: modelIDOverride ?? permanentInfo.modelID, stableInfo: stableInfo)
-
-                guard let peer = self.model.peer(withID: permanentInfo.peerID), let dynamicInfo = peer.dynamicInfo else {
-                    os_log("fetchCurrentPolicy with no dynamic info", log: tplogDebug, type: .error)
-                    reply(syncingPolicy, .UNKNOWN, nil)
-                    return
+            // We should know about all policy versions that peers might use before trying to find the best one
+            let allPolicyVersions = self.model.allPolicyVersions()
+            self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
+                if let error = policyFetchError {
+                    os_log("join: error fetching all requested policies (continuing anyway): %{public}@", log: tplogDebug, type: .default, error as CVarArg)
                 }
 
-                // Note: we specifically do not want to sanitize this value for the platform: returning FOLLOWING here isn't that helpful
-                let peersUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
-                reply(syncingPolicy, peersUserViewSyncability, nil)
-                return
-            } catch {
-                os_log("Fetching the syncing policy failed: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                reply(nil, .UNKNOWN, error)
-                return
+
+                do {
+                    let syncingPolicy = try self.syncingPolicyFor(modelID: modelIDOverride ?? permanentInfo.modelID, stableInfo: stableInfo)
+
+                    guard let peer = self.model.peer(withID: permanentInfo.peerID), let dynamicInfo = peer.dynamicInfo else {
+                        os_log("fetchCurrentPolicy with no dynamic info", log: tplogDebug, type: .error)
+                        reply(syncingPolicy, .UNKNOWN, nil)
+                        return
+                    }
+
+                    // Note: we specifically do not want to sanitize this value for the platform: returning FOLLOWING here isn't that helpful
+                    let peersUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
+                    reply(syncingPolicy, peersUserViewSyncability, nil)
+                    return
+                } catch {
+                    os_log("Fetching the syncing policy failed: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, .UNKNOWN, error)
+                    return
+                }
             }
         }
     }
@@ -2827,8 +2837,8 @@ class Container: NSObject {
         }
 
         guard let policyDocument = self.model.policy(withVersion: bestPolicyVersion.versionNumber) else {
-            os_log("best policy is missing?", log: tplogDebug, type: .default)
-            throw ContainerError.unknownPolicyVersion(prevailingPolicyVersion.versionNumber)
+            os_log("best policy(%@) is missing?", log: tplogDebug, type: .default, bestPolicyVersion)
+            throw ContainerError.unknownPolicyVersion(bestPolicyVersion.versionNumber)
         }
 
         let policy = try policyDocument.policy(withSecrets: stableInfo.policySecrets, decrypter: Decrypter())
@@ -2928,6 +2938,13 @@ class Container: NSObject {
 
                     docs[doc.version] = doc
                     self.model.register(doc)
+
+                    let policyMO = PolicyMO(context: self.moc)
+                    policyMO.version = Int64(doc.version.versionNumber)
+                    policyMO.policyHash = doc.version.policyHash
+                    policyMO.policyData = mapEntry.value
+
+                    self.containerMO.addToPolicies(policyMO)
                 }
 
                 do {

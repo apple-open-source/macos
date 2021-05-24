@@ -98,6 +98,7 @@ private:
             IOHIDElement *      relativeScanTime;
             IOHIDElement *      surfaceSwitch;
             IOHIDElement *      reportRate;
+            OSArray *           buttons;
         } digitizer;
         
         struct {
@@ -299,6 +300,7 @@ private:
     bool                    conformTo (UInt32 usagePage, UInt32 usage);
     IOHIDEvent*             createDigitizerTransducerEventForReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);
     bool                    serializeDebugState(void * ref, OSSerialize * serializer);
+    UInt32                  getButtonStateFromElements(OSArray * elements);
 
 protected:
 

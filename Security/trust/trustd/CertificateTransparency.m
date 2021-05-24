@@ -502,6 +502,70 @@ out:
     return result;
 }
 
+/* For certificates issued before 4/21/2021:
+ * Certificate lifetime | # of SCTs from separate logs
+ *----------------------------------------------------
+ * Less than 15 months  |   2
+ * 15 to 27 months      |   3
+ * 27 to 39 months      |   4
+ * More than 39 months  |   5
+ */
+static bool verify_embedded_sct_policy_v1(SecCertificateRef leafCert, unsigned once_or_current_qualified_embedded) {
+    __block bool result = false;
+    __block int lifetime = 60; // in Months
+
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        int _lifetime = lifetime;
+        CFCalendarGetComponentDifference(zuluCalendar,
+                                         SecCertificateNotValidBefore(leafCert),
+                                         SecCertificateNotValidAfter(leafCert),
+                                         0, "M", &_lifetime);
+        lifetime = _lifetime;
+    });
+
+    unsigned requiredEmbeddedSctsCount = 5;
+
+    if (lifetime < 15) {
+        requiredEmbeddedSctsCount = 2;
+    } else if (lifetime <= 27) {
+        requiredEmbeddedSctsCount = 3;
+    } else if (lifetime <= 39) {
+        requiredEmbeddedSctsCount = 4;
+    }
+
+    if(once_or_current_qualified_embedded >= requiredEmbeddedSctsCount){
+        result = true;
+    }
+
+    return result;
+}
+
+/* For certificates issued on or after 4/21/2021 00:00:00Z:
+ * Certificate lifetime | # of SCTs from    | Maximum # of SCTs
+ *                      | separate logs     | per log operator
+ *----------------------------------------------------
+ * 180 days or less     |   2               |   1
+ * 181 to 825 days      |   3               |   2
+ * 826 to 1187 days     |   4               |   N/A
+ */
+static bool verify_embedded_sct_policy_v2(SecCertificateRef leafCert, unsigned once_or_current_qualified_embedded) {
+    bool result = false;
+    CFAbsoluteTime lifetime = SecCertificateNotValidAfter(leafCert) - SecCertificateNotValidBefore(leafCert);
+
+    unsigned requiredEmbeddedSctsCount = 4;
+    if (lifetime <= 180*24*60*60) {
+        requiredEmbeddedSctsCount = 2;
+    } else if (lifetime <= 825*24*60*60) {
+        requiredEmbeddedSctsCount = 3;
+    }
+
+    if (once_or_current_qualified_embedded >= requiredEmbeddedSctsCount){
+        result = true;
+    }
+
+    return result;
+}
+
 static bool verify_tls_ct_policy(SecPVCRef pvc, CFDictionaryRef currentLogsValidatingScts, CFDictionaryRef logsValidatingEmbeddedScts,
                                  bool at_least_one_currently_valid_external, bool at_least_one_currently_valid_embedded,
                                  CFIndex * _Nonnull outTrustedSCTCount)
@@ -553,10 +617,8 @@ static bool verify_tls_ct_policy(SecPVCRef pvc, CFDictionaryRef currentLogsValid
            SCT, issuanceTime will be calculated and set in the block above. */
         result = true;
     } else if (hasValidEmbeddedSCT) {
-        __block int lifetime; // in Months
-        __block unsigned once_or_current_qualified_embedded = 0;
-
         /* Count Logs */
+        __block unsigned once_or_current_qualified_embedded = 0;
         __block bool failed_once_check = false;
         CFDictionaryForEach(logsValidatingEmbeddedScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
@@ -573,29 +635,11 @@ static bool verify_tls_ct_policy(SecPVCRef pvc, CFDictionaryRef currentLogsValid
             }
         });
 
-        SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
-            int _lifetime;
-            CFCalendarGetComponentDifference(zuluCalendar,
-                                             SecCertificateNotValidBefore(leafCert),
-                                             SecCertificateNotValidAfter(leafCert),
-                                             0, "M", &_lifetime);
-            lifetime = _lifetime;
-        });
-
-        unsigned requiredEmbeddedSctsCount;
-
-        if (lifetime < 15) {
-            requiredEmbeddedSctsCount = 2;
-        } else if (lifetime <= 27) {
-            requiredEmbeddedSctsCount = 3;
-        } else if (lifetime <= 39) {
-            requiredEmbeddedSctsCount = 4;
+        CFAbsoluteTime apr_21_2021 = 640656000.0; // 21 April 2021 00:00:00 UTC
+        if (SecCertificateNotValidBefore(leafCert) < apr_21_2021) {
+            result = verify_embedded_sct_policy_v1(leafCert, once_or_current_qualified_embedded);
         } else {
-            requiredEmbeddedSctsCount = 5;
-        }
-
-        if(once_or_current_qualified_embedded >= requiredEmbeddedSctsCount){
-            result = true;
+            result = verify_embedded_sct_policy_v2(leafCert, once_or_current_qualified_embedded);
         }
     }
 

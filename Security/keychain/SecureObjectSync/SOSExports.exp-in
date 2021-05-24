@@ -244,7 +244,10 @@ _SOSViewsGetV0SubviewSet
 _SOSViewsGetV0ViewSet
 _SOSViewsIsV0Subview
 _SOSViewsQuery
+_SOSPeerInfoIsViewPermitted
 _SOSViewsSetTestViewsSet
+_SOSViewSetIntersectsV0
+_SOSPeerInfoV0ViewsEnabled
 _SOSViewsXlateAction
 
 //
@@ -486,6 +489,7 @@ _SOSCreateErrorWithFormatAndArguments
 _SOSDateCreate
 _SOSErrorCreate
 _SOSCCCredentialQueue
+_SOSVisibleKeychainNotAllowed
 _SOSGenerateDeviceBackupFullKey
 _SOSGetBackupKeyCurveParameters
 _SOSItemsChangedCopyDescription

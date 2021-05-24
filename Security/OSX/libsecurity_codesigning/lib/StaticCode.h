@@ -213,7 +213,7 @@ public:
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
 	void staticValidateCore(SecCSFlags flags, const SecRequirement *req);
-	void staticValidateResource(string resourcePath, SecCSFlags flags);
+	void staticValidateResource(string resourcePath, SecCSFlags flags, const SecRequirement *req);
 	
 protected:
 	bool loadCodeDirectories(CodeDirectoryMap& cdMap) const;

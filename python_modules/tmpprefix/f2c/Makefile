@@ -60,6 +60,5 @@ buildsrc:
 	make
 
 afterinstallsrc:
-	# 30524873
-	PERL5LIB=/System/Library/Perl/5.18:$$PERL5LIB perl $(SRCROOT)/tar-remove.pl '^f2c/(?:msdos|mswin)/' $(F2CSRC)/$(F2CNAME)$(TARSUFFIX) $(F2CNAME)-mod$(TARSUFFIX)
+	perl $(SRCROOT)/tar-remove.pl '^f2c/(?:msdos|mswin)/' $(F2CSRC)/$(F2CNAME)$(TARSUFFIX) $(F2CNAME)-mod$(TARSUFFIX)
 	rm -f $(F2CSRC)/$(F2CNAME)$(TARSUFFIX)

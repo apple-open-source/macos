@@ -243,31 +243,43 @@ kcm_ccache_get_client_principals(krb5_context context,
     HEIMDAL_MUTEX_lock(&ccache_mutex);
 
     TAILQ_FOREACH(p, &ccache_head, members) {
-	if (!p->client)
+	HEIMDAL_MUTEX_lock(&p->mutex);
+	if (!p->client) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
 
 	ret = krb5_unparse_name(context, p->client, &name);
-	if (ret || !name)
+	if (ret || !name) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
 
 	ret = krb5_store_string(sp, name);
-	if (ret)
+	if (ret) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
 
 	ret = krb5_store_int32(sp, p->session);
-	if (ret)
+	if (ret) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
 
 	if (p->creds)
 	    exptime = p->creds->cred.times.endtime;
 	else
 	    exptime = 0;
 	ret = krb5_store_int32(sp, (int32_t)exptime);
-	if (ret)
+	if (ret) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
 
 	free(name);
 	name = NULL;
+	HEIMDAL_MUTEX_unlock(&p->mutex);
     }
 
     if (name)
@@ -288,6 +300,7 @@ kcm_debug_ccache(krb5_context context)
 	int ncreds = 0;
 	struct kcm_creds *k;
 
+	HEIMDAL_MUTEX_lock(&p->mutex);
 	KCM_ASSERT_VALID(p);
 
 	for (k = p->creds; k != NULL; k = k->next)
@@ -305,6 +318,7 @@ kcm_debug_ccache(krb5_context context)
 		(spn == NULL) ? "<none>" : spn,
 		ncreds);
 
+	HEIMDAL_MUTEX_unlock(&p->mutex);
 	if (cpn != NULL)
 	    free(cpn);
 	if (spn != NULL)
@@ -427,10 +441,10 @@ renew_func(heim_event_t event, void *ptr)
     HEIMDAL_MUTEX_lock(&cache->mutex);
 
     if (cache->flags & KCM_MASK_KEY_PRESENT) {
-	ret = kcm_ccache_acquire(kcm_context, cache, &expire);
+	ret = kcm_ccache_acquire_locked(kcm_context, cache, &expire);
 	krb5_warn(kcm_context, ret, "cache: %s acquire complete", cache->name);
     } else {
-	ret = kcm_ccache_refresh(kcm_context, cache, &expire);
+	ret = kcm_ccache_refresh_locked(kcm_context, cache, &expire);
 	krb5_warn(kcm_context, ret, "cache: %s renew complete", cache->name);
     }
 
@@ -481,7 +495,7 @@ expire_func(heim_event_t event, void *ptr)
     if (cache->flags & KCM_MASK_KEY_PRESENT){
 	time_t expire;
 
-	ret = kcm_ccache_acquire(kcm_context, cache, &expire);
+	ret = kcm_ccache_acquire_locked(kcm_context, cache, &expire);
 
 	switch (ret) {
 	case KRB5KRB_AP_ERR_BAD_INTEGRITY:
@@ -525,6 +539,8 @@ release_cache(void *ctx)
 static krb5_error_code
 kcm_ccache_alloc(krb5_context context,
 		 const char *name,
+		 uid_t uid,
+		 pid_t session,
 		 kcm_ccache *cache)
 {
     kcm_ccache p = NULL;
@@ -561,7 +577,7 @@ kcm_ccache_alloc(krb5_context context,
     p->refcnt = 3; /* on members, and both events */
     p->holdcount = 1;
     p->flags = 0;
-    p->uid = -1;
+    p->uid = uid;
     p->client = NULL;
     p->server = NULL;
     p->creds = NULL;
@@ -569,6 +585,7 @@ kcm_ccache_alloc(krb5_context context,
     p->password = NULL;
     p->tkt_life = 0;
     p->renew_life = 0;
+    p->session = session;
 
     p->renew_event = heim_ipc_event_create_f(renew_func, p);
     p->expire_event = heim_ipc_event_create_f(expire_func, p);
@@ -803,14 +820,18 @@ kcm_release_ccache(krb5_context context, kcm_ccache c)
     return 0;
 }
 
+
+// the internal version will hold a lock that should be unlocked by the caller.
 krb5_error_code
-kcm_ccache_new(krb5_context context,
+kcm_ccache_new_internal(krb5_context context,
 	       const char *name,
+	       uid_t uid,
+	       pid_t session,
 	       kcm_ccache *ccache)
 {
     krb5_error_code ret;
 
-    ret = kcm_ccache_alloc(context, name, ccache);
+    ret = kcm_ccache_alloc(context, name, uid, session, ccache);
     if (ret == 0) {
 	/*
 	 * one reference is held by the linked list,
@@ -819,6 +840,16 @@ kcm_ccache_new(krb5_context context,
 	kcm_retain_ccache(context, *ccache);
     }
 
+    return ret;
+}
+
+krb5_error_code
+kcm_ccache_new(krb5_context context,
+	       const char *name,
+	       kcm_ccache *ccache)
+{
+    krb5_error_code ret;
+    ret = kcm_ccache_new_internal(context, name, -1, -1, ccache);
     return ret;
 }
 
@@ -840,7 +871,7 @@ kcm_ccache_store_cred(krb5_context context,
 }
 
 struct kcm_creds *
-kcm_ccache_find_cred_uuid(krb5_context context,
+kcm_ccache_find_cred_uuid_locked(krb5_context context,
 			  kcm_ccache ccache,
 			  kcmuuid_t uuid)
 {
@@ -904,7 +935,7 @@ kcm_ccache_store_cred_internal(krb5_context context,
     /*
      * Only push notification when the krbtgt in the cache changes.
      */
-    if ((*c)->cred.server && krb5_principal_is_root_krbtgt(context, (*c)->cred.server))
+    if ((*c)!=NULL && (*c)->cred.server && krb5_principal_is_root_krbtgt(context, (*c)->cred.server))
 	notify_changed_caches();
 
     return ret;
@@ -1014,8 +1045,12 @@ kcm_ccache_first_name(kcm_client *client)
     HEIMDAL_MUTEX_lock(&ccache_mutex);
 
     TAILQ_FOREACH(p, &ccache_head, members) {
-	if (kcm_is_same_session(client, p->uid, p->session))
+	HEIMDAL_MUTEX_lock(&p->mutex);
+	if (kcm_is_same_session_locked(client, p->uid, p->session)) {
+	    HEIMDAL_MUTEX_unlock(&p->mutex);
 	    break;
+	}
+	HEIMDAL_MUTEX_unlock(&p->mutex);
     }
     if (p)
 	name = strdup(p->name);
@@ -1241,8 +1276,10 @@ parse_default_one(krb5_context context, krb5_storage *sp)
     default_caches = c;
 
  out:
-    if (ret)
+    if (ret) {
 	kcm_log(10, "failed to parse default entry");
+	free(c);
+    }
     return ret;
 }
 

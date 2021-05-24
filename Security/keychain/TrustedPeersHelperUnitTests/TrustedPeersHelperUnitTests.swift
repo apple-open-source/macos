@@ -975,19 +975,22 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         }
     }
 
-    // TODO: need a real configurable mock cuttlefish
     func testFetchPolicyDocuments() throws {
         // 1 is known locally via builtin, 3 is not but is known to cuttlefish
 
         let missingTuple = TPPolicyVersion(version: 900, hash: "not a hash")
 
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
+        XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
+        let currentPolicy = currentPolicyOptional!
+
+        let newPolicy = currentPolicy.clone(withVersionNumber: currentPolicy.version.versionNumber + 1)!
+        self.cuttlefish.policyOverlay.append(newPolicy)
+
         let policy1Tuple = TPPolicyVersion(version: 1, hash: "SHA256:TLXrcQmY4ue3oP5pCX1pwsi9BF8cKfohlJBilCroeBs=")
         let policy1Data = Data(base64Encoded: "CAESDgoGaVBob25lEgRmdWxsEgwKBGlQYWQSBGZ1bGwSCwoDTWFjEgRmdWxsEgwKBGlNYWMSBGZ1bGwSDQoHQXBwbGVUVhICdHYS" +
                                               "DgoFV2F0Y2gSBXdhdGNoGhEKCVBDU0VzY3JvdxIEZnVsbBoXCgRXaUZpEgRmdWxsEgJ0dhIFd2F0Y2gaGQoRU2FmYXJpQ3JlZGl0" +
                                               "Q2FyZHMSBGZ1bGwiDAoEZnVsbBIEZnVsbCIUCgV3YXRjaBIEZnVsbBIFd2F0Y2giDgoCdHYSBGZ1bGwSAnR2")!
-
-        let policy3Tuple = TPPolicyVersion(version: 3, hash: "SHA256:JZzazSuHXrUhiOfSgElsg6vYKpnvvEPVpciR8FewRWg=")
-        let policy3Data = Data(base64Encoded: "CAMSDgoGaVBob25lEgRmdWxsEgwKBGlQYWQSBGZ1bGwSCwoDTWFjEgRmdWxsEgwKBGlNYWMSBGZ1bGwSDQoHQXBwbGVUVhICdHYSDgoFV2F0Y2gSBXdhdGNoEhcKDkF1ZGlvQWNjZXNzb3J5EgVhdWRpbxocCg1EZXZpY2VQYWlyaW5nEgRmdWxsEgV3YXRjaBoXCghBcHBsZVBheRIEZnVsbBIFd2F0Y2gaJAoVUHJvdGVjdGVkQ2xvdWRTdG9yYWdlEgRmdWxsEgV3YXRjaBoXCghCYWNrc3RvcBIEZnVsbBIFd2F0Y2gaGQoKQXV0b1VubG9jaxIEZnVsbBIFd2F0Y2gaHwoQU2VjdXJlT2JqZWN0U3luYxIEZnVsbBIFd2F0Y2gaIAoRU2FmYXJpQ3JlZGl0Q2FyZHMSBGZ1bGwSBXdhdGNoGhMKBEhvbWUSBGZ1bGwSBXdhdGNoGh4KD1NhZmFyaVBhc3N3b3JkcxIEZnVsbBIFd2F0Y2gaGwoMQXBwbGljYXRpb25zEgRmdWxsEgV3YXRjaBoVCgZFbmdyYW0SBGZ1bGwSBXdhdGNoGi0KE0xpbWl0ZWRQZWVyc0FsbG93ZWQSBGZ1bGwSBXdhdGNoEgJ0dhIFYXVkaW8aFgoHTWFuYXRlZRIEZnVsbBIFd2F0Y2gaHgoEV2lGaRIEZnVsbBIFd2F0Y2gSAnR2EgVhdWRpbxoVCgZIZWFsdGgSBGZ1bGwSBXdhdGNoIhMKBGZ1bGwSBGZ1bGwSBXdhdGNoIhsKBWF1ZGlvEgRmdWxsEgV3YXRjaBIFYXVkaW8iFAoFd2F0Y2gSBGZ1bGwSBXdhdGNoIhUKAnR2EgRmdWxsEgV3YXRjaBICdHYyIgoWAAQiEgIEdndodAoKXkFwcGxlUGF5JBIIQXBwbGVQYXkyJgoYAAQiFAIEdndodAoMXkF1dG9VbmxvY2skEgpBdXRvVW5sb2NrMh4KFAAEIhACBHZ3aHQKCF5FbmdyYW0kEgZFbmdyYW0yHgoUAAQiEAIEdndodAoIXkhlYWx0aCQSBkhlYWx0aDIaChIABCIOAgR2d2h0CgZeSG9tZSQSBEhvbWUyIAoVAAQiEQIEdndodAoJXk1hbmF0ZWUkEgdNYW5hdGVlMjgKIQAEIh0CBHZ3aHQKFV5MaW1pdGVkUGVlcnNBbGxvd2VkJBITTGltaXRlZFBlZXJzQWxsb3dlZDJdClAAAhIeAAQiGgIEdndodAoSXkNvbnRpbnVpdHlVbmxvY2skEhUABCIRAgR2d2h0CgleSG9tZUtpdCQSFQAEIhECBHZ3aHQKCV5BcHBsZVRWJBIJTm90U3luY2VkMisKGwAEIhcCBGFncnAKD15bMC05QS1aXXsxMH1cLhIMQXBwbGljYXRpb25zMsUBCrABAAISNAABChMABCIPAgVjbGFzcwoGXmdlbnAkChsABCIXAgRhZ3JwCg9eY29tLmFwcGxlLnNiZCQSPQABChMABCIPAgVjbGFzcwoGXmtleXMkCiQABCIgAgRhZ3JwChheY29tLmFwcGxlLnNlY3VyaXR5LnNvcyQSGQAEIhUCBHZ3aHQKDV5CYWNrdXBCYWdWMCQSHAAEIhgCBHZ3aHQKEF5pQ2xvdWRJZGVudGl0eSQSEFNlY3VyZU9iamVjdFN5bmMyYwpbAAISEgAEIg4CBHZ3aHQKBl5XaUZpJBJDAAEKEwAEIg8CBWNsYXNzCgZeZ2VucCQKEwAEIg8CBGFncnAKB15hcHBsZSQKFQAEIhECBHN2Y2UKCV5BaXJQb3J0JBIEV2lGaTLbAgrBAgACEhkABCIVAgR2d2h0Cg1eUENTQ2xvdWRLaXQkEhcABCITAgR2d2h0CgteUENTRXNjcm93JBIUAAQiEAIEdndodAoIXlBDU0ZERSQSGQAEIhUCBHZ3aHQKDV5QQ1NGZWxkc3BhciQSGQAEIhUCBHZ3aHQKDV5QQ1NNYWlsRHJvcCQSGgAEIhYCBHZ3aHQKDl5QQ1NNYXN0ZXJLZXkkEhYABCISAgR2d2h0CgpeUENTTm90ZXMkEhcABCITAgR2d2h0CgteUENTUGhvdG9zJBIYAAQiFAIEdndodAoMXlBDU1NoYXJpbmckEh0ABCIZAgR2d2h0ChFeUENTaUNsb3VkQmFja3VwJBIcAAQiGAIEdndodAoQXlBDU2lDbG91ZERyaXZlJBIZAAQiFQIEdndodAoNXlBDU2lNZXNzYWdlJBIVUHJvdGVjdGVkQ2xvdWRTdG9yYWdlMkAKKwAEIicCBGFncnAKH15jb20uYXBwbGUuc2FmYXJpLmNyZWRpdC1jYXJkcyQSEVNhZmFyaUNyZWRpdENhcmRzMjQKIQAEIh0CBGFncnAKFV5jb20uYXBwbGUuY2ZuZXR3b3JrJBIPU2FmYXJpUGFzc3dvcmRzMm0KXAACEh4ABCIaAgR2d2h0ChJeQWNjZXNzb3J5UGFpcmluZyQSGgAEIhYCBHZ3aHQKDl5OYW5vUmVnaXN0cnkkEhwABCIYAgR2d2h0ChBeV2F0Y2hNaWdyYXRpb24kEg1EZXZpY2VQYWlyaW5nMi0KIQAEIh0CBGFncnAKFV5jb20uYXBwbGUuY2ZuZXR3b3JrJBIIQmFja3N0b3A=")!
 
         let description = tmpStoreDescription(name: "container.db")
         let container = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
@@ -1006,17 +1009,24 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertEqual(response2?[policy1Tuple], policy1Data, "retrieved data matches known data")
         }
 
+
+        do {
+            let knownPolicies = container.model.allRegisteredPolicyVersions()
+            XCTAssert(knownPolicies.contains(policy1Tuple), "TPModel should know about policy 1")
+            XCTAssertFalse(knownPolicies.contains(newPolicy.version), "TPModel should not know about newPolicy")
+        }
+
         // fetch remote
         do {
-            let (response3, error3) = container.fetchPolicyDocumentsSync(test: self, versions: [policy1Tuple, policy3Tuple])
+            let (response3, error3) = container.fetchPolicyDocumentsSync(test: self, versions: [policy1Tuple, newPolicy.version])
             XCTAssertNil(error3, "No error fetching local + remote policy")
             XCTAssertEqual(response3?.count, 2, "Got two responses for local+remote policy request")
 
             XCTAssert(response3?.keys.contains(policy1Tuple) ?? false, "Should have retrieved request for policy1")
             XCTAssertEqual(response3?[policy1Tuple], policy1Data, "retrieved data matches known data")
 
-            XCTAssert(response3?.keys.contains(policy3Tuple) ?? false, "Should have retrieved request for policy3")
-            XCTAssertEqual(response3?[policy3Tuple], policy3Data, "retrieved data matches known data")
+            XCTAssert(response3?.keys.contains(newPolicy.version) ?? false, "Should have retrieved request for newPolicy")
+            XCTAssertEqual(response3?[newPolicy.version], newPolicy.protobuf, "retrieved data matches known data")
         }
 
         // invalid version
@@ -1030,9 +1040,22 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             let (response5, error5) = container.fetchPolicyDocumentsSync(test: self, versions: Set([missingTuple,
                                                                                                     policy1Tuple,
-                                                                                                    policy3Tuple, ]))
+                                                                                                    newPolicy.version, ]))
             XCTAssertNil(response5, "No response for valid + unknown [version: hash] combination")
             XCTAssertNotNil(error5, "Expected error fetching valid + invalid policy version")
+        }
+
+        do {
+            let knownPolicies = container.model.allRegisteredPolicyVersions()
+            XCTAssert(knownPolicies.contains(policy1Tuple), "TPModel should know about policy 1")
+            XCTAssert(knownPolicies.contains(newPolicy.version), "TPModel should know about newPolicy")
+        }
+
+        do {
+            let reloadedContainer = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+            let reloadedKnownPolicies = reloadedContainer.model.allRegisteredPolicyVersions()
+            XCTAssert(reloadedKnownPolicies.contains(policy1Tuple), "TPModel should know about policy 1 after restart")
+            XCTAssert(reloadedKnownPolicies.contains(newPolicy.version), "TPModel should know about newPolicy after a restart")
         }
     }
 

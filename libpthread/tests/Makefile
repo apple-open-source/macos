@@ -59,10 +59,23 @@ TARGETS += perf_contended_mutex_rwlock
 ifeq ($(PLATFORM),MacOSX)
 TARGETS += pthread_jit_write_protection
 pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
+
+OTHER_TEST_TARGETS = pthread_jit_write_with_callback
+
+pthread_jit_write_with_callback: pthread_jit_write_with_callback.c libpthreadjittest.notdylib
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) \
+			$(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) \
+			pthread_jit_write_with_callback.c $(SYMROOT)/assets/libpthreadjittest.notdylib \
+			-rpath @executable_path/assets \
+			-o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-entitlements.plist $(SYMROOT)/$@
 endif
 
 # this should be CUSTOM_TARGETS, see "Compatibility defines" in Makefile.targets
 OTHER_TARGETS := stackoverflow_crash
+ifeq ($(PLATFORM),MacOSX)
+OTHER_TARGETS += pthread_jit_write_with_callback_tool libpthreadjittest.notdylib
+endif
 
 OTHER_LTE_INCLUDE_FILES += \
 	/usr/local/lib/libdarwintest_utils.dylib
@@ -96,3 +109,22 @@ install-stackoverflow_crash: stackoverflow_crash
 	mkdir -p $(INSTALLDIR)/assets
 	@cp $(SYMROOT)/assets/stackoverflow_crash $(INSTALLDIR)/assets
 
+ifeq ($(PLATFORM),MacOSX)
+pthread_jit_write_with_callback_tool: helpers/pthread_jit_write_with_callback_tool.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-entitlements.plist $(SYMROOT)/assets/pthread_jit_write_with_callback_tool
+
+install-pthread_jit_write_with_callback_tool: pthread_jit_write_with_callback_tool
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/pthread_jit_write_with_callback_tool $(INSTALLDIR)/assets
+
+# .notdylib to dodge verifiers :)
+libpthreadjittest.notdylib: helpers/libpthreadjittest.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ -dynamiclib $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) -install_name @rpath/libpthreadjittest.notdylib $<
+
+install-libpthreadjittest.notdylib: libpthreadjittest.notdylib
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/libpthreadjittest.notdylib $(INSTALLDIR)/assets
+endif
