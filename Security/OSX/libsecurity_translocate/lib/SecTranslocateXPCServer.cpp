@@ -26,9 +26,11 @@
 
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
+#include <xpc/private.h>
+#include <sandbox.h>
 
 #include <security_utilities/unix++.h>
-#include <security_utilities/logging.h>
+#include <security_utilities/debugging.h>
 
 #include "SecTranslocateInterface.hpp"
 #include "SecTranslocateXPCServer.hpp"
@@ -39,37 +41,55 @@
 namespace Security {
 namespace SecTranslocate {
 
-static void doCreate(xpc_object_t msg, xpc_object_t reply)
+static void doCreate(xpc_object_t msg, xpc_object_t reply, audit_token_t audit_token)
 {
-    const char* original = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessageOriginalPath);
-    const char* dest = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessageDestinationPath);
+    const int original = xpc_dictionary_dup_fd(msg, kSecTranslocateXPCMessageOriginalPath);
+    const int dest = xpc_dictionary_dup_fd(msg, kSecTranslocateXPCMessageDestinationPath);
     const int64_t opts = xpc_dictionary_get_int64(msg, kSecTranslocateXPCMessageOptions);
 
-    string originalPath = original ? original : "";
-    string destPath = dest ? dest: "";
     TranslocationOptions options = static_cast<TranslocationOptions>(opts);
 
-    if (originalPath.empty())
-    {
-        Syslog::error("SecTranslocate: XPCServer, doCreate no path to translocate");
+    if (original == -1) {
+        secerror("SecTranslocate: XPCServer, doCreate no path to translocate");
         UnixError::throwMe(EINVAL);
     }
+    ExtendedAutoFileDesc destFd(dest);
+    int rc = sandbox_check_by_audit_token(audit_token, "file-read*", SANDBOX_FILTER_DESCRIPTOR, original);
+    if (rc == 1) {
+        secerror("SecTranslocate: XPCServer, doCreate path to translocate disallowed by sandbox");
+        UnixError::throwMe(EPERM);
+    } else if (rc == -1) {
+        int error = errno;
+        secerror("SecTranslocate: XPCServer, doCreate error checking path to translocate against sandbox");
+        UnixError::throwMe(error);
+    }
+    if (destFd.isOpen()) {
+        rc = sandbox_check_by_audit_token(audit_token, "file-mount", SANDBOX_FILTER_DESCRIPTOR, destFd.fd());
+        if (rc == 1) {
+            secerror("SecTranslocate: XPCServer, doCreate destination path disallowed by sandbox");
+            UnixError::throwMe(EPERM);
+        } else if (rc == -1) {
+            int error = errno;
+            secerror("SecTranslocate: XPCServer, doCreate error checking destination path against sandbox");
+            UnixError::throwMe(error);
+        }
+    }
 
-    string result = originalPath;
+    string result;
     
     if ((options & TranslocationOptions::Generic) == TranslocationOptions::Generic) {
-        GenericTranslocationPath tPath(originalPath, TranslocationOptions::Unveil);
+        GenericTranslocationPath tPath(original, TranslocationOptions::Unveil);
+        result = tPath.getOriginalRealPath();
 
-        if(tPath.shouldTranslocate())
-        {
-            result = Security::SecTranslocate::translocatePathForUser(tPath, destPath);
+        if (tPath.shouldTranslocate()) {
+            result = Security::SecTranslocate::translocatePathForUser(tPath, destFd);
         }
     } else {
-        TranslocationPath tPath(originalPath, TranslocationOptions::Default);
+        TranslocationPath tPath(original, TranslocationOptions::Default);
+        result = tPath.getOriginalRealPath();
 
-        if(tPath.shouldTranslocate())
-        {
-            result = Security::SecTranslocate::translocatePathForUser(tPath, destPath);
+        if (tPath.shouldTranslocate()) {
+            result = Security::SecTranslocate::translocatePathForUser(tPath, destFd);
         }
     }
     
@@ -78,38 +98,32 @@ static void doCreate(xpc_object_t msg, xpc_object_t reply)
 
 static void doCheckIn(xpc_object_t msg)
 {
-    if (xpc_dictionary_get_value(msg, kSecTranslocateXPCMessagePid) == NULL)
-    {
-        Syslog::error("SecTranslocate, XpcServer, doCheckin, no pid provided");
+    if (xpc_dictionary_get_value(msg, kSecTranslocateXPCMessagePid) == NULL) {
+        secerror("SecTranslocate, XpcServer, doCheckin, no pid provided");
         UnixError::throwMe(EINVAL);
     }
     int64_t pid = xpc_dictionary_get_int64(msg, kSecTranslocateXPCMessagePid);
     Translocator * t = getTranslocator();
-    if(t)
-    {
+    if (t) {
         t->appLaunchCheckin((pid_t)pid);
-    }
-    else
-    {
-        Syslog::critical("SecTranslocate, XpcServer, doCheckin, No top level translocator");
+    } else {
+        seccritical("SecTranslocate, XpcServer, doCheckin, No top level translocator");
         UnixError::throwMe(EINVAL);
     }
 }
 
 XPCServer::XPCServer(dispatch_queue_t q):notificationQ(q)
 {
-    if(q == NULL)
-    {
-        Syslog::critical("SecTranslocate: XPCServer, no dispatch queue provided");
+    if (q == NULL) {
+        seccritical("SecTranslocate: XPCServer, no dispatch queue provided");
         UnixError::throwMe(EINVAL);
     }
     //notificationQ is assumed to be serial
     service = xpc_connection_create_mach_service(SECTRANSLOCATE_XPC_SERVICE_NAME,
                                                  notificationQ,
                                                  XPC_CONNECTION_MACH_SERVICE_LISTENER);
-    if (service == NULL)
-    {
-        Syslog::critical("SecTranslocate: XPCServer, failed to create xpc mach service");
+    if (service == NULL) {
+        seccritical("SecTranslocate: XPCServer, failed to create xpc mach service");
         UnixError::throwMe(ENOMEM);
     }
 
@@ -117,19 +131,21 @@ XPCServer::XPCServer(dispatch_queue_t q):notificationQ(q)
     xpc_connection_set_event_handler(service, ^(xpc_object_t cmsg) {
         if (xpc_get_type(cmsg) == XPC_TYPE_CONNECTION) {
             xpc_connection_t connection = xpc_connection_t(cmsg);
-            Syslog::debug("SecTranslocate: XPCServer, Connection from pid %d", xpc_connection_get_pid(connection));
+            secdebug("sectranslocate","SecTranslocate: XPCServer, Connection from pid %d", xpc_connection_get_pid(connection));
             xpc_connection_set_event_handler(connection, ^(xpc_object_t msg) {
                 if (xpc_get_type(msg) == XPC_TYPE_DICTIONARY) {
                     xpc_retain(msg);
                     dispatch_async(notificationQ, ^{	// async from here
                         const char *function = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessageFunction);
-                        Syslog::debug("SecTranslocate: XPCServer, pid %d requested %s", xpc_connection_get_pid(connection), function);
+                        audit_token_t audit_token;
+                        xpc_connection_get_audit_token(connection, &audit_token);
+                        secdebug("sectranslocate","SecTranslocate: XPCServer, pid %d requested %s", xpc_connection_get_pid(connection), function);
                         xpc_object_t reply = xpc_dictionary_create_reply(msg);
                         try {
                             if (function == NULL) {
                                 xpc_dictionary_set_int64(reply, kSecTranslocateXPCReplyError, EINVAL);
                             } else if (!strcmp(function, kSecTranslocateXPCFuncCreate)) {
-                                doCreate(msg, reply);
+                                doCreate(msg, reply, audit_token);
                             } else if (!strcmp(function, kSecTranslocateXPCFuncCheckIn)) {
                                 doCheckIn(msg);
                             } else {
@@ -151,7 +167,7 @@ XPCServer::XPCServer(dispatch_queue_t q):notificationQ(q)
             xpc_connection_resume(connection);
         } else {
             const char *s = xpc_copy_description(cmsg);
-            Syslog::error("SecTranslocate: XPCServer, unepxected incoming message - %s", s);
+            secerror("SecTranslocate: XPCServer, unexpected incoming message - %s", s);
             free((char*)s);
         }
     });

@@ -195,6 +195,16 @@
 {
     return StringAsOTEscrowRecord_SOSViability(str);
 }
+- (BOOL)hasFederationId
+{
+    return _federationId != nil;
+}
+@synthesize federationId = _federationId;
+- (BOOL)hasExpectedFederationId
+{
+    return _expectedFederationId != nil;
+}
+@synthesize expectedFederationId = _expectedFederationId;
 
 - (NSString *)description
 {
@@ -251,6 +261,14 @@
     if (self->_has.viabilityStatus)
     {
         [dict setObject:OTEscrowRecord_SOSViabilityAsString(self->_viabilityStatus) forKey:@"viability_status"];
+    }
+    if (self->_federationId)
+    {
+        [dict setObject:self->_federationId forKey:@"federation_id"];
+    }
+    if (self->_expectedFederationId)
+    {
+        [dict setObject:self->_expectedFederationId forKey:@"expected_federation_id"];
     }
     return dict;
 }
@@ -355,6 +373,18 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
                 self->_viabilityStatus = PBReaderReadInt32(reader);
             }
             break;
+            case 17 /* federationId */:
+            {
+                NSString *new_federationId = PBReaderReadString(reader);
+                self->_federationId = new_federationId;
+            }
+            break;
+            case 18 /* expectedFederationId */:
+            {
+                NSString *new_expectedFederationId = PBReaderReadString(reader);
+                self->_expectedFederationId = new_expectedFederationId;
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -454,6 +484,20 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
             PBDataWriterWriteInt32Field(writer, self->_viabilityStatus, 16);
         }
     }
+    /* federationId */
+    {
+        if (self->_federationId)
+        {
+            PBDataWriterWriteStringField(writer, self->_federationId, 17);
+        }
+    }
+    /* expectedFederationId */
+    {
+        if (self->_expectedFederationId)
+        {
+            PBDataWriterWriteStringField(writer, self->_expectedFederationId, 18);
+        }
+    }
 }
 
 - (void)copyTo:(OTEscrowRecord *)other
@@ -514,6 +558,14 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
         other->_viabilityStatus = _viabilityStatus;
         other->_has.viabilityStatus = YES;
     }
+    if (_federationId)
+    {
+        other.federationId = _federationId;
+    }
+    if (_expectedFederationId)
+    {
+        other.expectedFederationId = _expectedFederationId;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -563,6 +615,8 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
         copy->_viabilityStatus = _viabilityStatus;
         copy->_has.viabilityStatus = YES;
     }
+    copy->_federationId = [_federationId copyWithZone:zone];
+    copy->_expectedFederationId = [_expectedFederationId copyWithZone:zone];
     return copy;
 }
 
@@ -594,6 +648,10 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
     ((self->_has.recordViability && other->_has.recordViability && self->_recordViability == other->_recordViability) || (!self->_has.recordViability && !other->_has.recordViability))
     &&
     ((self->_has.viabilityStatus && other->_has.viabilityStatus && self->_viabilityStatus == other->_viabilityStatus) || (!self->_has.viabilityStatus && !other->_has.viabilityStatus))
+    &&
+    ((!self->_federationId && !other->_federationId) || [self->_federationId isEqual:other->_federationId])
+    &&
+    ((!self->_expectedFederationId && !other->_expectedFederationId) || [self->_expectedFederationId isEqual:other->_expectedFederationId])
     ;
 }
 
@@ -624,6 +682,10 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
     (self->_has.recordViability ? PBHashInt((NSUInteger)self->_recordViability) : 0)
     ^
     (self->_has.viabilityStatus ? PBHashInt((NSUInteger)self->_viabilityStatus) : 0)
+    ^
+    [self->_federationId hash]
+    ^
+    [self->_expectedFederationId hash]
     ;
 }
 
@@ -688,6 +750,14 @@ BOOL OTEscrowRecordReadFrom(__unsafe_unretained OTEscrowRecord *self, __unsafe_u
     {
         self->_viabilityStatus = other->_viabilityStatus;
         self->_has.viabilityStatus = YES;
+    }
+    if (other->_federationId)
+    {
+        [self setFederationId:other->_federationId];
+    }
+    if (other->_expectedFederationId)
+    {
+        [self setExpectedFederationId:other->_expectedFederationId];
     }
 }
 

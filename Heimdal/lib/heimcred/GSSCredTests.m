@@ -1475,8 +1475,8 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     CFRELEASE_NULL(fromUUID);
     CFRELEASE_NULL(fromTGT);
@@ -1546,8 +1546,8 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     NSArray *afterAcl = CFDictionaryGetValue(afterAttributes, kHEIMAttrBundleIdentifierACL);
@@ -1620,12 +1620,12 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
-    XCTAssertEqual(defCred, toUUID, "the only cache should be the default");
+    XCTAssertTrue(CFEqual(defCred, toUUID), "the only cache should be the default");
 
     BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
     XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
@@ -1695,12 +1695,12 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
-    XCTAssertEqual(defCred, toUUID, "the only cache should be the default");
+    XCTAssertTrue(CFEqual(defCred, toUUID), "the only cache should be the default");
 
     BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
     XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
@@ -1719,6 +1719,9 @@
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
 
+    //request a default cred to trigger an election
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+
     //create temporary "from" cache
     CFUUIDRef fromUUID = NULL;
     NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
@@ -1731,6 +1734,7 @@
 				       (id)kHEIMAttrAuthTime:[NSDate date],
 				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
 				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef fromTGT = NULL;
@@ -1745,10 +1749,11 @@
     XCTAssertTrue(worked, "Credential cache should be created successfully");
 
     NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
-				       (id)kHEIMAttrLeadCredential:@YES,
-				       (id)kHEIMAttrAuthTime:[NSDate date],
-				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
-				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrLeadCredential:@YES,
+					 (id)kHEIMAttrAuthTime:[NSDate date],
+					 (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+					 (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef toTGT = NULL;
@@ -1769,11 +1774,16 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     XCTAssertFalse(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should not be a temporary cache");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(defCred, toUUID), "The destination cache should be the default after move");
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
 
     CFRELEASE_NULL(fromUUID);
     CFRELEASE_NULL(fromTGT);
@@ -1781,6 +1791,7 @@
     CFRELEASE_NULL(toTGT);
     CFRELEASE_NULL(beforeAttributes);
     CFRELEASE_NULL(afterAttributes);
+    CFRELEASE_NULL(defCred);
 }
 
 - (void)testMoveTempKerberosToNewCache
@@ -1788,6 +1799,9 @@
     HeimCredGlobalCTX.isMultiUser = NO;
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //request a default cred to trigger an election
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
 
     //create temporary "from" cache
     CFUUIDRef fromUUID = NULL;
@@ -1801,6 +1815,7 @@
 				       (id)kHEIMAttrAuthTime:[NSDate date],
 				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
 				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef fromTGT = NULL;
@@ -1816,6 +1831,9 @@
     CFUUIDRef beforeParent = CFDictionaryGetValue(beforeAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
 
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(defCred, fromUUID), "The source cache should NOT be the default before move");
+
     worked = [GSSCredTestUtil move:self.peer from:fromUUID to:toUUID];
     XCTAssertTrue(worked, "Move should be successful");
 
@@ -1823,17 +1841,23 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     XCTAssertFalse(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should not be a temporary cache");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertTrue(CFEqual(defCred, toUUID), "The destination cache should be the default after move");
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertTrue(hasDefaultAttribute, "the destination cache should have the default attribute");
 
     CFRELEASE_NULL(fromUUID);
     CFRELEASE_NULL(fromTGT);
     CFRELEASE_NULL(toUUID);
     CFRELEASE_NULL(beforeAttributes);
     CFRELEASE_NULL(afterAttributes);
+    CFRELEASE_NULL(defCred);
 }
 
 - (void)testMoveTempKerberosToKerberosTemp
@@ -1841,6 +1865,9 @@
     HeimCredGlobalCTX.isMultiUser = NO;
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    //request a default cred to trigger an election
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
 
     //create temporary "from" cache
     CFUUIDRef fromUUID = NULL;
@@ -1854,6 +1881,7 @@
 				       (id)kHEIMAttrAuthTime:[NSDate date],
 				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
 				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef fromTGT = NULL;
@@ -1869,10 +1897,11 @@
     XCTAssertTrue(worked, "Credential cache should be created successfully");
 
     NSDictionary *toChildAttributes = @{ (id)kHEIMAttrParentCredential:(__bridge id)toUUID,
-				       (id)kHEIMAttrLeadCredential:@YES,
-				       (id)kHEIMAttrAuthTime:[NSDate date],
-				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
-				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrLeadCredential:@YES,
+					 (id)kHEIMAttrAuthTime:[NSDate date],
+					 (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
+					 (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
+					 (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef toTGT = NULL;
@@ -1893,11 +1922,18 @@
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:fromTGT returningDictionary:&afterAttributes];
     CFUUIDRef afterParent = CFDictionaryGetValue(afterAttributes, kHEIMAttrParentCredential);
     XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
-    XCTAssertNotEqual(beforeParent, afterParent, "The parent should be updated after a move");
-    XCTAssertEqual(toUUID, afterParent, "The parent should be the to-parent after a move");
+    XCTAssertFalse(CFEqual(beforeParent, afterParent), "The parent should be updated after a move");
+    XCTAssertTrue(CFEqual(toUUID, afterParent), "The parent should be the to-parent after a move");
 
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:toUUID returningDictionary:&afterAttributes];
     XCTAssertTrue(CFDictionaryContainsKey(afterAttributes, kHEIMAttrTemporaryCache), "The destination cache should be a temporary cache");
+
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(defCred, toUUID), "The destination cache should NOT be the default after move");
+    XCTAssertFalse(CFEqual(defCred, fromUUID), "The source cache should NOT be the default after move");
+    BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
+    XCTAssertFalse(hasDefaultAttribute, "the destination cache NOT should have the default attribute");
+
 
     CFRELEASE_NULL(fromUUID);
     CFRELEASE_NULL(fromTGT);
@@ -1913,6 +1949,9 @@
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
 
+    //request a default cred to trigger an election
+    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+
     //create temporary cache
     CFUUIDRef uuid = NULL;
     NSDictionary *parentAttributes = @{	(id)kHEIMAttrTemporaryCache:@YES,
@@ -1925,7 +1964,7 @@
 				       (id)kHEIMAttrAuthTime:[NSDate date],
 				       (id)kHEIMAttrServerName:@"krbtgt/EXAMPLE.COM@EXAMPLE.COM",
 				       (id)kHEIMAttrData:(id)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding],
-
+				       (id)kHEIMAttrExpire:[NSDate dateWithTimeIntervalSinceNow:300]
     };
 
     CFUUIDRef tgt = NULL;
@@ -1934,8 +1973,8 @@
 
     CFDictionaryRef afterAttributes;
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&afterAttributes];
-    CFUUIDRef defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
-    XCTAssertNotEqual(defCred, uuid, "the temp cache should not be the default");
+    defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
+    XCTAssertFalse(CFEqual(defCred, uuid), "the temp cache should not be the default");
     XCTAssertTrue(CFBooleanGetValue(CFDictionaryGetValue(afterAttributes, kHEIMAttrTemporaryCache)), "the temp cache should be a temp cache.");
 
     BOOL hasDefaultAttribute = CFDictionaryContainsKey(afterAttributes, kHEIMAttrDefaultCredential);
@@ -1945,6 +1984,9 @@
     NSDictionary *attributes = @{(id)kHEIMAttrDefaultCredential:@YES};
     uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)attributes returningDictionary:NULL];
     XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Changing the default credential should fail");
+
+    result = [GSSCredTestUtil setAttributes:self.peer uuid:tgt attributes:(__bridge CFDictionaryRef)attributes returningDictionary:NULL];
+    XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Changing the default credential should fail when stored in a temp cache");
 
     // test load/save
     [GSSCredTestUtil freePeer:self.peer];
@@ -1959,7 +2001,7 @@
     CFDictionaryRef afterLoadAttributes;
     worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&afterLoadAttributes];
     defCred = [GSSCredTestUtil getDefaultCredential:self.peer];
-    XCTAssertNotEqual(defCred, uuid, "the temp cache should not be the default after load");
+    XCTAssertFalse(CFEqual(defCred, uuid), "the temp cache should not be the default after load");
 
     hasDefaultAttribute = CFDictionaryContainsKey(afterLoadAttributes, kHEIMAttrDefaultCredential);
     XCTAssertFalse(hasDefaultAttribute, "the temp cache should not have the default attribute after load");

@@ -488,8 +488,11 @@ bool SOSAccountValidateBackupRingForView(SOSAccount*  account, CFStringRef viewN
     require_action_quiet(ringName, errOut, CFSTR("No RingName for View"));
     ring = SOSAccountCopyRingNamed(account, ringName, error);
     require_quiet(ring, errOut);
+    
     recoveryKeyData = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, NULL);
     currentBSKB = SOSRingCopyBackupSliceKeyBag(ring, NULL);
+    
+    // build the list of peer things we need to make sure are there from the circle
     filteredPeerIDs = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
     filteredPeerInfos = CFSetCreateMutableForSOSPeerInfosByID(kCFAllocatorDefault);
 
@@ -498,14 +501,16 @@ bool SOSAccountValidateBackupRingForView(SOSAccount*  account, CFStringRef viewN
         CFSetAddValue(filteredPeerInfos, peer);
     });
 
+    // check the ring to make sure everyone is there
     ringPeerIDSet = SOSRingCopyPeerIDs(ring);
     if(!CFEqual(filteredPeerIDs, ringPeerIDSet)) {
         fixBackupRing = true;
     }
 
-    fixBackupRing &= !currentBSKB ||
-    !SOSBSKBAllPeersBackupKeysAreInKeyBag(currentBSKB, filteredPeerInfos) ||
-    !SOSBSKBHasThisRecoveryKey(currentBSKB, recoveryKeyData);
+    // now validate the ring BSKB payload has everyone
+    fixBackupRing &= !(currentBSKB &&
+                       SOSBSKBAllPeersBackupKeysAreInKeyBag(currentBSKB, filteredPeerInfos) &&
+                       SOSBSKBHasThisRecoveryKey(currentBSKB, recoveryKeyData));
 
 errOut:
     CFReleaseNull(ringName);
@@ -520,20 +525,34 @@ errOut:
 
 bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef cfBackupKey, CFErrorRef *error)
 {
-    SOSAccount*  account = aTxn.account;
-    __block bool result = false;
-
-    account.backup_key = nil;
-    if(!SOSAccountUpdatePeerInfo(account, CFSTR("Backup public key"), error, ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-        return SOSFullPeerInfoUpdateBackupKey(fpi, cfBackupKey, error);
-    })){
-        return result;
+    __block SOSAccount*  account = aTxn.account;
+    
+    if(cfBackupKey != NULL) {
+        account.backup_key = (NSData*) CFBridgingRelease(CFDataCreateCopy(kCFAllocatorDefault, cfBackupKey));
+    } else {
+        account.backup_key = nil;
     }
-    SOSAccountProcessBackupRings(account);
-    account.need_backup_peers_created_after_backup_key_set = true;
-    account.circle_rings_retirements_need_attention = true;
-    return true;
+    
+    bool result = SOSAccountUpdatePeerInfoAndPush(account, CFSTR("Backup public key"), error, ^bool(SOSPeerInfoRef pi, CFErrorRef *error) {
+        if (account.backup_key != NULL) {
+            CFStringRef shortHash = SOSCopyIDOfDataBufferWithLength(cfBackupKey, 8, NULL);
+            secnotice("backup", "Setting peerInfo backupKey to %@", shortHash);
+            CFReleaseNull(shortHash);
+            SOSPeerInfoV2DictionarySetValue(pi, sBackupKeyKey, cfBackupKey);
+        } else {
+            secnotice("backup", "Setting peerInfo backupKey to NULL");
+            SOSPeerInfoV2DictionaryRemoveValue(pi, sBackupKeyKey);
+        }
+        return true;
+    });
 
+    if(result) {
+        SOSAccountProcessBackupRings(account);
+        account.need_backup_peers_created_after_backup_key_set = true;
+        secnotice("devRecovery", "circle_rings_retirements_need_attention set to true since we got a BackupKey");
+        account.circle_rings_retirements_need_attention = true;
+    }
+    return result;
 }
 
 
@@ -612,6 +631,48 @@ bool SOSAccountRemoveBackupPeers(SOSAccount*  account, CFArrayRef peers, CFError
     
     return result;
     
+}
+
+bool SOSAccountEnsurePeerInfoHasCurrentBackupKey(SOSAccountTransaction *aTxn, CFErrorRef *error) {
+    bool retval = false;
+    CFDataRef peerBackupKey = NULL;
+    SOSAccount*  account = aTxn.account;
+
+    require_action_quiet([account isInCircle: nil], errOut, secnotice("backup", "Not currently in circle"));
+
+    peerBackupKey = SOSPeerInfoCopyBackupKey(account.peerInfo);
+    if(!account.backup_key) {
+        if(peerBackupKey) {
+            retval = SOSAccountSetBackupPublicKey(aTxn, NULL, error);
+        }
+    } else if(!SOSBSKBIsGoodBackupPublic((__bridge CFDataRef)account.backup_key, error)){
+        secnotice("backupkey", "account backup key isn't valid: %@", *error);
+        retval = SOSAccountSetBackupPublicKey(aTxn, NULL, error);
+    } else if(!CFEqualSafe(peerBackupKey, (__bridge CFDataRef)(account.backup_key))) {
+        secnotice("backupkey", "Account backup key and peerinforef backup key don't match.  Using account backup key.");
+        retval = SOSAccountSetBackupPublicKey(aTxn, (__bridge CFDataRef)(account.backup_key), error);
+        if (!retval) {
+            secnotice("backupkey", "Failed to setup backup public key in peerInfo from account: %@", *error);
+        }
+    } else {
+        retval = true;
+    }
+    
+errOut:
+    CFReleaseNull(peerBackupKey);
+    return retval;
+}
+
+bool SOSAccountBackupKeyConsistencyCheck(SOSAccount* account, CFErrorRef *error) {
+    bool retval = false;
+    if([account isInCircle: nil] && account.backup_key && SOSBSKBIsGoodBackupPublic((__bridge CFDataRef)account.backup_key, error)) {
+        CFDataRef peerBackupKey = SOSPeerInfoCopyBackupKey(account.peerInfo);
+        if(CFEqualSafe(peerBackupKey, (__bridge CFDataRef)(account.backup_key))) {
+            retval = true;
+        }
+        CFReleaseNull(peerBackupKey);
+    }
+    return retval;
 }
 
 SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef* error){

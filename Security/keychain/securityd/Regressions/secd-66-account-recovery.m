@@ -316,7 +316,7 @@ static void tests(bool recKeyFirst)
     bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
     CFReleaseNull(error);
     
-    ok(!SOSBSKBHasRecoveryKey(bskb), "BSKB should not have recovery key");
+    ok(SOSBSKBHasRecoveryKey(bskb), "BSKB will still have recovery key");
 
     //=========
     

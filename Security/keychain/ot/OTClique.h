@@ -108,6 +108,7 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeFinishPasscodeChange;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyGenerate;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyNew;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
+extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
 
 
 // OTClique

@@ -118,6 +118,18 @@
     UPSLog("properties: %@", _properties);
 }
 
+static void logUpsEventDict(NSDictionary* dict, NSString* s)
+{
+    NSDictionary *dbgDict = dict[@(kIOPSDebugInformationKey)];
+    NSMutableDictionary *logDict = [dict mutableCopy];
+    [logDict removeObjectForKey : @(kIOPSDebugInformationKey)];
+
+    UPSLog("%@: %@", s, logDict);
+    if (dbgDict) {
+        UPSLogDebug("%@: %@", s, dbgDict);
+    }
+}
+
 - (void)parseElements:(NSArray *)elements
 {
     /*
@@ -379,15 +391,37 @@
                                                    repeats:YES
                                                      block:^(NSTimer *timer __unused)
                 {
+                    // Check if feature reports need updating, if all elements are
+                    // const and updated we can stop the timer.
+                    bool needsUpdate = false;
+                    for (id obj in _elements.feature) {
+                        HIDLibElement *element = (HIDLibElement*)obj;
+                        if (element.isConstant) {
+                            needsUpdate = !element.isUpdated;
+                            if (needsUpdate) {
+                                break;
+                            }
+                        } else {
+                            needsUpdate = true;
+                            break;
+                        }
+                    }
+
+                    if (!needsUpdate) {
+                        [_timer invalidate];
+                        _timer = nil;
+                        return;
+                    }
+
                     // only dispatch an event if the element values were updated.
                     if ([self updateEvent] && _eventCallback) {
-                        UPSLog("timer dispatchEvent: %@", _upsEvent);
-                        
+                        logUpsEventDict(_upsEvent, @"timer dispatchEvent");
+
                         (_eventCallback)(_eventTarget,
                                          kIOReturnSuccess,
                                          _eventRefcon,
                                          (void *)&_ups,
-                                         (__bridge CFDictionaryRef)_upsEvent);
+                                         (__bridge CFDictionaryRef)_upsUpdatedEvent);
                     }
                 }];
             }
@@ -521,14 +555,13 @@
     bool isCharging = false;
     bool isDischarging = false; // Keeping this seperate bool for case when both charge / discharge is 1 (possible ??)
     bool isACSource = false;
-    
-    /*
-     * Get the latest element values. Our input elements will already be updated
-     * when we receive our valueAvailableCallback, so we just need to get the
-     * feature elements.
-     */
-    
+    bool isChargingPrev = false;
+    bool isDischargingPrev = false; // Keeping this seperate bool for case when both charge / discharge is 1 (possible ??)
+    bool isACSourcePrev = false;
+    [_upsUpdatedEvent removeAllObjects];
+
     [self updateElements:_elements.feature];
+
     for (HIDLibElement *element in _eventElements) {
         HIDLibElement *latest = [self latestElement:_eventElements
                                               psKey:element.psKey];
@@ -540,6 +573,7 @@
         NSObject *previousValue = _upsEvent[element.psKey];
         NSObject *newValue = nil;
         NSString *elementKey = element.psKey;
+        bool elementChanged = false;
         SInt32 translatedValue = (SInt32)element.integerValue;
         double exponent = element.unitExponent < 8 ? element.unitExponent :
                                                 -(0x10 - element.unitExponent);
@@ -580,10 +614,12 @@
                     case kHIDUsage_BS_Charging:
                         newValue = element.integerValue ? @YES : @NO;
                         isCharging |= (element.integerValue ? 1 : 0);
+                        isChargingPrev = [previousValue isEqual: @YES] ? 1 : 0;
                         break;
                     case kHIDUsage_BS_Discharging:
                         newValue = element.integerValue ? @FALSE : @TRUE;
                         isDischarging |= (element.integerValue ? 1 : 0);
+                        isDischargingPrev = [previousValue isEqual: @TRUE] ? 1 : 0;
                         break;
                     case kHIDUsage_BS_AbsoluteStateOfCharge:
                     case kHIDUsage_BS_RemainingCapacity:
@@ -594,7 +630,7 @@
                         
                         // If units are in %, update time to full and time to
                         // empty elements
-                        if (!element.unit) {
+                        if (!element.unit && ![previousValue isEqual:@(translatedValue)]) {
                             NSArray *elements;
                             HIDLibElement *tmpElement;
                             SInt32 tmpValue;
@@ -609,7 +645,9 @@
                                                     ((double)tmpValue / 100.0));
                                 
                                 // convert seconds to minutes
-                                _upsEvent[@(kIOPSTimeToFullChargeKey)] = @(tmpValue / 60);
+                                if (![tmpElement isEqual: previousValue]) {
+                                    _upsUpdatedEvent[@(kIOPSTimeToFullChargeKey)] = @(tmpValue / 60);
+                                }
                             }
                             
                             elements = [self copyElements:_eventElements
@@ -617,7 +655,7 @@
                             if (elements && elements.count) {
                                 tmpElement = [elements objectAtIndex:0];
                                 // convert seconds to minutes
-                                _upsEvent[@(kIOPSTimeToEmptyKey)] = @(tmpElement.integerValue / 60);
+                                _upsUpdatedEvent[@(kIOPSTimeToEmptyKey)] = @(tmpElement.integerValue / 60);
                             }
                         }
                         break;
@@ -650,6 +688,7 @@
                     case kHIDUsage_BS_ACPresent:
                         newValue = element.integerValue ? @(kIOPSACPowerValue) : @(kIOPSBatteryPowerValue);
                         isACSource |= (element.integerValue ? 1 : 0);
+                        isACSourcePrev = [previousValue isEqual:@(kIOPSACPowerValue)] ? 1 : 0; 
                         break;
                 }
                 break;
@@ -734,12 +773,15 @@
         if (newValue == nil) {
             newValue = @(translatedValue);
         }
-        
-        updated |= ![newValue isEqual:previousValue];
+
+
+        elementChanged = ![newValue isEqual:previousValue];       
+   
+        updated |= elementChanged;
         
         // if our element has a timestamp then we know its legit
-        if (element.timestamp) {
-            _upsEvent[elementKey] = newValue;
+        if (element.timestamp && elementChanged) {
+            _upsUpdatedEvent[elementKey] = newValue;
         }
     }
     
@@ -756,13 +798,17 @@
     // 4. AC preset usage truely convey power source
     UPSLog("Power Source status isACSource : %s , isCharging : %s , isDischarging : %s", isACSource ? "Yes" : "No", isCharging ? "Yes" : "No", isDischarging ? "Yes" : "No");
     
-    if (isACSource || (isCharging && !isDischarging)) {
-        _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSACPowerValue);
-    } else {
-        _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSBatteryPowerValue);
+    if (isACSource != isACSourcePrev || isCharging != isChargingPrev || isDischarging != isDischargingPrev) {
+        if (isACSource || (isCharging && !isDischarging)) {
+            _upsUpdatedEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSACPowerValue);
+        } else {
+            _upsUpdatedEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSBatteryPowerValue);
+        }
     }
     
     // When both charging and discharging are reported this should be battery (since AC is not reported in first check)
+
+    [_upsEvent addEntriesFromDictionary:_upsUpdatedEvent];
     
     return updated;
 }
@@ -800,13 +846,13 @@ static void _valueAvailableCallback(void *context,
     
     [self updateEvent];
     if (_eventCallback) {
-        UPSLog("dispatchEvent: %@", _upsEvent);
+        logUpsEventDict(_upsEvent, @"dispatchEvent");
         
         (_eventCallback)(_eventTarget,
                          kIOReturnSuccess,
                          _eventRefcon,
                          (void *)&_ups,
-                         (__bridge CFDictionaryRef)_upsEvent);
+                         (__bridge CFDictionaryRef)_upsUpdatedEvent);
     }
 }
 
@@ -1037,9 +1083,9 @@ static IOReturn _getEvent(void *iunknown, CFDictionaryRef *event)
     
     [self updateEvent];
     *event = (__bridge CFDictionaryRef)_upsEvent;
-    
-    UPSLog("getEvent: %@", _upsEvent);
-    
+
+    logUpsEventDict(_upsEvent, @"getEvent");
+
     return kIOReturnSuccess;
 }
 
@@ -1201,6 +1247,7 @@ static IOReturn _createAsyncEventSource(void *iunknown, CFTypeRef *source)
     _commandElements = [[NSMutableArray alloc] init];
     _eventElements = [[NSMutableArray alloc] init];
     _upsEvent = [[NSMutableDictionary alloc] init];
+    _upsUpdatedEvent = [[NSMutableDictionary alloc] init];
     _debugInformation = [[NSMutableDictionary alloc] init];
     return self;
 }

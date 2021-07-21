@@ -53,7 +53,7 @@
 #define HAVE_INTTYPES_H 1
 
 /* Define if pthread library is there (-lpthread) */
-#define HAVE_LIBPTHREAD /**/
+#define HAVE_LIBPTHREAD 1
 
 /* Define to 1 if you have the <locale.h> header file. */
 #define HAVE_LOCALE_H 1
@@ -83,7 +83,7 @@
 #define HAVE_PRINTF 1
 
 /* Define if <pthread.h> is there */
-#define HAVE_PTHREAD_H /**/
+#define HAVE_PTHREAD_H 1
 
 /* Define to 1 if you have the `snprintf' function. */
 #define HAVE_SNPRINTF 1

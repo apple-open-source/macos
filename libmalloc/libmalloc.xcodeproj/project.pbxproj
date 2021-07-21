@@ -337,6 +337,7 @@
 		925383D01BD03B4A00F745DB /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		925383D11BD03B4A00F745DB /* stress_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stress_test.c; sourceTree = "<group>"; };
 		925383D31BD03B8F00F745DB /* manpages.lst */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = manpages.lst; sourceTree = "<group>"; };
+		96E1C8ED2653373700B23906 /* magazine_medium_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_medium_test.c; sourceTree = "<group>"; };
 		B61341DD20114B070038D163 /* ktrace.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ktrace.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/ktrace.framework; sourceTree = DEVELOPER_DIR; };
 		B629CF29202BA3C2007719B9 /* libmalloc_resolver.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_resolver.xcconfig; sourceTree = "<group>"; };
 		B629CF42202BB337007719B9 /* libmalloc_alt.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc_alt.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -659,6 +660,7 @@
 				B6D59B0E225EA90E009E5896 /* reallocarray.c */,
 				B68C985C2180BEB5003DAF36 /* region_cookie_test.c */,
 				925383D11BD03B4A00F745DB /* stress_test.c */,
+				96E1C8ED2653373700B23906 /* magazine_medium_test.c */,
 			);
 			path = tests;
 			sourceTree = "<group>";

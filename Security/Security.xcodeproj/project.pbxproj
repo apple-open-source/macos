@@ -12921,23 +12921,23 @@
 		DC0BCABE1D8B85BC00070CB0 /* SecTransformValidator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformValidator.h; sourceTree = "<group>"; };
 		DC0BCABF1D8B85BC00070CB0 /* SecReadTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecReadTransform.h; sourceTree = "<group>"; };
 		DC0BCB081D8B894F00070CB0 /* libsecurity_translocate.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_translocate.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC0BCB0A1D8B898100070CB0 /* SecTranslocateClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateClient.cpp; sourceTree = "<group>"; };
+		DC0BCB0A1D8B898100070CB0 /* SecTranslocateClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateClient.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		DC0BCB0B1D8B898100070CB0 /* SecTranslocateClient.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateClient.hpp; sourceTree = "<group>"; };
-		DC0BCB0C1D8B898100070CB0 /* SecTranslocateXPCServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateXPCServer.cpp; sourceTree = "<group>"; };
+		DC0BCB0C1D8B898100070CB0 /* SecTranslocateXPCServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateXPCServer.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		DC0BCB0D1D8B898100070CB0 /* SecTranslocateXPCServer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateXPCServer.hpp; sourceTree = "<group>"; };
 		DC0BCB0E1D8B898100070CB0 /* SecTranslocateInterface.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateInterface.hpp; sourceTree = "<group>"; };
 		DC0BCB0F1D8B898100070CB0 /* SecTranslocateDANotification.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateDANotification.cpp; sourceTree = "<group>"; };
 		DC0BCB101D8B898100070CB0 /* SecTranslocateDANotification.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateDANotification.hpp; sourceTree = "<group>"; };
 		DC0BCB111D8B898100070CB0 /* SecTranslocateLSNotification.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateLSNotification.cpp; sourceTree = "<group>"; };
 		DC0BCB121D8B898100070CB0 /* SecTranslocateLSNotification.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateLSNotification.hpp; sourceTree = "<group>"; };
-		DC0BCB131D8B898100070CB0 /* SecTranslocateShared.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateShared.hpp; sourceTree = "<group>"; };
-		DC0BCB141D8B898100070CB0 /* SecTranslocateShared.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateShared.cpp; sourceTree = "<group>"; };
+		DC0BCB131D8B898100070CB0 /* SecTranslocateShared.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateShared.hpp; sourceTree = "<group>"; usesTabs = 0; };
+		DC0BCB141D8B898100070CB0 /* SecTranslocateShared.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateShared.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		DC0BCB151D8B898100070CB0 /* SecTranslocateServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateServer.cpp; sourceTree = "<group>"; };
 		DC0BCB161D8B898100070CB0 /* SecTranslocateServer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateServer.hpp; sourceTree = "<group>"; };
 		DC0BCB171D8B898100070CB0 /* SecTranslocate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTranslocate.h; sourceTree = "<group>"; };
-		DC0BCB181D8B898100070CB0 /* SecTranslocate.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocate.cpp; sourceTree = "<group>"; };
+		DC0BCB181D8B898100070CB0 /* SecTranslocate.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocate.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		DC0BCB191D8B898100070CB0 /* SecTranslocateUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateUtilities.cpp; sourceTree = "<group>"; };
-		DC0BCB1A1D8B898100070CB0 /* SecTranslocateUtilities.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateUtilities.hpp; sourceTree = "<group>"; };
+		DC0BCB1A1D8B898100070CB0 /* SecTranslocateUtilities.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SecTranslocateUtilities.hpp; sourceTree = "<group>"; usesTabs = 0; };
 		DC0BCB1B1D8B898100070CB0 /* SecTranslocateInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTranslocateInterface.cpp; sourceTree = "<group>"; };
 		DC0BCBFD1D8C648C00070CB0 /* libregressionBase.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libregressionBase.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC0BCBFE1D8C64B500070CB0 /* test-00-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-00-test.c"; path = "OSX/regressions/test/test-00-test.c"; sourceTree = "<group>"; };
@@ -14818,8 +14818,8 @@
 		DCD06B001D8E0D7D007602F1 /* muscle++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = "muscle++.cpp"; sourceTree = "<group>"; };
 		DCD06B011D8E0D7D007602F1 /* pcsc++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "pcsc++.h"; sourceTree = "<group>"; };
 		DCD06B021D8E0D7D007602F1 /* pcsc++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = "pcsc++.cpp"; sourceTree = "<group>"; };
-		DCD06B051D8E0D7D007602F1 /* unix++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "unix++.h"; sourceTree = "<group>"; };
-		DCD06B061D8E0D7D007602F1 /* unix++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = "unix++.cpp"; sourceTree = "<group>"; };
+		DCD06B051D8E0D7D007602F1 /* unix++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "unix++.h"; sourceTree = "<group>"; usesTabs = 0; };
+		DCD06B061D8E0D7D007602F1 /* unix++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = "unix++.cpp"; sourceTree = "<group>"; usesTabs = 0; };
 		DCD06B071D8E0D7D007602F1 /* unixchild.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = unixchild.h; sourceTree = "<group>"; };
 		DCD06B081D8E0D7D007602F1 /* unixchild.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = unixchild.cpp; sourceTree = "<group>"; };
 		DCD06B0C1D8E0D7D007602F1 /* mach++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mach++.h"; sourceTree = "<group>"; };
@@ -40634,7 +40634,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"NO_SERVER=1",
 					"$(inherited)",
@@ -40642,6 +40642,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)",
 					"$(HEADER_SYMLINKS)",
@@ -40674,7 +40675,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"NO_SERVER=1",
 					"$(inherited)",
@@ -40682,6 +40683,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)",
 					"$(HEADER_SYMLINKS)",

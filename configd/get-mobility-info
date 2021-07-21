@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2017 Apple Inc.
+# Copyright (c) 2004-2018, 2020, 2021 Apple Inc.
 #
 # get-mobility-info
 #
@@ -310,8 +310,8 @@ fi
 #
 # mach port info
 #
-if [ -x /usr/local/bin/lsmp ]; then
-	${PRIV} /usr/local/bin/lsmp -a -v		> lsmp			2>&1
+if [ -x /usr/bin/lsmp ]; then
+	${PRIV} /usr/bin/lsmp -a -v			> lsmp			2>&1
 fi
 
 #
@@ -342,23 +342,6 @@ if [ -x /usr/sbin/lsof ]; then
 			${PRIV} kill ${LSOF_PID}	2>/dev/null
 		fi
 	) &
-fi
-
-#
-# [lib]dispatch info
-#
-if [ -x /usr/local/bin/ddt ]; then
-    /bin/echo -n ""					>  dispatch-info
-    for BIN in		\
-	configd		\
-	discoveryd	\
-
-    do
-	echo "#"					>> dispatch-info
-	echo "# ddt -vkp ${BIN}"			>> dispatch-info
-	echo "#"					>> dispatch-info
-	${PRIV} /usr/local/bin/ddt -vkp ${BIN}		>> dispatch-info	2>&1
-    done
 fi
 
 #

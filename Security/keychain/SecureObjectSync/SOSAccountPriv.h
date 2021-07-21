@@ -309,6 +309,7 @@ SOSRingRef SOSAccountCopyRingNamed(SOSAccount* a, CFStringRef ringName, CFErrorR
 bool SOSAccountUpdateRingFromRemote(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error);
 bool SOSAccountUpdateRing(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error);
 bool SOSAccountRemoveBackupPeers(SOSAccount* account, CFArrayRef peerIDs, CFErrorRef *error);
+bool SOSAccountBackupKeyConsistencyCheck(SOSAccount* account, CFErrorRef *error);
 bool SOSAccountUpdateNamedRing(SOSAccount* account, CFStringRef ringName, CFErrorRef *error,
                                SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
                                SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error));

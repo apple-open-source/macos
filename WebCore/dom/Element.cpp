@@ -385,12 +385,20 @@ bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const 
     if (mouseEvent->type().isEmpty())
         return true; // Shouldn't happen.
 
+    Ref protectedThis { *this };
     bool didNotSwallowEvent = true;
 
     if (dispatchPointerEventIfNeeded(*this, mouseEvent.get(), platformEvent, didNotSwallowEvent) == ShouldIgnoreMouseEvent::Yes)
         return false;
-
-    if (Quirks::StorageAccessResult::ShouldCancelEvent == document().quirks().triggerOptionalStorageAccessQuirk(*this, platformEvent, eventType, detail, relatedTarget))
+    
+    auto isParentProcessAFullWebBrowser = false;
+#if PLATFORM(IOS_FAMILY)
+    if (Frame* frame = document().frame())
+        isParentProcessAFullWebBrowser = frame->loader().client().isParentProcessAFullWebBrowser();
+#elif PLATFORM(MAC)
+    isParentProcessAFullWebBrowser = MacApplication::isSafari();
+#endif
+    if (Quirks::StorageAccessResult::ShouldCancelEvent == document().quirks().triggerOptionalStorageAccessQuirk(*this, platformEvent, eventType, detail, relatedTarget, isParentProcessAFullWebBrowser))
         return false;
 
     ASSERT(!mouseEvent->target() || mouseEvent->target() != relatedTarget);
@@ -4204,15 +4212,16 @@ void Element::resetComputedStyle()
         return;
 
     auto reset = [](Element& element) {
-        if (!element.hasRareData() || !element.elementRareData()->computedStyle())
-            return;
         if (element.hasCustomStyleResolveCallbacks())
             element.willResetComputedStyle();
         element.elementRareData()->resetComputedStyle();
     };
     reset(*this);
-    for (auto& child : descendantsOfType<Element>(*this))
+    for (auto& child : descendantsOfType<Element>(*this)) {
+        if (!child.hasRareData() || !child.elementRareData()->computedStyle() || child.hasDisplayContents())
+            continue;
         reset(child);
+    }
 }
 
 void Element::resetStyleRelations()

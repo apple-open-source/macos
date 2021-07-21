@@ -277,6 +277,18 @@ static void _repair_all_kofns(authdb_connection_t dbconn, auth_items_t config)
     CFRelease(plist);
 }
 
+static void _check_for_db_update(authdb_connection_t dbconn)
+{
+    const char *rightName = "com.apple.installassistant.requestpassword";
+    rule_t right = rule_create_with_string(rightName, dbconn);
+    if (!right || rule_get_class(right) != RC_USER || rule_get_shared(right) != false || rule_get_type(right) != RT_RIGHT) {
+        os_log_fault(AUTHD_LOG, "Old and not updated database found");
+    } else {
+        os_log(AUTHD_LOG, "Database check OK");
+    }
+    CFReleaseNull(right);
+}
+
 static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
 {
     CFAbsoluteTime ts = 0;
@@ -289,6 +301,9 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
             auth_items_set_double(update, "data_ts", ts);
             authdb_set_key_value(dbconn, "config", update);
             CFReleaseSafe(update);
+            int32_t rc = sqlite3_db_cacheflush(dbconn->handle);
+            os_log_debug(AUTHD_LOG, "Flush result: %d", rc);
+            _check_for_db_update(dbconn);
         }
     }
     CFReleaseSafe(plist);
@@ -362,9 +377,12 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
         if (currentVersion < AUTHDB_VERSION) {
             os_log_debug(AUTHD_LOG, "authdb: upgrading schema");
             s3e = _db_upgrade_from_version(dbconn, (int32_t)currentVersion);
-            
-            auth_items_set_int64(config, "version", AUTHDB_VERSION);
-            authdb_set_key_value(dbconn, "config", config);
+            if (s3e != SQLITE_OK) {
+                os_log_error(AUTHD_LOG, "authdb: failed to upgrade DB schema %i", s3e);
+            } else {
+                auth_items_set_int64(config, "version", AUTHDB_VERSION);
+                authdb_set_key_value(dbconn, "config", config);
+            }
         }
 
     done:

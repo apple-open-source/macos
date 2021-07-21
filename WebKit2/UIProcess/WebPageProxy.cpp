@@ -3240,6 +3240,13 @@ void WebPageProxy::receivedNavigationPolicyDecision(PolicyAction policyAction, A
 
             ASSERT(!destinationSuspendedPage || navigation->targetItem());
             auto suspendedPage = destinationSuspendedPage ? backForwardCache().takeSuspendedPage(*navigation->targetItem()) : nullptr;
+
+            // It is difficult to get history right if we have several WebPage objects inside a single WebProcess for the same WebPageProxy. As a result, if we make sure to
+            // clear any SuspendedPageProxy for the current page that are backed by the destination process before we proceed with the navigation. This makes sure the WebPage
+            // we are about to create in the destination process will be the only one associated with this WebPageProxy.
+            if (!destinationSuspendedPage)
+                backForwardCache().removeEntriesForPageAndProcess(*this, processForNavigation);
+
             ASSERT(suspendedPage.get() == destinationSuspendedPage);
             if (suspendedPage && suspendedPage->pageIsClosedOrClosing())
                 suspendedPage = nullptr;
@@ -6104,10 +6111,8 @@ void WebPageProxy::setColorPickerColor(const WebCore::Color& color)
 
 void WebPageProxy::endColorPicker()
 {
-    if (!m_colorPicker)
-        return;
-
-    m_colorPicker->endPicker();
+    if (auto colorPicker = std::exchange(m_colorPicker, nullptr))
+        colorPicker->endPicker();
 }
 
 void WebPageProxy::didChooseColor(const WebCore::Color& color)
@@ -6120,11 +6125,13 @@ void WebPageProxy::didChooseColor(const WebCore::Color& color)
 
 void WebPageProxy::didEndColorPicker()
 {
-    m_colorPicker = nullptr;
-    if (!hasRunningProcess())
-        return;
+    if (std::exchange(m_colorPicker, nullptr)) {
+        if (!hasRunningProcess())
+            return;
 
-    send(Messages::WebPage::DidEndColorPicker());
+        send(Messages::WebPage::DidEndColorPicker());
+    }
+
 }
 #endif
 

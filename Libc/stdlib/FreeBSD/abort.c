@@ -70,6 +70,14 @@ abort()
 		CRSetCrashLogMessage("abort() called");
 
 	/*
+	 * Fetch pthread_self() now, before we start masking signals.
+	 * pthread_self will abort or crash if the pthread's signature
+	 * appears corrupt. aborting inside abort is painful, so let's get
+	 * that out of the way before we go any further.
+	 */
+	pthread_t self = pthread_self();
+
+	/*
 	 * POSIX requires we flush stdio buffers on abort.
 	 * XXX ISO C requires that abort() be async-signal-safe.
 	 */
@@ -107,7 +115,7 @@ abort()
 	__pthread_workqueue_setkill(1);
 
 	(void)pthread_sigmask(SIG_SETMASK, &act.sa_mask, NULL);
-	(void)pthread_kill(pthread_self(), SIGABRT);
+	(void)pthread_kill(self, SIGABRT);
 
 	usleep(TIMEOUT); /* give time for signal to happen */
 

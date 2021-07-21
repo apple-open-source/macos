@@ -81,45 +81,38 @@ TranslocatorServer::~TranslocatorServer()
 
 // This is intended for use by the host process of the server if necessary
 // Create a translocation for original path if appropriate
-string TranslocatorServer::translocatePathForUser(const TranslocationPath &originalPath, const string &destPath)
+string TranslocatorServer::translocatePathForUser(const TranslocationPath &originalPath, ExtendedAutoFileDesc &destFd)
 {
     __block string newPath;
     __block exception_ptr exception(0);
     
     dispatch_sync(syncQ, ^{
-        try
-        {
-            newPath = Security::SecTranslocate::translocatePathForUser(originalPath,destPath);
-        }
-        catch (...)
-        {
+        try {
+            newPath = Security::SecTranslocate::translocatePathForUser(originalPath,destFd);
+        } catch (...) {
             exception = current_exception();
         }
     });
-    if (exception)
-    {
+    if (exception) {
         rethrow_exception(exception);
     }
     return newPath;
 }
 
-string TranslocatorServer::translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath)
+string TranslocatorServer::translocatePathForUser(const GenericTranslocationPath &originalPath, ExtendedAutoFileDesc &destFd)
 {
     __block string newPath;
     __block exception_ptr exception(0);
     
     dispatch_sync(syncQ, ^{
-        try
-        {
-            newPath = Security::SecTranslocate::translocatePathForUser(originalPath,destPath);
+        try {
+            newPath = Security::SecTranslocate::translocatePathForUser(originalPath,destFd);
         }
-        catch (...)
-        {
+        catch (...) {
             exception = current_exception();
         }
     });
-    if (exception)
-    {
+    if (exception) {
         rethrow_exception(exception);
     }
     return newPath;

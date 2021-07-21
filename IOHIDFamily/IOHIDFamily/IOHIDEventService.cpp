@@ -2512,6 +2512,10 @@ void IOHIDEventService::dispatchScrollWheelEventWithFixed(
     if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
         return;
 
+    if (options & kHIDDispatchOptionScrollNoAcceleration) {
+        options = (options | kIOHIDScrollEventOptionsNoAcceleration) & ~kHIDDispatchOptionScrollNoAcceleration;
+    }
+
     IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3, options); //yxz should be xyz
     if ( event ) {
         if (momentumOrPhase) {
@@ -2701,7 +2705,7 @@ kern_return_t
 IMPL(IOHIDEventService, _DispatchRelativeScrollWheelEvent)
 {
     if (!accelerate) {
-        options |= kIOHIDScrollEventOptionsNoAcceleration;
+        options |= kHIDDispatchOptionScrollNoAcceleration;
     }
     
     dispatchScrollWheelEventWithFixed(timeStamp, dx, dy, dz, options);

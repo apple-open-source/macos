@@ -46,8 +46,8 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
             return @"recovery key";
         case OTFollowupContextTypeStateRepair:
             return @"repair";
-        case OTFollowupContextTypeOfflinePasscodeChange:
-            return @"offline passcode change";
+        case OTFollowupContextTypeConfirmExistingSecret:
+            return @"confirm existing secret";
     }
 }
 
@@ -81,8 +81,8 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
         case OTFollowupContextTypeRecoveryKeyRepair: {
             return [CDPFollowUpContext contextForRecoveryKeyRepair];
         }
-        case OTFollowupContextTypeOfflinePasscodeChange: {
-            return [CDPFollowUpContext contextForOfflinePasscodeChange];
+        case OTFollowupContextTypeConfirmExistingSecret: {
+            return [CDPFollowUpContext contextForConfirmExistingSecret];
         }
         default: {
             return nil;

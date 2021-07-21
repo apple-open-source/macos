@@ -1178,6 +1178,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                          OTCliqueCDPContextTypeRecoveryKeyGenerate,
                          OTCliqueCDPContextTypeRecoveryKeyNew,
                          OTCliqueCDPContextTypeUpdatePasscode,
+                         OTCliqueCDPContextTypeConfirmPasscodeCyrus,
         ];
     });
     return contextTypes;
@@ -1390,27 +1391,6 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext waitForOctagonUpgrade:^(NSError * _Nonnull error) {
         reply(error);
     }];
-}
-
-- (OTFollowupContextType)cliqueCDPTypeToFollowupContextType:(OTCliqueCDPContextType)type
-{
-    if ([type isEqualToString:OTCliqueCDPContextTypeNone]) {
-        return OTFollowupContextTypeNone;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeSignIn]) {
-        return OTFollowupContextTypeNone;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeRepair]) {
-        return OTFollowupContextTypeStateRepair;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeFinishPasscodeChange]) {
-        return OTFollowupContextTypeOfflinePasscodeChange;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeRecoveryKeyGenerate]) {
-        return OTFollowupContextTypeRecoveryKeyRepair;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeRecoveryKeyNew]) {
-        return OTFollowupContextTypeRecoveryKeyRepair;
-    } else if ([type isEqualToString:OTCliqueCDPContextTypeUpdatePasscode]) {
-        return OTFollowupContextTypeNone;
-    } else {
-        return OTFollowupContextTypeNone;
-    }
 }
 
 - (void)postCDPFollowupResult:(BOOL)success

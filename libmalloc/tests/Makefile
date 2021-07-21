@@ -71,7 +71,7 @@ ifeq ($(Embedded),NO)
 tsan: CFLAGS := $(filter-out $(ARCH_FLAGS),$(CFLAGS)) -arch x86_64 -fsanitize=thread
 tsan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
 else
-EXCLUDED_SOURCES += tsan.c
+EXCLUDED_SOURCES += tsan.c magazine_medium_test.c
 endif
 
 madvise: OTHER_CFLAGS += -I../src

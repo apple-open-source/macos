@@ -1008,15 +1008,15 @@ xmlXIncludeCopyRange(xmlXIncludeCtxtPtr ctxt, xmlDocPtr target,
 		if (list == NULL) {
 		    list = tmp;
 		    listParent = cur->parent;
+		    last = tmp;
 		} else {
 		    if (level == lastLevel)
-			xmlAddNextSibling(last, tmp);
+			last = xmlAddNextSibling(last, tmp);
 		    else {
-			xmlAddChild(last, tmp);
+			last = xmlAddChild(last, tmp);
 			lastLevel = level;
 		    }
 		}
-		last = tmp;
 
 		if (index2 > 1) {
 		    end = xmlXIncludeGetNthChild(cur, index2 - 1);
@@ -1097,12 +1097,11 @@ xmlXIncludeCopyRange(xmlXIncludeCtxtPtr ctxt, xmlDocPtr target,
 	    }
 	    if (tmp != NULL) {
 		if (level == lastLevel)
-		    xmlAddNextSibling(last, tmp);
+		    last = xmlAddNextSibling(last, tmp);
 		else {
-		    xmlAddChild(last, tmp);
+		    last = xmlAddChild(last, tmp);
 		    lastLevel = level;
 		}
-		last = tmp;
 	    }
 	}
 	/*
@@ -1180,8 +1179,7 @@ xmlXIncludeCopyXPointer(xmlXIncludeCtxtPtr ctxt, xmlDocPtr target,
 				    if (last == NULL) {
 					list = last = tmp;
 				    } else {
-					xmlAddNextSibling(last, tmp);
-					last = tmp;
+					last = xmlAddNextSibling(last, tmp);
 				    }
 				    cur = cur->next;
 				    continue;
@@ -2393,9 +2391,8 @@ xmlXIncludeDoProcess(xmlXIncludeCtxtPtr ctxt, xmlDocPtr doc, xmlNodePtr tree) {
         if (xmlXIncludeTestNode(ctxt, cur) == 1) {
             xmlXIncludePreProcessNode(ctxt, cur);
         } else if ((cur->children != NULL) &&
-                   (cur->children->type != XML_ENTITY_DECL) &&
-                   (cur->children->type != XML_XINCLUDE_START) &&
-                   (cur->children->type != XML_XINCLUDE_END)) {
+                   ((cur->type == XML_DOCUMENT_NODE) ||
+                    (cur->type == XML_ELEMENT_NODE))) {
             cur = cur->children;
             continue;
         }

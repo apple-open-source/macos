@@ -294,6 +294,21 @@ isTemporaryCache(CFDictionaryRef attributes)
     return temporaryCache;
 }
 
+static bool
+isParentTemporaryCache(struct HeimSession *session, CFDictionaryRef attributes)
+{
+    bool temporaryCache = false;
+
+    CFUUIDRef parentUUID =  CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
+    if (parentUUID) {
+	HeimCredRef parentCred = (HeimCredRef)CFDictionaryGetValue(session->items, parentUUID);
+	if (parentCred && CFDictionaryContainsKey(parentCred->attributes, kHEIMAttrTemporaryCache)) {
+	    temporaryCache = (CFDictionaryGetValue(parentCred->attributes, kHEIMAttrTemporaryCache) == kCFBooleanTrue);
+	}
+    }
+    return temporaryCache;
+}
+
 cache_read_status
 readCredCache(void)
 {
@@ -689,9 +704,10 @@ reElectMechCredential(const void *key, const void *value, void *context)
 
 	// only caches with unexpired TGTs can be the default, so we look for the first valid TGT and set it's parent to be the default.
 	// temporary caches cannot be the default
+	BOOL temporaryCache = isTemporaryCache(cred->attributes) || isParentTemporaryCache(session, cred->attributes);
 	if (CFEqual(cred->mech->name, mech->name) &&  //only handle the current type of cred
 	    parentUUID != NULL &&
-	    !isTemporaryCache(cred->attributes) &&
+	    !temporaryCache &&
 	    CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential) == kCFBooleanTrue) {
 
 	    NSDate *expire =  (__bridge NSDate*)CFDictionaryGetValue(cred->attributes, kHEIMAttrExpire);
@@ -717,9 +733,9 @@ reElectMechCredential(const void *key, const void *value, void *context)
 	/*
 	 * If there is no default credential, make one up
 	 */
-	CFUUIDRef defcred = CFUUIDCreate(NULL);
-	CFDictionarySetValue(session->defaultCredentials, mech->name, defcred);
-	CFRELEASE_NULL(defcred);
+	CFUUIDRef newdDefCred = CFUUIDCreate(NULL);
+	CFDictionarySetValue(session->defaultCredentials, mech->name, newdDefCred);
+	CFRELEASE_NULL(newdDefCred);
     }
 
     if (mech->notifyCaches!=NULL) {
@@ -888,7 +904,7 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	goto out;
     }
 
-    temporaryCache = isTemporaryCache(attributes);
+    temporaryCache = isTemporaryCache(attributes) || isParentTemporaryCache(peer->session, attributes);
 
     /* check if we are ok to link into this cred-tree */
     
@@ -1386,9 +1402,10 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	}
     }
 
-    // temporary caches can not be set as default
+    // temporary caches and credentials in them can not be set as default
     CFBooleanRef defaultCache = CFDictionaryGetValue(replacementAttrs, kHEIMAttrDefaultCredential);
-    if (isTemporaryCache(cred->attributes) && defaultCache && CFBooleanGetValue(defaultCache)) {
+    BOOL temporaryCache = isTemporaryCache(cred->attributes) || isParentTemporaryCache(peer->session, cred->attributes);
+    if (temporaryCache && defaultCache && CFBooleanGetValue(defaultCache)) {
 	const void *const keys[] = { CFSTR("CommonErrorCode") };
 	const void *const values[] = { kCFBooleanTrue };
 	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
@@ -1774,9 +1791,16 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     if (credToMech!=NULL && credToMech->notifyCaches!=NULL) {
 	credToMech->notifyCaches();
-	credToMech = NULL;
     }
     HeimCredCTX.needFlush = 1;
+
+    // If there is not a default credential or if the default credential does not exist, then trigger an election in case the moved credential can now be default.
+    CFUUIDRef defCred = CFDictionaryGetValue(peer->session->defaultCredentials, credToMech->name);
+    if (defCred == NULL || !(defCred && CFDictionaryGetValue(peer->session->items, defCred)!=NULL)) {
+	peer->session->updateDefaultCredential = 1;
+	reElectDefaultCredential(peer);
+    }
+    credToMech = NULL;
 }
 
 static void

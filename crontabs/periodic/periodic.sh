@@ -35,6 +35,8 @@ tmp_output=`mktemp ${TMPDIR:-/tmp}/periodic.XXXXXXXXXX`
 
 for arg
 do
+    skippedlist=()
+
     # Where's our output going ?
     eval output=\$${arg##*/}_output
     case "$output" in
@@ -70,8 +72,8 @@ do
     {
         # Print the date at the beginning of all logs (3086063).
         echo
-        date
-
+        /bin/date
+        
         empty=TRUE
         processed=0
         for dir in $dirlist
@@ -82,7 +84,14 @@ do
                 then
                     output=TRUE
                     processed=$(($processed + 1))
-                    $file </dev/null >$tmp_output 2>&1
+                    result=(`/usr/bin/stat -f '%Su %Ul' $file`)
+                    user=${result[0]}
+                    hardlinks=${result[1]}
+                    if [ $hardlinks -ne 1 ] ; then
+                        skippedlist+=("$file")
+                        continue
+                    fi
+                    /usr/bin/su $user -c $file </dev/null >$tmp_output 2>&1
                     rc=$?
                     if [ -s $tmp_output ]
                     then
@@ -91,12 +100,18 @@ do
                       1)  [ $info = NO ] && output=FALSE;;
                       2)  [ $badconfig = NO ] && output=FALSE;;
                       esac
-                      [ $output = TRUE ] && { cat $tmp_output; empty=FALSE; }
+                      [ $output = TRUE ] && { /bin/cat $tmp_output; empty=FALSE; }
                     fi
-                    cp /dev/null $tmp_output
+                    /bin/cp /dev/null $tmp_output
                 fi
             done
         done
+        
+        if [ ! -z $skippedlist ] ; then
+            echo ""
+            echo "Skipped running files with too many links: ${skippedlist[@]}"
+        fi
+        
         if [ $empty = TRUE ]
         then
           if [ $empty_output = TRUE ]
@@ -110,4 +125,4 @@ do
         fi
     } | eval $pipe
 done
-rm -f $tmp_output
+/bin/rm -f $tmp_output

@@ -23,6 +23,24 @@ Steps to rebuild files:
 
 --- config.h.orig	2015-12-05 13:52:59.000000000 -0800
 +++ config.h	2015-12-05 13:59:57.000000000 -0800
+@@ -53,7 +53,7 @@
+ #define HAVE_INTTYPES_H 1
+ 
+ /* Define if pthread library is there (-lpthread) */
+-#define HAVE_LIBPTHREAD /**/
++#define HAVE_LIBPTHREAD 1
+ 
+ /* Define to 1 if you have the <locale.h> header file. */
+ #define HAVE_LOCALE_H 1
+@@ -83,7 +83,7 @@
+ #define HAVE_PRINTF 1
+ 
+ /* Define if <pthread.h> is there */
+-#define HAVE_PTHREAD_H /**/
++#define HAVE_PTHREAD_H 1
+ 
+ /* Define to 1 if you have the `snprintf' function. */
+ #define HAVE_SNPRINTF 1
 @@ -177,7 +177,7 @@
  
  /* Enable extensions on AIX 3, Interix.  */

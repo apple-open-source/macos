@@ -38,6 +38,7 @@
     NSMutableDictionary                     *_properties;
     NSMutableSet                            *_capabilities;
     NSMutableDictionary                     *_upsEvent;
+    NSMutableDictionary                     *_upsUpdatedEvent;
     NSMutableDictionary                     *_debugInformation;
     
     struct {

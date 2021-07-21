@@ -99,6 +99,14 @@ abort_test(thread_type_t type, corrupt_type_t corrupt_type)
 		T_END;
 	}
 #endif
+#if defined(__arm64e__)
+	// on arm64e pthread_self() checks a ptrauth signature so it is
+	// likely to die of SIGTRAP
+	if (corrupt_type == FULL_CORRUPTION || corrupt_type == SIG_CORRUPTION) {
+		T_EXPECT_EQ(signal, SIGTRAP, NULL);
+		T_END;
+	}
+#endif
 
 	/* pthread calls abort_with_reason if only the signature is corrupt */
 	T_EXPECT_EQ(signal, SIGABRT, NULL);

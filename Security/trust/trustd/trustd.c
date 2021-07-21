@@ -818,6 +818,18 @@ static void trustd_sandbox(void) {
 #endif // !TARGET_OS_OSX
 }
 
+static void listen_for_sigterm(dispatch_queue_t queue)
+{
+    signal(SIGTERM, SIG_IGN);
+    static dispatch_source_t terminateSource = NULL;
+    terminateSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, queue);
+    dispatch_source_set_event_handler(terminateSource, ^ {
+        secinfo("serverxpc", "Received signal SIGTERM. Will terminate when clean.");
+        xpc_transaction_exit_clean();
+    });
+    dispatch_activate(terminateSource);
+}
+
 int main(int argc, char *argv[])
 {
     DisableLocalization();
@@ -843,6 +855,7 @@ int main(int argc, char *argv[])
     /* migrate files and initialize static content */
     trustd_init_server();
     /* We're ready now. Go. */
+    listen_for_sigterm(SecTrustServerGetWorkloop());
     trustd_xpc_init(serviceName);
     dispatch_main();
 }

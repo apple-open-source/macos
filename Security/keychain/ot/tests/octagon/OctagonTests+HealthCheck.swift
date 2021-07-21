@@ -293,7 +293,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         OTMockSecEscrowRequest.self.populateStatuses = false
         let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
         XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
-        XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should have posted an escrow CFU")
+        XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should have posted an escrow CFU")
     }
 
     func testCuttlefishResponseResetOctagon() throws {
@@ -337,7 +337,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
         XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should not have posted an account repair CFU")
-        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should not have posted an escrow repair CFU")
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should not have posted an escrow repair CFU")
     }
 
     func testHealthCheckBeforeStateMachineStarts() throws {
@@ -880,7 +880,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = true
         let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
-        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should NOT have posted an escrow CFU")
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should NOT have posted an escrow CFU")
     }
 
     func testHealthCheckWhileLocked() throws {

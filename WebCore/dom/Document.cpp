@@ -1850,21 +1850,21 @@ bool Document::hidden() const
 
 void Document::registerMediaElement(HTMLMediaElement& element)
 {
-    m_mediaElements.add(&element);
+    m_mediaElements.add(element);
 }
 
 void Document::unregisterMediaElement(HTMLMediaElement& element)
 {
-    m_mediaElements.remove(&element);
+    m_mediaElements.remove(element);
 }
 
 void Document::forEachMediaElement(const Function<void(HTMLMediaElement&)>& function)
 {
-    Vector<Ref<HTMLMediaElement>> elements;
-    for (auto* element : m_mediaElements)
-        elements.append(*element);
-    for (auto& element : elements)
+    ASSERT(!m_mediaElements.hasNullReferences());
+    m_mediaElements.forEach([&](auto& element) {
+        auto protectedElement = makeRef(element);
         function(element);
+    });
 }
 
 bool Document::mediaPlaybackExists()
@@ -7021,7 +7021,7 @@ bool Document::allowsContentJavaScript() const
     if (!m_frame || m_frame->document() != this) {
         // If this Document is frameless or in the wrong frame, its context document
         // must allow for it to run content JavaScript.
-        return m_contextDocument && m_contextDocument->allowsContentJavaScript();
+        return !m_contextDocument || m_contextDocument->allowsContentJavaScript();
     }
 
     return m_frame->loader().client().allowsContentJavaScriptFromMostRecentNavigation() == AllowsContentJavaScript::Yes;

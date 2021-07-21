@@ -1,0 +1,25 @@
+#!/bin/sh
+
+#
+# Initialize...
+#
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+SI_PATH=/System/Library/StartupItems
+MSG="Shutting down due to power loss!"
+
+logger -i -p daemon.emerg -t UPS "${MSG}"
+
+#
+# Take the system down.
+#
+if [[ -n $1 && "WaitForUPS" == $1 ]] ; then
+    #
+    # Wait for UPS to take the system down abruptly and unexpectedly.
+    #
+    shutdown -hu now "${MSG}"
+else
+    #
+    # Gently shutdown the system immediately.
+    #
+    shutdown -h now "${MSG}"
+fi

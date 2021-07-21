@@ -125,5 +125,11 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
 
 #define _WINSOCKAPI_
 
+/* Threading API to use should be specified here for compatibility reasons.
+   This is however best specified on the compiler's command-line. */
+#if !defined(HAVE_PTHREAD_H) && !defined(HAVE_WIN32_THREADS) && !defined(_WIN32_WCE)
+#define HAVE_WIN32_THREADS
+#endif
+
 #endif /* __LIBXSLT_WIN32_CONFIG__ */
 

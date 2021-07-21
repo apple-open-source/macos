@@ -71,4 +71,7 @@ message EscrowRecord {
         SOS_NOT_VIABLE = 2;
     }
     optional SOSViability viability_status = 16;
+
+    optional string federation_id = 17;
+    optional string expected_federation_id = 18;
 }

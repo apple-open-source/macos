@@ -4330,13 +4330,11 @@ static void ParseXMLElement(TidyDocImpl* doc, Node *element, GetTokenMode mode)
 
     if (TY_(nodeIsText)(node) && mode != Preformatted)
     {
-        if ( lexer->lexbuf[node->end - 1] == ' ' )
-        {
+        if ( node->end > 0 && lexer->lexbuf[node->end - 1] == ' ' )
             node->end--;
 
-            if (node->start >= node->end)
-                TY_(DiscardElement)( doc, node );
-        }
+        if (node->start >= node->end)
+            TY_(DiscardElement)( doc, node );
     }
 }
 

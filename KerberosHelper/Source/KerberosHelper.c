@@ -278,42 +278,33 @@ lookup_by_kdc(KRBhelperContext *hCtx, const char *name, char **realm)
 static int
 strcmp_trailer(const char *f, const char *p)
 {
+    if (f == NULL) {
+        return -1;
+    }
+
+    if (p == NULL) {
+        return 1;
+    }
+
     size_t flen = strlen(f), plen = strlen(p);
-	
-    if (f[flen - 1] == '.')
-	flen--;
-	
-    if (flen > plen)
-	return (int)(flen - plen)   ;
-    return strcasecmp(&f[flen - plen], p);
+
+    if (flen > 0 && f[flen - 1] == '.') {
+        flen--;
+    }
+
+    if (plen > flen) {
+        return (int)(flen - plen);
+    }
+    return strncasecmp(&f[flen - plen], p, plen);
 }
 
 static int
 is_local_hostname(const char *host)
 {
-    static dispatch_once_t once;
-    static char *btmmDomain;
-
-    dispatch_once(&once, ^{
-	    CFStringRef d = _CSBackToMyMacCopyDomain();
-	    if (d) {
-		__KRBCreateUTF8StringFromCFString(d, &btmmDomain);
-		CFRelease(d);
-		if (btmmDomain) {
-		    size_t len = strlen(btmmDomain);
-		    if (len > 0 && btmmDomain[len - 1] == '.')
-			btmmDomain[len - 1] = '\0';
-		}
-	    }
-	});
-
-
     if (strcmp_trailer(host, ".local") == 0)
-	return 1;
-    if (btmmDomain && strcmp_trailer(host, btmmDomain) == 0)
-	return 1;
+        return 1;
     if (strchr(host, '.'))
-	return 1;
+        return 1;
     return 0;
 }
 

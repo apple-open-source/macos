@@ -64,4 +64,12 @@ szone_malloc(szone_t *szone, size_t size)
 	__builtin_trap();
 }
 
+void
+test_rack_setup(rack_t *rack, rack_type_t rack_type)
+{
+	memset(rack, 'a', sizeof(rack));
+	rack_init(rack, rack_type, 1, 0);
+	T_QUIET; T_ASSERT_NOTNULL(rack->magazines, "magazine initialisation");
+}
+
 #endif // __MAGAZINE_TESTING

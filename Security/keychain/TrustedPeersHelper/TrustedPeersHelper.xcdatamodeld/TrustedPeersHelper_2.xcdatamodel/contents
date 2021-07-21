@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="17162" systemVersion="20A2347" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="19127" systemVersion="20G27" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="Bottle" representedClassName="BottleMO" syncable="YES" codeGenerationType="class">
         <attribute name="bottleID" optional="YES" attributeType="String"/>
         <attribute name="contents" optional="YES" attributeType="Binary"/>
@@ -60,6 +60,8 @@
     </entity>
     <entity name="EscrowRecord" representedClassName="EscrowRecordMO" syncable="YES" codeGenerationType="class">
         <attribute name="creationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="expectedFederationID" optional="YES" attributeType="String"/>
+        <attribute name="federationID" optional="YES" attributeType="String"/>
         <attribute name="label" optional="YES" attributeType="String"/>
         <attribute name="recordStatus" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="remainingAttempts" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
@@ -113,7 +115,7 @@
         <element name="Container" positionX="-758" positionY="-261" width="128" height="343"/>
         <element name="EscrowClientMetadata" positionX="-513" positionY="-198" width="128" height="238"/>
         <element name="EscrowMetadata" positionX="-522" positionY="-207" width="128" height="178"/>
-        <element name="EscrowRecord" positionX="-549" positionY="-234" width="128" height="179"/>
+        <element name="EscrowRecord" positionX="-549" positionY="-234" width="128" height="209"/>
         <element name="Machine" positionX="-549" positionY="-234" width="128" height="133"/>
         <element name="Peer" positionX="-414" positionY="-387" width="128" height="210"/>
         <element name="Policy" positionX="-414" positionY="54" width="128" height="105"/>

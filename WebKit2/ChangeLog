@@ -1,6 +1,854 @@
+2021-06-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r278870. rdar://problem/79473993
+
+    [Mac] CoreMedia WrapperClass does not need alignment fixup
+    https://bugs.webkit.org/show_bug.cgi?id=226978
+    rdar://78864290
+    
+    Reviewed by Geoffrey Garen and Dan Bernstein.
+    
+    Source/WebCore:
+    
+    * platform/graphics/cocoa/WebCoreDecompressionSession.mm:
+    (WebCore::WebCoreDecompressionSession::enqueueSample): static_assert CMBufferQueueRef
+    callback struct alignment and version size.
+    
+    Source/WebKit:
+    
+    * Shared/mac/MediaFormatReader/CoreMediaWrapped.h:
+    (WebKit::CoreMediaWrapped<Wrapped>::vTable): Don't add padding to WrapperClass,
+    it isn't necessary. static_assert CMBaseClass and WrapperClass alignment and
+    .version sizes.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278870 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-15  Eric Carlson  <eric.carlson@apple.com>
+
+            [Mac] CoreMedia WrapperClass does not need alignment fixup
+            https://bugs.webkit.org/show_bug.cgi?id=226978
+            rdar://78864290
+
+            Reviewed by Geoffrey Garen and Dan Bernstein.
+
+            * Shared/mac/MediaFormatReader/CoreMediaWrapped.h:
+            (WebKit::CoreMediaWrapped<Wrapped>::vTable): Don't add padding to WrapperClass,
+            it isn't necessary. static_assert CMBaseClass and WrapperClass alignment and
+            .version sizes.
+
+2021-06-15  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/78875336
+
+    2021-06-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Build fix for safari-611-branch after r277536.
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemote.mm:
+            (WebKit::animationValueFromKeyframeValue):
+            (WebKit::createAnimation):
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277536. rdar://problem/78875336
+
+    Replace PlatformCAAnimationRemote::KeyframeValue with Variant
+    https://bugs.webkit.org/show_bug.cgi?id=225474
+    
+    Patch by Ian Gilbert <iang@apple.com> on 2021-05-15
+    Reviewed by Ryosuke Niwa.
+    
+    KeyframeValue was effectively a Variant. Replaced the existing class with a WTF::Variant.
+    
+    No test as this does not change code behavior.
+    
+    * Shared/WebCoreArgumentCoders.cpp:
+    (IPC::ArgumentCoder<RefPtr<WebCore::FilterOperation>>::encode):
+    (IPC::ArgumentCoder<RefPtr<WebCore::FilterOperation>>::decode):
+    * Shared/WebCoreArgumentCoders.h:
+    * WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemote.h:
+    * WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemote.mm:
+    (WebKit::animationValueFromKeyframeValue):
+    (WebKit::operator<<):
+    (WebKit::PlatformCAAnimationRemote::KeyframeValue::encode const): Deleted.
+    (WebKit::PlatformCAAnimationRemote::KeyframeValue::decode): Deleted.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277536 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-15  Ian Gilbert  <iang@apple.com>
+
+            Replace PlatformCAAnimationRemote::KeyframeValue with Variant
+            https://bugs.webkit.org/show_bug.cgi?id=225474
+
+            Reviewed by Ryosuke Niwa.
+
+            KeyframeValue was effectively a Variant. Replaced the existing class with a WTF::Variant.
+
+            No test as this does not change code behavior.
+
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::ArgumentCoder<RefPtr<WebCore::FilterOperation>>::encode):
+            (IPC::ArgumentCoder<RefPtr<WebCore::FilterOperation>>::decode):
+            * Shared/WebCoreArgumentCoders.h:
+            * WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemote.h:
+            * WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemote.mm:
+            (WebKit::animationValueFromKeyframeValue):
+            (WebKit::operator<<):
+            (WebKit::PlatformCAAnimationRemote::KeyframeValue::encode const): Deleted.
+            (WebKit::PlatformCAAnimationRemote::KeyframeValue::decode): Deleted.
+
+2021-06-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r278318. rdar://problem/79355222
+
+    REGRESSION (iOS 14.5): Can't go back and render previous page properly after "location.href"
+    https://bugs.webkit.org/show_bug.cgi?id=226323
+    <rdar://problem/78623536>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebKit:
+    
+    A while back, we did an optimization to allow several WebPage objects associated with the
+    same WebPageProxy to live in the same WebProcess. This allowed us to reuse a process from
+    a SuspendedPageProxy for a forward navigation, without destroying the SuspendedPageProxy.
+    However, this added quite a bit of complexity and this broke some same-process back/forward
+    navigations like in this bug. In particular, it is really hard to get do our history
+    management right (with the current model) if there is more than more WebPage in a process
+    for the same WebPageProxy.
+    
+    To address issues, we go back to the older model with one WebPage per WebProcess for a
+    given WebPageProxy. To achieve this, we make sure to destroy of SuspendedPageProxy objects
+    for the current page and destination process before we process-swap (like we used to do).
+    
+    * UIProcess/WebBackForwardCache.cpp:
+    (WebKit::WebBackForwardCache::removeEntriesForPageAndProcess):
+    * UIProcess/WebBackForwardCache.h:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::receivedNavigationPolicyDecision):
+    
+    Tools:
+    
+    New API test written by Alex Christensen to cover this case.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278318 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-01  Chris Dumez  <cdumez@apple.com>
+
+            REGRESSION (iOS 14.5): Can't go back and render previous page properly after "location.href"
+            https://bugs.webkit.org/show_bug.cgi?id=226323
+            <rdar://problem/78623536>
+
+            Reviewed by Alex Christensen.
+
+            A while back, we did an optimization to allow several WebPage objects associated with the
+            same WebPageProxy to live in the same WebProcess. This allowed us to reuse a process from
+            a SuspendedPageProxy for a forward navigation, without destroying the SuspendedPageProxy.
+            However, this added quite a bit of complexity and this broke some same-process back/forward
+            navigations like in this bug. In particular, it is really hard to get do our history
+            management right (with the current model) if there is more than more WebPage in a process
+            for the same WebPageProxy.
+
+            To address issues, we go back to the older model with one WebPage per WebProcess for a
+            given WebPageProxy. To achieve this, we make sure to destroy of SuspendedPageProxy objects
+            for the current page and destination process before we process-swap (like we used to do).
+
+            * UIProcess/WebBackForwardCache.cpp:
+            (WebKit::WebBackForwardCache::removeEntriesForPageAndProcess):
+            * UIProcess/WebBackForwardCache.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::receivedNavigationPolicyDecision):
+
+2021-06-14  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/77619702
+
+    2021-06-14  Chris Dumez  <cdumez@apple.com>
+
+            Crash under IPC::Connection::dispatchMessageToWorkQueueReceiver()
+            <rdar://77576143>
+
+            Reviewed by Alex Christensen.
+
+            When r274565 was merged to the safari-611-branch branch, its `ASSERT(connection.m_incomingMessagesMutex.isHeld())`
+            did not hold there. Unlike trunk, the call-site (Connection::processIncomingMessage(std::unique_ptr<Decoder>)) does
+            not hold the m_incomingMessagesMutex lock on the safari-611-branch branch. This leads to crashes due to lack of
+            synchronization when accessing / modifying the m_incomingMessages Dequeue on the main thread and IPC thread in
+            parallel. To address the issue on the safari-611-branch branch, we now grab the m_incomingMessagesMutex lock before
+            modifying the m_incomingMessages Dequeue in Connection::SyncMessageState::processIncomingMessage().
+
+            No new tests, existing tests were crashing in debug already.
+
+            * Platform/IPC/Connection.cpp:
+            (IPC::Connection::SyncMessageState::processIncomingMessage):
+
+2021-05-25  Alan Coon  <alancoon@apple.com>
+
+Cherry-pick r277881. rdar://problem/78467158
+
+    [Cocoa] Unable to upload files that are stored in the cloud (without a local copy)
+    https://bugs.webkit.org/show_bug.cgi?id=226090
+    <rdar://77775887>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    Allow the network process to load / read dataless files stored in the cloud by allowing
+    the process to materialize such files. I initially only allowed the AsyncFileStream
+    thread to materialize the dataless files and this was enough to make the file upload
+    use cases work. However, I noticed that drag and dropping such file in the Safari URL
+    bar would fail loading, which I think is bad user experience. As a result, I have
+    decided to allow the materializing at network process level.
+    
+    I have verified manually that I can now upload such dataless files via either file
+    picker or drag and drop (used https://blueimp.github.io/jQuery-File-Upload/). I have
+    also verified that drag and dropping such a file in the Safari URL bar successfuly
+    loads that file.
+    
+    * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+    (WebKit::NetworkProcess::platformInitializeNetworkProcessCocoa):
+    
+    Source/WTF:
+    
+    Add FileSystem API to allow/disallow the materializing of dataless files stored
+    in the cloud, at process or thread level.
+    
+    * wtf/FileSystem.h:
+    * wtf/cocoa/FileSystemCocoa.mm:
+    (WTF::FileSystemImpl::toIOPolicyScope):
+    (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+    (WTF::FileSystemImpl::allowsMaterializingDatalessFiles):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277881 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-21  Chris Dumez  <cdumez@apple.com>
+
+            [Cocoa] Unable to upload files that are stored in the cloud (without a local copy)
+            https://bugs.webkit.org/show_bug.cgi?id=226090
+            <rdar://77775887>
+
+            Reviewed by Darin Adler.
+
+            Allow the network process to load / read dataless files stored in the cloud by allowing
+            the process to materialize such files. I initially only allowed the AsyncFileStream
+            thread to materialize the dataless files and this was enough to make the file upload
+            use cases work. However, I noticed that drag and dropping such file in the Safari URL
+            bar would fail loading, which I think is bad user experience. As a result, I have
+            decided to allow the materializing at network process level.
+
+            I have verified manually that I can now upload such dataless files via either file
+            picker or drag and drop (used https://blueimp.github.io/jQuery-File-Upload/). I have
+            also verified that drag and dropping such a file in the Safari URL bar successfuly
+            loads that file.
+
+            * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+            (WebKit::NetworkProcess::platformInitializeNetworkProcessCocoa):
+
+2021-03-22  Russell Epstein  <repstein@apple.com>
+
+Cherry-pick r274746. rdar://problem/76366123
+
+    Cannot login to microsoftonline.com without allowing storage access
+    https://bugs.webkit.org/show_bug.cgi?id=223510
+    <rdar://problem/75619058>
+    
+    Reviewed by John Wilander.
+    
+    Source/WebCore:
+    
+    This patch introduces two changes:
+    
+    1. Activate the storage access quirks for default browsers only. This
+    is the main place we test them, and can lead to unexpected behavior in
+    apps otherwise.
+    
+    2. Doesn't cancel the click even if the user denies storage access.
+    Previously we we were not allowing the click because it produces
+    unexpected behavior. But, sites like login.microsoftonline.com are used
+    by multiple Microsoft login flows. Since only a subset require storage
+    access, canceling the click across the board could be considered
+    regressing behavior.
+    
+    Since storage access data is stored in the network process, we
+    currently cancel the user's click on quirked sites while we wait
+    asyncronously for the IPC response. If the user grants storage access,
+    we store this in the web content process and dispatch a synthetic
+    click. In this case, when the click triggers another storage access
+    check, we can allow the click because we no longer need to wait for
+    information from the network process.
+    
+    We need some heuristic in the web content process to handle the case
+    of the user denying storage access to know whether to allow a
+    synthetic click to happen. This patch introduces
+    hasDeniedCrossPageStorageAccess which stores domains in the web
+    content process which have been denied storage access via quirk. If
+    a user has previously denied storage access in that web content
+    process, we don't prompt again. A new web content process will give them
+    another opportunity to allow/deny storage access.
+    
+    * dom/Element.cpp:
+    (WebCore::Element::dispatchMouseEvent):
+    * loader/FrameLoaderClient.h:
+    Add a client function to check if the parent process is a full web
+    browser, and pass this to the place we apply the quirks.
+    
+    * loader/ResourceLoadObserver.h:
+    (WebCore::ResourceLoadObserver::setHasDeniedCrossPageStorageAccess):
+    (WebCore::ResourceLoadObserver::hasDeniedCrossPageStorageAccess const):
+    * page/Quirks.cpp:
+    (WebCore::hasDeniedCrossPageStorageAccess):
+    (WebCore::Quirks::requestStorageAccessAndHandleClick const):
+    (WebCore::Quirks::triggerOptionalStorageAccessQuirk const):
+    * page/Quirks.h:
+    
+    Source/WebKit:
+    
+    Disable the storage access quirk for non-default web browsers and
+    don't cancel the login click on sites even if the user denies storage
+    access. See WebCore changelog for more details.
+    
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebKit::WebFrameLoaderClient::isParentProcessAFullWebBrowser const):
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+    * WebProcess/WebCoreSupport/WebResourceLoadObserver.cpp:
+    (WebKit::WebResourceLoadObserver::hasDeniedCrossPageStorageAccess const):
+    (WebKit::WebResourceLoadObserver::setHasDeniedCrossPageStorageAccess):
+    * WebProcess/WebCoreSupport/WebResourceLoadObserver.h:
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::pageIsParentProcessAFullWebBrowser):
+    (WebKit::WebPage::updatePreferences):
+    * WebProcess/WebPage/WebPage.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@274746 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-03-19  Kate Cheney  <katherine_cheney@apple.com>
+
+            Cannot login to microsoftonline.com without allowing storage access
+            https://bugs.webkit.org/show_bug.cgi?id=223510
+            <rdar://problem/75619058>
+
+            Reviewed by John Wilander.
+
+            Disable the storage access quirk for non-default web browsers and
+            don't cancel the login click on sites even if the user denies storage
+            access. See WebCore changelog for more details.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::isParentProcessAFullWebBrowser const):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+            * WebProcess/WebCoreSupport/WebResourceLoadObserver.cpp:
+            (WebKit::WebResourceLoadObserver::hasDeniedCrossPageStorageAccess const):
+            (WebKit::WebResourceLoadObserver::setHasDeniedCrossPageStorageAccess):
+            * WebProcess/WebCoreSupport/WebResourceLoadObserver.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::pageIsParentProcessAFullWebBrowser):
+            (WebKit::WebPage::updatePreferences):
+            * WebProcess/WebPage/WebPage.h:
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r278441. rdar://problem/78875140
+
+    Fix thread safety issues in [WKShareSheet presentWithParameters]
+    https://bugs.webkit.org/show_bug.cgi?id=226611
+    <rdar://77736001>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    The code in [WKShareSheet presentWithParameters] was passing WebCore::RawFile objects to another thread.
+    This wasn't safe since WebCore::RawFile contains a WTF::String and a SharedBuffer, both of which are not
+    thread safe. Fix this by creating an isolated copy of the fileName String and converting the SharedBuffer
+    to a NSData before passing them to the background thread.
+    
+    Also rewrite the code from ObjC to C++ because I felt it was clearer and less error-prone.
+    
+    * UIProcess/Cocoa/WKShareSheet.mm:
+    (appendFilesAsShareableURLs):
+    (-[WKShareSheet presentWithParameters:inRect:completionHandler:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278441 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-03  Chris Dumez  <cdumez@apple.com>
+
+            Fix thread safety issues in [WKShareSheet presentWithParameters]
+            https://bugs.webkit.org/show_bug.cgi?id=226611
+            <rdar://77736001>
+
+            Reviewed by Ryosuke Niwa.
+
+            The code in [WKShareSheet presentWithParameters] was passing WebCore::RawFile objects to another thread.
+            This wasn't safe since WebCore::RawFile contains a WTF::String and a SharedBuffer, both of which are not
+            thread safe. Fix this by creating an isolated copy of the fileName String and converting the SharedBuffer
+            to a NSData before passing them to the background thread.
+
+            Also rewrite the code from ObjC to C++ because I felt it was clearer and less error-prone.
+
+            * UIProcess/Cocoa/WKShareSheet.mm:
+            (appendFilesAsShareableURLs):
+            (-[WKShareSheet presentWithParameters:inRect:completionHandler:]):
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277873. rdar://problem/78875406
+
+    [Cocoa] REGRESSION(Sandbox): Font smoothing within Safari doesn't seem to respect AppleFontSmoothing
+    https://bugs.webkit.org/show_bug.cgi?id=226066
+    <rdar://problem/72795817>
+    
+    Reviewed by Per Arne Vollan.
+    
+    We accidentally blocked access to the relevant defaults database.
+    
+    It turns out this is untestable. I can't use the actual functionality without actually setting the preference
+    for the whole user (and all their apps). And, I can't use sandbox_check() to make sure the file is readable
+    because it's in the user's home directory, so the path to check will be different for every user.
+    
+    * WebProcess/com.apple.WebProcess.sb.in:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277873 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-21  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [Cocoa] REGRESSION(Sandbox): Font smoothing within Safari doesn't seem to respect AppleFontSmoothing
+            https://bugs.webkit.org/show_bug.cgi?id=226066
+            <rdar://problem/72795817>
+
+            Reviewed by Per Arne Vollan.
+
+            We accidentally blocked access to the relevant defaults database.
+
+            It turns out this is untestable. I can't use the actual functionality without actually setting the preference
+            for the whole user (and all their apps). And, I can't use sandbox_check() to make sure the file is readable
+            because it's in the user's home directory, so the path to check will be different for every user.
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r276514. rdar://problem/78875360
+
+    Web Inspector: [Cocoa] WKInspectorResourceURLSchemeHandler needs to serialize cleanup actions
+    https://bugs.webkit.org/show_bug.cgi?id=224986
+    <rdar://76768454>
+    
+    Reviewed by Devin Rousso.
+    
+    * UIProcess/Inspector/mac/WKInspectorResourceURLSchemeHandler.mm:
+    (-[WKInspectorResourceURLSchemeHandler webView:startURLSchemeTask:]):
+    Do cleanup on the main queue so that it can be serialized with reads.
+    
+    (-[WKInspectorResourceURLSchemeHandler webView:stopURLSchemeTask:]):
+    Ensure that all removals from the map are processed before doing a lookup.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276514 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-23  BJ Burg  <bburg@apple.com>
+
+            Web Inspector: [Cocoa] WKInspectorResourceURLSchemeHandler needs to serialize cleanup actions
+            https://bugs.webkit.org/show_bug.cgi?id=224986
+            <rdar://76768454>
+
+            Reviewed by Devin Rousso.
+
+            * UIProcess/Inspector/mac/WKInspectorResourceURLSchemeHandler.mm:
+            (-[WKInspectorResourceURLSchemeHandler webView:startURLSchemeTask:]):
+            Do cleanup on the main queue so that it can be serialized with reads.
+
+            (-[WKInspectorResourceURLSchemeHandler webView:stopURLSchemeTask:]):
+            Ensure that all removals from the map are processed before doing a lookup.
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r275886. rdar://problem/78874996
+
+    StorageArea in LocalStorageNamespace can be abandoned
+    https://bugs.webkit.org/show_bug.cgi?id=224459
+    
+    Reviewed by Geoffrey Garen.
+    
+    Remove StorageArea from LocalStorageNamespace if it has no connection (no web page is using it).
+    
+    * NetworkProcess/WebStorage/LocalStorageNamespace.cpp:
+    (WebKit::LocalStorageNamespace::removeStorageArea):
+    * NetworkProcess/WebStorage/LocalStorageNamespace.h:
+    * NetworkProcess/WebStorage/StorageArea.cpp:
+    (WebKit::StorageArea::removeListener):
+    * NetworkProcess/WebStorage/StorageManagerSet.cpp:
+    (WebKit::StorageManagerSet::removeConnection):
+    (WebKit::StorageManagerSet::disconnectFromStorageArea):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@275886 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-13  Sihui Liu  <sihui_liu@apple.com>
+
+            StorageArea in LocalStorageNamespace can be abandoned
+            https://bugs.webkit.org/show_bug.cgi?id=224459
+
+            Reviewed by Geoffrey Garen.
+
+            Remove StorageArea from LocalStorageNamespace if it has no connection (no web page is using it).
+
+            * NetworkProcess/WebStorage/LocalStorageNamespace.cpp:
+            (WebKit::LocalStorageNamespace::removeStorageArea):
+            * NetworkProcess/WebStorage/LocalStorageNamespace.h:
+            * NetworkProcess/WebStorage/StorageArea.cpp:
+            (WebKit::StorageArea::removeListener):
+            * NetworkProcess/WebStorage/StorageManagerSet.cpp:
+            (WebKit::StorageManagerSet::removeConnection):
+            (WebKit::StorageManagerSet::disconnectFromStorageArea):
+
+2021-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r273141. rdar://problem/78875378
+
+    Norton Safe Web extension is causing crashes / hangs under [WKRemoteObjectEncoder encodeObject:forKey:]
+    https://bugs.webkit.org/show_bug.cgi?id=222172
+    
+    Reviewed by Alex Christensen.
+    
+    The extension appears to be trying to send a JSValue that is a DOM Node. WebKit makes the following
+    call to convert it into a NSDictionary:
+    `[[JSValue valueWithJSValueRef:value inContext:[JSContext contextWithJSGlobalContextRef:JSContextGetGlobalContext(context)]] toObject]`
+    
+    JSC very aggressively iterates over all of the properties of the DOM Node and recursively ends up
+    converting the whole DOM tree with all their properties. This leads to a lot of cycles to as JSC
+    maintains the JSObject <-> NSObject identity during the conversion (Each time the JSDocument is
+    serialized, the same NSDictionary* pointer is used to represent it).
+    
+    The logic introduced in r270559 to detect cycles was flawed because it relied on a NSSet of
+    NSObject* and [NSSet containsObject:] to detect the cycles. The issue is that [NSSet containsObject:]
+    doesn't do a simple pointer comparison but instead calls [NSObject isEqual:] which is very
+    expensive for types like NSDictionary and leads to trouble when the dictionary contains a cycle.
+    To address this I replaced the NSSet with a WTF::HashSet<NSObject *> so that key lookup ends up
+    doing a simple pointer comparison.
+    
+    Even after the previous fix, the extension would still cause massive hangs because it would take
+    a very long time to try and encode the whole DOM tree with all the properties of each Node (even
+    without cycles). To address this, we now abort encoding when detecting a cycle instead of encoding
+    an empty object to break the cycle.
+    
+    After this change, Safari becomes usable with this extension again. However, there are still much
+    shorter hangs that occur due to the converting of the JSNode into a JSDictionary via
+    [JSValue toObject]. We should probably improve this in a follow-up.
+    
+    Easy way to reproduce the crash / hang:
+    1. Install Norton Safe Web & Norton Password Manager extension (may require a subscription)
+    2. Make sure the extensions are activated and turned on by clicking on their icons next to the
+       URL bar
+    3. Go to https://bugs.webkit.org/attachment.cgi?id=420530&action=edit
+    4. Click on the combo box next to "Review" -> Hang / Crash
+    
+    No new tests, covered by WebKit.RemoteObjectRegistry API test.
+    
+    * Shared/API/Cocoa/WKRemoteObjectCoder.mm:
+    (-[WKRemoteObjectEncoder init]):
+    (encodeInvocationArguments):
+    (encodeObject):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@273141 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-02-19  Chris Dumez  <cdumez@apple.com>
+
+            Norton Safe Web extension is causing crashes / hangs under [WKRemoteObjectEncoder encodeObject:forKey:]
+            https://bugs.webkit.org/show_bug.cgi?id=222172
+
+            Reviewed by Alex Christensen.
+
+            The extension appears to be trying to send a JSValue that is a DOM Node. WebKit makes the following
+            call to convert it into a NSDictionary:
+            `[[JSValue valueWithJSValueRef:value inContext:[JSContext contextWithJSGlobalContextRef:JSContextGetGlobalContext(context)]] toObject]`
+
+            JSC very aggressively iterates over all of the properties of the DOM Node and recursively ends up
+            converting the whole DOM tree with all their properties. This leads to a lot of cycles to as JSC
+            maintains the JSObject <-> NSObject identity during the conversion (Each time the JSDocument is
+            serialized, the same NSDictionary* pointer is used to represent it).
+
+            The logic introduced in r270559 to detect cycles was flawed because it relied on a NSSet of
+            NSObject* and [NSSet containsObject:] to detect the cycles. The issue is that [NSSet containsObject:]
+            doesn't do a simple pointer comparison but instead calls [NSObject isEqual:] which is very
+            expensive for types like NSDictionary and leads to trouble when the dictionary contains a cycle.
+            To address this I replaced the NSSet with a WTF::HashSet<NSObject *> so that key lookup ends up
+            doing a simple pointer comparison.
+
+            Even after the previous fix, the extension would still cause massive hangs because it would take
+            a very long time to try and encode the whole DOM tree with all the properties of each Node (even
+            without cycles). To address this, we now abort encoding when detecting a cycle instead of encoding
+            an empty object to break the cycle.
+
+            After this change, Safari becomes usable with this extension again. However, there are still much
+            shorter hangs that occur due to the converting of the JSNode into a JSDictionary via
+            [JSValue toObject]. We should probably improve this in a follow-up.
+
+            Easy way to reproduce the crash / hang:
+            1. Install Norton Safe Web & Norton Password Manager extension (may require a subscription)
+            2. Make sure the extensions are activated and turned on by clicking on their icons next to the
+               URL bar
+            3. Go to https://bugs.webkit.org/attachment.cgi?id=420530&action=edit
+            4. Click on the combo box next to "Review" -> Hang / Crash
+
+            No new tests, covered by WebKit.RemoteObjectRegistry API test.
+
+            * Shared/API/Cocoa/WKRemoteObjectCoder.mm:
+            (-[WKRemoteObjectEncoder init]):
+            (encodeInvocationArguments):
+            (encodeObject):
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277713. rdar://problem/78264364
+
+    allowsContentJavaScript API not applied from defaultWebpagePreferences
+    https://bugs.webkit.org/show_bug.cgi?id=225957
+    
+    Reviewed by Wenson Hsieh.
+    
+    New API test: WebKit.AllowsContentJavaScriptFromDefaultPreferences
+    
+    * UIProcess/API/APIWebsitePolicies.cpp:
+    (API::WebsitePolicies::copy const):
+    allowsContentJavaScript works fine on the per-navigation-level WKWebpagePreferences,
+    but is ignored if applied on the WKWebViewConfiguration's defaultWebpagePreferences,
+    because it is not copied in copy(). Copy it!
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277713 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-18  Tim Horton  <timothy_horton@apple.com>
+
+            allowsContentJavaScript API not applied from defaultWebpagePreferences
+            https://bugs.webkit.org/show_bug.cgi?id=225957
+
+            Reviewed by Wenson Hsieh.
+
+            New API test: WebKit.AllowsContentJavaScriptFromDefaultPreferences
+
+            * UIProcess/API/APIWebsitePolicies.cpp:
+            (API::WebsitePolicies::copy const):
+            allowsContentJavaScript works fine on the per-navigation-level WKWebpagePreferences,
+            but is ignored if applied on the WKWebViewConfiguration's defaultWebpagePreferences,
+            because it is not copied in copy(). Copy it!
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277375. rdar://problem/78264303
+
+    Crash in WebPageProxy::endColorPicker()
+    https://bugs.webkit.org/show_bug.cgi?id=225679
+    
+    Patch by Julian Gonzalez <julian_a_gonzalez@apple.com> on 2021-05-12
+    Reviewed by Ryosuke Niwa.
+    
+    Make sure that endColorPicker() and didEndColorPicker()
+    do not both attempt to null-out m_colorPicker.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::endColorPicker):
+    (WebKit::WebPageProxy::didEndColorPicker):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277375 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-12  Julian Gonzalez  <julian_a_gonzalez@apple.com>
+
+            Crash in WebPageProxy::endColorPicker()
+            https://bugs.webkit.org/show_bug.cgi?id=225679
+
+            Reviewed by Ryosuke Niwa.
+
+            Make sure that endColorPicker() and didEndColorPicker()
+            do not both attempt to null-out m_colorPicker.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::endColorPicker):
+            (WebKit::WebPageProxy::didEndColorPicker):
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r276788. rdar://problem/78264378
+
+    Reduce memory footprint for background tabs
+    https://bugs.webkit.org/show_bug.cgi?id=225007
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebKit:
+    
+    When a WebContent process contains only non-visible pages (e.g. if it is a background tab),
+    we should attempt to reduce our memory footprint after some time interval to help relieve
+    system-wide memory pressure. This is enabled only on Mac because iOS already does something
+    similar just before WebContent suspends.
+    
+    One exception to this is that we don't do this proactive slimming for processes that are in
+    the back/forward cache or in the WebProcess cache. This is because dropping the memory cache
+    in those types of processes leads to perf regressions in benchmarks that do certain types of
+    cross-origin navigations. We'll use a separate mechanism for controlling the memory usage of
+    those processes; our current logic keeps those processes around until we are at the warning
+    or critical memory pressure level.
+    
+    * WebProcess/WebProcess.cpp:
+    (WebKit::WebProcess::pageDidEnterWindow):
+    (WebKit::WebProcess::pageWillLeaveWindow):
+    (WebKit::WebProcess::nonVisibleProcessGraphicsCleanupTimerFired):
+    (WebKit::WebProcess::nonVisibleProcessMemoryCleanupTimerFired):
+    (WebKit::WebProcess::nonVisibleProcessCleanupTimerFired): Deleted.
+    * WebProcess/WebProcess.h:
+    
+    Source/WTF:
+    
+    Add an option to slim background tabs by proactively calling WebCore::releaseMemory on Macs.
+    
+    * wtf/PlatformEnableCocoa.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276788 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-29  Ben Nham  <nham@apple.com>
+
+            Reduce memory footprint for background tabs
+            https://bugs.webkit.org/show_bug.cgi?id=225007
+
+            Reviewed by Chris Dumez.
+
+            When a WebContent process contains only non-visible pages (e.g. if it is a background tab),
+            we should attempt to reduce our memory footprint after some time interval to help relieve
+            system-wide memory pressure. This is enabled only on Mac because iOS already does something
+            similar just before WebContent suspends.
+
+            One exception to this is that we don't do this proactive slimming for processes that are in
+            the back/forward cache or in the WebProcess cache. This is because dropping the memory cache
+            in those types of processes leads to perf regressions in benchmarks that do certain types of
+            cross-origin navigations. We'll use a separate mechanism for controlling the memory usage of
+            those processes; our current logic keeps those processes around until we are at the warning
+            or critical memory pressure level.
+
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::pageDidEnterWindow):
+            (WebKit::WebProcess::pageWillLeaveWindow):
+            (WebKit::WebProcess::nonVisibleProcessGraphicsCleanupTimerFired):
+            (WebKit::WebProcess::nonVisibleProcessMemoryCleanupTimerFired):
+            (WebKit::WebProcess::nonVisibleProcessCleanupTimerFired): Deleted.
+            * WebProcess/WebProcess.h:
+
+2021-05-17  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/78137134
+
+    2021-05-17  Per Arne Vollan  <pvollan@apple.com>
+
+            [iOS] Read access to passwd is required
+            https://bugs.webkit.org/show_bug.cgi?id=223641
+            <rdar://75616105>
+
+            Reviewed by Brent Fulgham.
+
+            The WebContent sandbox on iOS should allow reading the passwd file.
+
+            * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+
 2021-05-06  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r276671. rdar://problem/77620890
+        Cherry-pick r276983. rdar://problem/77581150
+
+    localStorage changes aren't reflected between WKWebViews using WKWebViewConfiguration._groupIdentifier
+    https://bugs.webkit.org/show_bug.cgi?id=225344
+    <rdar://77496721>
+    
+    Reviewed by Brady Eidson.
+    
+    Source/WebKit:
+    
+    When we switched from using _pageGroup to _groupIdentifier, we also broke localStorage by making a new pageGroupID for each WKWebView.
+    This is the low-risk solution to this problem that remembers what pageGroupID we used for this same identifier, creating the effect of
+    using the same StorageNamespaceIdentifier for each _groupIdentifier like we did when we used _pageGroup.
+    See the comment in StorageAreaMap::dispatchLocalStorageEvent.
+    
+    The higher-risk solution that needs to be done but probably shouldn't be merged to a branch at this point is to remove StorageNamespaceIdentifier.
+    I plan to do that in a follow-up patch.
+    
+    * UIProcess/WebPageGroup.cpp:
+    (WebKit::pageGroupData):
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/LocalStoragePersistence.mm:
+    (TEST):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276983 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-04  Alex Christensen  <achristensen@webkit.org>
+
+            localStorage changes aren't reflected between WKWebViews using WKWebViewConfiguration._groupIdentifier
+            https://bugs.webkit.org/show_bug.cgi?id=225344
+            <rdar://77496721>
+
+            Reviewed by Brady Eidson.
+
+            When we switched from using _pageGroup to _groupIdentifier, we also broke localStorage by making a new pageGroupID for each WKWebView.
+            This is the low-risk solution to this problem that remembers what pageGroupID we used for this same identifier, creating the effect of
+            using the same StorageNamespaceIdentifier for each _groupIdentifier like we did when we used _pageGroup.
+            See the comment in StorageAreaMap::dispatchLocalStorageEvent.
+
+            The higher-risk solution that needs to be done but probably shouldn't be merged to a branch at this point is to remove StorageNamespaceIdentifier.
+            I plan to do that in a follow-up patch.
+
+            * UIProcess/WebPageGroup.cpp:
+            (WebKit::pageGroupData):
+
+2021-05-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r277114. rdar://problem/77638135
+
+    Fix crash when WebsiteDataStore is destroyed with outstanding getNetworkProcessConnection request
+    https://bugs.webkit.org/show_bug.cgi?id=225478
+    <rdar://77576148>
+    
+    Reviewed by Chris Dumez.
+    
+    In WebsiteDataStore::getNetworkProcessConnection if we don't get a connection the first time, we terminate the network process
+    and try again.  This greatly increases our success rate.  However, if we are cancelling the reply because of the destruction
+    of the WebsiteDataStore, we will end up doing bad things with partially destroyed objects, which ends up crashing.
+    In order to prevent this, use RunLoop::main.dispatch to retry on the next runloop iteration so that we will never be inside the
+    stack of WebsiteDataStore::~WebsiteDataStore when retrying.  In that case, we will find that weakThis is null and send an empty
+    reply.
+    
+    * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+    (WebKit::WebsiteDataStore::getNetworkProcessConnection):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277114 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-06  Alex Christensen  <achristensen@webkit.org>
+
+            Fix crash when WebsiteDataStore is destroyed with outstanding getNetworkProcessConnection request
+            https://bugs.webkit.org/show_bug.cgi?id=225478
+            <rdar://77576148>
+
+            Reviewed by Chris Dumez.
+
+            In WebsiteDataStore::getNetworkProcessConnection if we don't get a connection the first time, we terminate the network process
+            and try again.  This greatly increases our success rate.  However, if we are cancelling the reply because of the destruction
+            of the WebsiteDataStore, we will end up doing bad things with partially destroyed objects, which ends up crashing.
+            In order to prevent this, use RunLoop::main.dispatch to retry on the next runloop iteration so that we will never be inside the
+            stack of WebsiteDataStore::~WebsiteDataStore when retrying.  In that case, we will find that weakThis is null and send an empty
+            reply.
+
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::getNetworkProcessConnection):
+
+2021-05-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276671. rdar://problem/77620763
 
     HashTableConstIterator's consistency assertion fails while closing m_webIDBServers in NetworkProcess::didClose since r275846
     https://bugs.webkit.org/show_bug.cgi?id=225089
@@ -35,77 +883,165 @@
 
 2021-05-03  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r276514. rdar://problem/77473523
-
-    Web Inspector: [Cocoa] WKInspectorResourceURLSchemeHandler needs to serialize cleanup actions
-    https://bugs.webkit.org/show_bug.cgi?id=224986
-    <rdar://76768454>
+       Cherry-pick r276618. rdar://problem/77326484
     
-    Reviewed by Devin Rousso.
-    
-    * UIProcess/Inspector/mac/WKInspectorResourceURLSchemeHandler.mm:
-    (-[WKInspectorResourceURLSchemeHandler webView:startURLSchemeTask:]):
-    Do cleanup on the main queue so that it can be serialized with reads.
-    
-    (-[WKInspectorResourceURLSchemeHandler webView:stopURLSchemeTask:]):
-    Ensure that all removals from the map are processed before doing a lookup.
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276514 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2021-04-23  BJ Burg  <bburg@apple.com>
-
-            Web Inspector: [Cocoa] WKInspectorResourceURLSchemeHandler needs to serialize cleanup actions
-            https://bugs.webkit.org/show_bug.cgi?id=224986
-            <rdar://76768454>
-
-            Reviewed by Devin Rousso.
-
-            * UIProcess/Inspector/mac/WKInspectorResourceURLSchemeHandler.mm:
-            (-[WKInspectorResourceURLSchemeHandler webView:startURLSchemeTask:]):
-            Do cleanup on the main queue so that it can be serialized with reads.
-
-            (-[WKInspectorResourceURLSchemeHandler webView:stopURLSchemeTask:]):
-            Ensure that all removals from the map are processed before doing a lookup.
-
-2021-04-29  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r276618. rdar://problem/77326484
-
     Handle warning-level memory notifications more aggressively
     https://bugs.webkit.org/show_bug.cgi?id=225008
-    
+
     Reviewed by Chris Dumez.
-    
+
     We've found that in some workloads, the critical-level memory pressure handler releases
     significantly more memory than the warning-level memory pressure handler. On Macs, it is
     likely that the memory pressure coincides with swapping. So when we get even a warning-level
     notification from the OS, we should err on the side of releasing more memory to help relieve
     the swapping state. To do this, treat warning level notifications the same as critical level
     notifications on Mac if the WebProcess is in the background.
-    
+
     * WebProcess/WebProcess.cpp:
     (WebKit::WebProcess::initializeWebProcess):
+
+2021-05-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276852. rdar://problem/77468295
+
+    prefers-reduced-motion is not reactive on iOS
+    https://bugs.webkit.org/show_bug.cgi?id=222381
+    <rdar://75933915>
+    
+    Reviewed by Brent Fulgham.
+    
+    With CFPrefs direct mode, there is a race between the notification that an accessibility preference has been changed
+    by the user, and the the in-memory Accessibility preference cache in the WebContent process. We resolve this by using
+    new SPI to clear the cached Accessibility settings when we are notified of an accessibility change so they always
+    reflect the user's most recent setting.
+    
+    * Platform/spi/Cocoa/AccessibilitySupportSPI.h:
+    * WebProcess/cocoa/WebProcessCocoa.mm:
+    (WebKit::setPreferenceValue):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276852 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-30  Per Arne Vollan  <pvollan@apple.com>
+
+            prefers-reduced-motion is not reactive on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=222381
+            <rdar://75933915>
+
+            Reviewed by Brent Fulgham.
+
+            With CFPrefs direct mode, there is a race between the notification that an accessibility preference has been changed
+            by the user, and the the in-memory Accessibility preference cache in the WebContent process. We resolve this by using
+            new SPI to clear the cached Accessibility settings when we are notified of an accessibility change so they always
+            reflect the user's most recent setting.
+
+            * Platform/spi/Cocoa/AccessibilitySupportSPI.h:
+            * WebProcess/cocoa/WebProcessCocoa.mm:
+            (WebKit::setPreferenceValue):
+
+2021-04-29  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276742. rdar://problem/77326513
+
+    [iOS] Web content process occasionally crashes under VisibleSelection::adjustPositionForEnd
+    https://bugs.webkit.org/show_bug.cgi?id=225072
+    rdar://77159489
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    Remove a helper method that was added in r276688, which we no longer need.
+    
+    * dom/Position.h:
+    (WebCore::Position::isInTreeScope const): Deleted.
+    
+    Source/WebKit:
+    
+    The fix for this crash that I landed in r276688 was based on a misunderstanding that accessing `treeScope()`
+    would trigger a null pointer deref if `isInTreeScope()` is `false`. This is not the case, since the `treeScope`
+    of a `Node` is a separate notion from whether that `Node` is connected to said tree scope.
+    
+    Since this crash is really due to dereferencing a null container node in the case where `selectionStart` or
+    `selectionEnd` are null, a better fix is to just check the nullity of the container node.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::rangeForPointInRootViewCoordinates):
     
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276618 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276742 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2021-04-26  Ben Nham  <nham@apple.com>
+    2021-04-28  Wenson Hsieh  <wenson_hsieh@apple.com>
 
-            Handle warning-level memory notifications more aggressively
-            https://bugs.webkit.org/show_bug.cgi?id=225008
+            [iOS] Web content process occasionally crashes under VisibleSelection::adjustPositionForEnd
+            https://bugs.webkit.org/show_bug.cgi?id=225072
+            rdar://77159489
 
-            Reviewed by Chris Dumez.
+            Reviewed by Darin Adler.
 
-            We've found that in some workloads, the critical-level memory pressure handler releases
-            significantly more memory than the warning-level memory pressure handler. On Macs, it is
-            likely that the memory pressure coincides with swapping. So when we get even a warning-level
-            notification from the OS, we should err on the side of releasing more memory to help relieve
-            the swapping state. To do this, treat warning level notifications the same as critical level
-            notifications on Mac if the WebProcess is in the background.
+            The fix for this crash that I landed in r276688 was based on a misunderstanding that accessing `treeScope()`
+            would trigger a null pointer deref if `isInTreeScope()` is `false`. This is not the case, since the `treeScope`
+            of a `Node` is a separate notion from whether that `Node` is connected to said tree scope.
 
-            * WebProcess/WebProcess.cpp:
-            (WebKit::WebProcess::initializeWebProcess):
+            Since this crash is really due to dereferencing a null container node in the case where `selectionStart` or
+            `selectionEnd` are null, a better fix is to just check the nullity of the container node.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::rangeForPointInRootViewCoordinates):
+
+2021-04-29  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r276688. rdar://problem/77326513
+
+    [iOS] Web content process occasionally crashes under VisibleSelection::adjustPositionForEnd
+    https://bugs.webkit.org/show_bug.cgi?id=225072
+    rdar://77159489
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    Add a helper method to check whether or not the given `Position` is in a tree scope. See WebKit/ChangeLog for
+    more details.
+    
+    Test: editing/selection/ios/clear-selection-while-moving-selection-handles.html
+    
+    * dom/Position.h:
+    (WebCore::Position::isInTreeScope const):
+    
+    Source/WebKit:
+    
+    Make `rangeForPointInRootViewCoordinates` robust in the case where the original selection may have become
+    orphaned or null, by checking that the `targetNode` and existing `selectionStart` or `selectionEnd` are in a
+    tree scope before accessing `treeScope()`.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::rangeForPointInRootViewCoordinates):
+    
+    LayoutTests:
+    
+    Add a layout test that programmatically clears the selection in the middle of changing it by moving selection
+    handles.
+    
+    * editing/selection/ios/clear-selection-while-moving-selection-handles-expected.txt: Added.
+    * editing/selection/ios/clear-selection-while-moving-selection-handles.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276688 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Web content process occasionally crashes under VisibleSelection::adjustPositionForEnd
+            https://bugs.webkit.org/show_bug.cgi?id=225072
+            rdar://77159489
+
+            Reviewed by Darin Adler.
+
+            Make `rangeForPointInRootViewCoordinates` robust in the case where the original selection may have become
+            orphaned or null, by checking that the `targetNode` and existing `selectionStart` or `selectionEnd` are in a
+            tree scope before accessing `treeScope()`.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::rangeForPointInRootViewCoordinates):
 
 2021-04-23  Russell Epstein  <repstein@apple.com>
 

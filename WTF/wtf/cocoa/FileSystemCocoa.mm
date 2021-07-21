@@ -30,6 +30,7 @@
 #import <wtf/FileSystem.h>
 
 #import <wtf/SoftLinking.h>
+#import <sys/resource.h>
 
 typedef struct _BOMCopier* BOMCopier;
 
@@ -181,6 +182,49 @@ NSString *createTemporaryDirectory(NSString *directoryPrefix)
 bool deleteNonEmptyDirectory(const String& path)
 {
     return [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+}
+
+#ifdef IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES
+static int toIOPolicyScope(PolicyScope scope)
+{
+    switch (scope) {
+    case PolicyScope::Process:
+        return IOPOL_SCOPE_PROCESS;
+    case PolicyScope::Thread:
+        return IOPOL_SCOPE_THREAD;
+    }
+}
+#endif
+
+bool setAllowsMaterializingDatalessFiles(bool allow, PolicyScope scope)
+{
+#ifdef IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES
+    if (setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, toIOPolicyScope(scope), allow ? IOPOL_MATERIALIZE_DATALESS_FILES_ON : IOPOL_MATERIALIZE_DATALESS_FILES_OFF) == -1) {
+        LOG_ERROR("FileSystem::setAllowsMaterializingDatalessFiles(%d): setiopolicy_np call failed, errno: %d", allow, errno);
+        return false;
+    }
+    return true;
+#else
+    UNUSED_PARAM(allow);
+    UNUSED_PARAM(scope);
+    return false;
+#endif
+}
+
+Optional<bool> allowsMaterializingDatalessFiles(PolicyScope scope)
+{
+#ifdef IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES
+    int ret = getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, toIOPolicyScope(scope));
+    if (ret == IOPOL_MATERIALIZE_DATALESS_FILES_ON)
+        return true;
+    if (ret == IOPOL_MATERIALIZE_DATALESS_FILES_OFF)
+        return false;
+    LOG_ERROR("FileSystem::allowsMaterializingDatalessFiles(): getiopolicy_np call failed, errno: %d", errno);
+    return WTF::nullopt;
+#else
+    UNUSED_PARAM(scope);
+    return WTF::nullopt;
+#endif
 }
 
 #if PLATFORM(IOS_FAMILY)

@@ -1,3 +1,186 @@
+2021-06-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r278819. rdar://problem/79355258
+
+    https://bugs.webkit.org/show_bug.cgi?id=226576
+    <rdar://problem/78810362>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/short-circuit-read-modify-write-cant-write-dst-before-tdz-check.js: Added.
+    (let.result.eval.try.captureV):
+    (catch):
+    
+    Source/JavaScriptCore:
+    
+    ShortCircuitReadModifyResolveNode can't emit a value into
+    its result until after it emits a TDZ check. We were temporarily
+    storing the result of the get_from_scope into the dst. Then
+    we'd emit the TDZ check. The TDZ check can throw, and it could
+    lead to us returning TDZ from the eval itself. Instead, we need
+    to use a temporary to emit a TDZ check on. Only after the TDZ check
+    passes can we move the temporary into the result.
+    
+    * bytecompiler/NodesCodegen.cpp:
+    (JSC::ShortCircuitReadModifyResolveNode::emitBytecode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278819 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-13  Saam Barati  <sbarati@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=226576
+            <rdar://problem/78810362>
+
+            Reviewed by Yusuke Suzuki.
+
+            ShortCircuitReadModifyResolveNode can't emit a value into
+            its result until after it emits a TDZ check. We were temporarily
+            storing the result of the get_from_scope into the dst. Then
+            we'd emit the TDZ check. The TDZ check can throw, and it could
+            lead to us returning TDZ from the eval itself. Instead, we need
+            to use a temporary to emit a TDZ check on. Only after the TDZ check
+            passes can we move the temporary into the result.
+
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::ShortCircuitReadModifyResolveNode::emitBytecode):
+
+2021-06-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r278578. rdar://problem/79355258
+
+    Short circuit read modify write nodes emit byte code that uses the wrong locals
+    https://bugs.webkit.org/show_bug.cgi?id=226576
+    <rdar://problem/78810362>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/short-circuit-read-modify-should-use-the-write-virtual-registers.js: Added.
+    (eval):
+    
+    Source/JavaScriptCore:
+    
+    It's never a good idea to use the wrong local :-)
+    
+    This patch also adds support for dumping predecessors of basic blocks
+    in the bytecode dump.
+    
+    * bytecode/BytecodeDumper.cpp:
+    (JSC::CodeBlockBytecodeDumper<Block>::dumpGraph):
+    * bytecompiler/NodesCodegen.cpp:
+    (JSC::ShortCircuitReadModifyResolveNode::emitBytecode):
+    (JSC::ShortCircuitReadModifyDotNode::emitBytecode):
+    (JSC::ShortCircuitReadModifyBracketNode::emitBytecode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278578 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-07  Saam Barati  <sbarati@apple.com>
+
+            Short circuit read modify write nodes emit byte code that uses the wrong locals
+            https://bugs.webkit.org/show_bug.cgi?id=226576
+            <rdar://problem/78810362>
+
+            Reviewed by Yusuke Suzuki.
+
+            It's never a good idea to use the wrong local :-)
+
+            This patch also adds support for dumping predecessors of basic blocks
+            in the bytecode dump.
+
+            * bytecode/BytecodeDumper.cpp:
+            (JSC::CodeBlockBytecodeDumper<Block>::dumpGraph):
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::ShortCircuitReadModifyResolveNode::emitBytecode):
+            (JSC::ShortCircuitReadModifyDotNode::emitBytecode):
+            (JSC::ShortCircuitReadModifyBracketNode::emitBytecode):
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277613. rdar://problem/78264256
+
+    REGRESSION (r271119): Object methods defined with shorthand notation cannot access "caller" in non-strict mode
+    https://bugs.webkit.org/show_bug.cgi?id=225277
+    
+    Reviewed by Darin Adler.
+    
+    JSTests:
+    
+    * stress/caller-and-arguments-properties-for-functions-that-dont-have-them.js: Now covers #157461 and #157863.
+    * stress/function-caller-cross-realm-via-call-apply.js: Added, coverage for #34553.
+    * stress/function-hidden-as-caller.js: Also adds test case for #102276.
+    
+    Source/JavaScriptCore:
+    
+    This patch loosens `function.caller` to allow non-strict getters, setters, arrow functions,
+    and ES6 methods to be returned as callers, fixing web compatibility.
+    
+    The intent of r230662 is preserved: generator / async functions are never exposed. There is
+    no good way to acquire wrapper function from the internal body one, nor from its arguments.
+    Also, this behavior is on standards track [1] (seems to be considered desirable).
+    
+    [1]: https://github.com/claudepache/es-legacy-function-reflection/blob/master/spec.md#get-functionprototypecaller (step 14)
+    
+    * runtime/JSFunction.cpp:
+    (JSC::JSC_DEFINE_CUSTOM_GETTER):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277613 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-17  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+            REGRESSION (r271119): Object methods defined with shorthand notation cannot access "caller" in non-strict mode
+            https://bugs.webkit.org/show_bug.cgi?id=225277
+
+            Reviewed by Darin Adler.
+
+            This patch loosens `function.caller` to allow non-strict getters, setters, arrow functions,
+            and ES6 methods to be returned as callers, fixing web compatibility.
+
+            The intent of r230662 is preserved: generator / async functions are never exposed. There is
+            no good way to acquire wrapper function from the internal body one, nor from its arguments.
+            Also, this behavior is on standards track [1] (seems to be considered desirable).
+
+            [1]: https://github.com/claudepache/es-legacy-function-reflection/blob/master/spec.md#get-functionprototypecaller (step 14)
+
+            * runtime/JSFunction.cpp:
+            (JSC::JSC_DEFINE_CUSTOM_GETTER):
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r277477. rdar://problem/78264390
+
+    [REGRESSION: r271876] Web Inspector: [Cocoa] Remote inspection crashes when using WEB_THREAD
+    https://bugs.webkit.org/show_bug.cgi?id=225794
+    
+    Reviewed by Devin Rousso.
+    
+    For WEB_THREAD, move `callback` in `dispatchAsyncOnTarget` to `block` scope to ensure it is available for the
+    lifetime of the block.
+    
+    * inspector/remote/cocoa/RemoteConnectionToTargetCocoa.mm:
+    (Inspector::RemoteConnectionToTarget::dispatchAsyncOnTarget):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277477 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-13  Patrick Angle  <pangle@apple.com>
+
+            [REGRESSION: r271876] Web Inspector: [Cocoa] Remote inspection crashes when using WEB_THREAD
+            https://bugs.webkit.org/show_bug.cgi?id=225794
+
+            Reviewed by Devin Rousso.
+
+            For WEB_THREAD, move `callback` in `dispatchAsyncOnTarget` to `block` scope to ensure it is available for the
+            lifetime of the block.
+
+            * inspector/remote/cocoa/RemoteConnectionToTargetCocoa.mm:
+            (Inspector::RemoteConnectionToTarget::dispatchAsyncOnTarget):
+
 2021-04-27  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r276609. rdar://problem/77211512

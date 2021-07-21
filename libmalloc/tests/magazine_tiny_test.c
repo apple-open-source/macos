@@ -17,17 +17,15 @@ bool aggressive_madvise_enabled = DEFAULT_AGGRESSIVE_MADVISE_ENABLED;
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static inline void
-test_rack_setup(rack_t *rack)
+tiny_test_rack_setup(rack_t *rack)
 {
-	memset(rack, 'a', sizeof(rack));
-	rack_init(rack, RACK_TYPE_TINY, 1, 0);
-	T_QUIET; T_ASSERT_NOTNULL(rack->magazines, "magazine initialisation");
+	test_rack_setup(rack, RACK_TYPE_TINY);
 }
 
 T_DECL(basic_tiny_alloc, "tiny rack init and alloc")
 {
 	struct rack_s rack;
-	test_rack_setup(&rack);
+	tiny_test_rack_setup(&rack);
 
 	void *ptr = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(32), false);
 	T_ASSERT_NOTNULL(ptr, "allocation");
@@ -42,7 +40,7 @@ T_DECL(basic_tiny_alloc, "tiny rack init and alloc")
 T_DECL(basic_tiny_teardown, "tiny rack init, alloc, teardown")
 {
 	struct rack_s rack;
-	test_rack_setup(&rack);
+	tiny_test_rack_setup(&rack);
 
 	void *ptr = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(32), false);
 	T_ASSERT_NOTNULL(ptr, "allocation");
@@ -62,7 +60,7 @@ T_DECL(basic_tiny_teardown, "tiny rack init, alloc, teardown")
 T_DECL(basic_tiny_free, "tiny free")
 {
 	struct rack_s rack;
-	test_rack_setup(&rack);
+	tiny_test_rack_setup(&rack);
 
 	void *ptr = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(32), false);
 	T_ASSERT_NOTNULL(ptr, "allocation");
@@ -77,7 +75,7 @@ T_DECL(basic_tiny_free, "tiny free")
 T_DECL(basic_tiny_shrink, "tiny rack shrink")
 {
 	struct rack_s rack;
-	test_rack_setup(&rack);
+	tiny_test_rack_setup(&rack);
 
 	void *ptr = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(64), false);
 	T_ASSERT_NOTNULL(ptr, "allocation");
@@ -94,7 +92,7 @@ T_DECL(basic_tiny_shrink, "tiny rack shrink")
 T_DECL(basic_tiny_realloc_in_place, "tiny rack realloc in place")
 {
 	struct rack_s rack;
-	test_rack_setup(&rack);
+	tiny_test_rack_setup(&rack);
 
 	// Allocate two blocks and free the second, then try to realloc() the first.
 	// This should extend in-place using the one-level death row cache that's

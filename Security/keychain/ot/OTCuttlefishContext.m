@@ -3150,9 +3150,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 {
     BOOL ret = NO;
     NSError* localError = nil;
-    ret = [self.followupHandler postFollowUp:OTFollowupContextTypeOfflinePasscodeChange error:&localError];
+    ret = [self.followupHandler postFollowUp:OTFollowupContextTypeConfirmExistingSecret error:&localError];
     if(localError){
-        secerror("octagon-health: CoreCDP offline passcode change failed: %@", localError);
+        secerror("octagon-health: CoreCDP confirm existing secret failed: %@", localError);
         *error = localError;
     }
     return ret;

@@ -36,7 +36,7 @@ typedef NS_ENUM(uint8_t, OTFollowupContextType) {
     OTFollowupContextTypeNone,
     OTFollowupContextTypeRecoveryKeyRepair,
     OTFollowupContextTypeStateRepair,
-    OTFollowupContextTypeOfflinePasscodeChange,
+    OTFollowupContextTypeConfirmExistingSecret,
 };
 NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 

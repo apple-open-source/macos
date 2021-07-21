@@ -83,6 +83,7 @@
     TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                              version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]
                                                             viewList:viewList
+                                                       priorityViews:[NSSet set]
                                                userControllableViews:[NSSet set]
                                            syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED
                                                 viewsToPiggybackTLKs:[viewList containsObject:@"Passwords"] ? [NSSet setWithObject:@"Passwords"] : [NSSet set]

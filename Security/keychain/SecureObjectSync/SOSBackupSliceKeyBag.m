@@ -760,6 +760,7 @@ bool SOSBSKBHasThisRecoveryKey(SOSBackupSliceKeyBagRef bskb, CFDataRef backupKey
         CFReleaseNull(id);
         return result;
     } else {
-        return CFDictionaryGetCount(bskb->wrapped_keys) == SOSBSKBCountPeers(bskb);
+        // let's not judge ripping out other recovery keys
+        return true;
     }
 }

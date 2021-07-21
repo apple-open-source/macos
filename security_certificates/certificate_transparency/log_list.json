@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 12,
+    "assetVersion": 13,
     "operators": [
         {
             "email": [
@@ -1028,9 +1028,9 @@
                     "log_id": "tz77JN+cTbp18jnFulj0bF38Qs96nzXEnh0JgSXttJk=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2020-09-23T22:34:39Z",
-                            "version": "94"
+                        "usable": {
+                            "timestamp": "2021-01-04T18:55:02Z",
+                            "version": "95"
                         }
                     },
                     "temporal_interval": {
@@ -1053,9 +1053,9 @@
                     "log_id": "pZWUO1NwvukG4AUNH7W7xqQOZfJlroUsdjY/rbIzNu0=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2020-09-14T22:48:14Z",
-                            "version": "90"
+                        "rejected": {
+                            "timestamp": "2021-01-04T18:57:47Z",
+                            "version": "96"
                         }
                     },
                     "temporal_interval": {
@@ -1070,9 +1070,9 @@
                     "log_id": "Z422Wz50Q7bzo3DV4TqxtDvgoNNR98p0IlDHxvpRqIo=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2020-09-14T22:50:29Z",
-                            "version": "91"
+                        "rejected": {
+                            "timestamp": "2021-01-04T18:58:19Z",
+                            "version": "97"
                         }
                     },
                     "temporal_interval": {
@@ -1087,9 +1087,9 @@
                     "log_id": "w2X5s2VPMoPHnamOk9dBj1ure+MlLJjh0vBLuetCfSM=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2020-09-14T22:51:33Z",
-                            "version": "92"
+                        "qualified": {
+                            "timestamp": "2021-05-27T18:46:58Z",
+                            "version": "98"
                         }
                     },
                     "temporal_interval": {
@@ -1104,9 +1104,9 @@
                     "log_id": "6H6nZgvCbPYALvVyXT/g4zG5OTu5L79Y6zuQSdr1Q1o=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2020-09-14T22:52:42Z",
-                            "version": "93"
+                        "qualified": {
+                            "timestamp": "2021-05-27T18:47:26Z",
+                            "version": "99"
                         }
                     },
                     "temporal_interval": {
@@ -1119,5 +1119,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "94"
+    "version": "99"
 }

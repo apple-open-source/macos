@@ -1334,7 +1334,7 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 	if (kr) {
 		return kr;
 	}
-	boolean_t self_zone = (nanozonev2_t *)zone_address == nanozone;
+	boolean_t self_zone = (task == mach_task_self() && (nanozonev2_t *)zone_address == nanozone);
 	memcpy(&zone_copy, nanozone, sizeof(zone_copy));
 	nanozone = &zone_copy;
 	nanov2_meta_index_t metablock_meta_index = nanov2_metablock_meta_index(nanozone);

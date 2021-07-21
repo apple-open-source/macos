@@ -382,6 +382,11 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
     if ( attr.data.attr_length )
     {
         name = CFStringCreateWithCString( kCFAllocatorDefault, ( ( char * ) &attr.data ) + attr.data.attr_dataoffset, kCFStringEncodingUTF8 );
+        if ( name && ( CFStringGetLength( name ) == 0 ) )
+        {
+             CFRelease(name);
+             name = NULL;
+        }
     }
 
 _DAFileSystemCopyNameErr:

@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-19</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache 2.0</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>python_modules.txt</string>
+	<key>OpenSourceSHA256</key>
+	<string>a0c30272fb4ddda5f5ffc1089d7405b7a71b0b0f51993cb4e5dbb4590b2fc229</string>
+	<key>OpenSourceProject</key>
+	<string>cryptography</string>
+	<key>OpenSourceURL</key>
+	<string>https://files.pythonhosted.org/packages/56/3b/78c6816918fdf2405d62c98e48589112669f36711e50158a0c15d804c30d/cryptography-2.9.2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>2.9.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cryptography.io</string>
+</dict>
+</plist>

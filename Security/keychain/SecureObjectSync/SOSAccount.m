@@ -1438,61 +1438,22 @@ bool SOSAccountRemoveIncompleteiCloudIdentities(SOSAccount*  account, SOSCircleR
 // MARK: start backups
 //
 
-
-- (bool)_onQueueEnsureInBackupRings {
-    __block bool result = false;
-    __block CFErrorRef error = NULL;
-    secnotice("backup", "Ensuring in rings");
+// This needs to be called within a transaction.  It only processes one view at a time
+// this will return true if work was done.
+- (bool)_onQueueEnsureInBackupRings: (CFStringRef) viewName {
+    __block bool workDone = false;
 
     dispatch_assert_queue(self.queue);
 
-    if(!self.backup_key){
-        return true;
-    }
-
-    if(!SOSBSKBIsGoodBackupPublic((__bridge CFDataRef)self.backup_key, &error)){
-        secnotice("backupkey", "account backup key isn't valid: %@", error);
-        self.backup_key = nil;
-        CFReleaseNull(error);
-        return false;
-    }
-
-    NSData *peerBackupKey = (__bridge_transfer NSData*)SOSPeerInfoCopyBackupKey(self.peerInfo);
-    if(![peerBackupKey isEqual:self.backup_key]) {
-        result = SOSAccountUpdatePeerInfo(self, CFSTR("Backup public key"), &error, ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-            return SOSFullPeerInfoUpdateBackupKey(fpi, (__bridge CFDataRef)(self.backup_key), error);
-        });
-        if (!result) {
-            secnotice("backupkey", "Failed to setup backup public key in peerInfo from account: %@", error);
-            CFReleaseNull(error);
-            return result;
-        }
-    }
-
-    // It's a good key, we're going with it. Stop backing up the old way.
-    CFErrorRef localError = NULL;
-    if (!SOSDeleteV0Keybag(&localError)) {
-        secerror("Failed to delete v0 keybag: %@", localError);
-    }
-    CFReleaseNull(localError);
-
     // Setup backups the new way.
-    SOSAccountForEachBackupView(self, ^(const void *value) {
-        CFStringRef viewName = asString(value, NULL);
-        bool resetRing = SOSAccountValidateBackupRingForView(self, viewName, NULL);
-        if(resetRing) {
-            SOSAccountUpdateBackupRing(self, viewName, NULL, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
-                SOSRingRef newRing = SOSAccountCreateBackupRingForView(self, viewName, error);
-                return newRing;
-            });
-        }
-    });
-
-    if (!result) {
-        secnotice("backupkey", "Failed to setup backup public key: %@", error);
+    if(SOSAccountValidateBackupRingForView(self, viewName, NULL)) {
+        workDone = SOSAccountUpdateBackupRing(self, viewName, NULL, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
+            SOSRingRef newRing = SOSAccountCreateBackupRingForView(self, viewName, error);
+            secnotice("backup", "Reset backup ring %@ %s", viewName, (newRing) ? "success": "failed");
+            return newRing;
+        });
     }
-    CFReleaseNull(error);
-    return result;
+    return workDone;
 }
 
 //
@@ -2503,13 +2464,15 @@ static void pbNotice(CFStringRef operation, SOSAccount*  account, SOSGenCountRef
         accountName = CFSTR("Unavailable");
     }
     CFStringRef circleHash = SOSCircleCopyHashString(account.trust.trustedCircle);
+    CFStringRef genString = SOSGenerationCountCopyDescription(gencount);
 
     secnotice("circleOps",
               "%@: Joining blob for account: %@ for piggyback (V%d) gencount: %@  pubkey: %@ signatureID: %@  starting circle hash: %@",
-              operation, accountName, version, gencount, pkeyID, sigID, circleHash);
+              operation, accountName, version, genString, pkeyID, sigID, circleHash);
     CFReleaseNull(pkeyID);
     CFReleaseNull(sigID);
     CFReleaseNull(circleHash);
+    CFReleaseNull(genString);
 }
 
 CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, SOSPeerInfoRef applicant, CFErrorRef *error) {
@@ -2830,9 +2793,9 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
     }];
 
     self.performRingUpdates = [[CKKSNearFutureScheduler alloc] initWithName:@"performRingUpdates"
-                                                               initialDelay:5*NSEC_PER_SEC
+                                                               initialDelay:1*NSEC_PER_SEC
                                                            expontialBackoff:2.0
-                                                               maximumDelay:15*60*NSEC_PER_SEC
+                                                               maximumDelay:10*NSEC_PER_SEC
                                                            keepProcessAlive:YES
                                                   dependencyDescriptionCode:CKKSResultDescriptionNone
                                                                       block:^{
@@ -2940,6 +2903,9 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                                        errorState:SOSStateError
                               withBlockTakingSelf:^void(OctagonStateTransitionOperation * _Nonnull op) {
         STRONGIFY(self);
+        __block bool goodPubKey = false;
+        __block CFMutableSetRef myBackupViews = NULL;
+        __block bool changesMade = false;
 
         SOSAccountConfiguration *storage = self.accountConfiguration.storage;
         storage.ringUpdateFlag = NO;
@@ -2947,21 +2913,57 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
 
         [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
             if([self accountKeyIsTrusted] && [self isInCircle:NULL]) {
-
                 [self _onQueueRecordRetiredPeersInCircle];
-
                 SOSAccountEnsureRecoveryRing(self);
-                [self _onQueueEnsureInBackupRings];
-
-                CFErrorRef localError = NULL;
-                if(![self.circle_transport flushChanges:&localError]){
-                    secerror("flush circle failed %@", localError);
+                
+                CFErrorRef error = NULL;
+                
+                // if we have a backup key but it isn't good clear it.  goodPubKey becomes false.
+                // if we have nil then we're resetting the pubkey.
+                goodPubKey = SOSAccountBackupKeyConsistencyCheck(self, &error);
+                
+                if(goodPubKey) {
+                    // It's a good key, we're going with it. Stop backing up the old way.
+                    CFErrorRef localError = NULL;
+                    if (!SOSDeleteV0Keybag(&localError)) {
+                        secerror("Failed to delete v0 keybag: %@", localError);
+                    } else {
+                        changesMade = true;
+                    }
+                    CFReleaseNull(localError);
+                                        
+                    if (self.peerInfo) {
+                        myBackupViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerInfoGetPermittedViews(self.peerInfo));
+                    }
                 }
-                CFReleaseNull(localError);
+            }
+        }];
+                
+        if(goodPubKey && myBackupViews && !CFSetIsEmpty(myBackupViews)) {
+            CFSetForEach(myBackupViews, ^(const void *value) {
+                CFStringRef viewName = asString(value, NULL);
+                [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+                    if([self _onQueueEnsureInBackupRings: viewName]) {
+                        changesMade = true;
+                    }
+                }];
+            });
+        }
+        CFReleaseNull(myBackupViews);
 
-                if(!SecCKKSTestDisableSOS()) {
-                    SOSAccountNotifyEngines(self);
-                }
+        // This is where circle and ring flushes happen now.
+        // If a circle or ring has been Pushed in handleUpdate routines we need them to get out now.
+        // It isn't just the work up above that can do that push.  It could simply be signing
+        // an existing circle/ring.
+        [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+            CFErrorRef localError = NULL;
+            if(![self.circle_transport flushChanges:&localError]){
+                secnotice("circleOps", "flush circles/rings failed %@", localError);
+            }
+            CFReleaseNull(localError);
+
+            if(!SecCKKSTestDisableSOS()) {
+                SOSAccountNotifyEngines(self);
             }
         }];
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -583,7 +583,7 @@ bootp_session_read(void * arg1, void * arg2)
     struct iovec 	 	iov;
     struct msghdr 		msg;
     ssize_t 			n;
-    uint32_t 			receive_buf[2048/(sizeof(uint32_t))];
+    uint32_t 			receive_buf[1500/(sizeof(uint32_t))];
     bootp_session_t * 		session = (bootp_session_t *)arg1;
 
     msg.msg_name = (caddr_t)&from;

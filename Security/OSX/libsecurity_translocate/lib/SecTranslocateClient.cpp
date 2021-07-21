@@ -28,7 +28,7 @@
 #include <unistd.h>
 
 #include <security_utilities/unix++.h>
-#include <security_utilities/logging.h>
+#include <security_utilities/debugging.h>
 
 #include "SecTranslocateClient.hpp"
 #include "SecTranslocateShared.hpp"
@@ -42,9 +42,8 @@ using namespace std;
 
 TranslocatorClient::TranslocatorClient(dispatch_queue_t q):syncQ(q)
 {
-    if(syncQ == NULL)
-    {
-        Syslog::critical("SecTranslocate::TranslocatorClient initialized without a queue.");
+    if(syncQ == NULL) {
+        seccritical("SecTranslocate::TranslocatorClient initialized without a queue.");
         UnixError::throwMe(EINVAL);
     }
 
@@ -52,31 +51,26 @@ TranslocatorClient::TranslocatorClient(dispatch_queue_t q):syncQ(q)
     uid_t euid = geteuid();
 
     /* 0 - is root so it gets the root lsd
-       1-300 = are treated by launch services as "role users" They share a copy of the LS Database with root
-               and thus must be sent to the root lsd. */
-    if (euid <= 300)
-    {
+     1-300 = are treated by launch services as "role users" They share a copy of the LS Database with root
+     and thus must be sent to the root lsd. */
+    if (euid <= 300) {
         flags |= XPC_CONNECTION_MACH_SERVICE_PRIVILEGED; //forces call to the root lsd
     }
 
     service = xpc_connection_create_mach_service(SECTRANSLOCATE_XPC_SERVICE_NAME,
                                                  syncQ,
                                                  flags);
-    if (service == NULL)
-    {
-        Syslog::critical("SecTranslocate: TranslocatorClient, failed to create xpc mach service");
+    if (service == NULL) {
+        seccritical("SecTranslocate: TranslocatorClient, failed to create xpc mach service");
         UnixError::throwMe(ENOMEM);
     }
     xpc_connection_set_event_handler(service, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
-        if (type == XPC_TYPE_ERROR)
-        {
-            Syslog::error("SecTranslocate, client, xpc error: %s", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
-        }
-        else
-        {
+        if (type == XPC_TYPE_ERROR) {
+            secerror("SecTranslocate, client, xpc error: %s", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+        } else {
             char* description = xpc_copy_description(event);
-            Syslog::error("SecTranslocate, client, xpc unexpected type: %s", description);
+            secerror("SecTranslocate, client, xpc unexpected type: %s", description);
             free(description);
         }
     });
@@ -91,8 +85,8 @@ TranslocatorClient::~TranslocatorClient()
     dispatch_release(syncQ);
 }
 
-string TranslocatorClient::requestTranslocation(const string& source,
-                                                const string& destination,
+string TranslocatorClient::requestTranslocation(const int fdToTranslocate,
+                                                const int destFd,
                                                 const TranslocationOptions flags)
 {
     string outPath;
@@ -100,62 +94,50 @@ string TranslocatorClient::requestTranslocation(const string& source,
     //We should run translocated, so get a translocation point
     xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
 
-    if( msg == NULL)
-    {
-        Syslog::error("SecTranslocate: TranslocatorClient, failed to allocate message to send");
+    if (msg == NULL) {
+        secerror("SecTranslocate: TranslocatorClient, failed to allocate message to send");
         UnixError::throwMe(ENOMEM);
     }
 
     xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageFunction, kSecTranslocateXPCFuncCreate);
-    /* send the original real path rather than the calculated path to let the server do all the work */
-    xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageOriginalPath, source.c_str());
+    xpc_dictionary_set_fd(msg, kSecTranslocateXPCMessageOriginalPath, fdToTranslocate);
     xpc_dictionary_set_int64(msg, kSecTranslocateXPCMessageOptions, static_cast<int64_t>(flags));
-    if(!destination.empty())
-    {
-        xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageDestinationPath, destination.c_str());
+    if (destFd != -1) {
+        xpc_dictionary_set_fd(msg, kSecTranslocateXPCMessageDestinationPath, destFd);
     }
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(service, msg);
     xpc_release(msg);
 
-    if(reply == NULL)
-    {
-        Syslog::error("SecTranslocate, TranslocatorClient, create, no reply returned");
+    if (reply == NULL) {
+        secerror("SecTranslocate, TranslocatorClient, create, no reply returned");
         UnixError::throwMe(ENOMEM);
     }
 
     xpc_type_t type = xpc_get_type(reply);
-    if (type == XPC_TYPE_DICTIONARY)
-    {
-        if(int64_t error = xpc_dictionary_get_int64(reply, kSecTranslocateXPCReplyError))
-        {
-            Syslog::error("SecTranslocate, TranslocatorClient, create, error received %lld", error);
+    if (type == XPC_TYPE_DICTIONARY) {
+        if(int64_t error = xpc_dictionary_get_int64(reply, kSecTranslocateXPCReplyError)) {
+            secerror("SecTranslocate, TranslocatorClient, create, error received %lld", error);
             xpc_release(reply);
             UnixError::throwMe((int)error);
         }
         const char * result = xpc_dictionary_get_string(reply, kSecTranslocateXPCReplySecurePath);
-        if (result == NULL)
-        {
-            Syslog::error("SecTranslocate, TranslocatorClient, create, no result path received");
+        if (result == NULL) {
+            secerror("SecTranslocate, TranslocatorClient, create, no result path received");
             xpc_release(reply);
             UnixError::throwMe(EINVAL);
         }
         outPath=result;
         xpc_release(reply);
-    }
-    else
-    {
+    } else {
         const char* errorMsg = NULL;
-        if (type == XPC_TYPE_ERROR)
-        {
-            errorMsg = "SecTranslocate, TranslocatorClient, create, xpc error returned: %s";
-        }
-        else
-        {
-            errorMsg = "SecTranslocate, TranslocatorClient, create, unexpected type of return object: %s";
+        if (type == XPC_TYPE_ERROR) {
+            errorMsg = "SecTranslocate, TranslocatorClient, create, xpc error returned";
+        } else {
+            errorMsg = "SecTranslocate, TranslocatorClient, create, unexpected type of return object";
         }
         const char *s = xpc_copy_description(reply);
-        Syslog::error(errorMsg, s);
+        secerror("%s: %s",errorMsg, s);
         free((char*)s);
         xpc_release(reply);
         UnixError::throwMe(EINVAL);
@@ -164,24 +146,22 @@ string TranslocatorClient::requestTranslocation(const string& source,
     return outPath;
 }
 
-string TranslocatorClient::translocatePathForUser(const TranslocationPath &originalPath, const string &destPath)
+string TranslocatorClient::translocatePathForUser(const TranslocationPath &originalPath, ExtendedAutoFileDesc &destFd)
 {
-    if (!originalPath.shouldTranslocate())
-    {
+    if (!originalPath.shouldTranslocate()) {
         return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
     }
     
-    return requestTranslocation(originalPath.getOriginalRealPath(), destPath, TranslocationOptions::Default);
+    return requestTranslocation(originalPath.getFdForPathToTranslocate(), destFd.fd(), TranslocationOptions::Default);
 }
 
-string TranslocatorClient::translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath)
+string TranslocatorClient::translocatePathForUser(const GenericTranslocationPath &originalPath, ExtendedAutoFileDesc &destFd)
 {
-    if (!originalPath.shouldTranslocate())
-    {
+    if (!originalPath.shouldTranslocate()) {
         return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
     }
     
-    return requestTranslocation(originalPath.getOriginalRealPath(), destPath, TranslocationOptions::Generic);
+    return requestTranslocation(originalPath.getFdForPathToTranslocate(), destFd.fd(), TranslocationOptions::Generic);
 }
 
 void TranslocatorClient::appLaunchCheckin(pid_t pid)
@@ -199,7 +179,7 @@ void TranslocatorClient::appLaunchCheckin(pid_t pid)
 
 bool TranslocatorClient::destroyTranslocatedPathForUser(const string &translocatedPath)
 {
-    Syslog::error("SecTranslocate, TranslocatorClient, delete operation not allowed");
+    secerror("SecTranslocate, TranslocatorClient, delete operation not allowed");
     UnixError::throwMe(EPERM);
 }
 

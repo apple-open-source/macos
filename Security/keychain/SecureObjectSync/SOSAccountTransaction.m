@@ -210,6 +210,8 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         [self.account ensureOctagonPeerKeys];
     }
     self.peersToRequestSync = nil;
+    
+    SOSAccountEnsurePeerInfoHasCurrentBackupKey(self, NULL);
 
     if(self.account.key_interests_need_updating) {
         SOSUpdateKeyInterest(self.account);
@@ -246,6 +248,8 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         self.peersToRequestSync = nil;
         SOSCCRequestSyncWithPeers((__bridge CFSetRef)(worklist));
     }
+    
+    SOSAccountEnsurePeerInfoHasCurrentBackupKey(self, NULL);
 
     if (isInCircle) {
         SOSAccountEnsureSyncChecking(self.account);

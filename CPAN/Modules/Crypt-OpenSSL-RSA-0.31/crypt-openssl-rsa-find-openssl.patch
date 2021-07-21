@@ -1,0 +1,29 @@
+diff --git Makefile.PL Makefile.PL
+index 906a11b..c3a2e6b 100644
+--- Makefile.PL
++++ Makefile.PL
+@@ -8,6 +8,10 @@ use Crypt::OpenSSL::Guess qw(openssl_inc_paths openssl_lib_paths);
+ # See lib/ExtUtils/MakeMaker.pm for details of how to influence
+ # the contents of the Makefile that is written.
+ 
++my $OPENSSL_PREFIX = $ENV{OPENSSL_PREFIX};
++my $sdkopenssllibdir = $OPENSSL_PREFIX . "/lib";
++my $sdkopensslincdir = $OPENSSL_PREFIX . "/include";
++
+ WriteMakefile(
+     'NAME'             => 'Crypt::OpenSSL::RSA',
+     AUTHOR             => 'Ian Robertson <iroberts@cpan.org>',
+@@ -22,11 +26,11 @@ WriteMakefile(
+         'Test::More'             => 0,
+     },
+     'OBJECT' => 'RSA.o',
+-    'LIBS'   => [openssl_lib_paths() . ' -lssl -lcrypto'],
++    'LIBS'   => [openssl_lib_paths() . " -L$sdkopenssllibdir -lssl -lcrypto"],
+     'DEFINE' => '-DPERL5 -DOPENSSL_NO_KRB5',
+ 
+     # perl-5.8/gcc-3.2 needs -DPERL5, and redhat9 likes -DOPENSSL_NO_KRB5
+-    'INC' => openssl_inc_paths(),    # e.g., '-I/usr/include/other'
++    'INC' => openssl_inc_paths() . " -I$sdkopensslincdir",    # e.g., '-I/usr/include/other'
+ 
+     'dist'  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+     'clean' => { FILES    => 'Crypt-OpenSSL-RSA-*' },

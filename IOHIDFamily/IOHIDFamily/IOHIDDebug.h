@@ -47,6 +47,7 @@ static inline os_log_t _HIDLogCategory(HIDLogCategory category)
 
 #define UPSLog(fmt, ...)        os_log(_HIDLogCategory(kHIDLogUPS), fmt, ##__VA_ARGS__)
 #define UPSLogError(fmt, ...)   os_log_error(_HIDLogCategory(kHIDLogUPS), fmt, ##__VA_ARGS__)
+#define UPSLogDebug(fmt, ...)   os_log_debug(_HIDLogCategory(kHIDLogUPS), fmt, ##__VA_ARGS__)
 
 #define HIDLogActivityDebug(fmt, ...)   os_log_debug(_HIDLogCategory(kHIDLogActivity), fmt, ##__VA_ARGS__)
 

@@ -465,10 +465,15 @@ SOSPeerInfoRef SOSPeerInfoCopyWithGestaltUpdate(CFAllocatorRef allocator, SOSPee
 SOSPeerInfoRef SOSPeerInfoCopyWithBackupKeyUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDataRef backupKey, SecKeyRef signingKey, CFErrorRef *error) {
     return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                            ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
-        if (backupKey != NULL)
+        if (backupKey != NULL) {
+            CFStringRef shortHash = SOSCopyIDOfDataBufferWithLength(backupKey, 8, NULL);
+            secnotice("backup", "Setting peerInfo backupKey to %@", shortHash);
+            CFReleaseNull(shortHash);
             SOSPeerInfoV2DictionarySetValue(peerToModify, sBackupKeyKey, backupKey);
-        else
+        } else {
+            secnotice("backup", "Setting peerInfo backupKey to NULL");
             SOSPeerInfoV2DictionaryRemoveValue(peerToModify, sBackupKeyKey);
+        }
         return true;
     });
 }

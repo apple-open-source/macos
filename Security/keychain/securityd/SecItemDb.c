@@ -183,7 +183,7 @@ bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CF
     
     if (classIndexesForNewTables) {
         CFArrayForEach(classIndexesForNewTables, ^(const void* index) {
-            const SecDbClass* class = schema->classes[(int)index];
+            const SecDbClass* class = schema->classes[(int)(long) index];
             SecDbAppendCreateTableWithClass(sql, class);
         });
     }

@@ -22,10 +22,10 @@
  */
 
 /* Purpose: This header exposes shared functions that actually implement mount creation, policy question
-    answering and mount deletion.
+ answering and mount deletion.
 
-   Important: None of these functions implement synchronization and they all throw exceptions. It is up
-    to the caller to handle those concerns.
+ Important: None of these functions implement synchronization and they all throw exceptions. It is up
+ to the caller to handle those concerns.
  */
 
 #include <string>
@@ -35,9 +35,9 @@
 #define SecTranslocateShared_hpp
 
 namespace Security {
-    
+
 namespace SecTranslocate {
-    
+
 using namespace std;
 
 /* XPC Function keys */
@@ -64,40 +64,48 @@ enum class TranslocationOptions : int64_t {
 class GenericTranslocationPath
 {
 public:
-    GenericTranslocationPath(const string& path, TranslocationOptions opts);
-    inline bool shouldTranslocate() const { return should; };
-    inline const string & getOriginalRealPath() const { return realOriginalPath; };
-    inline const string & getComponentNameToTranslocate() const { return componentNameToTranslocate; };
-    inline TranslocationOptions getOptions() const { return options; };
+    GenericTranslocationPath(const string& path, TranslocationOptions opts): mOptions(opts), mFd(path) { init(); };
+    GenericTranslocationPath(int fd, TranslocationOptions opts): mOptions(opts), mFd(fd) { init(); };
+    inline bool shouldTranslocate() const { return mShould; };
+    inline const string & getOriginalRealPath() const { return mRealOriginalPath; };
+    inline const string & getComponentNameToTranslocate() const { return mComponentNameToTranslocate; };
+    inline TranslocationOptions getOptions() const { return mOptions; };
+    int getFdForPathToTranslocate() const;
 private:
     GenericTranslocationPath() = delete;
+    void init();
     
-    bool should;
-    string realOriginalPath;
-    string componentNameToTranslocate;
-    TranslocationOptions options;
+    bool mShould;
+    string mRealOriginalPath;
+    string mComponentNameToTranslocate;
+    TranslocationOptions mOptions;
+    ExtendedAutoFileDesc mFd;
 };
 
 class TranslocationPath
 {
 public:
-    TranslocationPath(string originalPath, TranslocationOptions opts);
-    inline bool shouldTranslocate() const { return should; };
-    inline const string & getOriginalRealPath() const { return realOriginalPath; };
-    inline const string & getPathToTranslocate() const { return pathToTranslocate; };
-    inline const string & getPathInsideTranslocation() const { return pathInsideTranslocationPoint; };
-    inline const string & getComponentNameToTranslocate() const { return componentNameToTranslocate; };
+    TranslocationPath(string originalPath, TranslocationOptions opts): mOptions(opts), mFd(originalPath) { init(); };
+    TranslocationPath(int fd, TranslocationOptions opts): mOptions(opts), mFd(fd) { init(); };
+    inline bool shouldTranslocate() const { return mShould; };
+    inline const string & getOriginalRealPath() const { return mRealOriginalPath; };
+    inline const string & getPathToTranslocate() const { return mPathToTranslocate; };
+    inline const string & getPathInsideTranslocation() const { return mPathInsideTranslocationPoint; };
+    inline const string & getComponentNameToTranslocate() const { return mComponentNameToTranslocate; };
     string getTranslocatedPathToOriginalPath(const string &translocationPoint) const;
-    inline TranslocationOptions getOptions() const { return options; };
+    inline TranslocationOptions getOptions() const { return mOptions; };
+    int getFdForPathToTranslocate() const;
 private:
     TranslocationPath() = delete;
+    void init();
 
-    bool should;
-    string realOriginalPath;
-    string pathToTranslocate;
-    string componentNameToTranslocate; //the final component of pathToTranslocate
-    string pathInsideTranslocationPoint;
-    TranslocationOptions options;
+    bool mShould;
+    string mRealOriginalPath;
+    string mPathToTranslocate;
+    string mComponentNameToTranslocate; //the final component of pathToTranslocate
+    string mPathInsideTranslocationPoint;
+    TranslocationOptions mOptions;
+    ExtendedAutoFileDesc mFd;
 
     ExtendedAutoFileDesc findOuterMostCodeBundleForFD(ExtendedAutoFileDesc &fd);
 };
@@ -106,8 +114,8 @@ string getOriginalPath(const ExtendedAutoFileDesc& fd, bool* isDir); //throws
 
 // For methods below, the caller is responsible for ensuring that only one thread is
 // accessing/modifying the mount table at a time
-string translocatePathForUser(const TranslocationPath &originalPath, const string &destPath); //throws
-string translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath); //throws
+string translocatePathForUser(const TranslocationPath &originalPath, ExtendedAutoFileDesc &destFd); //throws
+string translocatePathForUser(const GenericTranslocationPath &originalPath, ExtendedAutoFileDesc &destFd); //throws
 bool destroyTranslocatedPathForUser(const string &translocatedPath); //throws
 bool destroyTranslocatedPathsForUserOnVolume(const string &volumePath = ""); //throws
 void tryToDestroyUnusedTranslocationMounts();

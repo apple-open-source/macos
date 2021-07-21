@@ -79,6 +79,7 @@ OTCliqueCDPContextType OTCliqueCDPContextTypeFinishPasscodeChange = @"cdpContext
 OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyGenerate = @"cdpContextTypeRecoveryKeyGenerate";
 OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyNew = @"cdpContextTypeRecoveryKeyNew";
 OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode = @"cdpContextTypeUpdatePasscode";
+OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus = @"cdpContextTypeConfirmPasscodeCyrus";
 
 NSString* OTCliqueStatusToString(CliqueStatus status)
 {

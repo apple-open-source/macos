@@ -866,6 +866,7 @@ medium_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 				medium_advisory_t mat = (medium_advisory_t)pgLo;
 				mat->next = advisories;
 				mat->size = pgHi - pgLo;
+				advisories = mat;
 			}
 			break;
 		}
@@ -893,6 +894,7 @@ medium_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 					medium_advisory_t mat = (medium_advisory_t)pgLo;
 					mat->next = advisories;
 					mat->size = pgHi - pgLo;
+					advisories = mat;
 				}
 
 				memset(&madv_headers[index], 0, sizeof(uint16_t) * alloc_msize);
@@ -1168,7 +1170,6 @@ medium_madvise_free_range_conditional_no_lock(rack_t *rack, magazine_t *mag_ptr,
 {
 	region_trailer_t *node = REGION_TRAILER_FOR_MEDIUM_REGION(region);
 	msize_t *madvh = MEDIUM_MADVISE_HEADER_FOR_PTR(ptr);
-
 	msize_t trigger_msize = trigger_level >> SHIFT_MEDIUM_QUANTUM;
 
 	size_t free_header_size = sizeof(medium_inplace_free_entry_s) + sizeof(msize_t);
@@ -1217,7 +1218,7 @@ medium_madvise_free_range_conditional_no_lock(rack_t *rack, magazine_t *mag_ptr,
 	}
 
 	msize_t right_dirty_msz = 0;
-	if (right_end_idx < src_end_idx) {
+	if (right_end_idx > src_end_idx) {
 		// Same as above, if we had trailing data coalesced with this entry
 		// and that was not madvised, consider it, too.
 		right_dirty_msz = medium_madvise_header_dirty_len(madvh, right_start_idx);
@@ -1230,7 +1231,7 @@ medium_madvise_free_range_conditional_no_lock(rack_t *rack, magazine_t *mag_ptr,
 		medium_madvise_header_mark_middle(madvh, right_end_idx);
 	}
 
-	// We absolutely can't madvise lower the the free-list entry pointer plus
+	// We absolutely can't madvise lower than the free-list entry pointer plus
 	// the header size. When the entry is OOB, there's no header or footer to
 	// store in memory.
 	uintptr_t safe_start_ptr = round_page_kernel(rangep + free_header_size);
@@ -1247,14 +1248,16 @@ medium_madvise_free_range_conditional_no_lock(rack_t *rack, magazine_t *mag_ptr,
 				MEDIUM_BYTES_FOR_MSIZE(range_msz), safe_end_ptr);
 
 		// The page that contains the freelist entry needs to be marked as not
-		// having been madvised.
+		// having been madvised. Note that the quantum is larger than the kernel page size
+		// so if safe_start_ptr and rangep are on different pages, we just mark
+		// the whole block as clean.
 		if (range_idx < MEDIUM_META_INDEX_FOR_PTR(safe_start_ptr)) {
 			medium_madvise_header_mark_dirty(madvh, range_idx,
 					MEDIUM_META_INDEX_FOR_PTR(safe_start_ptr) - range_idx);
 		}
 		if (range_idx + range_msz > MEDIUM_META_INDEX_FOR_PTR(safe_end_ptr)) {
 			medium_madvise_header_mark_dirty(madvh,
-					MEDIUM_META_INDEX_FOR_PTR(safe_end_ptr) + 1, range_idx + 
+					MEDIUM_META_INDEX_FOR_PTR(safe_end_ptr), range_idx +
 					range_msz - MEDIUM_META_INDEX_FOR_PTR(safe_end_ptr));
 		}
 
@@ -1279,10 +1282,12 @@ medium_madvise_free_range_conditional_no_lock(rack_t *rack, magazine_t *mag_ptr,
 		// We chose not to madvise, we need to re-mark the region as dirty
 		// for when we come back to it later.
 		if (left_dirty_msz < left_msz) {
+			/* The preceding block was clean. */
 			medium_madvise_header_mark_clean(madvh, range_idx,
 					left_msz - left_dirty_msz);
 		}
 		if (right_dirty_msz < right_msz) {
+			/* The trailing block was clean. */
 			medium_madvise_header_mark_clean(madvh, right_start_idx +
 					right_dirty_msz, right_msz - right_dirty_msz);
 		}
@@ -1932,6 +1937,12 @@ medium_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new
 				/* there's some left, so put the remainder back */
 				leftover = (unsigned char *)ptr + MEDIUM_BYTES_FOR_MSIZE(new_msize);
 				medium_free_list_add_ptr(rack, medium_mag_ptr, leftover, leftover_msize);
+				msize_t leftover_index = MEDIUM_META_INDEX_FOR_PTR(leftover);
+				if (madv_headers[leftover_index] & MEDIUM_IS_ADVISED) {
+					medium_madvise_header_mark_clean(madv_headers, leftover_index, leftover_msize);
+				} else {
+					medium_madvise_header_mark_dirty(madv_headers, leftover_index, leftover_msize);
+				}
 			}
 			medium_meta_header_set_in_use(meta_headers, index, new_msize);
 			medium_madvise_header_mark_dirty(madv_headers, index, new_msize);

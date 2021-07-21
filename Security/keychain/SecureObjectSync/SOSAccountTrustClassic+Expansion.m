@@ -304,7 +304,8 @@ errOut:
     CFReleaseNull(modifierPeerID);
 
     // don't act on our own echos from KVS (remote ring, our peerID as modifier)
-    if(!localUpdate && CFEqualSafe(peerID, SOSRingGetLastModifier(prospectiveRing))) {
+    oldRing = [self copyRing:ringName err:NULL];
+    if(!localUpdate && CFEqualSafe(peerID, SOSRingGetLastModifier(prospectiveRing)) && CFEqualSafe(oldRing, prospectiveRing)) {
         secnotice("ring", "Ceasing ring handling for an echo of our own posted ring");
         success = true;
         goto errOut;
@@ -325,7 +326,6 @@ errOut:
     }
     require_action_quiet(peerActive, errOut, success = true);
 
-    oldRing = [self copyRing:ringName err:NULL];
     newRing = SOSRingCopyRing(prospectiveRing, NULL);
     ringAction_t ringAction = ignore;
     

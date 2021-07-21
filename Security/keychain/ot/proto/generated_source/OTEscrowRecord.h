@@ -122,6 +122,8 @@ NS_INLINE OTEscrowRecord_SOSViability StringAsOTEscrowRecord_SOSViability(NSStri
     uint64_t _remainingAttempts;
     uint64_t _silentAttemptAllowed;
     OTEscrowRecordMetadata *_escrowInformationMetadata;
+    NSString *_expectedFederationId;
+    NSString *_federationId;
     NSString *_label;
     NSString *_recordId;
     OTEscrowRecord_RecordStatus _recordStatus;
@@ -191,6 +193,12 @@ NS_INLINE OTEscrowRecord_SOSViability StringAsOTEscrowRecord_SOSViability(NSStri
 @property (nonatomic) OTEscrowRecord_SOSViability viabilityStatus;
 - (NSString *)viabilityStatusAsString:(OTEscrowRecord_SOSViability)value;
 - (OTEscrowRecord_SOSViability)StringAsViabilityStatus:(NSString *)str;
+
+@property (nonatomic, readonly) BOOL hasFederationId;
+@property (nonatomic, retain) NSString *federationId;
+
+@property (nonatomic, readonly) BOOL hasExpectedFederationId;
+@property (nonatomic, retain) NSString *expectedFederationId;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTEscrowRecord *)other;

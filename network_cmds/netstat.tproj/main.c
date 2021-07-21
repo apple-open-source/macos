@@ -595,8 +595,9 @@ name2protox(char *name)
 		/* assert: name not same as p->name */
 		for (alias = p->p_aliases; *alias; alias++)
 			if (strcmp(name, *alias) == 0) {
+				tp = knownname(p->p_name);
 				endprotoent();
-				return (knownname(p->p_name));
+				return tp;
 			}
 	}
 	endprotoent();

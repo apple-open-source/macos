@@ -1,0 +1,22 @@
+diff --git Makefile.PL Makefile.PL
+index 1c420b7..a5831b1 100644
+--- Makefile.PL
++++ Makefile.PL
+@@ -13,11 +13,15 @@ if ($args =~ /LIBDIR[ =](\S+)/) {
+ }
+ my $libs = "-lssl -lcrypto";
+ 
++my $OPENSSL_PREFIX = $ENV{OPENSSL_PREFIX};
++my $sdkopenssllibdir = $OPENSSL_PREFIX . "/lib";
++my $sdkopensslincdir = $OPENSSL_PREFIX . "/include";
++
+ WriteMakefile(
+   'NAME'	    => 'Crypt::OpenSSL::Random',
+   'VERSION_FROM'    => 'Random.pm',
+-  'LIBS'            => $libdir ? [ "-L$libdir $libs" ] : [ openssl_lib_paths() . " $libs" ],
+-  'INC'             => $incdir ? "-I$incdir" : openssl_inc_paths(),
++  'LIBS'            => $libdir ? [ "-L$libdir -L$sdkopenssllibdir $libs" ] : [ openssl_lib_paths() . " -L$sdkopenssllibdir $libs" ],
++  'INC'             => $incdir ? "-I$incdir -I$sdkopensslincdir" : openssl_inc_paths() . " -I$sdkopensslincdir",
+   'AUTHOR'          => 'Ian Robertson',
+    (eval { ExtUtils::MakeMaker->VERSION('6.52'); 1 } ?
+     ('CONFIGURE_REQUIRES' =>

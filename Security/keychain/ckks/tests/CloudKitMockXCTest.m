@@ -517,6 +517,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                              version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]
                                                             viewList:[self managedViewList]
+                                                       priorityViews:[NSSet set]
                                                userControllableViews:ucv
                                            syncUserControllableViews:syncUserControllableViews
                                                 viewsToPiggybackTLKs:[NSSet set]

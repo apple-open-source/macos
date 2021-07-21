@@ -32,6 +32,12 @@
 #include "imports.h"
 #include "extensions.h"
 
+#ifdef HAVE_PTHREAD_H
+#include <pthread.h>
+#elif defined(HAVE_WIN32_THREADS)
+#include <windows.h>
+#endif
+
 #ifdef _WIN32
 #include <stdlib.h>             /* for _MAX_PATH */
 #ifndef PATH_MAX
@@ -87,6 +93,17 @@ static xmlHashTablePtr xsltElementsHash = NULL;
 static xmlHashTablePtr xsltTopLevelsHash = NULL;
 static xmlHashTablePtr xsltModuleHash = NULL;
 static xmlMutexPtr xsltExtMutex = NULL;
+
+#ifdef HAVE_PTHREAD_H
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+#elif defined(HAVE_WIN32_THREADS)
+static struct {
+    DWORD done;
+    DWORD control;
+} run_once = {0, 0};
+#endif
+
+static void _xsltInitGlobalsOnce(void);
 
 /************************************************************************
  *									*
@@ -2262,9 +2279,30 @@ xsltHashScannerModuleFree(void *payload ATTRIBUTE_UNUSED,
 void
 xsltInitGlobals(void)
 {
-    if (xsltExtMutex == NULL) {
-        xsltExtMutex = xmlNewMutex();
+#ifdef HAVE_PTHREAD_H
+    pthread_once(&once_control, _xsltInitGlobalsOnce);
+#elif defined(HAVE_WIN32_THREADS)
+    if (!run_once.done) {
+        if (InterlockedIncrement(&run_once.control) == 1) {
+            _xsltInitGlobalsOnce();
+            run_once.done = 1;
+        } else {
+            /* Another thread is working; give up our slice and
+             * wait until they're done. */
+            while (!run_once.done)
+                Sleep(0);
+        }
     }
+#else
+#pragma error "xsltInitGlobals() is probably not thread-safe on this platform."
+    if (xsltExtMutex == NULL)
+        _xsltInitGlobalsOnce();
+#endif
+}
+
+static void _xsltInitGlobalsOnce(void)
+{
+    xsltExtMutex = xmlNewMutex();
 }
 
 /**

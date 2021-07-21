@@ -28,12 +28,13 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <dlfcn.h>
+#include <sandbox/private.h>
 
 #define __APPLE_API_PRIVATE
 #include <quarantine.h>
 #undef __APPLE_API_PRIVATE
 
-#include <security_utilities/logging.h>
+#include <security_utilities/debugging.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfutilities.h>
 
@@ -49,103 +50,115 @@ namespace SecTranslocate {
 
 using namespace std;
 
+ExtendedAutoFileDesc & ExtendedAutoFileDesc::operator=(ExtendedAutoFileDesc &&rhs)
+{
+	AutoFileDesc::operator=(std::move(rhs));
+	mFsInfo = rhs.mFsInfo;
+	mRealPath = rhs.mRealPath;
+	mOriginalPath = rhs.mOriginalPath;
+	mQuarantineFetched = rhs.mQuarantineFetched;
+	mQuarantined = rhs.mQuarantined;
+	mQtn_flags = rhs.mQtn_flags;
+	return *this;
+}
+
 /* store the real path and fstatfs for the file descriptor. This throws if either fail */
 void ExtendedAutoFileDesc::init()
 {
-    char absPath[MAXPATHLEN];
-    if(isOpen())
-    {
-        UnixError::check(fstatfs(fd(), &fsInfo));
-        fcntl(F_GETPATH, absPath);
-        realPath = absPath;
-        quarantined = false;
-        qtn_flags = 0;
-        quarantineFetched = false; //only fetch quarantine info when we need it
+    if(isOpen()) {
+        UnixError::check(fstatfs(fd(), &mFsInfo));
+        mRealPath = realPath();
+        mQuarantined = false;
+        mQtn_flags = 0;
+        mQuarantineFetched = false; //only fetch quarantine info when we need it
     }
+}
+
+void ExtendedAutoFileDesc::open(const std::string &path, int flag, mode_t mode)
+{
+	FileDesc::open(path, flag, mode);
+	if (isOpen()) {
+		init();
+	}
 }
 
 bool ExtendedAutoFileDesc::isFileSystemType(const string &fsType) const
 {
     notOpen(); //Throws if not Open
     
-    return fsType == fsInfo.f_fstypename;
+    return fsType == mFsInfo.f_fstypename;
 }
 
 bool ExtendedAutoFileDesc::pathIsAbsolute() const
 {
     notOpen(); //Throws if not Open
     
-    return originalPath == realPath;
+    return mOriginalPath == mRealPath;
 }
     
 bool ExtendedAutoFileDesc::isMountPoint() const
 {
     notOpen(); //Throws if not Open
-    return realPath == fsInfo.f_mntonname;
+    return mRealPath == mFsInfo.f_mntonname;
 }
 bool ExtendedAutoFileDesc::isInPrefixDir(const string &prefixDir) const
 {
     notOpen(); //Throws if not Open
     
-    return strncmp(realPath.c_str(), prefixDir.c_str(), prefixDir.length()) == 0;
+    return strncmp(mRealPath.c_str(), prefixDir.c_str(), prefixDir.length()) == 0;
 }
 
 string ExtendedAutoFileDesc::getFsType() const
 {
     notOpen(); //Throws if not Open
     
-    return fsInfo.f_fstypename;
+    return mFsInfo.f_fstypename;
 }
     
 string ExtendedAutoFileDesc::getMountPoint() const
 {
     notOpen(); //Throws if not Open
     
-    return fsInfo.f_mntonname;
+    return mFsInfo.f_mntonname;
 }
     
 string ExtendedAutoFileDesc::getMountFromPath() const
 {
     notOpen(); //Throws if not Open
     
-    return fsInfo.f_mntfromname;
+    return mFsInfo.f_mntfromname;
 }
 
 const string& ExtendedAutoFileDesc::getRealPath() const
 {
     notOpen(); //Throws if not Open
     
-    return realPath;
+    return mRealPath;
 }
 
 fsid_t const ExtendedAutoFileDesc::getFsid() const
 {
     notOpen(); //Throws if not Open
     
-    return fsInfo.f_fsid;
+    return mFsInfo.f_fsid;
 }
 
 void ExtendedAutoFileDesc::fetchQuarantine()
 {
-    if(!quarantineFetched)
-    {
+    if (!mQuarantineFetched) {
         notOpen();
 
         qtn_file_t qf = qtn_file_alloc();
 
-        if(qf)
-        {
-            if(0 == qtn_file_init_with_fd(qf, fd()))
-            {
-                quarantined = true;
-                qtn_flags = qtn_file_get_flags(qf);
+        if (qf) {
+            if (0 == qtn_file_init_with_fd(qf, fd())) {
+                mQuarantined = true;
+                mQtn_flags = qtn_file_get_flags(qf);
             }
             qtn_file_free(qf);
-            quarantineFetched = true;
-        }
-        else
-        {
-            Syslog::error("SecTranslocate: failed to allocate memory for quarantine struct");
+            mQuarantineFetched = true;
+        } else {
+            secerror("SecTranslocate: failed to allocate memory for quarantine struct");
             UnixError::throwMe();
         }
     }
@@ -156,7 +169,7 @@ bool ExtendedAutoFileDesc::isQuarantined()
     notOpen();
     fetchQuarantine();
 
-    return quarantined;
+    return mQuarantined;
 }
 
 bool ExtendedAutoFileDesc::isUserApproved()
@@ -164,7 +177,7 @@ bool ExtendedAutoFileDesc::isUserApproved()
     notOpen();
     fetchQuarantine();
 
-    return ((qtn_flags & QTN_FLAG_USER_APPROVED) == QTN_FLAG_USER_APPROVED);
+    return ((mQtn_flags & QTN_FLAG_USER_APPROVED) == QTN_FLAG_USER_APPROVED);
 }
 
 bool ExtendedAutoFileDesc::shouldTranslocate()
@@ -172,7 +185,37 @@ bool ExtendedAutoFileDesc::shouldTranslocate()
     notOpen();
     fetchQuarantine();
 
-    return ((qtn_flags & (QTN_FLAG_TRANSLOCATE | QTN_FLAG_DO_NOT_TRANSLOCATE)) == QTN_FLAG_TRANSLOCATE);
+    return ((mQtn_flags & (QTN_FLAG_TRANSLOCATE | QTN_FLAG_DO_NOT_TRANSLOCATE)) == QTN_FLAG_TRANSLOCATE);
+}
+
+bool ExtendedAutoFileDesc::isSandcastleProtected()
+{
+	notOpen();
+	bool result = false;
+	char* approval = NULL;
+	int rv = sandbox_query_approval_policy_for_path("file-read-data", mRealPath.c_str(), &approval);
+	if (rv < 0) {
+		secwarning("SecTranslocate: failed to get sandbox policy for: %s", mRealPath.c_str());
+		// assuming no policy == not protected
+	} else if (rv == 0) {
+		// approved
+		if (approval != NULL) {
+			secerror("SecTranslocate: Do not allow translocation, access controled by (%s) for path: %s", approval, mRealPath.c_str());
+			result = true;
+		}
+	} else {
+		// denied
+		result = true;
+		if (approval != NULL) {
+			secerror("SecTranslocate: Do not allow translocation, access controled by (%s) for path: %s", approval, mRealPath.c_str());
+		} else {
+			secerror("SecTranslocate: Do not allow translocation, access unconditionally denied for path: %s", mRealPath.c_str());
+		}
+	}
+	if (approval != NULL) {
+		free(approval);
+	}
+	return result;
 }
 
 /* Take an absolute path and split it into a vector of path components */
@@ -183,20 +226,17 @@ vector<string> splitPath(const string &path)
     size_t end = 0;
     size_t len = 0;
     
-    if(path.empty() || path.front() != '/')
-    {
-        Syslog::error("SecTranslocate::splitPath: asked to split a non-absolute or empty path: %s",path.c_str());
+    if (path.empty() || path.front() != '/') {
+        secerror("SecTranslocate::splitPath: asked to split a non-absolute or empty path: %s",path.c_str());
         UnixError::throwMe(EINVAL);
     }
     
-    while(end != string::npos)
-    {
+    while (end != string::npos) {
         end = path.find('/', start);
         len = (end == string::npos) ? end : (end - start);
         string temp = path.substr(start,len);
         
-        if(!temp.empty())
-        {
+        if (!temp.empty()) {
             out.push_back(temp);
         }
         start = end + 1;
@@ -209,8 +249,7 @@ vector<string> splitPath(const string &path)
 string joinPath(vector<string>& path)
 {
     string out = "";
-    for(auto &i : path)
-    {
+    for (auto &i : path) {
         out += "/"+i;
     }
     return out;
@@ -218,9 +257,8 @@ string joinPath(vector<string>& path)
 
 string joinPathUpTo(vector<string> &path, size_t index)
 {
-    if (path.size() == 0 || index > path.size()-1)
-    {
-        Syslog::error("SecTranslocate::joinPathUpTo invalid index %lu (size %lu)",index, path.size()-1);
+    if (path.size() == 0 || index > path.size() - 1) {
+        secerror("SecTranslocate::joinPathUpTo invalid index %lu (size %lu)",index, path.size()-1);
         UnixError::throwMe(EINVAL);
     }
 
@@ -246,14 +284,12 @@ string getRealPath(const string &path)
 string makeUUID()
 {
     CFRef<CFUUIDRef> newUUID = CFUUIDCreate(NULL);
-    if (!newUUID)
-    {
+    if (!newUUID) {
         UnixError::throwMe(ENOMEM);
     }
     
     CFRef<CFStringRef> str = CFUUIDCreateString(NULL, newUUID.get());
-    if (!str)
-    {
+    if (!str) {
         UnixError::throwMe(ENOMEM);
     }
     
@@ -264,9 +300,8 @@ void* checkedDlopen(const char* path, int mode)
 {
     void* handle = dlopen(path, mode);
 
-    if(handle == NULL)
-    {
-        Syslog::critical("SecTranslocate: failed to load library %s: %s", path, dlerror());
+    if (handle == NULL) {
+		seccritical("SecTranslocate: failed to load library %s: %s", path, dlerror());
         UnixError::throwMe();
     }
 
@@ -277,9 +312,8 @@ void* checkedDlsym(void* handle, const char* symbol)
 {
     void* result = dlsym(handle, symbol);
 
-    if(result == NULL)
-    {
-        Syslog::critical("SecTranslocate: failed to load symbol %s: %s", symbol, dlerror());
+    if (result == NULL) {
+		seccritical("SecTranslocate: failed to load symbol %s: %s", symbol, dlerror());
         UnixError::throwMe();
     }
     return result;
@@ -290,11 +324,11 @@ string translocationDirForUser()
 {
     char userTempPath[MAXPATHLEN];
     
-    if(confstr(_CS_DARWIN_USER_TEMP_DIR, userTempPath, sizeof(userTempPath)) == 0)
+    if (confstr(_CS_DARWIN_USER_TEMP_DIR, userTempPath, sizeof(userTempPath)) == 0)
     {
-        Syslog::error("SecTranslocate: Failed to get temp dir for user %d (error:%d)",
-                      getuid(),
-                      errno);
+        secerror("SecTranslocate: Failed to get temp dir for user %d (error:%d)",
+				 getuid(),
+				 errno);
         UnixError::throwMe();
     }
     
@@ -305,26 +339,23 @@ string translocationDirForUser()
 /* Get a file descriptor for the provided path. if the last component of the provided path doesn't
  exist, create it and then re-attempt to get the file descriptor.
  */
-int getFDForDirectory(const string &directoryPath, bool *owned)
+ExtendedAutoFileDesc getFDForDirectory(const string &directoryPath, bool *owned)
 {
-    FileDesc fd(directoryPath, O_RDONLY, FileDesc::modeMissingOk);
-    if(!fd)
-    {
+    ExtendedAutoFileDesc fd(directoryPath, O_RDONLY, FileDesc::modeMissingOk);
+    if (!fd) {
         UnixError::check(mkdir(directoryPath.c_str(),0755));
         fd.open(directoryPath);
         /* owned means that the library created the directory rather than it being pre-existent.
          We just made a directory that didn't exist before, so set owned to true. */
-        if(owned)
-        {
+        if(owned) {
             *owned = true;
         }
-    }
-    else if (owned)
-    {
+    } else if (owned) {
         *owned = false;
     }
     
     return fd;
 }
-}
-}
+
+} // namespace SecTranslocate
+} // namespace Security

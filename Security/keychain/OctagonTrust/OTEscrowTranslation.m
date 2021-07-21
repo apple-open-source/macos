@@ -112,6 +112,8 @@ static NSString * const kCliqueSecureBackupDeviceModelVersion          = @"devic
 static NSString * const kCliqueSecureBackupDeviceName                  = @"device_name";
 static NSString * const kCliqueSecureBackupDevicePlatform              = @"device_platform";
 static NSString * const kCliqueSecureBackupSilentAttemptAllowed        = @"silentAttemptAllowed";
+static NSString * const kCliqueSecureBackupFederationID                = @"FEDERATIONID";
+static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPECTEDFEDERATIONID";
 
 @implementation OTEscrowTranslation
 
@@ -290,6 +292,8 @@ static NSString * const kCliqueSecureBackupSilentAttemptAllowed        = @"silen
     record.label = dictionary[getkSecureBackupRecordLabelKey()];
     record.recordStatus = [dictionary[getkSecureBackupRecordStatusKey()] isEqualToString:@"valid"] ? OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID : OTEscrowRecord_RecordStatus_RECORD_STATUS_INVALID;
     record.silentAttemptAllowed = [dictionary[kCliqueSecureBackupSilentAttemptAllowed] boolValue];
+    record.federationId = dictionary[kCliqueSecureBackupFederationID];
+    record.expectedFederationId = dictionary[kCliqueSecureBackupExpectedFederationID];
     record.recordId = dictionary[getkSecureBackupRecordIDKey()];
     record.serialNumber = dictionary[getkSecureBackupPeerInfoSerialNumberKey()];
     if(dictionary[getkSecureBackupCoolOffEndKey()]) {
@@ -348,6 +352,8 @@ static NSString * const kCliqueSecureBackupSilentAttemptAllowed        = @"silen
     dictionary[getkSecureBackupRecordLabelKey()] = escrowRecord.label;
     dictionary[getkSecureBackupRecordStatusKey()] = escrowRecord.recordStatus == OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID ? @"valid" : @"invalid";
     dictionary[kCliqueSecureBackupSilentAttemptAllowed] = [[NSNumber alloc] initWithUnsignedLongLong: escrowRecord.silentAttemptAllowed];
+    dictionary[kCliqueSecureBackupFederationID] = escrowRecord.federationId;
+    dictionary[kCliqueSecureBackupExpectedFederationID] = escrowRecord.expectedFederationId;
     dictionary[getkSecureBackupRecordIDKey()] = escrowRecord.recordId;
     dictionary[getkSecureBackupPeerInfoSerialNumberKey()] = escrowRecord.serialNumber;
     dictionary[getkSecureBackupCoolOffEndKey()] = @(escrowRecord.coolOffEnd);

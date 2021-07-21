@@ -628,25 +628,11 @@ findUsername(CFAllocatorRef alloc, NAHRef na, CFDictionaryRef info)
 static bool
 have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
 {
-    CFMutableStringRef btmmDomain = NULL;
-    CFStringRef btmmDomainData;
     bool ret = false;
-
-    btmmDomainData = _CSBackToMyMacCopyDomain();
-    if (btmmDomainData) {
-	btmmDomain = CFStringCreateMutableCopy(na->alloc, 0, btmmDomainData);
-	CFRELEASE(btmmDomainData);
-	if (btmmDomain) {
-	    CFStringTrim(btmmDomain, CFSTR("."));
-	    os_log(na_get_oslog(), "using BTMM domain %@", btmmDomain);
-	}
-    }
-    
 
     if (na->lchostname == NULL) {
 	na->lchostname = CFStringCreateMutableCopy(NULL, 0, na->hostname);
 	if (na->lchostname == NULL) {
-	    CFRELEASE(btmmDomain);
 	    return false;
 	}
     }
@@ -655,10 +641,6 @@ have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
 
     if (localIsLKDC && CFStringHasSuffix(na->lchostname, CFSTR(".local")))
 	ret = true;
-    else if (btmmDomain && CFStringHasSuffix(na->lchostname, btmmDomain))
-	ret = true;
-
-    CFRELEASE(btmmDomain);
 
     return ret;
 }

@@ -1904,9 +1904,9 @@ sec_asn1d_record_any_header (sec_asn1d_state *state,
 
     item = (SecAsn1Item *)(state->dest);
     if (item != NULL && item->Data != NULL) {
-	PORT_Assert (state->substring);
-	PORT_Memcpy (item->Data + item->Length, buf, len);
-	item->Length += len;
+        dprintf("decodeError: sec_asn1d_record_any_header unknown allocation size\n");
+        PORT_SetError (SEC_ERROR_LIBRARY_FAILURE);
+        state->top->status = decodeError;
     } else {
 	sec_asn1d_add_to_subitems (state, buf, len, PR_TRUE);
     }

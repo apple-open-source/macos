@@ -1,3 +1,269 @@
+2021-06-10  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r278177. rdar://problem/79144899
+
+    Increase NumberToStringBuffer to account for negative number
+    https://bugs.webkit.org/show_bug.cgi?id=226014
+    
+    Patch by Mikhail R. Gadelha <mikhail.ramalho@gmail.com> on 2021-05-27
+    Reviewed by Robin Morisset.
+    
+    In r250389, NumberToStringBuffer length was increased from 96 to 123 because:
+    
+    <21 digits> + decimal point + <100 digits> + null char = 123.
+    
+    however,
+    
+    a = -100000000000000000000
+    a.toFixed(100)
+    
+    is a valid conversion and it is 124 chars long, because of the "-" sign.
+    
+    So this patch increases the length of NumberToStringBuffer to 124 and adds new
+    test cases.
+    
+    Source/WTF:
+    
+    Reviewed by Ryosuke Niwa.
+    
+    * wtf/dtoa.h:
+    
+    LayoutTests:
+    
+    * js/dom/number-tofixed-expected.txt:
+    * js/dom/script-tests/number-tofixed.js:
+    * js/kde/Number-expected.txt:
+    * js/kde/script-tests/Number.js:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278177 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-27  Mikhail R. Gadelha  <mikhail.ramalho@gmail.com>
+
+            Increase NumberToStringBuffer to account for negative number
+            https://bugs.webkit.org/show_bug.cgi?id=226014
+
+            Reviewed by Robin Morisset.
+
+            In r250389, NumberToStringBuffer length was increased from 96 to 123 because:
+
+            <21 digits> + decimal point + <100 digits> + null char = 123.
+
+            however,
+
+            a = -100000000000000000000
+            a.toFixed(100)
+
+            is a valid conversion and it is 124 chars long, because of the "-" sign.
+
+            So this patch increases the length of NumberToStringBuffer to 124 and adds new
+            test cases.
+
+            Reviewed by Ryosuke Niwa.
+
+            * wtf/dtoa.h:
+
+2021-06-03  Alan Coon  <alancoon@apple.com>
+
+Cherry-pick r278431. rdar://problem/78843971
+
+    Unreviewed build fix after r277881.
+    
+    Fix warning about unused function.
+    
+    * wtf/cocoa/FileSystemCocoa.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278431 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-03  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fix after r277881.
+
+            Fix warning about unused function.
+
+            * wtf/cocoa/FileSystemCocoa.mm:
+
+2021-06-01  Alan Coon  <alancoon@apple.com>
+
+Cherry-pick r278321. rdar://problem/78718570
+
+    Unreviewed build fix after r277881.
+    
+    Silence unused parameter warnings.
+    
+    * wtf/cocoa/FileSystemCocoa.mm:
+    (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+    (WTF::FileSystemImpl::allowsMaterializingDatalessFiles): Deleted.
+    (WTF::FileSystemImpl::isSafeToUseMemoryMapForPath): Deleted.
+    (WTF::FileSystemImpl::makeSafeToUseMemoryMapForPath): Deleted.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278321 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-06-01  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fix after r277881.
+
+            Silence unused parameter warnings.
+
+            * wtf/cocoa/FileSystemCocoa.mm:
+            (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+            (WTF::FileSystemImpl::allowsMaterializingDatalessFiles): Deleted.
+            (WTF::FileSystemImpl::isSafeToUseMemoryMapForPath): Deleted.
+            (WTF::FileSystemImpl::makeSafeToUseMemoryMapForPath): Deleted.
+
+2021-05-28  Russell Epstein  <repstein@apple.com>
+
+Cherry-pick r278209. rdar://problem/78595584
+
+    Unreviewed build fix after r277881.
+    
+    Deal with IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES potentially not being defined on
+    older OSes.
+    
+    * wtf/cocoa/FileSystemCocoa.mm:
+    (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+    (WTF::FileSystemImpl::allowsMaterializingDatalessFiles):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278209 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-28  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fix after r277881.
+
+            Deal with IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES potentially not being defined on
+            older OSes.
+
+            * wtf/cocoa/FileSystemCocoa.mm:
+            (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+            (WTF::FileSystemImpl::allowsMaterializingDatalessFiles):
+
+2021-05-28  Russell Epstein  <repstein@apple.com>
+
+Cherry-pick r278208. rdar://problem/78595584
+
+    Unreviewed build fix after r277881.
+    
+    Add missing header include.
+    
+    * wtf/cocoa/FileSystemCocoa.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@278208 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-28  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fix after r277881.
+
+            Add missing header include.
+
+            * wtf/cocoa/FileSystemCocoa.mm:
+
+2021-05-25  Alan Coon  <alancoon@apple.com>
+
+Cherry-pick r277881. rdar://78467158 
+
+    [Cocoa] Unable to upload files that are stored in the cloud (without a local copy)
+    https://bugs.webkit.org/show_bug.cgi?id=226090
+    <rdar://77775887>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    Allow the network process to load / read dataless files stored in the cloud by allowing
+    the process to materialize such files. I initially only allowed the AsyncFileStream
+    thread to materialize the dataless files and this was enough to make the file upload
+    use cases work. However, I noticed that drag and dropping such file in the Safari URL
+    bar would fail loading, which I think is bad user experience. As a result, I have
+    decided to allow the materializing at network process level.
+    
+    I have verified manually that I can now upload such dataless files via either file
+    picker or drag and drop (used https://blueimp.github.io/jQuery-File-Upload/). I have
+    also verified that drag and dropping such a file in the Safari URL bar successfuly
+    loads that file.
+    
+    * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+    (WebKit::NetworkProcess::platformInitializeNetworkProcessCocoa):
+    
+    Source/WTF:
+    
+    Add FileSystem API to allow/disallow the materializing of dataless files stored
+    in the cloud, at process or thread level.
+    
+    * wtf/FileSystem.h:
+    * wtf/cocoa/FileSystemCocoa.mm:
+    (WTF::FileSystemImpl::toIOPolicyScope):
+    (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+    (WTF::FileSystemImpl::allowsMaterializingDatalessFiles):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@277881 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-05-21  Chris Dumez  <cdumez@apple.com>
+
+            [Cocoa] Unable to upload files that are stored in the cloud (without a local copy)
+            https://bugs.webkit.org/show_bug.cgi?id=226090
+            <rdar://77775887>
+
+            Reviewed by Darin Adler.
+
+            Add FileSystem API to allow/disallow the materializing of dataless files stored
+            in the cloud, at process or thread level.
+
+            * wtf/FileSystem.h:
+            * wtf/cocoa/FileSystemCocoa.mm:
+            (WTF::FileSystemImpl::toIOPolicyScope):
+            (WTF::FileSystemImpl::setAllowsMaterializingDatalessFiles):
+            (WTF::FileSystemImpl::allowsMaterializingDatalessFiles):
+
+2021-05-20  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r276788. rdar://problem/78264378
+
+    Reduce memory footprint for background tabs
+    https://bugs.webkit.org/show_bug.cgi?id=225007
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebKit:
+    
+    When a WebContent process contains only non-visible pages (e.g. if it is a background tab),
+    we should attempt to reduce our memory footprint after some time interval to help relieve
+    system-wide memory pressure. This is enabled only on Mac because iOS already does something
+    similar just before WebContent suspends.
+    
+    One exception to this is that we don't do this proactive slimming for processes that are in
+    the back/forward cache or in the WebProcess cache. This is because dropping the memory cache
+    in those types of processes leads to perf regressions in benchmarks that do certain types of
+    cross-origin navigations. We'll use a separate mechanism for controlling the memory usage of
+    those processes; our current logic keeps those processes around until we are at the warning
+    or critical memory pressure level.
+    
+    * WebProcess/WebProcess.cpp:
+    (WebKit::WebProcess::pageDidEnterWindow):
+    (WebKit::WebProcess::pageWillLeaveWindow):
+    (WebKit::WebProcess::nonVisibleProcessGraphicsCleanupTimerFired):
+    (WebKit::WebProcess::nonVisibleProcessMemoryCleanupTimerFired):
+    (WebKit::WebProcess::nonVisibleProcessCleanupTimerFired): Deleted.
+    * WebProcess/WebProcess.h:
+    
+    Source/WTF:
+    
+    Add an option to slim background tabs by proactively calling WebCore::releaseMemory on Macs.
+    
+    * wtf/PlatformEnableCocoa.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@276788 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-04-29  Ben Nham  <nham@apple.com>
+
+            Reduce memory footprint for background tabs
+            https://bugs.webkit.org/show_bug.cgi?id=225007
+
+            Reviewed by Chris Dumez.
+
+            Add an option to slim background tabs by proactively calling WebCore::releaseMemory on Macs.
+
+            * wtf/PlatformEnableCocoa.h:
+
 2021-04-23  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r276324. rdar://problem/77086404

@@ -764,7 +764,7 @@ CFDictionaryRef SOSRingCopyPeerIDList(SOSRingRef ring) {
 
  CFStringRef SOSRingCopySignerList(SOSRingRef ring) {
     __block bool addSeparator = false;
-   CFMutableStringRef signers = CFStringCreateMutable(ALLOCATOR, 0);
+    CFMutableStringRef signers = CFStringCreateMutable(ALLOCATOR, 0);
     CFDictionaryForEach(ring->signatures, ^(const void *key, const void *value) {
         CFStringRef peerID = (CFStringRef) key;
         CFStringRef spid = CFStringCreateTruncatedCopy(peerID, 8);

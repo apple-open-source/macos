@@ -1497,7 +1497,11 @@ bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenC
     // Gen sign first, then add signature from our approver - remember gensign removes all existing sigs.
     res = SOSCircleGenerationSignWithGenCount(circle, userKey, fpi, gencount, error);
     if (!res) {
-        secnotice("circleOps", "Failed to regenerate circle with new gen count: %@", error ? *error : NULL);
+        CFStringRef newGenString = SOSGenerationCountCopyDescription(gencount);
+        CFStringRef currentGenString = SOSGenerationCountCopyDescription(SOSCircleGetGeneration(circle));
+        secnotice("circleOps", "Failed to regenerate circle with new gen count: %@  current gencount: %@  error: %@", newGenString, currentGenString, error ? *error : NULL);
+        CFReleaseNull(newGenString);
+        CFReleaseNull(currentGenString);
         return res;
     }
     res = SOSCircleSetSignature(circle, pPubKey, signature, error);

@@ -694,7 +694,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 
         size_t refKeyBlobLength = 0;
         const void* refKeyBlobBytes = aks_ref_key_get_blob(refKey, &refKeyBlobLength);
-        NSData* refKeyBlob = [[NSData alloc] initWithBytesNoCopy:(void*)refKeyBlobBytes length:refKeyBlobLength];
+        NSData* refKeyBlob = [[NSData alloc] initWithBytes:(void*)refKeyBlobBytes length:refKeyBlobLength];
         aks_ref_key_free(&refKey);
         return [[SecDbKeychainAKSWrappedKey alloc] initRefKeyWrappedKeyWithData:wrappedKey refKeyBlob:refKeyBlob];
     }
@@ -778,10 +778,11 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         SFAESKey* result = nil;
         if ([(__bridge NSData*)unwrappedKeyData isKindOfClass:[NSData class]]) {
             result = [[SFAESKey alloc] initWithData:(__bridge NSData*)unwrappedKeyData specifier:[self.class keySpecifier] error:error];
-            CFReleaseNull(unwrappedKeyDERData);
+            CFReleaseNull(unwrappedKeyData);
         }
         else {
             SecError(errSecDecode, &cfError, CFSTR("SecDbKeychainItemV7: failed to decrypt item, Item can't be decrypted due to failed decode der, so drop the item."));
+            CFReleaseNull(unwrappedKeyData);
             aks_ref_key_free(&refKey);
             free(aksParams);
             free(unwrappedKeyDERData);

@@ -439,6 +439,12 @@ bool FileDesc::isA(int mode) const
 	return (st.st_mode & S_IFMT) == mode;
 }
 
+string FileDesc::realPath() const
+{
+    char absPath[MAXPATHLEN];
+    fcntl(F_GETPATH, absPath);
+    return absPath;
+}
 
 void FileDesc::chown(uid_t uid)
 {
@@ -480,6 +486,20 @@ AutoFileDesc::AutoFileDesc(const AutoFileDesc& rhs)
 	mAtEnd = rhs.mAtEnd;
 }
 
+AutoFileDesc::AutoFileDesc(AutoFileDesc&& rhs)
+{
+    setFd(rhs.fd());
+    rhs.setFd(invalidFd);
+    mAtEnd = rhs.mAtEnd;
+}
+
+AutoFileDesc& AutoFileDesc::operator=(AutoFileDesc&& rhs)
+{
+    setFd(rhs.fd());
+    rhs.setFd(invalidFd);
+    mAtEnd = rhs.mAtEnd;
+    return *this;
+}
 
 //
 // Device characteristics

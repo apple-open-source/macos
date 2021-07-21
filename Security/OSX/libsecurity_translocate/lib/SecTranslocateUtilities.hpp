@@ -40,21 +40,27 @@
 #define NULLFS_FSTYPE "nullfs"
 
 namespace Security {
-    
+
 using namespace Security::UnixPlusPlus;
 
 namespace SecTranslocate {
 
 using namespace std;
-    
+
 class ExtendedAutoFileDesc : public AutoFileDesc {
 public:
-    ExtendedAutoFileDesc() = delete; //Always want these initialized with a path
-    
+    ExtendedAutoFileDesc():AutoFileDesc() {};
     ExtendedAutoFileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666)
-    : AutoFileDesc(path, flag, mode), originalPath(path) { init(); }
+    : AutoFileDesc(path, flag, mode), mOriginalPath(path) { init(); }
     ExtendedAutoFileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
-    : AutoFileDesc(path, flag, mode),originalPath(path) { init(); }
+    : AutoFileDesc(path, flag, mode), mOriginalPath(path) { init(); }
+    ExtendedAutoFileDesc(int fd):AutoFileDesc(fd) { init(); }
+    ExtendedAutoFileDesc(const ExtendedAutoFileDesc&) = default;
+    ExtendedAutoFileDesc(ExtendedAutoFileDesc&&) = default;
+
+    ExtendedAutoFileDesc & operator=(ExtendedAutoFileDesc&&);
+
+    void open(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666);
     
     bool isFileSystemType(const string &fsType) const;
     bool pathIsAbsolute() const;
@@ -68,18 +74,19 @@ public:
     bool isQuarantined();
     bool isUserApproved();
     bool shouldTranslocate();
+    bool isSandcastleProtected();
     
     // implicit destructor should call AutoFileDesc destructor. Nothing else to clean up.
 private:
     void init();
     inline void notOpen() const { if(!isOpen()) UnixError::throwMe(EINVAL); };
     
-    struct statfs fsInfo;
-    string realPath;
-    string originalPath;
-    bool quarantineFetched;
-    bool quarantined;
-    uint32_t qtn_flags;
+    struct statfs mFsInfo;
+    string mRealPath;
+    string mOriginalPath;
+    bool mQuarantineFetched;
+    bool mQuarantined;
+    uint32_t mQtn_flags;
     void fetchQuarantine();
 };
 
@@ -95,7 +102,7 @@ string joinPathUpTo(vector<string> &path, size_t index);
 
 //File system utlities
 string getRealPath(const string &path);
-int getFDForDirectory(const string &directoryPath, bool *owned = NULL); //creates the directory if it can
+ExtendedAutoFileDesc getFDForDirectory(const string &directoryPath, bool *owned = NULL); //creates the directory if it can
 
 
 //Translocation specific utilities

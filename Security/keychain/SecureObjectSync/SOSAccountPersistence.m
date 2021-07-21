@@ -343,15 +343,16 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
 
     CFDataRef bKey = NULL;
     *der_p = der_decode_data_optional(kCFAllocatorDefault, &bKey, error, *der_p, der_end);
-    {
+    if(*der_p != der_end) {
         CFDictionaryRef expansion = NULL;
         *der_p = der_decode_dictionary(kCFAllocatorDefault, &expansion, error,
                                        *der_p, der_end);
         
         if (*der_p == 0) {
+            secnotice("persistence", "Error Processing expansion dictionary der - dropping account object");
             CFReleaseNull(bKey);
             CFReleaseNull(expansion);
-            return NULL;
+            return result;
         }
 
         if(expansion) {
@@ -360,8 +361,12 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
         CFReleaseNull(expansion);
     }
     if(bKey) {
+        secnotice("backupKey", "Setting backup key from metadata");
         [account setBackup_key:[[NSData alloc] initWithData:(__bridge NSData * _Nonnull)(bKey)]];
+    } else {
+        secnotice("backupKey", "Failed to set backup key from metadata - no key found");
     }
+    
     CFReleaseNull(bKey);
 
     require_action_quiet(*der_p && *der_p == der_end, fail,

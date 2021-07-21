@@ -44,8 +44,8 @@ class Translocator
 {
 public:
     virtual ~Translocator() {};
-    virtual string translocatePathForUser(const TranslocationPath &originalPath, const string &destPath) = 0;
-    virtual string translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath) = 0;
+    virtual string translocatePathForUser(const TranslocationPath &originalPath, ExtendedAutoFileDesc &destFd) = 0;
+    virtual string translocatePathForUser(const GenericTranslocationPath &originalPath, ExtendedAutoFileDesc &destFd) = 0;
     virtual bool destroyTranslocatedPathForUser(const string &translocatedPath) = 0;
     virtual void appLaunchCheckin(pid_t pid) = 0;
 };

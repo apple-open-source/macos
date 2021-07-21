@@ -74,6 +74,7 @@
     self.originalPolicyPlusUnknownVwht = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                                         version:[[TPPolicyVersion alloc] initWithVersion:2 hash:@"fake-policy-for-views-with-unknown-view"]
                                                                        viewList:self.originalPolicy.viewList
+                                                                  priorityViews:self.originalPolicy.priorityViews
                                                           userControllableViews:self.originalPolicy.userControllableViews
                                                       syncUserControllableViews:self.originalPolicy.syncUserControllableViews
                                                            viewsToPiggybackTLKs:self.originalPolicy.viewsToPiggybackTLKs
@@ -86,6 +87,7 @@
     self.allItemsToPasswordsPolicy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                                     version:[[TPPolicyVersion alloc] initWithVersion:2 hash:@"fake-policy-for-views-with-passwords-view"]
                                                                    viewList:[NSSet setWithArray:@[self.keychainView.zoneName, self.passwordsZoneID.zoneName]]
+                                                              priorityViews:[NSSet set]
                                                       userControllableViews:self.originalPolicy.userControllableViews
                                                   syncUserControllableViews:self.originalPolicy.syncUserControllableViews
                                                        viewsToPiggybackTLKs:self.originalPolicy.viewsToPiggybackTLKs

@@ -340,6 +340,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                                      keyViewMapping: [futureViewMapping] + currentPolicyDocument.keyViewMapping,
                                                      userControllableViewList: currentPolicyDocument.userControllableViewList,
                                                      piggybackViews: currentPolicyDocument.piggybackViews,
+                                                     priorityViews: currentPolicyDocument.priorityViews,
                                                      hashAlgo: .SHA256)
 
         self.fakeCuttlefishServer.policyOverlay.append(newPolicyDocument)
@@ -363,6 +364,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                                      keyViewMapping: [limitedPeersViewMapping] + currentPolicyDocument.keyViewMapping,
                                                      userControllableViewList: currentPolicyDocument.userControllableViewList,
                                                      piggybackViews: currentPolicyDocument.piggybackViews,
+                                                     priorityViews: currentPolicyDocument.priorityViews,
                                                      hashAlgo: .SHA256)
 
         self.fakeCuttlefishServer.policyOverlay.append(newPolicyDocument)
